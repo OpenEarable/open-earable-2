@@ -1,0 +1,9 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/bluetooth/addr.h:242:19:bt_addr_le_to_str	64	static
+../src/bluetooth/bt_management/advertising/bt_mgmt_adv.c:81:12:addr_print	152	dynamic,bounded
+../src/bluetooth/bt_management/advertising/bt_mgmt_adv.c:102:13:adv_rpa_expired_cb	152	dynamic,bounded
+../src/bluetooth/bt_management/advertising/bt_mgmt_adv.c:40:13:bond_find	128	static
+../src/bluetooth/bt_management/advertising/bt_mgmt_adv.c:163:12:extended_adv_create	104	dynamic,bounded
+../src/bluetooth/bt_management/advertising/bt_mgmt_adv.c:127:12:direct_adv_create	160	dynamic,bounded
+../src/bluetooth/bt_management/advertising/bt_mgmt_adv.c:207:13:advertising_process	152	dynamic,bounded
+../src/bluetooth/bt_management/advertising/bt_mgmt_adv.c:259:5:bt_mgmt_adv_start	208	dynamic,bounded
+../src/bluetooth/bt_management/advertising/bt_mgmt_adv.c:310:6:bt_mgmt_adv_init	8	static

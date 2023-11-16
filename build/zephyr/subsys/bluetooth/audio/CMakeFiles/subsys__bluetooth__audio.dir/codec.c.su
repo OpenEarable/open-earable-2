@@ -1,0 +1,7 @@
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/audio/codec.c:29:13:parse_cb	0	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/audio/codec.c:43:9:bt_audio_codec_cfg_get_val	16	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/audio/codec.c:74:5:bt_audio_codec_cfg_get_freq	16	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/audio/codec.c:125:5:bt_audio_codec_cfg_get_frame_duration_us	16	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/audio/codec.c:154:5:bt_audio_codec_cfg_get_chan_allocation_val	16	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/audio/codec.c:186:5:bt_audio_codec_cfg_get_octets_per_frame	16	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/audio/codec.c:209:5:bt_audio_codec_cfg_get_frame_blocks_per_sdu	16	static

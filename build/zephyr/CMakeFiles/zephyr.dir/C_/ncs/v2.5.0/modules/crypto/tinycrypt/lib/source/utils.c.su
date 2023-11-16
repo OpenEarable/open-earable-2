@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/utils.c:40:14:_copy	8	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/utils.c:51:6:_set	8	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/utils.c:59:9:_double_byte	0	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/utils.c:64:5:_compare	8	static

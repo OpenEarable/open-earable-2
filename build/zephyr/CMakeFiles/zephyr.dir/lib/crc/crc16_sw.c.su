@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/zephyr/lib/crc/crc16_sw.c:9:10:crc16	4	static
+C:/ncs/v2.5.0/zephyr/lib/crc/crc16_sw.c:30:10:crc16_reflect	4	static
+C:/ncs/v2.5.0/zephyr/lib/crc/crc16_sw.c:52:10:crc16_ccitt	0	static
+C:/ncs/v2.5.0/zephyr/lib/crc/crc16_sw.c:65:10:crc16_itu_t	0	static

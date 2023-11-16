@@ -1,0 +1,6 @@
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_encrypt.c:101:20:add_round_key	0	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_encrypt.c:147:20:shift_rows	24	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_encrypt.c:124:20:mult_row_column	16	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_encrypt.c:132:20:mix_columns	24	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_encrypt.c:70:5:tc_aes128_set_encrypt_key	64	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_encrypt.c:158:5:tc_aes_encrypt	32	static

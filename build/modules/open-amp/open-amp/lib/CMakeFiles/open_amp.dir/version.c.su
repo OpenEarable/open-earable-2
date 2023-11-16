@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/version.c:9:5:openamp_version_major	0	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/version.c:14:5:openamp_version_minor	0	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/version.c:19:5:openamp_version_patch	0	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/version.c:24:13:openamp_version	0	static

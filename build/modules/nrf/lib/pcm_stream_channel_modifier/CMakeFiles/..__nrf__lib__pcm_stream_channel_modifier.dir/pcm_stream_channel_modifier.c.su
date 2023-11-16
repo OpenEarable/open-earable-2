@@ -1,0 +1,7 @@
+C:/ncs/v2.5.0/nrf/lib/pcm_stream_channel_modifier/pcm_stream_channel_modifier.c:22:13:is_valid_bit_depth	56	dynamic,bounded
+C:/ncs/v2.5.0/nrf/lib/pcm_stream_channel_modifier/pcm_stream_channel_modifier.c:41:13:is_valid_size	56	dynamic,bounded
+C:/ncs/v2.5.0/nrf/lib/pcm_stream_channel_modifier/pcm_stream_channel_modifier.c:52:5:pscm_zero_pad	56	static
+C:/ncs/v2.5.0/nrf/lib/pcm_stream_channel_modifier/pcm_stream_channel_modifier.c:91:5:pscm_copy_pad	24	static
+C:/ncs/v2.5.0/nrf/lib/pcm_stream_channel_modifier/pcm_stream_channel_modifier.c:119:5:pscm_combine	24	static
+C:/ncs/v2.5.0/nrf/lib/pcm_stream_channel_modifier/pcm_stream_channel_modifier.c:145:5:pscm_one_channel_split	56	static
+C:/ncs/v2.5.0/nrf/lib/pcm_stream_channel_modifier/pcm_stream_channel_modifier.c:181:5:pscm_two_channel_split	24	static

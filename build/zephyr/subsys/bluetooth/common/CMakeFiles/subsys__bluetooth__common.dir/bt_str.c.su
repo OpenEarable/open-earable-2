@@ -1,0 +1,6 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/bluetooth/addr.h:225:19:bt_addr_to_str	48	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/bluetooth/addr.h:242:19:bt_addr_le_to_str	64	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/common/bt_str.c:19:13:bt_hex	8	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/common/bt_str.c:38:13:bt_addr_str	8	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/common/bt_str.c:47:13:bt_addr_le_str	8	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/common/bt_str.c:56:13:bt_uuid_str	8	static

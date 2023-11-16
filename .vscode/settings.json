@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.ejs": "html",
+        "nrf5340_audio_common.h": "c",
+        "macros_common.h": "c",
+        "kernel.h": "c"
+    }
+}

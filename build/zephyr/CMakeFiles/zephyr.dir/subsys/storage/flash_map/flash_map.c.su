@@ -1,0 +1,11 @@
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map_priv.h:21:40:get_flash_area_from_id	0	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:22:6:flash_area_foreach	16	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:29:5:flash_area_open	16	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:51:6:flash_area_close	0	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:56:5:flash_area_read	8	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:66:5:flash_area_write	8	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:76:5:flash_area_erase	8	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:85:10:flash_area_align	8	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:90:5:flash_area_has_driver	8	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:99:22:flash_area_get_device	0	static
+C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map.c:111:9:flash_area_erased_val	8	static

@@ -1,0 +1,1 @@
+"nrf":"C:/ncs/v2.5.0/nrf":"C:/ncs/v2.5.0/nrf/sysbuild"

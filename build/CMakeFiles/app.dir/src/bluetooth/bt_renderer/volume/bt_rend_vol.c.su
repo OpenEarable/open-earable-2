@@ -1,0 +1,10 @@
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:159:13:vcs_flags_rend_cb_handler	56	dynamic,bounded
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:130:13:vcs_state_rend_cb_handler	144	dynamic,bounded
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:183:5:bt_rend_vol_set	8	static
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:208:5:bt_rend_vol_up	8	static
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:233:5:bt_rend_vol_down	8	static
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:258:5:bt_rend_vol_mute	8	static
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:283:5:bt_rend_vol_unmute	8	static
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:308:5:bt_rend_vol_discover	40	static
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:331:5:bt_rend_vol_ctlr_init	40	static
+../src/bluetooth/bt_renderer/volume/bt_rend_vol.c:347:5:bt_rend_vol_rend_init	16	static

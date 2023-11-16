@@ -1,0 +1,2 @@
+C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/shmem.c:18:5:metal_shmem_register_generic	8	static
+C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/shmem.c:31:5:metal_shmem_open_generic	24	static

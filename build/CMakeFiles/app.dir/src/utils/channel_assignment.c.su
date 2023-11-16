@@ -1,0 +1,3 @@
+../src/utils/channel_assignment.c:18:6:channel_assignment_get	0	static
+../src/utils/channel_assignment.c:24:6:channel_assignment_set	8	static
+../src/utils/channel_assignment.c:38:6:channel_assignment_init	8	static

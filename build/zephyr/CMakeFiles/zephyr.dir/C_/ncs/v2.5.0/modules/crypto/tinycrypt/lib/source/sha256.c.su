@@ -1,0 +1,5 @@
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/sha256.c:170:28:BigEndian	0	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/sha256.c:181:13:compress	120	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/sha256.c:39:5:tc_sha256_init	8	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/sha256.c:65:5:tc_sha256_update	16	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/sha256.c:87:5:tc_sha256_final	16	static

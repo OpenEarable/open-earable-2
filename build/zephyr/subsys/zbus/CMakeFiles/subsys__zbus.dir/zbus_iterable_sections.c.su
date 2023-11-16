@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/zephyr/subsys/zbus/zbus_iterable_sections.c:10:6:zbus_iterate_over_channels	16	static
+C:/ncs/v2.5.0/zephyr/subsys/zbus/zbus_iterable_sections.c:20:6:zbus_iterate_over_channels_with_user_data	16	static
+C:/ncs/v2.5.0/zephyr/subsys/zbus/zbus_iterable_sections.c:31:6:zbus_iterate_over_observers	16	static
+C:/ncs/v2.5.0/zephyr/subsys/zbus/zbus_iterable_sections.c:41:6:zbus_iterate_over_observers_with_user_data	16	static

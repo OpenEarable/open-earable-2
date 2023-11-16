@@ -1,0 +1,13 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/drivers/mbox.h:294:19:mbox_register_callback	8	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/drivers/mbox.h:366:19:z_impl_mbox_set_enabled	8	static
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:208:12:mbox_rx_init	16	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_ipc.h:479:34:nrf_ipc_send_task_get	8	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_ipc.h:485:35:nrf_ipc_receive_event_get	8	static
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:108:13:free_resources	16	static
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:93:13:ppi_rtc_to_ipc	24	static
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:129:13:rtc_cb	8	static
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:74:13:ppi_ipc_to_rtc	16	static
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:154:13:remote_callback	24	static
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:193:13:mbox_callback	16	static
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:230:12:sync_rtc_setup	64	dynamic,bounded
+C:/ncs/v2.5.0/zephyr/soc/arm/nordic_nrf/nrf53/sync_rtc.c:120:5:z_nrf_rtc_timer_nrf53net_offset_get	0	static

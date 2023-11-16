@@ -1,0 +1,14 @@
+zephyr/include/generated/syscalls/sdhc.h:49:19:sdhc_request	8	static
+zephyr/include/generated/syscalls/sdhc.h:74:19:sdhc_set_io	8	static
+zephyr/include/generated/syscalls/sdhc.h:98:19:sdhc_card_present	8	static
+zephyr/include/generated/syscalls/sdhc.h:167:19:sdhc_get_host_props	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd_utils.h:50:19:sd_retry	16	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd.c:22:19:sd_idle	48	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd.c:35:12:sd_send_interface_condition	48	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/kernel.h:501:23:k_msleep	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd.c:117:12:sd_init_io	16	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd.c:71:12:sd_enable_crc	48	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd.c:90:12:sd_common_init	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd.c:166:12:sd_command_init	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd.c:215:5:sd_init	16	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sd.c:294:6:sd_is_card_present	8	static

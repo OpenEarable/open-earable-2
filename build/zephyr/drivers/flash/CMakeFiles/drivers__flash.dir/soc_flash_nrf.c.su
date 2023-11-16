@@ -1,0 +1,14 @@
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:144:13:nvmc_wait_ready	0	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:277:13:flash_nrf_pages_layout	0	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:287:1:flash_nrf_get_parameters	0	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:432:13:shift_write_context	0	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:110:20:is_regular_addr_valid	16	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:367:12:erase_op	16	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:521:12:erase	24	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:225:12:flash_nrf_erase	96	dynamic,bounded
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:439:12:write_op	8	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:537:12:write	24	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:184:12:flash_nrf_write	104	dynamic,bounded
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_nvmc.h:379:24:nrf_nvmc_buffer_read	8	static
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:150:12:flash_nrf_read	64	dynamic,bounded
+C:/ncs/v2.5.0/zephyr/drivers/flash/soc_flash_nrf.c:304:12:nrf_flash_init	8	static

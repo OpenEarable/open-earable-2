@@ -1,0 +1,8 @@
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings.c:30:6:settings_init	8	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings.c:39:5:settings_register	16	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings.c:66:5:settings_name_steq	4	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings.c:105:5:settings_name_next	4	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings.c:137:33:settings_parse_and_lookup	32	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings.c:192:5:settings_call_set_handler	96	dynamic,bounded
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings.c:237:5:settings_commit_subtree	16	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings.c:232:5:settings_commit	8	static

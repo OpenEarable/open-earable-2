@@ -1,0 +1,8 @@
+C:/ncs/v2.5.0/modules/hal/cmsis/CMSIS/Core/Include/core_cm33.h:2378:22:__NVIC_EnableIRQ	0	static
+C:/ncs/v2.5.0/modules/hal/cmsis/CMSIS/Core/Include/core_cm33.h:2416:22:__NVIC_DisableIRQ	0	static
+C:/ncs/v2.5.0/modules/hal/cmsis/CMSIS/Core/Include/core_cm33.h:2575:22:__NVIC_SetPriority	0	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/irq_manage.c:41:6:arch_irq_enable	8	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/irq_manage.c:46:6:arch_irq_disable	8	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/irq_manage.c:51:5:arch_irq_is_enabled	0	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/irq_manage.c:65:6:z_arm_irq_priority_set	16	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/irq_manage.c:156:6:z_irq_spurious	8	static

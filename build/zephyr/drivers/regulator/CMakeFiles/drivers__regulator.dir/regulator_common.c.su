@@ -1,0 +1,10 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/drivers/regulator.h:418:19:regulator_list_voltage	8	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:8:6:regulator_common_data_init	8	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:76:5:regulator_enable	16	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:113:6:regulator_is_enabled	16	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:134:5:regulator_disable	16	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:171:6:regulator_is_supported_voltage	32	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:197:5:regulator_set_voltage	16	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:215:5:regulator_set_current_limit	16	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:233:5:regulator_set_mode	16	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_common.c:18:5:regulator_common_init	32	static

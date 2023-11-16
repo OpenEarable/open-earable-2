@@ -1,0 +1,9 @@
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:35:6:k_msgq_init	0	static
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:57:5:z_impl_k_msgq_alloc_init	16	static
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:95:5:k_msgq_cleanup	8	static
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:116:5:z_impl_k_msgq_put	40	static
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:190:6:z_impl_k_msgq_get_attrs	0	static
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:208:5:z_impl_k_msgq_get	40	static
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:288:5:z_impl_k_msgq_peek	24	static
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:322:5:z_impl_k_msgq_peek_at	24	static
+C:/ncs/v2.5.0/zephyr/kernel/msg_q.c:368:6:z_impl_k_msgq_purge	16	static

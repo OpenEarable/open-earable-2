@@ -1,0 +1,13 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/logging/log_msg.h:604:24:log_msg_generic_get_wlen	0	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:21:13:fifo_reset	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:155:13:process_log_msg	32	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:201:13:process_msg_from_buffer	32	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_ops.h:216:20:z_flag_sync_mode_set	0	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:115:13:dropped	0	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:126:13:copy_to_pbuffer	24	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:222:13:process	32	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:14:5:z_shell_log_backend_output_func	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:26:6:z_shell_log_backend_enable	16	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:50:6:z_shell_log_backend_disable	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:83:13:panic	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/shell_log_backend.c:56:6:z_shell_log_backend_process	8	static

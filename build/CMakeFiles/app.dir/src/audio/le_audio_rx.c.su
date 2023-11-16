@@ -1,0 +1,4 @@
+../src/audio/le_audio_rx.c:134:13:audio_datapath_thread	80	dynamic,bounded
+../src/audio/le_audio_rx.c:160:12:audio_datapath_thread_create	72	static
+../src/audio/le_audio_rx.c:41:6:le_audio_rx_data_handler	472	dynamic,bounded
+../src/audio/le_audio_rx.c:177:5:le_audio_rx_init	40	static

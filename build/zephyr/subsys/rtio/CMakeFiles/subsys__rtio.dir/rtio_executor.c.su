@@ -1,0 +1,16 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio_mpsc.h:147:38:rtio_mpsc_pop	4	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio.h:620:20:rtio_sqe_pool_free	0	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio.h:914:20:rtio_cqe_produce	0	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio.h:995:24:rtio_cqe_compute_flags	0	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio.h:1218:20:z_impl_rtio_release_buffer	8	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio.h:627:32:rtio_cqe_pool_alloc	8	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio.h:898:32:rtio_cqe_acquire	8	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio.h:1120:20:rtio_cqe_submit	24	static
+C:/ncs/v2.5.0/zephyr/subsys/rtio/rtio_executor.c:184:6:rtio_executor_err	8	static
+C:/ncs/v2.5.0/zephyr/subsys/rtio/rtio_executor.c:21:20:rtio_iodev_submit	8	static
+C:/ncs/v2.5.0/zephyr/subsys/rtio/rtio_executor.c:34:13:rtio_executor_op	8	static
+C:/ncs/v2.5.0/zephyr/subsys/rtio/rtio_executor.c:55:6:rtio_executor_submit	32	static
+C:/ncs/v2.5.0/zephyr/subsys/rtio/rtio_executor.c:108:20:rtio_executor_handle_multishot	16	static
+C:/ncs/v2.5.0/zephyr/subsys/rtio/rtio_executor.c:130:20:rtio_executor_done	56	static
+C:/ncs/v2.5.0/zephyr/subsys/rtio/rtio_executor.c:172:6:rtio_executor_ok	8	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/rtio/rtio.h:1073:20:rtio_iodev_sqe_ok	8	static

@@ -1,0 +1,10 @@
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:94:5:settings_save_one	32	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:27:6:settings_src_register	0	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:32:6:settings_dst_register	0	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:42:5:settings_load_subtree	32	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:37:5:settings_load	8	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:65:5:settings_load_subtree_direct	24	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:113:5:settings_delete	8	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:118:5:settings_save	16	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:161:5:settings_storage_get	8	static
+C:/ncs/v2.5.0/zephyr/subsys/settings/src/settings_store.c:176:6:settings_store_init	0	static

@@ -1,0 +1,6 @@
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_gpio.h:1292:24:nrf_gpio_pin_present_check	0	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_gpio.h:813:35:nrf_gpio_pin_port_decode	16	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_gpio.h:1021:24:nrf_gpio_pin_clear	16	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_gpio.h:1013:24:nrf_gpio_pin_set	16	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_gpio.h:1052:28:nrf_gpio_pin_read	16	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_twi_twim.c:47:12:nrfx_twi_twim_bus_recover	32	static

@@ -1,0 +1,5 @@
+C:/ncs/v2.5.0/zephyr/subsys/ipc/ipc_service/lib/ipc_rpmsg.c:10:13:rpmsg_service_unbind	8	static
+C:/ncs/v2.5.0/zephyr/subsys/ipc/ipc_service/lib/ipc_rpmsg.c:15:13:ns_bind_cb	48	static
+C:/ncs/v2.5.0/zephyr/subsys/ipc/ipc_service/lib/ipc_rpmsg.c:49:5:ipc_rpmsg_register_ept	24	static
+C:/ncs/v2.5.0/zephyr/subsys/ipc/ipc_service/lib/ipc_rpmsg.c:72:5:ipc_rpmsg_init	48	static
+C:/ncs/v2.5.0/zephyr/subsys/ipc/ipc_service/lib/ipc_rpmsg.c:106:5:ipc_rpmsg_deinit	16	static

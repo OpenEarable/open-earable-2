@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/modules/hal/cmsis/CMSIS/Core/Include/core_cm33.h:2699:34:__NVIC_SystemReset	0	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/scb.c:37:13:sys_arch_reboot	8	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/scb.c:53:6:z_arm_clear_arm_mpu_config	0	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/scb.c:90:6:z_arm_init_arch_hw_at_boot	8	static

@@ -1,0 +1,2 @@
+modules/libmetal/libmetal/lib/include/metal/system/zephyr/mutex.h:74:20:__metal_mutex_acquire	8	static
+C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/system/zephyr/condition.c:17:5:metal_condition_wait	24	static

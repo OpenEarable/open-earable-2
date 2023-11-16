@@ -1,0 +1,3 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/drivers/gpio.h:956:19:z_impl_gpio_pin_configure	24	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/drivers/gpio.h:1019:19:gpio_pin_configure_dt	8	static
+C:/ncs/v2.5.0/zephyr/drivers/regulator/regulator_npm1100.c:83:12:regulator_npm1100_common_init	8	static

@@ -1,0 +1,2 @@
+C:/ncs/v2.5.0/zephyr/lib/posix/getopt/getopt_common.c:44:6:z_getopt_global_state_update	0	static
+C:/ncs/v2.5.0/zephyr/lib/posix/getopt/getopt_common.c:54:22:getopt_state_get	0	static

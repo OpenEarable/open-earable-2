@@ -1,0 +1,16 @@
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:47:17:regmap_virtual_read	8	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:76:17:regmap_virtual_write	8	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:108:10:regmap_read	40	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:221:10:regmap_write	24	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:318:10:regmap_update_reg	32	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:347:10:regmap_poll_reg	40	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:377:10:regmap_write_acked_reg	40	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:414:10:regmap_read_block	48	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:478:10:regmap_write_block	48	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:539:10:regmap_write_array	24	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:586:10:regmap_read_fw_control	16	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:611:10:regmap_write_fw_control	16	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:636:10:regmap_update_fw_control	16	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:658:10:regmap_poll_fw_control	40	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:694:10:regmap_write_acked_fw_control	24	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/common/regmap.c:718:10:regmap_write_fw_vals	24	static

@@ -1,0 +1,5 @@
+C:/ncs/v2.5.0/zephyr/modules/segger/SEGGER_RTT_zephyr.c:25:12:rtt_init	8	static
+C:/ncs/v2.5.0/zephyr/modules/segger/SEGGER_RTT_zephyr.c:35:6:zephyr_rtt_mutex_lock	8	static
+C:/ncs/v2.5.0/zephyr/modules/segger/SEGGER_RTT_zephyr.c:40:6:zephyr_rtt_mutex_unlock	8	static
+C:/ncs/v2.5.0/zephyr/modules/segger/SEGGER_RTT_zephyr.c:47:14:zephyr_rtt_irq_lock	0	static
+C:/ncs/v2.5.0/zephyr/modules/segger/SEGGER_RTT_zephyr.c:52:6:zephyr_rtt_irq_unlock	0	static

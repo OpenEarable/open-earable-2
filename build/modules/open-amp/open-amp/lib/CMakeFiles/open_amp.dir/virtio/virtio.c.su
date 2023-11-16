@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/include/openamp/virtio_ring.h:118:19:vring_size	0	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/virtio/virtio.c:53:13:virtio_dev_name	0	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/virtio/virtio.c:86:6:virtio_describe	0	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/virtio/virtio.c:97:5:virtio_create_virtqueues	64	static

@@ -1,0 +1,13 @@
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:295:12:cmd_kernel_log_level_set	32	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/kernel.h:501:23:k_msleep	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:273:12:cmd_kernel_sleep	24	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:32:12:cmd_kernel_version	16	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/kernel.h:1760:24:k_uptime_get_32	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:47:12:cmd_kernel_uptime	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:159:12:cmd_kernel_threads	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:69:13:shell_tdata_dump	128	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:176:13:shell_stack_dump	56	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:207:12:cmd_kernel_stacks	88	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:330:12:cmd_kernel_reboot_warm	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:342:12:cmd_kernel_reboot_cold	8	static
+C:/ncs/v2.5.0/zephyr/subsys/shell/modules/kernel_service.c:57:12:cmd_kernel_cycles	8	static

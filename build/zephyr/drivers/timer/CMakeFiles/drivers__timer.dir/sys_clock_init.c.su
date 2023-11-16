@@ -1,0 +1,2 @@
+C:/ncs/v2.5.0/zephyr/drivers/timer/sys_clock_init.c:21:13:sys_clock_set_timeout	0	static
+C:/ncs/v2.5.0/zephyr/drivers/timer/sys_clock_init.c:25:13:sys_clock_idle_exit	0	static

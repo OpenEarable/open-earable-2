@@ -1,0 +1,6 @@
+C:/ncs/v2.5.0/zephyr/lib/os/multi_heap.c:9:6:sys_multi_heap_init	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/multi_heap.c:15:6:sys_multi_heap_add_heap	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/multi_heap.c:43:7:sys_multi_heap_alloc	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/multi_heap.c:48:7:sys_multi_heap_aligned_alloc	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/multi_heap.c:54:34:sys_multi_heap_get_heap	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/multi_heap.c:83:6:sys_multi_heap_free	8	static

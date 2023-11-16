@@ -1,0 +1,2 @@
+C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/system/zephyr/init.c:18:5:metal_sys_init	8	static
+C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/system/zephyr/init.c:24:6:metal_sys_finish	8	static

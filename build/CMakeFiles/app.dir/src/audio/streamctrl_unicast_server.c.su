@@ -1,0 +1,11 @@
+../src/audio/streamctrl_unicast_server.c:50:13:stream_state_set	0	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/zbus/zbus.h:538:27:zbus_chan_const_msg	8	static
+../src/audio/streamctrl_unicast_server.c:309:13:bt_mgmt_evt_handler	224	dynamic,bounded
+../src/audio/streamctrl_unicast_server.c:166:13:le_audio_msg_sub_thread	440	dynamic,bounded
+../src/audio/streamctrl_unicast_server.c:58:13:button_msg_sub_thread	448	dynamic,bounded
+../src/audio/streamctrl_unicast_server.c:274:12:zbus_subscribers_create	96	static
+../src/audio/streamctrl_unicast_server.c:363:12:zbus_link_producers_observers	112	static
+../src/audio/streamctrl_unicast_server.c:398:12:ext_adv_populate	152	dynamic,bounded
+../src/audio/streamctrl_unicast_server.c:446:9:stream_state_get	0	static
+../src/audio/streamctrl_unicast_server.c:451:6:streamctrl_send	96	dynamic,bounded
+../src/audio/streamctrl_unicast_server.c:473:5:streamctrl_start	568	dynamic,bounded

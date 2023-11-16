@@ -1,0 +1,2 @@
+C:/ncs/v2.5.0/zephyr/lib/os/assert.c:26:13:assert_post_action	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/assert.c:46:6:assert_print	16	static

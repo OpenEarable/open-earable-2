@@ -1,0 +1,6 @@
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_decrypt.c:92:20:add_round_key	0	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_decrypt.c:118:20:inv_shift_rows	24	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_decrypt.c:73:20:mult_row_column	24	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_decrypt.c:81:20:inv_mix_columns	24	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_decrypt.c:62:5:tc_aes128_set_decrypt_key	8	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/aes_decrypt.c:129:5:tc_aes_decrypt	32	static

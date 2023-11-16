@@ -1,0 +1,2 @@
+C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/system/zephyr/irq.c:21:14:metal_irq_save_disable	0	static
+C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/system/zephyr/irq.c:26:6:metal_irq_restore_enable	0	static

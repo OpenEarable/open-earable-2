@@ -1,0 +1,6 @@
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/cmac_mode.c:78:6:gf_double	0	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/cmac_mode.c:125:5:tc_cmac_erase	8	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/cmac_mode.c:137:5:tc_cmac_init	8	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/cmac_mode.c:97:5:tc_cmac_setup	16	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/cmac_mode.c:157:5:tc_cmac_update	24	static
+C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/cmac_mode.c:222:5:tc_cmac_final	16	static

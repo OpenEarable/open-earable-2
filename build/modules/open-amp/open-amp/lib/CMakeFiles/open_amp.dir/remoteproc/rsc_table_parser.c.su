@@ -1,0 +1,7 @@
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/remoteproc/rsc_table_parser.c:160:5:handle_trace_rsc	0	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/remoteproc/rsc_table_parser.c:182:12:handle_dummy_rsc	0	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/remoteproc/rsc_table_parser.c:79:5:handle_carve_out_rsc	24	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/remoteproc/rsc_table_parser.c:116:5:handle_vdev_rsc	24	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/remoteproc/rsc_table_parser.c:105:5:handle_vendor_rsc	8	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/remoteproc/rsc_table_parser.c:23:5:handle_rsc_table	24	static
+C:/ncs/v2.5.0/modules/lib/open-amp/open-amp/lib/remoteproc/rsc_table_parser.c:190:8:find_rsc	8	static

@@ -1,0 +1,17 @@
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:29:13:setup_bundle_data	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:172:13:set_region	40	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:531:12:set_clear_region	40	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:65:13:match_region	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:493:13:is_region_set_clear	64	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:213:5:sys_bitarray_set_bit	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:241:5:sys_bitarray_clear_bit	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:269:5:sys_bitarray_test_bit	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:306:5:sys_bitarray_test_and_set_bit	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:345:5:sys_bitarray_test_and_clear_bit	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:384:5:sys_bitarray_alloc	72	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:456:5:sys_bitarray_free	64	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:519:6:sys_bitarray_is_region_set	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:525:6:sys_bitarray_is_region_cleared	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:557:5:sys_bitarray_test_and_set_region	64	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:592:5:sys_bitarray_set_region	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/bitarray.c:598:5:sys_bitarray_clear_region	8	static

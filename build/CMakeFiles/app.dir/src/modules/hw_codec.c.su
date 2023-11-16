@@ -1,0 +1,13 @@
+../src/modules/hw_codec.c:48:17:zbus_vol_conversion	0	static
+../src/modules/hw_codec.c:126:12:cs47l63_comm_reg_conf_write	16	static
+../src/modules/hw_codec.c:389:12:cmd_input	8	static
+../src/modules/hw_codec.c:151:5:hw_codec_volume_set	64	static
+../src/modules/hw_codec.c:178:5:hw_codec_volume_adjust	96	static
+../src/modules/hw_codec.c:219:5:hw_codec_volume_decrease	8	static
+../src/modules/hw_codec.c:231:5:hw_codec_volume_increase	8	static
+../src/modules/hw_codec.c:243:5:hw_codec_volume_mute	16	static
+../src/modules/hw_codec.c:264:5:hw_codec_volume_unmute	16	static
+../src/modules/hw_codec.c:56:13:volume_msg_sub_thread	328	dynamic,bounded
+../src/modules/hw_codec.c:285:5:hw_codec_default_conf_enable	8	static
+../src/modules/hw_codec.c:346:5:hw_codec_soft_reset	8	static
+../src/modules/hw_codec.c:363:5:hw_codec_init	96	dynamic,bounded

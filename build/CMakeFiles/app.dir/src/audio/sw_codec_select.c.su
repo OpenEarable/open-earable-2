@@ -1,0 +1,4 @@
+../src/audio/sw_codec_select.c:23:5:sw_codec_encode	2056	dynamic,bounded
+../src/audio/sw_codec_select.c:103:5:sw_codec_decode	2064	dynamic,bounded
+../src/audio/sw_codec_select.c:197:5:sw_codec_uninit	128	dynamic,bounded
+../src/audio/sw_codec_select.c:240:5:sw_codec_init	112	dynamic,bounded

@@ -1,0 +1,6 @@
+C:/ncs/v2.5.0/nrfxlib/crypto/nrf_cc312_platform/src/nrf_cc3xx_platform_mutex_zephyr.c:175:13:mutex_flags_unknown	0	static
+C:/ncs/v2.5.0/nrfxlib/crypto/nrf_cc312_platform/src/nrf_cc3xx_platform_mutex_zephyr.c:316:16:mutex_unlock_platform	8	static
+C:/ncs/v2.5.0/nrfxlib/crypto/nrf_cc312_platform/src/nrf_cc3xx_platform_mutex_zephyr.c:273:16:mutex_lock_platform	8	static
+C:/ncs/v2.5.0/nrfxlib/crypto/nrf_cc312_platform/src/nrf_cc3xx_platform_mutex_zephyr.c:237:13:mutex_free_platform	8	static
+C:/ncs/v2.5.0/nrfxlib/crypto/nrf_cc312_platform/src/nrf_cc3xx_platform_mutex_zephyr.c:191:13:mutex_init_platform	8	static
+C:/ncs/v2.5.0/nrfxlib/crypto/nrf_cc312_platform/include/nrf_cc3xx_platform_mutex.h:153:6:nrf_cc3xx_platform_mutex_init	8	static

@@ -1,0 +1,3 @@
+../src/utils/uicr.c:17:9:uicr_channel_get	0	static
+../src/utils/uicr.c:22:5:uicr_channel_set	8	static
+../src/utils/uicr.c:39:10:uicr_snr_get	0	static

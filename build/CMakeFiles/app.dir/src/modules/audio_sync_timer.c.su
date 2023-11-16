@@ -1,0 +1,2 @@
+../src/modules/audio_sync_timer.c:36:13:event_handler	0	static
+../src/modules/audio_sync_timer.c:54:12:audio_sync_timer_init	192	dynamic,bounded

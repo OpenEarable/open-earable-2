@@ -1,0 +1,17 @@
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:185:13:endtx_isr	0	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:208:13:uarte_nrfx_isr_int	16	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:282:12:baudrate_set	0	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:363:12:uarte_nrfx_configure	24	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:433:12:uarte_nrfx_config_get	0	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:444:12:uarte_nrfx_err_check	0	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:455:13:is_tx_ready	0	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:505:13:uarte_enable	0	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:532:13:tx_start	8	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:1449:12:uarte_nrfx_poll_in	4	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/kernel.h:501:23:k_msleep	8	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:469:12:wait_tx_ready	16	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:1480:13:uarte_nrfx_poll_out	24	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/drivers/pinctrl.h:342:19:pinctrl_apply_state	16	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:1715:12:endtx_stoptx_ppi_init	48	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:1734:12:uarte_instance_init	24	static
+C:/ncs/v2.5.0/zephyr/drivers/serial/uart_nrfx_uarte.c:2062:1:uarte_0_init	8	static

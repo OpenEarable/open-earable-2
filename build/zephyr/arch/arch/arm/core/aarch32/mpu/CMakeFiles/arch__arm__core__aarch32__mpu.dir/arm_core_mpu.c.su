@@ -1,0 +1,2 @@
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/mpu/arm_core_mpu.c:130:6:z_arm_configure_static_mpu_regions	24	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/mpu/arm_core_mpu.c:182:6:z_arm_configure_dynamic_mpu_regions	8	static

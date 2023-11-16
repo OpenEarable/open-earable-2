@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/zephyr/lib/os/sem.c:109:5:sys_sem_init	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/sem.c:117:5:sys_sem_give	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/sem.c:124:5:sys_sem_take	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/sem.c:136:14:sys_sem_count_get	0	static

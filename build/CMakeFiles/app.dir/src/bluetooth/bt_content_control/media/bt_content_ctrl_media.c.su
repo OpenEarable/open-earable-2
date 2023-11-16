@@ -1,0 +1,14 @@
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:65:12:mcc_peer_index_get	40	static
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:45:12:mcc_peer_index_free_get	40	static
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:169:13:mcc_read_media_state_cb	56	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:153:13:mcc_cmd_notification_cb	72	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:137:13:mcc_send_command_cb	72	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:261:12:mpl_cmd_send	192	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:323:5:bt_content_ctrl_media_discover	88	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:365:5:bt_content_ctrl_media_state_update	88	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:88:13:mcc_discover_mcs_cb	184	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:387:5:bt_content_ctrl_media_play	88	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:414:5:bt_content_ctrl_media_pause	88	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:441:5:bt_content_ctrl_media_conn_disconnected	64	dynamic,bounded
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:456:5:bt_content_ctrl_media_client_init	8	static
+../src/bluetooth/bt_content_control/media/bt_content_ctrl_media.c:472:5:bt_content_ctrl_media_server_init	40	static

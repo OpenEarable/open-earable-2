@@ -1,0 +1,9 @@
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:12:10:ring_buf_put_claim	16	static
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:36:5:ring_buf_put_finish	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:57:10:ring_buf_put	32	static
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:79:10:ring_buf_get_claim	12	static
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:103:5:ring_buf_get_finish	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:124:10:ring_buf_get	32	static
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:148:10:ring_buf_peek	32	static
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:186:5:ring_buf_item_put	40	static
+C:/ncs/v2.5.0/zephyr/lib/os/ring_buffer.c:225:5:ring_buf_item_get	40	static

@@ -1,0 +1,7 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/bluetooth/addr.h:137:20:bt_addr_le_copy	0	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/addr.c:26:5:bt_addr_le_create_nrpa	8	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/addr.c:40:5:bt_addr_le_create_static	8	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/addr.c:54:5:bt_addr_from_str	16	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/addr.c:88:5:bt_addr_le_from_str	16	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/addr.c:112:6:bt_addr_le_copy_resolved	8	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/addr.c:119:6:bt_addr_le_is_resolved	0	static

@@ -1,0 +1,5 @@
+C:/ncs/v2.5.0/zephyr/include/zephyr/sys/slist.h:408:1:sys_slist_remove	0	static
+C:/ncs/v2.5.0/zephyr/subsys/logging/log_cache.c:22:5:log_cache_init	8	static
+C:/ncs/v2.5.0/zephyr/subsys/logging/log_cache.c:46:6:log_cache_get	32	static
+C:/ncs/v2.5.0/zephyr/subsys/logging/log_cache.c:90:6:log_cache_put	0	static
+C:/ncs/v2.5.0/zephyr/subsys/logging/log_cache.c:98:6:log_cache_release	0	static

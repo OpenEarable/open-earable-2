@@ -1,0 +1,3 @@
+C:/ncs/v2.5.0/zephyr/modules/hal_nordic/nrfx/nrfx_glue.c:11:6:nrfx_isr	8	static
+C:/ncs/v2.5.0/zephyr/modules/hal_nordic/nrfx/nrfx_glue.c:16:6:nrfx_busy_wait	8	static
+C:/ncs/v2.5.0/zephyr/modules/hal_nordic/nrfx/nrfx_glue.c:25:13:nrfx_error_string_get	0	static

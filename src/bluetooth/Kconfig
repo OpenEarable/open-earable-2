@@ -1,0 +1,74 @@
+#
+# Copyright (c) 2022 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+rsource "Kconfig.defaults"
+
+menu "Bluetooth"
+
+rsource "bt_management/Kconfig"
+
+#----------------------------------------------------------------------------#
+menu "Bluetooth audio"
+
+if TRANSPORT_BIS
+rsource "bt_stream/broadcast/Kconfig"
+endif # TRANSPORT_BIS
+
+if TRANSPORT_CIS
+rsource "bt_stream/unicast/Kconfig"
+endif # TRANSPORT_CIS
+
+config BT_AUDIO_PACKING_INTERLEAVED
+	bool "Interleaved packing"
+	default n
+	help
+	  ISO channels can either be interleaved or sequentially packed; sequential is the default one.
+
+#----------------------------------------------------------------------------#
+menu "QoS"
+
+config BT_AUDIO_PRESENTATION_DELAY_US
+	int "Presentation delay"
+	range AUDIO_MIN_PRES_DLY_US AUDIO_MAX_PRES_DLY_US
+	default 10000
+	help
+	  The audio source/client defined presentation delay if within
+	  AUDIO_MIN_PRES_DLY_US and AUDIO_MAX_PRES_DLY_US range. This will
+	  override the audio receivers presentation delay as long as it
+	  is in range of the max and min supported by the audio receivers.
+	  If it is outside this range, then it will revert to the closest
+	  supported value.
+
+config BT_AUDIO_MAX_TRANSPORT_LATENCY_MS
+	int "Max transport latency"
+	range 5 4000
+	default 20
+	help
+	  Max transport latency for the ISO link.
+
+config BT_AUDIO_RETRANSMITS
+	int "Number of retransmits"
+	range 0 30
+	default 2
+	help
+	  Number of retransmits for the ISO link. 2 retransmits means a total
+	  of 3 packets sent per stream.
+
+endmenu # QoS
+endmenu # Bluetooth audio
+
+rsource "bt_renderer/Kconfig"
+rsource "bt_content_control/Kconfig"
+
+#----------------------------------------------------------------------------#
+menu "Log levels"
+
+module = BLE
+module-str = ble
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # Log levels
+endmenu # Bluetooth

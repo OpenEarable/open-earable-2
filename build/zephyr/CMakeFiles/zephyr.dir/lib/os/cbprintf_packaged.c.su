@@ -1,0 +1,9 @@
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:179:12:cbprintf_via_va_list	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:873:13:is_fmt_spec	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:196:15:get_package_len	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:223:12:append_string	16	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:233:5:cbvprintf_package	104	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:815:5:cbprintf_package	28	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:827:5:cbpprintf_external	40	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:881:6:is_ptr	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_packaged.c:908:5:cbprintf_package_convert	168	dynamic,bounded

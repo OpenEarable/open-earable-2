@@ -1,0 +1,3 @@
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/cs47l63/bsp/vregmap.c:90:17:vregmap_read_0	0	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/cs47l63/bsp/vregmap.c:129:17:vregmap_read_1	0	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/cs47l63/bsp/vregmap.c:104:17:vregmap_write_0	24	static

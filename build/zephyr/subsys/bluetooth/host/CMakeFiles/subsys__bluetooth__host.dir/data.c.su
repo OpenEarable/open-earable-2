@@ -1,0 +1,3 @@
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/data.c:16:6:bt_data_parse	64	dynamic,bounded
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/data.c:48:8:bt_data_get_len	0	static
+C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/data.c:59:8:bt_data_serialize	8	static

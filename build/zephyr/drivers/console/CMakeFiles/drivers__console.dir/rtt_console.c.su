@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/zephyr/drivers/console/rtt_console.c:81:12:rtt_console_init	8	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/kernel.h:501:23:k_msleep	8	static
+C:/ncs/v2.5.0/zephyr/drivers/console/rtt_console.c:26:13:wait	8	static
+C:/ncs/v2.5.0/zephyr/drivers/console/rtt_console.c:37:12:rtt_console_out	24	static

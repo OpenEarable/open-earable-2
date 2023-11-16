@@ -1,0 +1,17 @@
+zephyr/include/generated/syscalls/sdhc.h:49:19:sdhc_request	8	static
+zephyr/include/generated/syscalls/sdhc.h:74:19:sdhc_set_io	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:21:20:sdmmc_decode_scr	4	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:70:12:sdmmc_spi_send_ocr	48	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:206:12:sdmmc_set_blocklen	56	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:277:12:sdmmc_switch	88	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:425:12:sdmmc_set_bus_speed	24	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:64:12:sdmmc_app_command	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:153:12:sdmmc_read_scr	96	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:222:12:sdmmc_set_bus_width	56	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:527:12:sdmmc_init_hs	8	static
+C:/ncs/v2.5.0/zephyr/include/zephyr/kernel.h:501:23:k_msleep	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:96:12:sdmmc_send_ocr	56	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:558:5:sdmmc_card_init	16	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:733:5:sdmmc_ioctl	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:738:5:sdmmc_read_blocks	8	static
+C:/ncs/v2.5.0/zephyr/subsys/sd/sdmmc.c:744:5:sdmmc_write_blocks	8	static

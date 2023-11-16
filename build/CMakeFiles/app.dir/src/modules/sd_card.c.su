@@ -1,0 +1,7 @@
+../src/modules/sd_card.c:37:5:sd_card_list_files	512	dynamic,bounded
+../src/modules/sd_card.c:124:5:sd_card_open_write_close	440	static
+../src/modules/sd_card.c:186:5:sd_card_open_read_close	440	static
+../src/modules/sd_card.c:243:5:sd_card_open	432	dynamic,bounded
+../src/modules/sd_card.c:289:5:sd_card_read	88	dynamic,bounded
+../src/modules/sd_card.c:310:5:sd_card_close	88	dynamic,bounded
+../src/modules/sd_card.c:330:5:sd_card_init	136	dynamic,bounded

@@ -1,0 +1,5 @@
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/cs47l63/bsp/bsp_cs47l63.c:100:10:bsp_dut_initialize	72	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/cs47l63/bsp/bsp_cs47l63.c:151:10:bsp_dut_reset	8	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/cs47l63/bsp/bsp_cs47l63.c:165:10:bsp_dut_boot	24	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/cs47l63/bsp/bsp_cs47l63.c:282:10:bsp_dut_use_case	24	static
+C:/ncs/v2.5.0/modules/hal/cirrus-logic/cs47l63/bsp/bsp_cs47l63.c:399:10:bsp_dut_process	8	static

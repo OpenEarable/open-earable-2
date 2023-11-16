@@ -1,0 +1,4 @@
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/fatal.c:20:13:esf_dump	296	dynamic,bounded
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/fatal.c:67:6:z_arm_fatal_error	16	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/fatal.c:92:6:z_do_kernel_oops	8	static
+C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/fatal.c:143:20:arch_syscall_oops	112	static

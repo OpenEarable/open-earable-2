@@ -1,0 +1,6 @@
+../src/bluetooth/bt_management/controller_config/bt_mgmt_ctlr_cfg.c:139:13:ctlr_version_poll_timer_handler	8	static
+../src/bluetooth/bt_management/controller_config/bt_mgmt_ctlr_cfg.c:29:12:bt_ll_acs_nrf53_cfg	8	static
+../src/bluetooth/bt_management/controller_config/bt_mgmt_ctlr_cfg.c:144:13:wdt_timeout_cb	88	dynamic,bounded
+../src/bluetooth/bt_management/controller_config/bt_mgmt_ctlr_cfg.c:149:5:bt_mgmt_ctlr_cfg_version_get	24	static
+../src/bluetooth/bt_management/controller_config/bt_mgmt_ctlr_cfg.c:123:13:work_ctlr_poll	232	dynamic,bounded
+../src/bluetooth/bt_management/controller_config/bt_mgmt_ctlr_cfg.c:168:5:bt_mgmt_ctlr_cfg_init	104	dynamic,bounded

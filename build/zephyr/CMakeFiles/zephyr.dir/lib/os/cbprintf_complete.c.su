@@ -1,0 +1,16 @@
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:318:15:extract_decimal	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:339:27:extract_flags	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:388:27:extract_width	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:420:27:extract_prec	16	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:453:27:extract_length	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:513:27:extract_specifier	4	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:642:27:extract_conversion	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:702:13:_ldiv5	4	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:736:13:_ldiv10	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:745:13:_get_digit	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:761:22:conversion_radix	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:788:14:encode_uint	40	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:866:14:encode_float	64	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:1280:20:store_count	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:1319:12:outs	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/cbprintf_complete.c:1338:5:z_cbvprintf_impl	120	static

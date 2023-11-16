@@ -1,0 +1,12 @@
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:14:14:alloc_blocks	16	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:49:12:free_blocks	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:84:5:sys_mem_blocks_alloc_contiguous	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:168:5:sys_mem_blocks_is_region_free	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:185:5:sys_mem_blocks_get	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:241:5:sys_mem_blocks_free	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:121:5:sys_mem_blocks_alloc	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:287:5:sys_mem_blocks_free_contiguous	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:319:6:sys_multi_mem_blocks_init	0	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:326:6:sys_multi_mem_blocks_add_allocator	8	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:334:5:sys_multi_mem_blocks_alloc	24	static
+C:/ncs/v2.5.0/zephyr/lib/os/mem_blocks.c:373:5:sys_multi_mem_blocks_free	16	static

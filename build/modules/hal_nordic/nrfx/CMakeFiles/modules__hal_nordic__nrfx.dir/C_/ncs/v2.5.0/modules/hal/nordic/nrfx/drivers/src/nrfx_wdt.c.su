@@ -1,0 +1,9 @@
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:190:13:irq_handler	8	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:59:13:wdt_configure	32	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:82:12:nrfx_wdt_init	8	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:120:12:nrfx_wdt_reconfigure	8	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:138:6:nrfx_wdt_enable	8	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:148:6:nrfx_wdt_feed	8	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:158:12:nrfx_wdt_channel_alloc	8	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:183:6:nrfx_wdt_channel_feed	8	static
+C:/ncs/v2.5.0/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c:205:1:nrfx_wdt_0_irq_handler	8	static
