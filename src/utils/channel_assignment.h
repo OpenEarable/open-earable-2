@@ -24,6 +24,10 @@ static const char CH_L_TAG[] = "HL";
 static const char CH_R_TAG[] = "HR";
 static const char GW_TAG[] = "GW";
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Get assigned audio channel.
  *
@@ -44,5 +48,9 @@ void channel_assignment_set(enum audio_channel channel);
  * @brief Initialize the channel assignment
  */
 void channel_assignment_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _CHANNEL_ASSIGNMENT_H_ */

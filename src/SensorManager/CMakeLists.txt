@@ -1,0 +1,9 @@
+
+add_subdirectory(BMP388)
+add_subdirectory(Adafruit_BusIO)
+add_subdirectory(Adafruit_Unified_Sensor)
+add_subdirectory(BMX160)
+
+target_sources(app PRIVATE
+	       ${CMAKE_CURRENT_SOURCE_DIR}/SensorManager.cpp
+)

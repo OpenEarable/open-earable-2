@@ -9,6 +9,10 @@
 
 #include "board.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**@brief Get the board/HW version
  *
  * @note  This function will init the ADC, perform a reading, and
@@ -33,5 +37,9 @@ int board_version_get(struct board_version *board_rev);
  * @return 0 on success. Error code on fault or -EPERM if incompatible board version.
  */
 int board_version_valid_check(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _BOARD_VERSION_H_ */

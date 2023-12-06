@@ -8,10 +8,12 @@ add_subdirectory(bt_management)
 add_subdirectory(bt_renderer)
 add_subdirectory(bt_content_control)
 add_subdirectory(bt_stream)
+add_subdirectory(gatt_services)
 
 zephyr_library_include_directories(
     bt_management
     bt_renderer
     bt_content_control
     bt_stream
+    gatt_services
 )

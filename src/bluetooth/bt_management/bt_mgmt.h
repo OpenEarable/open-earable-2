@@ -42,6 +42,10 @@
 #error "Select either CONFIG_SCAN_MODE_ACTIVE or CONFIG_SCAN_MODE_PASSIVE"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum bt_mgmt_scan_type {
 	BT_MGMT_SCAN_TYPE_CONN = 1,
 	BT_MGMT_SCAN_TYPE_BROADCAST = 2,
@@ -119,5 +123,9 @@ int bt_mgmt_conn_disconnect(struct bt_conn *conn, uint8_t reason);
  * @return	0 if success, error otherwise.
  */
 int bt_mgmt_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _BT_MGMT_H_ */

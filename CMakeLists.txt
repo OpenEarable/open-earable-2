@@ -56,7 +56,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
 
 # Target sources below are specific to the nRF5340 Audio DK HW
 target_sources(app PRIVATE
-    src/main.c
+    src/main.cpp
     ${CMAKE_BINARY_DIR}/fw_info_app.c
     )
 
@@ -69,6 +69,7 @@ zephyr_library_include_directories(
     src/modules
     src/utils
     src/utils/macros
+    src/Wire
 )
 
 zephyr_library_include_directories(app PRIVATE
@@ -80,6 +81,9 @@ add_subdirectory(src/bluetooth)
 add_subdirectory(src/drivers)
 add_subdirectory(src/modules)
 add_subdirectory(src/utils)
+add_subdirectory(src/Wire)
+add_subdirectory(src/SensorManager)
+add_subdirectory(src/led_service)
 
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)

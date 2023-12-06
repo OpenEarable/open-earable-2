@@ -10,6 +10,10 @@
 #include <stddef.h>
 #include <zephyr/fs/fs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief	Print out the contents under SD card root path and write the content to buffer.
  *
@@ -128,5 +132,9 @@ int sd_card_close(struct fs_file_t *f_seg_read_entry);
  * @retval	Otherwise, error from underlying drivers.
  */
 int sd_card_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _SD_CARD_H_ */

@@ -10,6 +10,10 @@
 #include <stddef.h>
 #include <zephyr/kernel.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* State machine states for peer or stream. */
 enum stream_state {
 	STATE_STREAMING,
@@ -38,5 +42,9 @@ void streamctrl_send(void const *const data, size_t size, uint8_t num_ch);
  * @return 0 if successful.
  */
 int streamctrl_start(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _STREAMCTRL_H_ */

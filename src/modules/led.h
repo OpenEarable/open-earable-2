@@ -39,6 +39,10 @@ enum led_color {
 #define LED_BLINK true
 #define LED_SOLID false
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Set the state of a given LED unit to blink.
  *
@@ -98,5 +102,9 @@ int led_off(uint8_t led_unit);
  *		-ENODEV if a LED is missing color identifier
  */
 int led_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _LED_H_ */
