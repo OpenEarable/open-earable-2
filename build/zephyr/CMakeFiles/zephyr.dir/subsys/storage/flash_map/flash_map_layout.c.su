@@ -1,4 +1,0 @@
-C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map_layout.c:43:13:should_bail	4	static
-C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map_layout.c:103:13:get_sectors_cb	24	static
-C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map_layout.c:68:12:flash_area_layout	32	static
-C:/ncs/v2.5.0/zephyr/subsys/storage/flash_map/flash_map_layout.c:120:5:flash_area_get_sectors	48	static

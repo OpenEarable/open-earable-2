@@ -1,3 +1,0 @@
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_fprintf.c:44:6:z_shell_fprintf_buffer_flush	8	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_fprintf.c:33:6:z_shell_fprintf_fmt	16	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_fprintf.c:11:12:out_func	16	static

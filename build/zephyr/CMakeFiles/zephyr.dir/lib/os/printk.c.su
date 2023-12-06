@@ -1,9 +1,0 @@
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:45:27:arch_printk_char_out	0	static
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:223:12:str_out	4	static
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:63:6:__printk_hook_install	0	static
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:76:7:__printk_get_hook	0	static
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:113:6:vprintk	8	static
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:157:6:z_impl_k_str_out	16	static
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:203:6:printk	16	static
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:251:5:vsnprintk	32	static
-C:/ncs/v2.5.0/zephyr/lib/os/printk.c:239:5:snprintk	16	static

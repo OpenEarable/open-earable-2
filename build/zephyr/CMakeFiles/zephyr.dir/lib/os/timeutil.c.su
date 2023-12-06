@@ -1,9 +1,0 @@
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:30:16:time_days_from_civil	16	static
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:44:9:timeutil_timegm64	16	static
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:58:8:timeutil_timegm	16	static
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:74:5:timeutil_sync_state_update	12	static
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:96:5:timeutil_sync_state_set_skew	4	static
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:113:7:timeutil_sync_estimate_skew	32	static
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:129:5:timeutil_sync_ref_from_local	40	static
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:157:5:timeutil_sync_local_from_ref	40	static
-C:/ncs/v2.5.0/zephyr/lib/os/timeutil.c:183:9:timeutil_sync_skew_to_ppb	8	static

@@ -1,9 +1,0 @@
-C:/ncs/v2.5.0/zephyr/include/zephyr/logging/log_msg.h:604:24:log_msg_generic_get_wlen	0	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/backends/shell_rtt.c:108:12:read	8	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/backends/shell_rtt.c:88:12:write	16	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/backends/shell_rtt.c:76:12:enable	8	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/backends/shell_rtt.c:67:12:uninit	8	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/backends/shell_rtt.c:30:13:timer_handler	8	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/backends/shell_rtt.c:39:12:init	24	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/backends/shell_rtt.c:124:12:enable_shell_rtt	16	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/backends/shell_rtt.c:138:21:shell_backend_rtt_get_ptr	0	static

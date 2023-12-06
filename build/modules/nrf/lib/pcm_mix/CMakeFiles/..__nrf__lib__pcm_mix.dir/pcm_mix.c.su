@@ -1,6 +1,0 @@
-C:/ncs/v2.5.0/nrf/lib/pcm_mix/pcm_mix.c:15:13:hard_limiter	0	static
-C:/ncs/v2.5.0/nrf/lib/pcm_mix/pcm_mix.c:27:13:pcm_mix_identical	32	static
-C:/ncs/v2.5.0/nrf/lib/pcm_mix/pcm_mix.c:42:13:pcm_mix_b_mono_into_a_stereo_lr	32	static
-C:/ncs/v2.5.0/nrf/lib/pcm_mix/pcm_mix.c:61:13:pcm_mix_b_mono_into_a_stereo_l	32	static
-C:/ncs/v2.5.0/nrf/lib/pcm_mix/pcm_mix.c:76:13:pcm_mix_b_mono_into_a_stereo_r	32	static
-C:/ncs/v2.5.0/nrf/lib/pcm_mix/pcm_mix.c:90:5:pcm_mix	64	dynamic,bounded

@@ -1,7 +1,0 @@
-../src/modules/audio_i2s.c:67:13:i2s_comp_handler	8	static
-C:/ncs/v2.5.0/zephyr/include/zephyr/drivers/pinctrl.h:342:19:pinctrl_apply_state	16	static
-../src/modules/audio_i2s.c:79:6:audio_i2s_set_next_buf	16	static
-../src/modules/audio_i2s.c:99:6:audio_i2s_start	16	static
-../src/modules/audio_i2s.c:122:6:audio_i2s_stop	8	static
-../src/modules/audio_i2s.c:131:6:audio_i2s_blk_comp_cb_register	0	static
-../src/modules/audio_i2s.c:136:6:audio_i2s_init	8	static

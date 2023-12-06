@@ -1,6 +1,0 @@
-C:/ncs/v2.5.0/zephyr/drivers/watchdog/wdt_shell.c:164:13:device_name_get	8	static
-C:/ncs/v2.5.0/zephyr/drivers/watchdog/wdt_shell.c:84:12:cmd_disable	8	static
-C:/ncs/v2.5.0/zephyr/drivers/watchdog/wdt_shell.c:71:12:cmd_setup	8	static
-C:/ncs/v2.5.0/zephyr/drivers/watchdog/wdt_shell.c:49:12:parse_named_int	32	static
-C:/ncs/v2.5.0/zephyr/drivers/watchdog/wdt_shell.c:143:12:cmd_feed	16	static
-C:/ncs/v2.5.0/zephyr/drivers/watchdog/wdt_shell.c:97:12:cmd_timeout	40	static

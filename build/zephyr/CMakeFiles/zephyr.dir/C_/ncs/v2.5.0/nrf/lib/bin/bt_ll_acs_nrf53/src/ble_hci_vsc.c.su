@@ -1,8 +1,0 @@
-C:/ncs/v2.5.0/nrf/lib/bin/bt_ll_acs_nrf53/src/ble_hci_vsc.c:15:5:ble_hci_vsc_nrf21540_pins_set	48	static
-C:/ncs/v2.5.0/nrf/lib/bin/bt_ll_acs_nrf53/src/ble_hci_vsc.c:33:5:ble_hci_vsc_radio_high_pwr_mode_set	72	static
-C:/ncs/v2.5.0/nrf/lib/bin/bt_ll_acs_nrf53/src/ble_hci_vsc.c:63:5:ble_hci_vsc_bd_addr_set	48	static
-C:/ncs/v2.5.0/nrf/lib/bin/bt_ll_acs_nrf53/src/ble_hci_vsc.c:81:5:ble_hci_vsc_op_flag_set	72	static
-C:/ncs/v2.5.0/nrf/lib/bin/bt_ll_acs_nrf53/src/ble_hci_vsc.c:110:5:ble_hci_vsc_adv_tx_pwr_set	72	static
-C:/ncs/v2.5.0/nrf/lib/bin/bt_ll_acs_nrf53/src/ble_hci_vsc.c:138:5:ble_hci_vsc_conn_tx_pwr_set	72	static
-C:/ncs/v2.5.0/nrf/lib/bin/bt_ll_acs_nrf53/src/ble_hci_vsc.c:167:5:ble_hci_vsc_pri_adv_chan_max_tx_pwr_set	72	static
-C:/ncs/v2.5.0/nrf/lib/bin/bt_ll_acs_nrf53/src/ble_hci_vsc.c:194:5:ble_hci_vsc_led_pin_map	80	static

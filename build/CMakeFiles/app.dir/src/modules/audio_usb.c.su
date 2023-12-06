@@ -1,7 +1,0 @@
-../src/modules/audio_usb.c:117:13:feature_update	0	static
-C:/ncs/v2.5.0/zephyr/include/zephyr/net/buf.h:1357:20:net_buf_destroy	8	static
-../src/modules/audio_usb.c:67:13:data_received	296	dynamic,bounded
-../src/modules/audio_usb.c:136:5:audio_usb_start	0	static
-../src/modules/audio_usb.c:148:6:audio_usb_stop	0	static
-../src/modules/audio_usb.c:154:5:audio_usb_disable	40	static
-../src/modules/audio_usb.c:169:5:audio_usb_init	64	static

@@ -1,5 +1,0 @@
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac.c:37:13:rekey	4	static
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac.c:52:5:tc_hmac_set_key	320	static
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac.c:95:5:tc_hmac_init	8	static
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac.c:109:5:tc_hmac_update	8	static
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac.c:124:5:tc_hmac_final	16	static

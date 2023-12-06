@@ -1,7 +1,0 @@
-C:/ncs/v2.5.0/zephyr/kernel/mempool.c:12:14:z_heap_aligned_alloc	24	static
-C:/ncs/v2.5.0/zephyr/kernel/mempool.c:43:6:k_free	8	static
-C:/ncs/v2.5.0/zephyr/kernel/mempool.c:64:7:k_aligned_alloc	8	static
-C:/ncs/v2.5.0/zephyr/kernel/mempool.c:82:7:k_malloc	8	static
-C:/ncs/v2.5.0/zephyr/kernel/mempool.c:93:7:k_calloc	16	static
-C:/ncs/v2.5.0/zephyr/kernel/mempool.c:116:6:k_thread_system_pool_assign	0	static
-C:/ncs/v2.5.0/zephyr/kernel/mempool.c:124:7:z_thread_aligned_alloc	16	static

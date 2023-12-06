@@ -1,4 +1,0 @@
-C:/ncs/v2.5.0/zephyr/kernel/condvar.c:16:5:z_impl_k_condvar_init	0	static
-C:/ncs/v2.5.0/zephyr/kernel/condvar.c:35:5:z_impl_k_condvar_signal	16	static
-C:/ncs/v2.5.0/zephyr/kernel/condvar.c:67:5:z_impl_k_condvar_broadcast	16	static
-C:/ncs/v2.5.0/zephyr/kernel/condvar.c:100:5:z_impl_k_condvar_wait	40	static

@@ -1,9 +1,0 @@
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:36:13:sched_cpu_update_usage	0	static
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:61:13:sched_thread_update_usage	0	static
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:21:17:usage_now	8	static
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:74:6:z_sched_usage_start	8	static
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:99:6:z_sched_usage_stop	16	static
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:122:6:z_sched_cpu_usage	32	static
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:173:6:z_sched_thread_usage	32	static
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:279:6:k_sys_runtime_stats_enable	16	static
-C:/ncs/v2.5.0/zephyr/kernel/usage.c:312:6:k_sys_runtime_stats_disable	24	static

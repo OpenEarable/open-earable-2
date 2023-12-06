@@ -1,4 +1,0 @@
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/version.c:9:5:metal_ver_major	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/version.c:14:5:metal_ver_minor	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/version.c:19:5:metal_ver_patch	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/version.c:24:13:metal_ver	0	static

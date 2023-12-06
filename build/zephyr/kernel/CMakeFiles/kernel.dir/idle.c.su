@@ -1,3 +1,0 @@
-C:/ncs/v2.5.0/zephyr/kernel/idle.c:20:6:z_pm_save_idle_exit	8	static
-C:/ncs/v2.5.0/zephyr/kernel/idle.c:35:6:idle	8	static
-C:/ncs/v2.5.0/zephyr/kernel/idle.c:110:13:arch_spin_relax	8	static

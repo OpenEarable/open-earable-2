@@ -1,7 +1,0 @@
-C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/cmse/arm_core_cmse.c:21:12:arm_cmse_addr_read_write_ok	0	static
-C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/cmse/arm_core_cmse.c:43:12:arm_cmse_addr_range_read_write_ok	8	static
-C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/cmse/arm_core_cmse.c:10:5:arm_cmse_mpu_region_get	0	static
-C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/cmse/arm_core_cmse.c:33:5:arm_cmse_addr_read_ok	8	static
-C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/cmse/arm_core_cmse.c:38:5:arm_cmse_addr_readwrite_ok	8	static
-C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/cmse/arm_core_cmse.c:63:5:arm_cmse_addr_range_read_ok	8	static
-C:/ncs/v2.5.0/zephyr/arch/arm/core/aarch32/cortex_m/cmse/arm_core_cmse.c:68:5:arm_cmse_addr_range_readwrite_ok	8	static

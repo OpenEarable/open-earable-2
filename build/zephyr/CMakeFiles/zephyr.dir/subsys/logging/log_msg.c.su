@@ -1,6 +1,0 @@
-C:/ncs/v2.5.0/zephyr/include/zephyr/sys/cbprintf.h:528:19:z_cbprintf_cpy	16	static
-C:/ncs/v2.5.0/zephyr/include/zephyr/sys/cbprintf.h:572:19:cbprintf_package_copy	40	static
-C:/ncs/v2.5.0/zephyr/subsys/logging/log_msg.c:23:6:z_log_msg_finalize	16	static
-C:/ncs/v2.5.0/zephyr/subsys/logging/log_msg.c:46:6:z_impl_z_log_msg_static_create	120	dynamic,bounded
-zephyr/include/generated/syscalls/log_msg.h:26:20:z_log_msg_static_create	8	static
-C:/ncs/v2.5.0/zephyr/subsys/logging/log_msg.c:108:6:z_impl_z_log_msg_runtime_vcreate	56	static

@@ -1,4 +1,0 @@
-C:/ncs/v2.5.0/zephyr/kernel/device.c:21:6:z_device_state_init	8	static
-C:/ncs/v2.5.0/zephyr/kernel/device.c:80:8:z_device_get_all_static	0	static
-C:/ncs/v2.5.0/zephyr/kernel/device.c:90:6:z_device_is_ready	0	static
-C:/ncs/v2.5.0/zephyr/kernel/device.c:28:22:z_impl_device_get_binding	16	static

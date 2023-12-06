@@ -1,4 +1,0 @@
-C:/ncs/v2.5.0/zephyr/lib/os/hex.c:12:5:char2hex	0	static
-C:/ncs/v2.5.0/zephyr/lib/os/hex.c:27:5:hex2char	0	static
-C:/ncs/v2.5.0/zephyr/lib/os/hex.c:40:8:bin2hex	32	static
-C:/ncs/v2.5.0/zephyr/lib/os/hex.c:59:8:hex2bin	40	static

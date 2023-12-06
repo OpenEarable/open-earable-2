@@ -1,2 +1,0 @@
-C:/ncs/v2.5.0/zephyr/lib/os/notify.c:11:5:sys_notify_validate	0	static
-C:/ncs/v2.5.0/zephyr/lib/os/notify.c:48:29:sys_notify_finalize	8	static

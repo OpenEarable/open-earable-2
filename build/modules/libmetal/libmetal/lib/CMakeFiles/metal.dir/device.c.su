@@ -1,9 +1,0 @@
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:140:6:metal_generic_dev_dma_unmap	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:98:5:metal_generic_dev_open	24	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:117:5:metal_generic_dev_dma_map	16	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:30:5:metal_bus_unregister	8	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:39:5:metal_bus_find	24	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:18:5:metal_bus_register	8	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:54:5:metal_device_open	24	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:79:6:metal_device_close	8	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/device.c:86:5:metal_register_generic_device	4	static

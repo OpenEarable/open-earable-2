@@ -1,5 +1,0 @@
-C:/ncs/v2.5.0/zephyr/drivers/flash/flash_page_layout.c:11:12:flash_get_page_info	24	static
-C:/ncs/v2.5.0/zephyr/drivers/flash/flash_page_layout.c:45:5:z_impl_flash_get_page_info_by_offs	8	static
-C:/ncs/v2.5.0/zephyr/drivers/flash/flash_page_layout.c:51:5:z_impl_flash_get_page_info_by_idx	8	static
-C:/ncs/v2.5.0/zephyr/drivers/flash/flash_page_layout.c:58:8:z_impl_flash_get_page_count	16	static
-C:/ncs/v2.5.0/zephyr/drivers/flash/flash_page_layout.c:75:6:flash_page_foreach	56	static

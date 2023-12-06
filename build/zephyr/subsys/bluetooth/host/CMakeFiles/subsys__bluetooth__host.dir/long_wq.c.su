@@ -1,4 +1,0 @@
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/long_wq.c:29:12:long_wq_init	32	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/long_wq.c:14:5:bt_long_wq_schedule	8	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/long_wq.c:19:5:bt_long_wq_reschedule	8	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/long_wq.c:24:5:bt_long_wq_submit	8	static

@@ -1,5 +1,0 @@
-C:/ncs/v2.5.0/modules/hal/nordic/nrfx/mdk/nrf53_erratas.h:5982:13:nrf53_errata_161	0	static
-C:/ncs/v2.5.0/zephyr/boards/arm/nrf5340_audio_dk_nrf5340/nrf5340_audio_dk_cpunet_reset.c:24:12:core_config	0	static
-C:/ncs/v2.5.0/zephyr/boards/arm/nrf5340_audio_dk_nrf5340/nrf5340_audio_dk_cpunet_reset.c:38:13:remoteproc_mgr_config	0	static
-C:/ncs/v2.5.0/modules/hal/nordic/nrfx/hal/nrf_reset.h:168:24:nrf_reset_network_force_off	24	static
-C:/ncs/v2.5.0/zephyr/boards/arm/nrf5340_audio_dk_nrf5340/nrf5340_audio_dk_cpunet_reset.c:53:12:remoteproc_mgr_boot	8	static

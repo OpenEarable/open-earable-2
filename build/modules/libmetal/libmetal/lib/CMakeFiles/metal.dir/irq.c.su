@@ -1,7 +1,0 @@
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/irq.c:16:12:metal_irq_allocate	8	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/irq.c:78:37:metal_irq_get_controller	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/irq.c:98:13:_metal_irq_set_enable	16	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/irq.c:50:5:metal_irq_register_controller	8	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/irq.c:109:5:metal_irq_register	24	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/irq.c:132:6:metal_irq_enable	8	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/irq.c:137:6:metal_irq_disable	8	static

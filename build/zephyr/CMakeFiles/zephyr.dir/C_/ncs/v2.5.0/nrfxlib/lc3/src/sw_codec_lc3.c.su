@@ -1,7 +1,0 @@
-C:/ncs/v2.5.0/nrfxlib/lc3/src/sw_codec_lc3.c:63:5:sw_codec_lc3_enc_run	144	dynamic,bounded
-C:/ncs/v2.5.0/nrfxlib/lc3/src/sw_codec_lc3.c:110:5:sw_codec_lc3_dec_run	104	dynamic,bounded
-C:/ncs/v2.5.0/nrfxlib/lc3/src/sw_codec_lc3.c:160:5:sw_codec_lc3_enc_uninit_all	64	dynamic,bounded
-C:/ncs/v2.5.0/nrfxlib/lc3/src/sw_codec_lc3.c:175:5:sw_codec_lc3_dec_uninit_all	64	dynamic,bounded
-C:/ncs/v2.5.0/nrfxlib/lc3/src/sw_codec_lc3.c:190:5:sw_codec_lc3_init	72	dynamic,bounded
-C:/ncs/v2.5.0/nrfxlib/lc3/src/sw_codec_lc3.c:263:5:sw_codec_lc3_enc_init	224	dynamic,bounded
-C:/ncs/v2.5.0/nrfxlib/lc3/src/sw_codec_lc3.c:317:5:sw_codec_lc3_dec_init	112	dynamic,bounded

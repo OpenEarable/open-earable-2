@@ -1,4 +1,0 @@
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac_prng.c:78:13:update	40	static
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac_prng.c:130:5:tc_hmac_prng_init	32	static
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac_prng.c:154:5:tc_hmac_prng_reseed	16	static
-C:/ncs/v2.5.0/modules/crypto/tinycrypt/lib/source/hmac_prng.c:192:5:tc_hmac_prng_generate	32	static

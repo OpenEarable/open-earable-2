@@ -1,6 +1,0 @@
-../src/bluetooth/bt_content_control/bt_content_ctrl.c:37:5:bt_content_ctrl_start	40	static
-../src/bluetooth/bt_content_control/bt_content_ctrl.c:60:5:bt_content_ctrl_stop	40	static
-../src/bluetooth/bt_content_control/bt_content_ctrl.c:83:5:bt_content_ctrl_conn_disconnected	56	dynamic,bounded
-../src/bluetooth/bt_content_control/bt_content_ctrl.c:97:5:bt_content_ctrl_discover	40	static
-../src/bluetooth/bt_content_control/bt_content_ctrl.c:112:5:bt_content_ctrl_uuid_populate	8	static
-../src/bluetooth/bt_content_control/bt_content_ctrl.c:125:5:bt_content_ctrl_init	40	static

@@ -1,7 +1,0 @@
-C:/ncs/v2.5.0/zephyr/kernel/timer.c:23:6:z_timer_expiration_handler	24	static
-C:/ncs/v2.5.0/zephyr/kernel/include/ksched.h:73:20:z_reschedule_unlocked	8	static
-C:/ncs/v2.5.0/zephyr/kernel/timer.c:109:6:k_timer_init	0	static
-C:/ncs/v2.5.0/zephyr/kernel/timer.c:131:6:z_impl_k_timer_start	16	static
-C:/ncs/v2.5.0/zephyr/kernel/timer.c:176:6:z_impl_k_timer_stop	8	static
-C:/ncs/v2.5.0/zephyr/kernel/timer.c:209:10:z_impl_k_timer_status_get	24	static
-C:/ncs/v2.5.0/zephyr/kernel/timer.c:229:10:z_impl_k_timer_status_sync	32	static

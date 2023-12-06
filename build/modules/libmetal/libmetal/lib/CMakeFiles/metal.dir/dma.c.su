@@ -1,2 +1,0 @@
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/dma.c:14:5:metal_dma_map	24	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/dma.c:39:6:metal_dma_unmap	24	static

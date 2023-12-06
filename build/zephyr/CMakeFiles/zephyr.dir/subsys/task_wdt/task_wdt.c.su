@@ -1,6 +1,0 @@
-C:/ncs/v2.5.0/zephyr/subsys/task_wdt/task_wdt.c:53:13:schedule_next_timeout	24	static
-C:/ncs/v2.5.0/zephyr/subsys/task_wdt/task_wdt.c:101:13:task_wdt_trigger	8	static
-C:/ncs/v2.5.0/zephyr/subsys/task_wdt/task_wdt.c:125:5:task_wdt_init	72	dynamic,bounded
-C:/ncs/v2.5.0/zephyr/subsys/task_wdt/task_wdt.c:186:5:task_wdt_delete	0	static
-C:/ncs/v2.5.0/zephyr/subsys/task_wdt/task_wdt.c:197:5:task_wdt_feed	24	static
-C:/ncs/v2.5.0/zephyr/subsys/task_wdt/task_wdt.c:153:5:task_wdt_add	16	static

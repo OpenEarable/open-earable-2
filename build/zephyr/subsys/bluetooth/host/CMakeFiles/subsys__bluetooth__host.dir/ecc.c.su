@@ -1,8 +1,0 @@
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/ecc.c:137:12:hci_generate_dhkey_v1	16	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/ecc.c:37:6:bt_pub_key_is_debug	8	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/ecc.c:42:5:bt_pub_key_gen	96	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/ecc.c:108:6:bt_pub_key_hci_disrupted	8	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/ecc.c:123:16:bt_pub_key_get	0	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/ecc.c:170:5:bt_dh_key_gen	64	dynamic,bounded
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/ecc.c:205:6:bt_hci_evt_le_pkey_complete	16	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/ecc.c:228:6:bt_hci_evt_le_dhkey_complete	8	static

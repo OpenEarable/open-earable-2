@@ -1,6 +1,0 @@
-C:/ncs/v2.5.0/zephyr/drivers/disk/sdmmc_subsys.c:112:12:disk_sdmmc_init	8	static
-C:/ncs/v2.5.0/zephyr/drivers/disk/sdmmc_subsys.c:92:12:disk_sdmmc_access_ioctl	8	static
-C:/ncs/v2.5.0/zephyr/drivers/disk/sdmmc_subsys.c:83:12:disk_sdmmc_access_write	8	static
-C:/ncs/v2.5.0/zephyr/drivers/disk/sdmmc_subsys.c:74:12:disk_sdmmc_access_read	8	static
-C:/ncs/v2.5.0/zephyr/drivers/disk/sdmmc_subsys.c:58:12:disk_sdmmc_access_status	8	static
-C:/ncs/v2.5.0/zephyr/drivers/disk/sdmmc_subsys.c:33:12:disk_sdmmc_access_init	16	static

@@ -1,5 +1,0 @@
-C:/ncs/v2.5.0/zephyr/modules/fatfs/zfs_diskio.c:20:9:disk_status	8	static
-C:/ncs/v2.5.0/zephyr/modules/fatfs/zfs_diskio.c:32:9:disk_initialize	8	static
-C:/ncs/v2.5.0/zephyr/modules/fatfs/zfs_diskio.c:44:9:disk_read	8	static
-C:/ncs/v2.5.0/zephyr/modules/fatfs/zfs_diskio.c:57:9:disk_write	8	static
-C:/ncs/v2.5.0/zephyr/modules/fatfs/zfs_diskio.c:69:9:disk_ioctl	16	static

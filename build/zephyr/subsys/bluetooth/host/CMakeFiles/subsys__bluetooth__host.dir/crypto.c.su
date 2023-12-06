@@ -1,7 +1,0 @@
-C:/ncs/v2.5.0/zephyr/include/zephyr/sys/byteorder.h:554:20:sys_mem_swap	4	static
-C:/ncs/v2.5.0/zephyr/include/zephyr/sys/byteorder.h:528:20:sys_memcpy_swap	8	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/crypto.c:35:12:prng_reseed	96	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/crypto.c:58:5:prng_init	48	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/crypto.c:79:5:bt_rand	16	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/crypto.c:114:5:bt_encrypt_le	208	static
-C:/ncs/v2.5.0/zephyr/subsys/bluetooth/host/crypto.c:146:5:bt_encrypt_be	192	static

@@ -1,6 +1,0 @@
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_ops.h:18:20:z_shell_raw_fprintf	12	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_help.c:19:13:formatted_text_print	32	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_help.c:109:13:help_item_print	40	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_help.c:151:6:z_shell_help_subcmd_print	48	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_help.c:182:6:z_shell_help_cmd_print	32	static
-C:/ncs/v2.5.0/zephyr/subsys/shell/shell_help.c:195:6:z_shell_help_request	8	static

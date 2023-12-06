@@ -1,5 +1,0 @@
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/log.c:13:6:metal_default_log_handler	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/log.c:44:6:metal_set_log_handler	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/log.c:49:19:metal_get_log_handler	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/log.c:54:6:metal_set_log_level	0	static
-C:/ncs/v2.5.0/modules/hal/libmetal/libmetal/lib/log.c:59:22:metal_get_log_level	0	static

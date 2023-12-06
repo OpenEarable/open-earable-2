@@ -1,3 +1,0 @@
-C:/ncs/v2.5.0/zephyr/include/zephyr/sys/slist.h:408:1:sys_slist_remove	0	static
-C:/ncs/v2.5.0/zephyr/subsys/zbus/zbus_runtime_observers.c:11:5:zbus_chan_add_obs	56	static
-C:/ncs/v2.5.0/zephyr/subsys/zbus/zbus_runtime_observers.c:68:5:zbus_chan_rm_obs	24	static

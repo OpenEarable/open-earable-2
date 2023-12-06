@@ -1,3 +1,0 @@
-C:/ncs/v2.5.0/modules/fs/fatfs/option/ffunicode.c:15222:7:ff_uni2oem	0	static
-C:/ncs/v2.5.0/modules/fs/fatfs/option/ffunicode.c:15244:7:ff_oem2uni	0	static
-C:/ncs/v2.5.0/modules/fs/fatfs/option/ffunicode.c:15464:7:ff_wtoupper	12	static
