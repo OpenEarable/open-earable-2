@@ -38,65 +38,6 @@ static size_t per_adv_local_size;
 /* Bonded address queue */
 K_MSGQ_DEFINE(bonds_queue, sizeof(bt_addr_le_t), BONDS_QUEUE_SIZE, 4);
 
-//////
-//#define BT_UUID_LBS_VAL \
-	BT_UUID_128_ENCODE(0x00001523, 0x1212, 0xefde, 0x1523, 0x785feabcd123)
-
-/** @brief Button Characteristic UUID. */
-//#define BT_UUID_LBS_BUTTON_VAL \
-	BT_UUID_128_ENCODE(0x00001524, 0x1212, 0xefde, 0x1523, 0x785feabcd123)
-
-/** @brief LED Characteristic UUID. */
-//#define BT_UUID_LBS_LED_VAL \
-	BT_UUID_128_ENCODE(0x00001525, 0x1212, 0xefde, 0x1523, 0x785feabcd123)
-
-
-/*#define BT_UUID_LBS           BT_UUID_DECLARE_128(BT_UUID_LBS_VAL)
-#define BT_UUID_LBS_BUTTON    BT_UUID_DECLARE_128(BT_UUID_LBS_BUTTON_VAL)
-#define BT_UUID_LBS_LED       BT_UUID_DECLARE_128(BT_UUID_LBS_LED_VAL)
-
-bool notify_enabled;
-
-static void lbslc_ccc_cfg_changed(const struct bt_gatt_attr *attr,
-				  uint16_t value)
-{
-	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
-}
-
-static ssize_t write_led(struct bt_conn *conn,
-			 const struct bt_gatt_attr *attr,
-			 const void *buf,
-			 uint16_t len, uint16_t offset, uint8_t flags)
-{
-	printk("Attribute write, handle: %u, conn: %p", attr->handle,
-		(void *)conn);
-
-	if (len != 3U) {
-		printk("Write led: Incorrect data length");
-		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
-	}
-
-	if (offset != 0) {
-		printk("Write led: Incorrect data offset");
-		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
-	}
-
-    //earable_led.set_color((uint8_t*)buf);
-
-	return len;
-}
-
-BT_GATT_SERVICE_DEFINE(lbs_svc,
-BT_GATT_PRIMARY_SERVICE(BT_UUID_LBS),
-    BT_GATT_CCC(lbslc_ccc_cfg_changed,
-            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
-    BT_GATT_CHARACTERISTIC(BT_UUID_LBS_LED,
-                BT_GATT_CHRC_WRITE,
-                BT_GATT_PERM_WRITE,
-                NULL, write_led, NULL),
-);*/
-//////
-
 static void bond_find(const struct bt_bond_info *info, void *user_data)
 {
 	int ret;

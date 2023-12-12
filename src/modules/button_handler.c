@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include "button_handler.h"
+//#include "button_handler.h"
+#include "../buttons/button_manager.h"
 #include "button_assignments.h"
 
 #include <zephyr/kernel.h>

@@ -84,6 +84,7 @@ add_subdirectory(src/utils)
 add_subdirectory(src/Wire)
 add_subdirectory(src/SensorManager)
 add_subdirectory(src/led_service)
+add_subdirectory(src/buttons)
 
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)

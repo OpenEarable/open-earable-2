@@ -24,7 +24,7 @@
 #include "nrf5340_audio_common.h"
 #include "fw_info_app.h"
 #include "led.h"
-#include "button_handler.h"
+//#include "button_handler.h"
 #include "button_assignments.h"
 #include "nrfx_clock.h"
 #include "sd_card.h"
@@ -39,9 +39,11 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 #include "SensorManager/SensorManager.h"
 //#include "led_service/LED.h"
 #include "led_service/LED_Service.h"
+#include "buttons/Button.h"
 
 #include "device_info.h"
 #include "battery_service.h"
+#include "gatt_manager.h"
 
 static struct board_version board_rev;
 
@@ -104,20 +106,24 @@ static int channel_assign_check(void)
 	int ret;
 	bool pressed;
 
-	ret = button_pressed(BUTTON_VOLUME_DOWN, &pressed);
-	if (ret) {
+	//ret = button_pressed(BUTTON_VOLUME_DOWN, &pressed);
+	pressed = volume_down_btn.getState() == BUTTON_PRESS;
+	printk("%i\n", volume_down_btn.getState());
+	/*if (ret) {
 		return ret;
-	}
+	}*/
 
 	if (pressed) {
 		channel_assignment_set(AUDIO_CH_L);
 		return 0;
 	}
 
-	ret = button_pressed(BUTTON_VOLUME_UP, &pressed);
-	if (ret) {
+	pressed = volume_up_btn.getState() == BUTTON_PRESS;
+
+	//ret = button_pressed(BUTTON_VOLUME_UP, &pressed);
+	/*if (ret) {
 		return ret;
-	}
+	}*/
 
 	if (pressed) {
 		channel_assignment_set(AUDIO_CH_R);
@@ -156,8 +162,14 @@ int main(void) {
 	led_service.begin();
 	//earable_led.init();
 
-	ret = button_handler_init();
-	ERR_CHK(ret);
+	earable_btn.begin();
+	volume_down_btn.begin();
+	volume_up_btn.begin();
+	four_btn.begin();
+	five_btn.begin();
+
+	//ret = button_handler_init();
+	//ERR_CHK(ret);
 
 	channel_assignment_init();
 
@@ -185,33 +197,16 @@ int main(void) {
 	ret = bt_mgmt_init();
 	ERR_CHK(ret);
 
+	ret = gatt_init();
+	ERR_CHK(ret);
+
 	ret = leds_set();
 	ERR_CHK(ret);
 
 	//SensorManager::manager.start();
 
+	//earable_btn.begin();
+
     ret = streamctrl_start();
 	ERR_CHK(ret);
-
-	/* Initialize the Bluetooth Subsystem */
-	/*ret = bt_enable(NULL);
-	if (ret) {
-		printk("Bluetooth init failed (err %d)\n", ret);
-		return 0;
-	}
-
-	printk("Bluetooth initialized\n");
-
-	if (IS_ENABLED(CONFIG_SETTINGS)) {
-		settings_load();
-	}*/
-
-	/*const bt_le_adv_param adv_param = BT_LE_ADV_PARAM_INIT(BT_LE_ADV_OPT_CONNECTABLE, BT_GAP_ADV_FAST_INT_MIN_2, BT_GAP_ADV_FAST_INT_MAX_2, NULL);
-
-	ret = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-
-	if (ret) {
-		printk("Advertising failed to start (err %d)\n", ret);
-		return 0;
-	}*/
 }

@@ -19,6 +19,7 @@ extern const nrfx_timer_t audio_sync_timer_instance;
 /***** Messages for zbus ******/
 
 enum button_action {
+	BUTTON_RELEASED = 0,
 	BUTTON_PRESS = 1,
 };
 

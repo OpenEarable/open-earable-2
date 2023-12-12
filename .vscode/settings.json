@@ -31,7 +31,17 @@
         "array": "c",
         "functional": "c",
         "tuple": "c",
-        "utility": "c"
+        "utility": "c",
+        "bas_client.h": "c",
+        "gatt_dm.h": "c",
+        "shell.h": "c",
+        "button_manager.h": "c",
+        "le_audio.h": "c",
+        "button_handler.h": "c",
+        "bt_mgmt_ctlr_cfg_internal.h": "c",
+        "settings.h": "c",
+        "bt_mgmt.h": "c",
+        "gatt_manager.h": "c"
     },
     "C_Cpp.default.compilerPath": "/opt/nordic/ncs/toolchains/20d68df7e5/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-g++"
 }

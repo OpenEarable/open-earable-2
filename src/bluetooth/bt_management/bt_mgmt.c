@@ -15,7 +15,9 @@
 
 #include "macros_common.h"
 #include "nrf5340_audio_common.h"
-#include "button_handler.h"
+//#include "button_handler.h"
+#include "../buttons/button_manager.h"
+//#include "../buttons/Button.h"
 #include "button_assignments.h"
 #include "ble_hci_vsc.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
@@ -234,10 +236,12 @@ static int bonding_clear_check(void)
 	int ret;
 	bool pressed;
 
-	ret = button_pressed(BUTTON_5, &pressed);
-	if (ret) {
+	//ret = button_pressed(BUTTON_5, &pressed);
+	/*if (ret) {
 		return ret;
-	}
+	}*/
+
+	pressed = button_pressed(BUTTON_5); //five_btn.getState() == PRESSED;
 
 	if (pressed) {
 		ret = bt_mgmt_bonding_clear();

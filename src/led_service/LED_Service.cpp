@@ -24,8 +24,8 @@ static ssize_t write_led(struct bt_conn *conn,
 }
 
 BT_GATT_SERVICE_DEFINE(rgb_led_svc,
-BT_GATT_PRIMARY_SERVICE(BT_UUID_LBS),
-    BT_GATT_CHARACTERISTIC(BT_UUID_LBS_LED,
+BT_GATT_PRIMARY_SERVICE(BT_UUID_LED),
+    BT_GATT_CHARACTERISTIC(BT_UUID_LED_STATE,
                 BT_GATT_CHRC_WRITE,
                 BT_GATT_PERM_WRITE,
                 NULL, write_led, NULL),
