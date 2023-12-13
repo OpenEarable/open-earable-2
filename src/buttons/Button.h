@@ -37,7 +37,7 @@ private:
     const static struct gpio_dt_spec buttons[];
 
     const struct gpio_dt_spec button; // = GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
-    struct gpio_callback button_cb_data;
+    static struct gpio_callback button_cb_data;
 
     button_action _buttonState = BUTTON_RELEASED;
 

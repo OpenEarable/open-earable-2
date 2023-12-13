@@ -2,6 +2,8 @@
 
 #include "button_manager.h"
 
+struct gpio_callback Button::button_cb_data;
+
 const struct gpio_dt_spec Button::buttons[] = {
 	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0}), // BUTTON_VOLUME_DOWN
 	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}), // BUTTON_VOLUME_UP
@@ -65,6 +67,8 @@ void Button::begin() {
     reading = _inverted ^ reading;
 
     if (reading) _buttonState = BUTTON_PRESS;
+
+	printk("mask:%i\n", button_cb_data.pin_mask);
 }
 
 void Button::end() {
@@ -90,12 +94,15 @@ void Button::_read_state() {
     if (!reading) {
         if (_buttonState != BUTTON_RELEASED) {
             //button_service.write_state(RELEASED);
-            printk("Button released at %" PRIu32 "\n", now);
+            //printk("Button released at %" PRIu32 "\n", now);
+
+			_buttonState = BUTTON_RELEASED;
+			_lastDebounceTime = now;
+
+			ret = update_state();
         }
         _buttonState = BUTTON_RELEASED;
         _lastDebounceTime = now;
-
-		ret = update_state();
 		
         return;
     }
@@ -103,7 +110,7 @@ void Button::_read_state() {
     if (now - _lastDebounceTime < _debounceDelay) return;
     _buttonState = BUTTON_PRESS;
     //button_service.write_state(_buttonState);
-    printk("Button pressed at %" PRIu32 "\n", now);
+    //printk("Button pressed at %" PRIu32 "\n", now);
 
 	ret = update_state();
 }

@@ -1,6 +1,6 @@
 #include "button_service.h"
 
-static uint8_t button_state = 0;
+static uint8_t button_state = BUTTON_RELEASED;
 
 static bool notify_enabled;
 
