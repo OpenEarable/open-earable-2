@@ -1,0 +1,34 @@
+//#pragma once
+
+#ifndef SENSOR_SERVICE_H
+#define SENSOR_SERVICE_H
+
+#include <zephyr/bluetooth/gatt.h>
+#include "nrf5340_audio_common.h"
+
+#define BT_UUID_SENSOR_VAL \
+	BT_UUID_128_ENCODE(0x34c2e3bb, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)
+
+/** @brief Sensor Characteristic UUID. */
+#define BT_UUID_SENSOR_CONFIG_VAL \
+    BT_UUID_128_ENCODE(0x34c2e3bd, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)
+
+#define BT_UUID_SENSOR_DATA_VAL \
+    BT_UUID_128_ENCODE(0x34c2e3bc, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)
+
+#define BT_UUID_SENSOR             BT_UUID_DECLARE_128(BT_UUID_SENSOR_VAL)
+#define BT_UUID_SENSOR_CONFIG      BT_UUID_DECLARE_128(BT_UUID_SENSOR_CONFIG_VAL)
+#define BT_UUID_SENSOR_DATA        BT_UUID_DECLARE_128(BT_UUID_SENSOR_DATA_VAL)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int init_sensor_service();
+//int send_sensor_data(); //struct sensor_data * data);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

@@ -41,7 +41,8 @@
         "bt_mgmt_ctlr_cfg_internal.h": "c",
         "settings.h": "c",
         "bt_mgmt.h": "c",
-        "gatt_manager.h": "c"
+        "gatt_manager.h": "c",
+        "initializer_list": "cpp"
     },
     "C_Cpp.default.compilerPath": "/opt/nordic/ncs/toolchains/20d68df7e5/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-g++"
 }

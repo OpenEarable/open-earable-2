@@ -89,7 +89,7 @@ void Button::_read_state() {
     reading = _inverted ^ reading;
 
     //CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER
-    unsigned long now = k_cycle_get_32();
+    unsigned long now = k_cyc_to_ms_floor32(k_cycle_get_32());
 
     if (!reading) {
         if (_buttonState != BUTTON_RELEASED) {
@@ -122,7 +122,7 @@ int Button::update_state() {
 	msg.button_pin = button.pin;
 	msg.button_action = _buttonState;
 
-	ret = k_msgq_put(&button_queue, (void *)&msg, K_NO_WAIT);
+	ret = k_msgq_put(&button_queue, &msg, K_NO_WAIT);
 	if (ret == -EAGAIN) {
 		//LOG_WRN("Btn msg queue full");
 		printk("Btn msg queue full");

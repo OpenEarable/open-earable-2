@@ -16,6 +16,15 @@
 #define BT_UUID_BUTTON             BT_UUID_DECLARE_128(BT_UUID_BUTTON_VAL)
 #define BT_UUID_BUTTON_STATE       BT_UUID_DECLARE_128(BT_UUID_BUTTON_STATE_VAL)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int init_button_service();
 int bt_send_button_state(enum button_action _button_state);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

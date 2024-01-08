@@ -43,7 +43,8 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
 #include "device_info.h"
 #include "battery_service.h"
-#include "gatt_manager.h"
+#include "button_service.h"
+#include "sensor_service.h"
 
 static struct board_version board_rev;
 
@@ -103,7 +104,7 @@ static int leds_set(void)
 static int channel_assign_check(void)
 {
 #if (CONFIG_AUDIO_DEV == HEADSET) && CONFIG_AUDIO_HEADSET_CHANNEL_RUNTIME
-	int ret;
+	//int ret;
 	bool pressed;
 
 	//ret = button_pressed(BUTTON_VOLUME_DOWN, &pressed);
@@ -194,10 +195,20 @@ int main(void) {
 		}
 	}
 
+	sensor_config imu_config = {ID_IMU, 40, 0};
+	sensor_config baro_config = {ID_TEMP_BARO, 20, 0};
+
+	SensorManager::manager.start();
+	//SensorManager::manager.config(&baro_config);
+	SensorManager::manager.config(&imu_config);
+
 	ret = bt_mgmt_init();
 	ERR_CHK(ret);
 
-	ret = gatt_init();
+	ret = init_button_service();
+	ERR_CHK(ret);
+
+	ret = init_sensor_service();
 	ERR_CHK(ret);
 
 	ret = leds_set();

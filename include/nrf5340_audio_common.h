@@ -16,6 +16,29 @@
 
 extern const nrfx_timer_t audio_sync_timer_instance;
 
+#define SENSOR_DATA_FIXED_LENGTH 12
+
+enum sensor_id {
+	ID_IMU,
+	ID_TEMP_BARO,
+};
+
+//#include "nrfx"
+
+struct sensor_data {
+    uint8_t id;
+    uint8_t size;
+    uint32_t time;
+    float data[SENSOR_DATA_FIXED_LENGTH];
+    //uint8_t * data;
+};
+
+struct sensor_config {
+    uint8_t sensorId;
+    float sampleRate;
+    uint32_t latency;
+};
+
 /***** Messages for zbus ******/
 
 enum button_action {
