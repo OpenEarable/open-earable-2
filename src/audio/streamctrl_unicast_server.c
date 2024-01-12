@@ -27,7 +27,8 @@
 LOG_MODULE_REGISTER(streamctrl_unicast_server, CONFIG_STREAMCTRL_LOG_LEVEL);
 
 ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
-ZBUS_SUBSCRIBER_DEFINE(le_audio_evt_sub, CONFIG_LE_AUDIO_MSG_SUB_QUEUE_SIZE);
+
+ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
 
 ZBUS_CHAN_DECLARE(button_chan);
 ZBUS_CHAN_DECLARE(le_audio_chan);
@@ -73,7 +74,7 @@ static void button_msg_sub_thread(void)
 		LOG_DBG("Got btn evt from queue - id = %d, action = %d", msg.button_pin,
 			msg.button_action);
 
-		if (msg.button_action == BUTTON_RELEASED) continue;
+if (msg.button_action == BUTTON_RELEASED) continue;
 
 		if (msg.button_action != BUTTON_PRESS) {
 			LOG_WRN("Unhandled button action");
@@ -175,12 +176,9 @@ static void le_audio_msg_sub_thread(void)
 	const struct zbus_channel *chan;
 
 	while (1) {
-		ret = zbus_sub_wait(&le_audio_evt_sub, &chan, K_FOREVER);
-		ERR_CHK(ret);
-
 		struct le_audio_msg msg;
 
-		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
+		ret = zbus_sub_wait_msg(&le_audio_evt_sub, &chan, &msg, K_FOREVER);
 		ERR_CHK(ret);
 
 		LOG_DBG("Received event = %d, current state = %d", msg.event, strm_state);
@@ -302,12 +300,12 @@ static int zbus_subscribers_create(void)
 }
 
 /**
- * @brief	Zbus listener to receive events from bt_mgmt
+ * @brief	Zbus listener to receive events from bt_mgmt.
  *
  * @param[in]	chan	Zbus channel.
  *
  * @note	Will in most cases be called from BT_RX context,
- *		so there should not be too much processing done here
+ *		so there should not be too much processing done here.
  */
 static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 {
@@ -356,7 +354,7 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 	}
 }
 
-ZBUS_LISTENER_DEFINE(bt_mgmt_evt_sub, bt_mgmt_evt_handler);
+ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen, bt_mgmt_evt_handler);
 
 /**
  * @brief	Link zbus producers and observers.
@@ -367,7 +365,7 @@ static int zbus_link_producers_observers(void)
 {
 	int ret;
 
-	if (!IS_ENABLED(CONFIG_ZBUS) || (CONFIG_ZBUS_RUNTIME_OBSERVERS_POOL_SIZE <= 0)) {
+	if (!IS_ENABLED(CONFIG_ZBUS)) {
 		return -ENOTSUP;
 	}
 
@@ -383,7 +381,7 @@ static int zbus_link_producers_observers(void)
 		return ret;
 	}
 
-	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
+	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
 		LOG_ERR("Failed to add bt_mgmt sub");
 		return ret;

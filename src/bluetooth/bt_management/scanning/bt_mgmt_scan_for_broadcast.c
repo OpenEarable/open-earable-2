@@ -24,7 +24,7 @@ LOG_MODULE_DECLARE(bt_mgmt_scan);
  * an invalid broadcast ID.
  */
 #define INVALID_BROADCAST_ID 0xFFFFFFFF
-#define PA_SYNC_SKIP	     5
+#define PA_SYNC_SKIP	     2
 /* Similar to retries for connections */
 #define SYNC_RETRY_COUNT     6
 
@@ -41,6 +41,38 @@ struct broadcast_source {
 	char name[BLE_SEARCH_NAME_MAX_LEN];
 	uint32_t broadcast_id;
 };
+
+static void scan_restart_worker(struct k_work *work)
+{
+	int ret;
+
+	ret = bt_le_scan_stop();
+	if (ret && ret != -EALREADY) {
+		LOG_WRN("Stop scan failed: %d", ret);
+	}
+
+	/* Delete pending PA sync before restarting scan */
+	ret = bt_mgmt_pa_sync_delete(pa_sync);
+	if (ret) {
+		LOG_WRN("Failed to delete pending PA sync: %d", ret);
+	}
+
+	ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_BROADCAST, NULL);
+	if (ret) {
+		LOG_WRN("Failed to restart scanning for broadcast: %d", ret);
+	}
+}
+
+K_WORK_DEFINE(scan_restart_work, scan_restart_worker);
+
+static void pa_sync_timeout(struct k_timer *timer)
+{
+	LOG_WRN("PA sync create timed out, restarting scanning");
+
+	k_work_submit(&scan_restart_work);
+}
+
+K_TIMER_DEFINE(pa_sync_timer, pa_sync_timeout, NULL);
 
 static uint16_t interval_to_sync_timeout(uint16_t interval)
 {
@@ -66,11 +98,6 @@ static void periodic_adv_sync(const struct bt_le_scan_recv_info *info, uint32_t 
 	bt_le_scan_cb_unregister(&scan_callback);
 	scan_cb_registered = false;
 
-	ret = bt_le_scan_stop();
-	if (ret) {
-		LOG_WRN("Stop scan failed: %d", ret);
-	}
-
 	bt_addr_le_copy(&param.addr, info->addr);
 	param.options = 0;
 	param.sid = info->sid;
@@ -79,9 +106,16 @@ static void periodic_adv_sync(const struct bt_le_scan_recv_info *info, uint32_t 
 
 	broadcaster_broadcast_id = broadcast_id;
 
+	/* Set timeout to same value as PA sync timeout in ms */
+	k_timer_start(&pa_sync_timer, K_MSEC(param.timeout * 10), K_NO_WAIT);
+
 	ret = bt_le_per_adv_sync_create(&param, &pa_sync);
 	if (ret) {
 		LOG_ERR("Could not sync to PA: %d", ret);
+		ret = bt_mgmt_pa_sync_delete(pa_sync);
+		if (ret) {
+			LOG_ERR("Could not delete PA sync: %d", ret);
+		}
 		return;
 	}
 }
@@ -172,6 +206,13 @@ static void pa_synced_cb(struct bt_le_per_adv_sync *sync,
 
 	LOG_DBG("PA synced");
 
+	k_timer_stop(&pa_sync_timer);
+
+	ret = bt_le_scan_stop();
+	if (ret && ret != -EALREADY) {
+		LOG_WRN("Stop scan failed: %d", ret);
+	}
+
 	msg.event = BT_MGMT_PA_SYNCED;
 	msg.pa_sync = sync;
 	msg.broadcast_id = broadcaster_broadcast_id;
@@ -190,6 +231,7 @@ static void pa_sync_terminated_cb(struct bt_le_per_adv_sync *sync,
 
 	msg.event = BT_MGMT_PA_SYNC_LOST;
 	msg.pa_sync = sync;
+	msg.pa_sync_term_reason = info->reason;
 
 	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
 	ERR_CHK(ret);
@@ -217,9 +259,11 @@ int bt_mgmt_scan_for_broadcast_start(struct bt_le_scan_param *scan_param, char c
 		if (name == srch_name) {
 			return -EALREADY;
 		}
-		/* Already scanning, stop current scan to update param in case it has changed */
+		/* Might already be scanning, stop current scan to update param in case it has
+		 * changed.
+		 */
 		ret = bt_le_scan_stop();
-		if (ret) {
+		if (ret && ret != -EALREADY) {
 			LOG_ERR("Failed to stop scan: %d", ret);
 			return ret;
 		}

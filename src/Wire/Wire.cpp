@@ -31,7 +31,9 @@ void arduino::MbedI2C::begin() {
 	//end();
 	//master = new mbed::I2C(_sda, _scl);
 	if (master == NULL || !device_is_ready(master)) {
-    	master = device_get_binding(I2C_DEV_LABEL);
+    	//master = device_get_binding(I2C_DEV_LABEL);
+		master = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+		__ASSERT(master != NULL, "I2C_DEV_LABEL not found!");
 	}
 }
 

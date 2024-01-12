@@ -27,6 +27,12 @@
 #include "bt_mgmt_dfu_internal.h"
 #endif
 
+#if (CONFIG_BT_LL_ACS_NRF53)
+#include "ble_hci_vsc.h"
+#endif /* (CONFIG_BT_LL_ACS_NRF53) */
+
+#include <zephyr/bluetooth/gatt.h>
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
 
@@ -45,6 +51,9 @@ ZBUS_CHAN_DEFINE(bt_mgmt_chan, struct bt_mgmt_msg, NULL, NULL, ZBUS_OBSERVERS_EM
 #endif
 
 K_SEM_DEFINE(sem_bt_enabled, 0, 1);
+
+//Michael
+struct bt_gatt_exchange_params exchange_params;
 
 /**
  * @brief	Iterative function used to find connected conns
@@ -71,13 +80,32 @@ static void conn_state_connected_check(struct bt_conn *conn, void *data)
 	(*num_conn)++;
 }
 
+static void exchange_func(struct bt_conn *conn, uint8_t att_err,
+			  struct bt_gatt_exchange_params *params)
+{
+	struct bt_conn_info info = {0};
+	int err;
+
+	printk("MTU exchange %s\n", att_err == 0 ? "successful" : "failed");
+	printk("MTU size is: %d\n", bt_gatt_get_mtu(conn));
+
+	err = bt_conn_get_info(conn, &info);
+	if (err) {
+		printk("Failed to get connection info %d\n", err);
+		return;
+	}
+
+	/*if (info.role == BT_CONN_ROLE_MASTER) {
+		instruction_print();
+		//test_ready = true;
+	}*/
+}
+
 static void connected_cb(struct bt_conn *conn, uint8_t err)
 {
 	int ret;
 	char addr[BT_ADDR_LE_STR_LEN] = {0};
 	uint8_t num_conn = 0;
-	uint16_t conn_handle;
-	enum ble_hci_vs_tx_power conn_tx_pwr;
 	struct bt_mgmt_msg msg;
 
 	(void)bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
@@ -119,6 +147,10 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 		}
 	}
 
+#if (CONFIG_BT_LL_ACS_NRF53)
+	enum ble_hci_vs_tx_power conn_tx_pwr;
+	uint16_t conn_handle;
+
 	ret = bt_hci_get_conn_handle(conn, &conn_handle);
 	if (ret) {
 		LOG_ERR("Unable to get conn handle");
@@ -136,6 +168,17 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 			LOG_DBG("TX power set to %d dBm for connection %p", conn_tx_pwr,
 				(void *)conn);
 		}
+	}
+#endif /* (CONFIG_BT_LL_ACS_NRF53) */
+	exchange_params.func = exchange_func;
+
+	printk("MTU size is: %d\n", bt_gatt_get_mtu(conn));
+
+	err = bt_gatt_exchange_mtu(conn, &exchange_params);
+	if (err) {
+		printk("MTU exchange failed (err %d)\n", err);
+	} else {
+		printk("MTU exchange pending\n");
 	}
 
 	msg.event = BT_MGMT_CONNECTED;

@@ -20,6 +20,11 @@ LOG_MODULE_REGISTER(sw_codec_select, CONFIG_SW_CODEC_SELECT_LOG_LEVEL);
 
 static struct sw_codec_config m_config;
 
+bool sw_codec_is_initialized(void)
+{
+	return m_config.initialized;
+}
+
 int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, size_t *encoded_size)
 {
 	/* Temp storage for split stereo PCM signal */
@@ -50,7 +55,7 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 			return ret;
 		}
 
-		switch (m_config.encoder.num_ch) {
+		switch (m_config.encoder.channel_mode) {
 		case SW_CODEC_MONO: {
 			ret = sw_codec_lc3_enc_run(pcm_data_mono[m_config.encoder.audio_ch],
 						   pcm_block_size_mono, LC3_USE_BITRATE_FROM_INIT,
@@ -82,7 +87,8 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 			break;
 		}
 		default:
-			LOG_ERR("Unsupported number of channels: %d", m_config.encoder.num_ch);
+			LOG_ERR("Unsupported channel mode for encoder: %d",
+				m_config.encoder.channel_mode);
 			return -ENODEV;
 		}
 
@@ -121,7 +127,7 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 		/* Typically used for right channel if stereo signal */
 		char pcm_data_mono_right[PCM_NUM_BYTES_MONO] = {0};
 
-		switch (m_config.decoder.num_ch) {
+		switch (m_config.decoder.channel_mode) {
 		case SW_CODEC_MONO: {
 			if (bad_frame && IS_ENABLED(CONFIG_SW_CODEC_OVERRIDE_PLC)) {
 				memset(pcm_data_mono, 0, PCM_NUM_BYTES_MONO);
@@ -178,7 +184,8 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 			break;
 		}
 		default:
-			LOG_ERR("Unsupported number of channels: %d", m_config.encoder.num_ch);
+			LOG_ERR("Unsupported channel mode for decoder: %d",
+				m_config.decoder.channel_mode);
 			return -ENODEV;
 		}
 
@@ -222,6 +229,7 @@ int sw_codec_uninit(struct sw_codec_config sw_codec_cfg)
 				LOG_WRN("Trying to uninit decoder, it has not been initialized");
 				return -EALREADY;
 			}
+
 			ret = sw_codec_lc3_dec_uninit_all();
 			if (ret) {
 				return ret;
@@ -234,6 +242,9 @@ int sw_codec_uninit(struct sw_codec_config sw_codec_cfg)
 		LOG_ERR("Unsupported codec: %d", m_config.sw_codec);
 		return false;
 	}
+
+	m_config.initialized = false;
+
 	return 0;
 }
 
@@ -298,11 +309,14 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 		return -ENODEV;
 #endif /* (CONFIG_SW_CODEC_LC3) */
 	}
+
 	default:
 		LOG_ERR("Unsupported codec: %d", sw_codec_cfg.sw_codec);
 		return false;
 	}
 
 	m_config = sw_codec_cfg;
+	m_config.initialized = true;
+
 	return 0;
 }

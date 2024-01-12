@@ -32,6 +32,7 @@
 #include "board_version.h"
 #include "channel_assignment.h"
 #include "streamctrl.h"
+#include "sd_card_playback.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
@@ -215,8 +216,6 @@ int main(void) {
 	ERR_CHK(ret);
 
 	//SensorManager::manager.start();
-
-	//earable_btn.begin();
 
     ret = streamctrl_start();
 	ERR_CHK(ret);

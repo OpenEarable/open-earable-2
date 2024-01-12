@@ -71,6 +71,9 @@ static void write_button_gatt(void)
 		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
 
+		/*ret = zbus_sub_wait_msg(&button_gatt_sub, &chan, &msg, K_FOREVER);
+		ERR_CHK(ret);*/
+
 		if (msg.button_pin == BUTTON_PLAY_PAUSE) {
 			bt_send_button_state(msg.button_action);
 		}

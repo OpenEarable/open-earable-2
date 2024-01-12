@@ -1,6 +1,7 @@
 #include "sensor_service.h"
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
+//#include <
 
 #include "macros_common.h"
 #include "nrf5340_audio_common.h"
@@ -16,14 +17,21 @@ ZBUS_SUBSCRIBER_DEFINE(sensor_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 
 ZBUS_CHAN_DECLARE(sensor_chan);
 
-K_THREAD_STACK_DEFINE(sensor_gatt_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE);
+K_THREAD_STACK_DEFINE(sensor_gatt_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
 
 //extern const k_tid_t sensor_publish;
 
 static struct sensor_data data;
 static struct sensor_config config;
 
-static bool notify_sensor_enabled;
+static bool notify_sensor_enabled = false;
+
+//k_work gatt_sensor_work;
+
+static void gatt_work_handler(struct k_work * work);
+int send_sensor_data();
+
+K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
 
 static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
@@ -80,6 +88,14 @@ BT_GATT_CCC(sensor_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
+static void gatt_work_handler(struct k_work * work) {
+	//send_sensor_data();
+	if (notify_sensor_enabled) {
+		int ret = send_sensor_data();
+		//ERR_CHK(ret);
+	}
+}
+
 int send_sensor_data() { //struct sensor_data * _data
 
 	if (!notify_sensor_enabled) {
@@ -87,7 +103,7 @@ int send_sensor_data() { //struct sensor_data * _data
 	}
 
 	//const uint16_t size = sizeof(_data->id) + sizeof(_data->size) + sizeof(_data->time) + _data->size;
-	const uint16_t size = sizeof(data.id) + sizeof(data.size) + sizeof(data.time) + data.size;
+	const uint16_t size = sizeof(data.id) + sizeof(data.size) + sizeof(data.time) + data.size; //sizeof(float)*6; 
 
 	return bt_gatt_notify(NULL, &sensor_service.attrs[4], &data, size);
 }
@@ -112,6 +128,11 @@ static void sensor_gatt_task(void)
 
 		ret = zbus_chan_read(chan, &data, ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
+
+		//ret = zbus_sub_wait_msg(&sensor_gatt_sub, &chan, &data, K_FOREVER);
+		//ERR_CHK(ret);
+
+		
 
 		//printk("rec: %i\n", msg.id);
 
@@ -152,10 +173,15 @@ static void sensor_gatt_task(void)
 
 		if (count >= 100) {
 			count = 0;
-			printk("imu: %.3f, baro: %.3f\n", 1000 / t_imu, 1000 / t_baro);
+			printk("imu: %.3f, baro: %.3f, enabled: %i\n", 1000 / t_imu, 1000 / t_baro, notify_sensor_enabled);
 		}
+
+		//if (notify_sensor_enabled) ret = send_sensor_data();
+		//ERR_CHK(ret);
+
+		k_work_submit(&gatt_sensor_work);
 		
-		send_sensor_data();
+		//send_sensor_data();
 
 		STACK_USAGE_PRINT("sensor_msg_thread", &sensor_gatt_thread_data);
 	}

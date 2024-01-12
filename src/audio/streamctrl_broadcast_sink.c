@@ -32,7 +32,8 @@ struct ble_iso_data {
 } __packed;
 
 ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
-ZBUS_SUBSCRIBER_DEFINE(le_audio_evt_sub, CONFIG_LE_AUDIO_MSG_SUB_QUEUE_SIZE);
+
+ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
 
 ZBUS_CHAN_DECLARE(button_chan);
 ZBUS_CHAN_DECLARE(le_audio_chan);
@@ -79,11 +80,9 @@ static void button_msg_sub_thread(void)
 		LOG_DBG("Got btn evt from queue - id = %d, action = %d", msg.button_pin,
 			msg.button_action);
 
-		if (msg.button_action == BUTTON_RELEASED) continue;
-
 		if (msg.button_action != BUTTON_PRESS) {
 			LOG_WRN("Unhandled button action");
-			return;
+			continue;
 		}
 
 		switch (msg.button_pin) {
@@ -181,12 +180,9 @@ static void le_audio_msg_sub_thread(void)
 	const struct zbus_channel *chan;
 
 	while (1) {
-		ret = zbus_sub_wait(&le_audio_evt_sub, &chan, K_FOREVER);
-		ERR_CHK(ret);
-
 		struct le_audio_msg msg;
 
-		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
+		ret = zbus_sub_wait_msg(&le_audio_evt_sub, &chan, &msg, K_FOREVER);
 		ERR_CHK(ret);
 
 		LOG_DBG("Received event = %d, current state = %d", msg.event, strm_state);
@@ -248,6 +244,11 @@ static void le_audio_msg_sub_thread(void)
 		case LE_AUDIO_EVT_SYNC_LOST:
 			LOG_INF("Sync lost");
 
+			ret = bt_mgmt_pa_sync_delete(msg.pa_sync);
+			if (ret) {
+				LOG_WRN("Failed to delete PA sync");
+			}
+
 			if (strm_state == STATE_STREAMING) {
 				stream_state_set(STATE_PAUSED);
 				audio_system_stop();
@@ -258,9 +259,11 @@ static void le_audio_msg_sub_thread(void)
 			if (IS_ENABLED(CONFIG_BT_OBSERVER)) {
 				ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_BROADCAST, NULL);
 				if (ret) {
-					if (ret != -EALREADY) {
-						LOG_ERR("Failed to restart scanning: %d", ret);
+					if (ret == -EALREADY) {
+						break;
 					}
+
+					LOG_ERR("Failed to restart scanning: %d", ret);
 					break;
 				}
 
@@ -350,9 +353,10 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 		break;
 
 	case BT_MGMT_PA_SYNC_LOST:
-		LOG_INF("PA sync lost");
+		LOG_INF("PA sync lost, reason: %d", msg->pa_sync_term_reason);
 
-		if (IS_ENABLED(CONFIG_BT_OBSERVER)) {
+		if (IS_ENABLED(CONFIG_BT_OBSERVER) &&
+		    msg->pa_sync_term_reason != BT_HCI_ERR_LOCALHOST_TERM_CONN) {
 			ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_BROADCAST, NULL);
 			if (ret) {
 				if (ret == -EALREADY) {
@@ -387,7 +391,7 @@ static int zbus_link_producers_observers(void)
 {
 	int ret;
 
-	if (!IS_ENABLED(CONFIG_ZBUS) || (CONFIG_ZBUS_RUNTIME_OBSERVERS_POOL_SIZE <= 0)) {
+	if (!IS_ENABLED(CONFIG_ZBUS)) {
 		return -ENOTSUP;
 	}
 

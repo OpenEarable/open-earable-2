@@ -8,7 +8,6 @@
 
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/bluetooth/bluetooth.h>
-#include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/conn.h>
 
 #include "macros_common.h"

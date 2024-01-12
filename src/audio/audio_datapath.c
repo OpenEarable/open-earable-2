@@ -24,6 +24,8 @@
 #include "contin_array.h"
 #include "pcm_mix.h"
 #include "streamctrl.h"
+#include "audio_sync_timer.h"
+#include "sd_card_playback.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -48,7 +50,7 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 /* Number of audio blocks given a duration */
 #define NUM_BLKS(d)	    ((d) / BLK_PERIOD_US)
 /* Single audio block size in number of samples (stereo) */
-#define BLK_SIZE_SAMPLES(r) (((r)*BLK_PERIOD_US) / 1000000)
+#define BLK_SIZE_SAMPLES(r) (((r) * BLK_PERIOD_US) / 1000000)
 /* Increment sample FIFO index by one block */
 #define NEXT_IDX(i)	    (((i) < (FIFO_NUM_BLKS - 1)) ? ((i) + 1) : 0)
 /* Decrement sample FIFO index by one block */
@@ -70,15 +72,17 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 #define APLL_FREQ_MIN	 36834
 #define APLL_FREQ_MAX	 42874
 /* Use nanoseconds to reduce rounding errors */
-#define APLL_FREQ_ADJ(t) (-((t)*1000) / 331)
+#define APLL_FREQ_ADJ(t) (-((t) * 1000) / 331)
 
-#define DRIFT_MEAS_PERIOD_US	100000
-#define DRIFT_ERR_THRESH_LOCK	16
-#define DRIFT_ERR_THRESH_UNLOCK 32
+#define DRIFT_MEAS_PERIOD_US	   100000
+#define DRIFT_ERR_THRESH_LOCK	   16
+#define DRIFT_ERR_THRESH_UNLOCK	   32
+/* To get smaller corrections */
+#define DRIFT_REGULATOR_DIV_FACTOR 2
 
-/* 3000 us to allow BLE transmission and (host -> HCI -> controller) */
-#define JUST_IN_TIME_US		  (CONFIG_AUDIO_FRAME_DURATION_US - 3000)
-#define JUST_IN_TIME_THRESHOLD_US 1500
+/* 4000 us to allow BLE transmission and (host -> HCI -> controller) */
+#define JUST_IN_TIME_US		  (CONFIG_AUDIO_FRAME_DURATION_US - 4000)
+#define JUST_IN_TIME_THRESHOLD_US 2000
 
 /* How often to print underrun warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
@@ -158,6 +162,53 @@ static bool tone_active;
 static uint16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 100];
 static size_t test_tone_size;
 
+/**
+ * @brief	Calculate error between sdu_ref and frame_start_ts.
+ *
+ * @note	Used to adjust audio clock to account for drift.
+ *
+ * @param	sdu_ref_us	Timestamp for SDU.
+ * @param	frame_start_ts	Timestamp for I2S.
+ *
+ * @return	Error in microseconds (err_us).
+ */
+static int32_t err_us_calculate(uint32_t sdu_ref_us, uint32_t frame_start_ts)
+{
+	bool err_neg = false;
+
+	if (IS_ENABLED(CONFIG_BT_LL_ACS_NRF53) && IS_ENABLED(CONFIG_TRANSPORT_BIS)) {
+		/* To make the drift compensation work as expected
+		 * when using the LE Audio Controller Subsystem Link Layer
+		 * and BIS we must add CONFIG_AUDIO_FRAME_DURATION_US to
+		 * sdu_ref_us.
+		 * This is a temporary workaround.
+		 */
+		sdu_ref_us += CONFIG_AUDIO_FRAME_DURATION_US;
+	}
+
+	int64_t total_err = ((int64_t)sdu_ref_us - (int64_t)frame_start_ts);
+
+	/* Store sign for later use, since remainder operation is undefined for negatives */
+	if (total_err < 0) {
+		err_neg = true;
+		total_err *= -1;
+	}
+
+	/* Check diff below 1000 us, diff above 1000 us is fixed later on */
+	int32_t err_us = total_err % BLK_PERIOD_US;
+
+	if (err_us > (BLK_PERIOD_US / 2)) {
+		err_us = err_us - BLK_PERIOD_US;
+	}
+
+	/* Restore the sign */
+	if (err_neg) {
+		err_us *= -1;
+	}
+
+	return err_us;
+}
+
 static void hfclkaudio_set(uint16_t freq_value)
 {
 	uint16_t freq_val = freq_value;
@@ -174,8 +225,6 @@ static void drift_comp_state_set(enum drift_comp_state new_state)
 		LOG_WRN("Trying to change to the same drift compensation state");
 		return;
 	}
-
-	ctrl_blk.drift_comp.ctr = 0;
 
 	ctrl_blk.drift_comp.state = new_state;
 	LOG_INF("Drft comp state: %s", drift_comp_state_names[new_state]);
@@ -198,6 +247,7 @@ static void audio_datapath_drift_compensation(uint32_t frame_start_ts)
 
 			drift_comp_state_set(DRIFT_STATE_CALIB);
 		}
+
 		break;
 	}
 	case DRIFT_STATE_CALIB: {
@@ -205,6 +255,8 @@ static void audio_datapath_drift_compensation(uint32_t frame_start_ts)
 			/* Waiting */
 			return;
 		}
+
+		ctrl_blk.drift_comp.ctr = 0;
 
 		int32_t err_us = DRIFT_MEAS_PERIOD_US - (ctrl_blk.previous_sdu_ref_us -
 							 ctrl_blk.drift_comp.meas_start_time_us);
@@ -223,6 +275,7 @@ static void audio_datapath_drift_compensation(uint32_t frame_start_ts)
 		hfclkaudio_set(ctrl_blk.drift_comp.center_freq);
 
 		drift_comp_state_set(DRIFT_STATE_OFFSET);
+
 		break;
 	}
 	case DRIFT_STATE_OFFSET: {
@@ -231,12 +284,11 @@ static void audio_datapath_drift_compensation(uint32_t frame_start_ts)
 			return;
 		}
 
-		int32_t err_us = (ctrl_blk.previous_sdu_ref_us - frame_start_ts) % BLK_PERIOD_US;
+		ctrl_blk.drift_comp.ctr = 0;
 
-		if (err_us > (BLK_PERIOD_US / 2)) {
-			err_us = err_us - BLK_PERIOD_US;
-		}
+		int32_t err_us = err_us_calculate(ctrl_blk.previous_sdu_ref_us, frame_start_ts);
 
+		err_us /= DRIFT_REGULATOR_DIV_FACTOR;
 		int32_t freq_adj = APLL_FREQ_ADJ(err_us);
 
 		hfclkaudio_set(ctrl_blk.drift_comp.center_freq + freq_adj);
@@ -253,22 +305,17 @@ static void audio_datapath_drift_compensation(uint32_t frame_start_ts)
 			return;
 		}
 
-		int32_t err_us = (ctrl_blk.previous_sdu_ref_us - frame_start_ts) % BLK_PERIOD_US;
+		ctrl_blk.drift_comp.ctr = 0;
 
-		if (err_us > (BLK_PERIOD_US / 2)) {
-			err_us = err_us - BLK_PERIOD_US;
-		}
+		int32_t err_us = err_us_calculate(ctrl_blk.previous_sdu_ref_us, frame_start_ts);
 
-		/* Use asymptotic correction with small errors */
-		err_us /= 2;
+		err_us /= DRIFT_REGULATOR_DIV_FACTOR;
 		int32_t freq_adj = APLL_FREQ_ADJ(err_us);
 
 		hfclkaudio_set(ctrl_blk.drift_comp.center_freq + freq_adj);
 
 		if ((err_us > DRIFT_ERR_THRESH_UNLOCK) || (err_us < -DRIFT_ERR_THRESH_UNLOCK)) {
 			drift_comp_state_set(DRIFT_STATE_INIT);
-		} else {
-			ctrl_blk.drift_comp.ctr = 0;
 		}
 
 		break;
@@ -286,8 +333,6 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
 	if (new_state == ctrl_blk.pres_comp.state) {
 		return;
 	}
-
-	ctrl_blk.pres_comp.ctr = 0;
 
 	ctrl_blk.pres_comp.state = new_state;
 	/* NOTE: The string below is used by the Nordic CI system */
@@ -323,6 +368,7 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 	 * the previous sdu_ref_us originate from non-consecutive frames.
 	 */
 	if (sdu_ref_not_consecutive) {
+		ctrl_blk.pres_comp.ctr = 0;
 		pres_comp_state_set(PRES_STATE_WAIT);
 	}
 
@@ -332,8 +378,10 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 
 	switch (ctrl_blk.pres_comp.state) {
 	case PRES_STATE_INIT: {
+		ctrl_blk.pres_comp.ctr = 0;
 		ctrl_blk.pres_comp.sum_err_dly_us = 0;
 		pres_comp_state_set(PRES_STATE_MEAS);
+
 		break;
 	}
 	case PRES_STATE_MEAS: {
@@ -344,6 +392,8 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 			/* Same state - Collect more data */
 			break;
 		}
+
+		ctrl_blk.pres_comp.ctr = 0;
 
 		pres_adj_us = ctrl_blk.pres_comp.sum_err_dly_us / PRES_COMP_NUM_DATA_PTS;
 		if ((pres_adj_us >= (BLK_PERIOD_US / 2)) || (pres_adj_us <= -(BLK_PERIOD_US / 2))) {
@@ -733,16 +783,15 @@ static void audio_datapath_just_in_time_check_and_adjust(uint32_t sdu_ref_us)
 	static int32_t count;
 	int ret;
 
-	uint32_t curr_frame_ts = nrfx_timer_capture(&audio_sync_timer_instance,
-						    AUDIO_SYNC_TIMER_CURR_TIME_CAPTURE_CHANNEL);
+	uint32_t curr_frame_ts = audio_sync_timer_capture();
 	int diff = curr_frame_ts - sdu_ref_us;
 
 	if (count++ % 100 == 0) {
 		LOG_DBG("Time from last anchor: %d", diff);
 	}
 
-	if (diff < JUST_IN_TIME_US - JUST_IN_TIME_THRESHOLD_US ||
-	    diff > JUST_IN_TIME_US + JUST_IN_TIME_THRESHOLD_US) {
+	if ((diff < (JUST_IN_TIME_US - JUST_IN_TIME_THRESHOLD_US)) ||
+	    (diff > (JUST_IN_TIME_US + JUST_IN_TIME_THRESHOLD_US))) {
 		ret = audio_system_fifo_rx_block_drop();
 		if (ret) {
 			LOG_WRN("Not able to drop FIFO RX block");
@@ -776,8 +825,10 @@ static void audio_datapath_sdu_ref_update(const struct zbus_channel *chan)
 		if (ctrl_blk.stream_started) {
 			ctrl_blk.previous_sdu_ref_us = sdu_ref_us;
 
-			if (adjust) {
-				audio_datapath_just_in_time_check_and_adjust(sdu_ref_us);
+			if (adjust && sdu_ref_us != 0) {
+				if (IS_ENABLED(CONFIG_BT_LL_ACS_NRF53)) {
+					audio_datapath_just_in_time_check_and_adjust(sdu_ref_us);
+				}
 			}
 		} else {
 			LOG_WRN("Stream not startet - Can not update sdu_ref_us");
@@ -820,7 +871,7 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 		LOG_ERR("buf is NULL");
 	}
 
-	if (sdu_ref_us == ctrl_blk.previous_sdu_ref_us) {
+	if (sdu_ref_us == ctrl_blk.previous_sdu_ref_us && sdu_ref_us != 0) {
 		LOG_WRN("Duplicate sdu_ref_us (%d) - Dropping audio frame", sdu_ref_us);
 		return;
 	}
@@ -871,9 +922,14 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 	size_t pcm_size;
 
 	ret = sw_codec_decode(buf, size, bad_frame, &ctrl_blk.decoded_data, &pcm_size);
-
 	if (ret) {
 		LOG_WRN("SW codec decode error: %d", ret);
+	}
+
+	if (IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)) {
+		if (sd_card_playback_is_active()) {
+			sd_card_playback_mix_with_stream(ctrl_blk.decoded_data, pcm_size);
+		}
 	}
 
 	if (pcm_size != (BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME)) {
@@ -1054,6 +1110,7 @@ static int cmd_hfclkaudio_drift_comp_disable(const struct shell *shell, size_t a
 		shell_print(shell, "Pres comp must be disabled to disable drift comp");
 	} else {
 		ctrl_blk.drift_comp.enabled = false;
+		ctrl_blk.drift_comp.ctr = 0;
 		drift_comp_state_set(DRIFT_STATE_INIT);
 
 		shell_print(shell, "Audio PLL drift compensation disabled");
