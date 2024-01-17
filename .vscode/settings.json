@@ -45,7 +45,11 @@
         "initializer_list": "cpp",
         "zbus.h": "c",
         "bluetooth.h": "c",
-        "sensor_service.h": "c"
+        "sensor_service.h": "c",
+        "*.tcc": "c",
+        "vector": "c",
+        "ostream": "c",
+        "streambuf": "c"
     },
     "C_Cpp.default.compilerPath": "/opt/nordic/ncs/toolchains/20d68df7e5/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-g++",
     "nrf-connect.topdir": "/opt/nordic/ncs/main"

@@ -68,7 +68,7 @@ void Button::begin() {
 
     if (reading) _buttonState = BUTTON_PRESS;
 
-	printk("mask:%i\n", button_cb_data.pin_mask);
+	//printk("mask:%i\n", button_cb_data.pin_mask);
 }
 
 void Button::end() {

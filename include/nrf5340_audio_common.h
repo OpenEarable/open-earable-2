@@ -16,7 +16,7 @@
 
 extern const nrfx_timer_t audio_sync_timer_instance;
 
-#define SENSOR_DATA_FIXED_LENGTH 12
+#define SENSOR_DATA_FIXED_LENGTH 9
 
 enum sensor_id {
 	ID_IMU,

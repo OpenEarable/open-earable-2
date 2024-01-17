@@ -136,20 +136,6 @@ static int channel_assign_check(void)
 	return 0;
 }
 
-/*
-#define DEVICE_NAME CONFIG_BT_DEVICE_NAME
-#define DEVICE_NAME_LEN (sizeof(DEVICE_NAME) - 1)
-#define ADV_LEN 12
-
-static const struct bt_data ad[] = {
-	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-	BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
-};
-
-static const struct bt_data sd[] = {
-	BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_LBS_VAL),
-};*/
-
 int main(void) {
 	int ret;
 

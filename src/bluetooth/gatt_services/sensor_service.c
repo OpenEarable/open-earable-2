@@ -21,8 +21,13 @@ K_THREAD_STACK_DEFINE(sensor_gatt_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE
 
 //extern const k_tid_t sensor_publish;
 
-static struct sensor_data data;
+#define N_COLLECT 2
+
+//static struct sensor_data data;
+static struct sensor_data data_buf[N_COLLECT];
 static struct sensor_config config;
+
+static int idx_data = 0;
 
 static bool notify_sensor_enabled = false;
 
@@ -45,9 +50,9 @@ static ssize_t read_sensor_value(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	const uint16_t size = sizeof(data.id) + sizeof(data.size) + sizeof(data.time) + data.size;
+	const uint16_t size = sizeof(data_buf[idx_data].id) + sizeof(data_buf[idx_data].size) + sizeof(data_buf[idx_data].time) + data_buf[idx_data].size;
 
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, &data, size);
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, &data_buf[idx_data], size);
 }
 
 static ssize_t write_config(struct bt_conn *conn,
@@ -83,7 +88,7 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG,
 BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_DATA,
             BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
             BT_GATT_PERM_READ,
-            read_sensor_value, NULL, &data),
+            read_sensor_value, NULL, data_buf),
 BT_GATT_CCC(sensor_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
@@ -92,6 +97,8 @@ static void gatt_work_handler(struct k_work * work) {
 	//send_sensor_data();
 	if (notify_sensor_enabled) {
 		int ret = send_sensor_data();
+		//if (ret == 0) printk("data send\n");
+		if (ret != 0) printk("data failed\n");
 		//ERR_CHK(ret);
 	}
 }
@@ -103,9 +110,10 @@ int send_sensor_data() { //struct sensor_data * _data
 	}
 
 	//const uint16_t size = sizeof(_data->id) + sizeof(_data->size) + sizeof(_data->time) + _data->size;
-	const uint16_t size = sizeof(data.id) + sizeof(data.size) + sizeof(data.time) + data.size; //sizeof(float)*6; 
+	const uint16_t size = 42 * N_COLLECT; //sizeof(data.id) + sizeof(data.size) + sizeof(data.time) + data.size; //sizeof(float)*6;
 
-	return bt_gatt_notify(NULL, &sensor_service.attrs[4], &data, size);
+	return bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
+	//}
 }
 
 static void sensor_gatt_task(void)
@@ -126,7 +134,7 @@ static void sensor_gatt_task(void)
 		ret = zbus_sub_wait(&sensor_gatt_sub, &chan, K_FOREVER);
 		ERR_CHK(ret);
 
-		ret = zbus_chan_read(chan, &data, ZBUS_READ_TIMEOUT_MS);
+		ret = zbus_chan_read(chan, &data_buf[idx_data], ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
 
 		//ret = zbus_sub_wait_msg(&sensor_gatt_sub, &chan, &data, K_FOREVER);
@@ -153,16 +161,16 @@ static void sensor_gatt_task(void)
 			break;
 		}*/
 
-		switch (data.id)
+		switch (data_buf[idx_data].id)
 		{
 		case ID_TEMP_BARO:
-			t_baro = (data.time - time_last_baro) * alpha + t_baro * (1 - alpha);
-			time_last_baro = data.time;
+			t_baro = (data_buf[idx_data].time - time_last_baro) * alpha + t_baro * (1 - alpha);
+			time_last_baro = data_buf[idx_data].time;
 			break;
 
 		case ID_IMU:
-			t_imu = (data.time - time_last_imu) * alpha + t_imu * (1 - alpha);
-			time_last_imu = data.time;
+			t_imu = (data_buf[idx_data].time - time_last_imu) * alpha + t_imu * (1 - alpha);
+			time_last_imu = data_buf[idx_data].time;
 			break;
 		
 		default:
@@ -179,7 +187,13 @@ static void sensor_gatt_task(void)
 		//if (notify_sensor_enabled) ret = send_sensor_data();
 		//ERR_CHK(ret);
 
-		k_work_submit(&gatt_sensor_work);
+		idx_data++;
+
+		if (idx_data == N_COLLECT) {
+			idx_data = 0;
+
+			k_work_submit(&gatt_sensor_work);
+		}
 		
 		//send_sensor_data();
 
