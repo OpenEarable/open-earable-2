@@ -47,6 +47,8 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 #include "button_service.h"
 #include "sensor_service.h"
 
+#include "nrf.h"
+
 static struct board_version board_rev;
 
 static int hfclock_config_and_start(void)
@@ -147,6 +149,16 @@ int main(void) {
 	ret = led_init();
 	ERR_CHK(ret);
 
+	const struct gpio_dt_spec g_p0_21_gpio = {
+         .port = DEVICE_DT_GET(DT_NODELABEL(gpio0)),
+         .pin = 21,
+         .dt_flags = GPIO_ACTIVE_HIGH
+ 	};
+
+	gpio_pin_configure_dt(&g_p0_21_gpio, GPIO_OUTPUT_LOW);
+	//gpio_pin_set_dt(&g_p0_21_gpio, 0 or 1);
+	//nrf_gpio_cfg_output(4);
+
 	led_service.begin();
 	//earable_led.init();
 
@@ -182,11 +194,11 @@ int main(void) {
 		}
 	}
 
-	sensor_config imu_config = {ID_IMU, 40, 0};
+	sensor_config imu_config = {ID_IMU, 60, 0};
 	sensor_config baro_config = {ID_TEMP_BARO, 20, 0};
 
 	SensorManager::manager.start();
-	//SensorManager::manager.config(&baro_config);
+	SensorManager::manager.config(&baro_config);
 	SensorManager::manager.config(&imu_config);
 
 	ret = bt_mgmt_init();

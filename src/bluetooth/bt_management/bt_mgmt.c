@@ -36,6 +36,9 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
 
+#define INTERVAL_MIN 16
+#define INTERVAL_MAX 16
+
 ZBUS_CHAN_DEFINE(bt_mgmt_chan, struct bt_mgmt_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
@@ -51,9 +54,6 @@ ZBUS_CHAN_DEFINE(bt_mgmt_chan, struct bt_mgmt_msg, NULL, NULL, ZBUS_OBSERVERS_EM
 #endif
 
 K_SEM_DEFINE(sem_bt_enabled, 0, 1);
-
-//Michael
-struct bt_gatt_exchange_params exchange_params;
 
 /**
  * @brief	Iterative function used to find connected conns
@@ -101,12 +101,36 @@ static void exchange_func(struct bt_conn *conn, uint8_t att_err,
 	}*/
 }
 
+static void le_data_length_updated(struct bt_conn *conn,
+				   struct bt_conn_le_data_len_info *info)
+{
+	printk("LE data len updated: TX (len: %d time: %d)"
+	       " RX (len: %d time: %d)\n", info->tx_max_len,
+	       info->tx_max_time, info->rx_max_len, info->rx_max_time);
+}
+
+static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(INTERVAL_MIN, INTERVAL_MAX, 0, 400);
+
+//callback
+static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
+{
+	struct bt_mgmt_msg msg;
+	int ret;
+
+	LOG_INF("Conn params updated: interval %d unit, latency %d, timeout: %d0 ms",interval, latency, timeout);
+
+	msg.event = BT_MGMT_CONNECTED;
+	msg.conn = conn;
+
+	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
+	ERR_CHK(ret);
+}
+
 static void connected_cb(struct bt_conn *conn, uint8_t err)
 {
 	int ret;
 	char addr[BT_ADDR_LE_STR_LEN] = {0};
 	uint8_t num_conn = 0;
-	struct bt_mgmt_msg msg;
 
 	(void)bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
@@ -170,6 +194,8 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 		}
 	}
 #endif /* (CONFIG_BT_LL_ACS_NRF53) */
+
+	static struct bt_gatt_exchange_params exchange_params;
 	exchange_params.func = exchange_func;
 
 	printk("MTU size is: %d\n", bt_gatt_get_mtu(conn));
@@ -181,11 +207,22 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 		printk("MTU exchange pending\n");
 	}
 
-	msg.event = BT_MGMT_CONNECTED;
-	msg.conn = conn;
+	err = bt_conn_le_phy_update(conn, BT_CONN_LE_PHY_PARAM_2M);
+	if (err) {
+		LOG_ERR("Phy update request failed: %d",  err);
+	}
 
-	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
-	ERR_CHK(ret);
+	err = bt_conn_le_data_len_update(conn, BT_LE_DATA_LEN_PARAM_MAX);
+	if (err) {
+		LOG_ERR("LE data length update request failed: %d",  err);
+	}
+
+	err = bt_conn_le_param_update(conn, conn_param);
+	if (err) {
+		LOG_ERR("Cannot update conneciton parameter (err: %d)", err);
+		return err;
+	}
+	LOG_INF("Connection parameters update requested");
 
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		ret = bt_conn_set_security(conn, BT_SECURITY_L2);
@@ -257,6 +294,8 @@ static void security_changed_cb(struct bt_conn *conn, bt_security_t level, enum 
 static struct bt_conn_cb conn_callbacks = {
 	.connected = connected_cb,
 	.disconnected = disconnected_cb,
+	.le_param_updated = conn_params_updated,
+	.le_data_len_updated = le_data_length_updated,
 #if defined(CONFIG_BT_SMP)
 	.security_changed = security_changed_cb,
 #endif /* defined(CONFIG_BT_SMP) */

@@ -16,12 +16,13 @@ ZBUS_SUBSCRIBER_DEFINE(sensor_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 //ZBUS_LISTENER_DEFINE()
 
 ZBUS_CHAN_DECLARE(sensor_chan);
+ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
 K_THREAD_STACK_DEFINE(sensor_gatt_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
 
 //extern const k_tid_t sensor_publish;
 
-#define N_COLLECT 2
+#define N_COLLECT 1
 
 //static struct sensor_data data;
 static struct sensor_data data_buf[N_COLLECT];
@@ -37,6 +38,29 @@ static void gatt_work_handler(struct k_work * work);
 int send_sensor_data();
 
 K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
+
+static void connect_evt_handler(const struct zbus_channel *chan);
+
+ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen_2, connect_evt_handler);
+
+bool connection_complete = false;
+
+static void connect_evt_handler(const struct zbus_channel *chan)
+{
+	const struct bt_mgmt_msg *msg;
+
+	msg = zbus_chan_const_msg(chan);
+
+	switch (msg->event) {
+	case BT_MGMT_CONNECTED:
+		connection_complete = true;
+		break;
+
+	case BT_MGMT_DISCONNECTED:
+		connection_complete = false;
+		break;
+	}
+}
 
 static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
@@ -95,7 +119,7 @@ BT_GATT_CCC(sensor_ccc_cfg_changed,
 
 static void gatt_work_handler(struct k_work * work) {
 	//send_sensor_data();
-	if (notify_sensor_enabled) {
+	if (connection_complete && notify_sensor_enabled) {
 		int ret = send_sensor_data();
 		//if (ret == 0) printk("data send\n");
 		if (ret != 0) printk("data failed\n");
@@ -110,7 +134,8 @@ int send_sensor_data() { //struct sensor_data * _data
 	}
 
 	//const uint16_t size = sizeof(_data->id) + sizeof(_data->size) + sizeof(_data->time) + _data->size;
-	const uint16_t size = 42 * N_COLLECT; //sizeof(data.id) + sizeof(data.size) + sizeof(data.time) + data.size; //sizeof(float)*6;
+	//const uint16_t size = 42 * N_COLLECT; 
+	const uint16_t size = sizeof(data_buf[idx_data].id) + sizeof(data_buf[idx_data].size) + sizeof(data_buf[idx_data].time) + data_buf[idx_data].size; //sizeof(float)*6;
 
 	return bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
 	//}
@@ -121,7 +146,7 @@ static void sensor_gatt_task(void)
 	int ret;
 	const struct zbus_channel *chan;
 
-	float t_imu = 1000/50;
+	float t_imu = 1000/80;
 	float t_baro = 1000/20;
 	int count = 0;
 
@@ -187,13 +212,18 @@ static void sensor_gatt_task(void)
 		//if (notify_sensor_enabled) ret = send_sensor_data();
 		//ERR_CHK(ret);
 
-		idx_data++;
+		/*idx_data++;
 
 		if (idx_data == N_COLLECT) {
 			idx_data = 0;
 
-			k_work_submit(&gatt_sensor_work);
-		}
+			//k_work_submit(&gatt_sensor_work);
+			if (notify_sensor_enabled) ret = send_sensor_data();
+		}*/
+
+		k_work_submit(&gatt_sensor_work);
+
+		//if (notify_sensor_enabled) ret = send_sensor_data();
 		
 		//send_sensor_data();
 
@@ -218,6 +248,12 @@ int init_sensor_service() {
     ret = zbus_chan_add_obs(&sensor_chan, &sensor_gatt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
 		LOG_ERR("Failed to add sensor sub");
+		return ret;
+	}
+
+	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen_2, ZBUS_ADD_OBS_TIMEOUT_MS);
+	if (ret) {
+		LOG_ERR("Failed to add bt_mgmt listener");
 		return ret;
 	}
 
