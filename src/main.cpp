@@ -25,11 +25,11 @@
 #include "fw_info_app.h"
 #include "led.h"
 //#include "button_handler.h"
-#include "button_assignments.h"
+//#include "button_assignments.h"
 #include "nrfx_clock.h"
 #include "sd_card.h"
 #include "bt_mgmt.h"
-#include "board_version.h"
+//#include "board_version.h"
 #include "channel_assignment.h"
 #include "streamctrl.h"
 #include "sd_card_playback.h"
@@ -49,7 +49,12 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
 #include "nrf.h"
 
-static struct board_version board_rev;
+#include "Battery/PowerManager.h"
+
+// BQ27220 fuel_gauge(&Wire);
+// BQ25120a charge_controller(&Wire);
+
+//static struct board_version board_rev;
 
 static int hfclock_config_and_start(void)
 {
@@ -74,11 +79,17 @@ static int leds_set(void)
 {
 	int ret;
 
+	ret = led_off(0);
+	ret = led_off(1);
+	ret = led_off(2);
+
 	/* Blink LED 3 to indicate that APP core is running */
-	ret = led_blink(LED_APP_3_GREEN);
+	ret = led_blink(3);//LED_APP_3_GREEN);
 	if (ret) {
 		return ret;
 	}
+
+	/*
 
 #if (CONFIG_AUDIO_DEV == HEADSET)
 	enum audio_channel channel;
@@ -146,6 +157,19 @@ int main(void) {
 	ret = hfclock_config_and_start();
 	ERR_CHK(ret);
 
+	const struct gpio_dt_spec button_pin = {
+        .port = DEVICE_DT_GET(DT_NODELABEL(gpio1)),
+        .pin = 15, //9
+        .dt_flags = GPIO_ACTIVE_LOW
+	};
+
+	if (!device_is_ready(button_pin.port)) printk("P0.10 not ready.\n");
+	ret = gpio_pin_configure_dt(&button_pin, GPIO_INPUT | GPIO_PULL_UP);
+	if (ret != 0) printk("Failed to set P0.10 as input.\n");
+
+	ret = power_manager.begin();
+	ERR_CHK(ret);
+
 	ret = led_init();
 	ERR_CHK(ret);
 
@@ -155,18 +179,19 @@ int main(void) {
          .dt_flags = GPIO_ACTIVE_HIGH
  	};
 
+	// external hardware codec
 	gpio_pin_configure_dt(&g_p0_21_gpio, GPIO_OUTPUT_LOW);
 	//gpio_pin_set_dt(&g_p0_21_gpio, 0 or 1);
 	//nrf_gpio_cfg_output(4);
 
-	led_service.begin();
+	//led_service.begin();
 	//earable_led.init();
 
 	earable_btn.begin();
 	volume_down_btn.begin();
 	volume_up_btn.begin();
 	four_btn.begin();
-	five_btn.begin();
+	//five_btn.begin();
 
 	//ret = button_handler_init();
 	//ERR_CHK(ret);
@@ -179,7 +204,7 @@ int main(void) {
 	ret = fw_info_app_print();
 	ERR_CHK(ret);
 
-	ret = board_version_valid_check();
+	/*ret = board_version_valid_check();
 	ERR_CHK(ret);
 
 	ret = board_version_get(&board_rev);
@@ -192,7 +217,9 @@ int main(void) {
 		if (ret != -ENODEV) {
 			ERR_CHK(ret);
 		}
-	}
+	}*/
+
+	//k_usleep(100);
 
 	sensor_config imu_config = {ID_IMU, 60, 0};
 	sensor_config baro_config = {ID_TEMP_BARO, 20, 0};
@@ -200,6 +227,9 @@ int main(void) {
 	SensorManager::manager.start();
 	SensorManager::manager.config(&baro_config);
 	SensorManager::manager.config(&imu_config);
+
+	//fuel_gauge.begin();
+	//battery_controller.begin();
 
 	ret = bt_mgmt_init();
 	ERR_CHK(ret);
@@ -213,8 +243,21 @@ int main(void) {
 	ret = leds_set();
 	ERR_CHK(ret);
 
-	//SensorManager::manager.start();
-
     ret = streamctrl_start();
 	ERR_CHK(ret);
+
+	while(true) {
+		k_msleep(1000);
+		float voltage = fuel_gauge.voltage();
+        printk("Voltage: %.3fV\n", voltage);
+
+		float soc = fuel_gauge.state_of_charge();
+        printk("soc: %.3f%%\n", soc); //\x0a = %
+        
+        float current = fuel_gauge.current();
+        printk("current: %.3fmA\n", current);
+        
+        current = fuel_gauge.average_current();
+        printk("average current: %.3fmA\n", current);
+	}
 }

@@ -10,6 +10,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+//extern int wdt_ch_id;
+
 /**
  * @brief	Get the Bluetooth controller manufacturer.
  *

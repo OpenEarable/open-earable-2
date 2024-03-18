@@ -106,15 +106,15 @@ static int bt_ll_acs_nrf53_cfg(void)
 	/* Map controller LEDs*/
 
 	ret = ble_hci_vsc_led_pin_map(PAL_LED_ID_CPU_ACTIVE,
-				      DT_GPIO_FLAGS_BY_IDX(DT_NODELABEL(rgb2_green), gpios, 0),
-				      DT_GPIO_PIN_BY_IDX(DT_NODELABEL(rgb2_green), gpios, 0));
+				      DT_GPIO_FLAGS_BY_IDX(DT_NODELABEL(led1), gpios, 0), //led1
+				      DT_GPIO_PIN_BY_IDX(DT_NODELABEL(led1), gpios, 0));
 	if (ret) {
 		return ret;
 	}
 
 	ret = ble_hci_vsc_led_pin_map(PAL_LED_ID_ERROR,
-				      DT_GPIO_FLAGS_BY_IDX(DT_NODELABEL(rgb2_red), gpios, 0),
-				      DT_GPIO_PIN_BY_IDX(DT_NODELABEL(rgb2_red), gpios, 0));
+				      DT_GPIO_FLAGS_BY_IDX(DT_NODELABEL(led0), gpios, 0), //led0 //rgb2_red
+				      DT_GPIO_PIN_BY_IDX(DT_NODELABEL(led0), gpios, 0));
 	if (ret) {
 		return ret;
 	}

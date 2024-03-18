@@ -71,7 +71,6 @@ private:
 #ifdef DEVICE_I2CSLAVE
     mbed::I2CSlave* slave = NULL;
 #endif
-    //mbed::I2C*      master = NULL;
     const struct device * master = NULL;
 
     int master_read(int address, const char * buf, const uint8_t len, bool no_stop);

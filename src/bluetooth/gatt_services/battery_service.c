@@ -1,5 +1,6 @@
 #include "battery_service.h"
 
+//#include "../Battery/BQ27220.h"
 
 static uint8_t battery_level = 100;
 static uint8_t charging_state = 2;
@@ -10,6 +11,8 @@ static ssize_t read_battery_level(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
+	//battery_level = (uint8_t) fuel_gauge.state_of_charge();
+
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, &battery_level,
 					 sizeof(battery_level));
 }

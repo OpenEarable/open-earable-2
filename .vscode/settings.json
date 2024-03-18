@@ -49,7 +49,9 @@
         "*.tcc": "c",
         "vector": "c",
         "ostream": "c",
-        "streambuf": "c"
+        "streambuf": "c",
+        "retained.h": "c",
+        "button_assignments.h": "c"
     },
     "C_Cpp.default.compilerPath": "/opt/nordic/ncs/toolchains/20d68df7e5/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-g++",
     "nrf-connect.topdir": "/opt/nordic/ncs/main"

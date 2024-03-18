@@ -11,7 +11,7 @@
 
 class Button {
 public:
-    Button(button_pin_names pin, bool inverted = false);
+    Button(gpio_dt_spec spec, bool inverted = false);
 
     void begin();
     void end();
@@ -36,7 +36,7 @@ private:
 
     const static struct gpio_dt_spec buttons[];
 
-    const struct gpio_dt_spec button; // = GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
+    const struct gpio_dt_spec button;
     static struct gpio_callback button_cb_data;
 
     button_action _buttonState = BUTTON_RELEASED;
@@ -53,6 +53,6 @@ extern Button earable_btn;
 extern Button volume_up_btn;
 extern Button volume_down_btn;
 extern Button four_btn;
-extern Button five_btn;
+//extern Button five_btn;
 
 #endif //OPEN_EARABLE_BUTTON_H

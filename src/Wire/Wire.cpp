@@ -32,8 +32,12 @@ void arduino::MbedI2C::begin() {
 	//master = new mbed::I2C(_sda, _scl);
 	if (master == NULL || !device_is_ready(master)) {
     	//master = device_get_binding(I2C_DEV_LABEL);
+		//printk("Setup wire!!!!!!!!\n");
 		master = DEVICE_DT_GET(DT_NODELABEL(i2c1));
 		__ASSERT(master != NULL, "I2C_DEV_LABEL not found!");
+		int result = i2c_configure(master, I2C_SPEED_SET(I2C_SPEED_FAST));
+		//printk("result: %i\n", result);*/
+		__ASSERT(result == 0, "Failed to set I2C speed!");
 	}
 }
 
