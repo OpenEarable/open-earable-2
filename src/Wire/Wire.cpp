@@ -32,11 +32,9 @@ void arduino::MbedI2C::begin() {
 	//master = new mbed::I2C(_sda, _scl);
 	if (master == NULL || !device_is_ready(master)) {
     	//master = device_get_binding(I2C_DEV_LABEL);
-		//printk("Setup wire!!!!!!!!\n");
 		master = DEVICE_DT_GET(DT_NODELABEL(i2c1));
 		__ASSERT(master != NULL, "I2C_DEV_LABEL not found!");
 		int result = i2c_configure(master, I2C_SPEED_SET(I2C_SPEED_FAST));
-		//printk("result: %i\n", result);*/
 		__ASSERT(result == 0, "Failed to set I2C speed!");
 	}
 }
@@ -68,14 +66,7 @@ void arduino::MbedI2C::end() {
 }
 
 void arduino::MbedI2C::setClock(uint32_t freq) {
-	/*if (master != NULL) {
-		master->frequency(freq);
-	}
-#ifdef DEVICE_I2CSLAVE
-	if (slave != NULL) {
-		slave->frequency(freq);
-	}
-#endif*/
+	
 }
 
 void arduino::MbedI2C::beginTransmission(uint8_t address) {
@@ -96,10 +87,6 @@ uint8_t arduino::MbedI2C::endTransmission(bool stopBit) {
 	return 2;
 }
 
-uint8_t arduino::MbedI2C::endTransmission(void) {
-	return endTransmission(true);
-}
-
 size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) {
 	char buf[256];
 	int ret = master_read(address, buf, len, !stopBit);
@@ -110,10 +97,6 @@ size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) 
 		rxBuffer.store_char(buf[i]);
 	}
 	return len;
-}
-
-size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len) {
-	return requestFrom(address, len, true);
 }
 
 size_t arduino::MbedI2C::write(uint8_t data) {
