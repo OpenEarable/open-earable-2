@@ -137,6 +137,7 @@ void DFRobot_BMX160::defaultParamSettg(sBmx160Dev_t *dev)
 
 void DFRobot_BMX160::setMagnConf()
 {
+    // puts magnetometer into mag_if setup mode
     writeBmxReg(BMX160_MAGN_IF_0_ADDR, 0x80);
     delay(50);
     // Sleep mode
@@ -148,11 +149,13 @@ void DFRobot_BMX160::setMagnConf()
     // REPZ regular preset
     writeBmxReg(BMX160_MAGN_IF_3_ADDR, 0x0E);
     writeBmxReg(BMX160_MAGN_IF_2_ADDR, 0x52);
-    
+    // Prepare MAG_IF[1-3] for mag_if data mode
     writeBmxReg(BMX160_MAGN_IF_3_ADDR, 0x02);
     writeBmxReg(BMX160_MAGN_IF_2_ADDR, 0x4C);
     writeBmxReg(BMX160_MAGN_IF_1_ADDR, 0x42);
+    // sets the sampling rate t0 100Hz
     writeBmxReg(BMX160_MAGN_CONFIG_ADDR, 0x08);
+    // puts magnetometer into mag_if data mode sets data length of read burst operation to 8 bytes
     writeBmxReg(BMX160_MAGN_IF_0_ADDR, 0x03);
     delay(50);
 }
