@@ -4,7 +4,7 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
 
-extern struct k_msgq sensor_queue;
+//extern struct k_msgq sensor_queue;
 
 static struct sensor_data msg_imu;
 
@@ -68,7 +68,7 @@ bool IMU::init(struct k_msgq * queue) {
 }
 
 void IMU::start(k_timeout_t t) {
-	k_timer_start(&sensor.sensor_timer, t, t);
+	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 
 void IMU::stop() {

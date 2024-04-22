@@ -56,11 +56,7 @@ bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
         uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
         int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
 
-        //printk("delay: %i\n", delay);
-
         if (delay > 0) k_usleep(delay);
-
-        //k_usleep(BQ27220_I2C_TIMEOUT_US);
 
         _pWire->beginTransmission(address);
         _pWire->write(reg);
@@ -82,13 +78,7 @@ void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
         int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
 
-        //printk("%i\n", BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c));
-
-        //printk("delay: %i\n", delay);
-
         if (delay > 0) k_usleep(delay);
-
-        //k_usleep(BQ27220_I2C_TIMEOUT_US);
 
         _pWire->beginTransmission(address);
         _pWire->write(reg);
@@ -307,14 +297,14 @@ void BQ27220::read_RAM(uint16_t ram_address, uint8_t * data, int len) {
 
         bool ret;
 
-        //k_usleep(66);
+        //
         writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address));
         k_usleep(BQ27220_RAM_TIMEOUT_US);
         //k_msleep(100);
         //ret = readReg(0x61, (uint8_t *) &data_len, sizeof(data_len));
-        //k_usleep(66);
+        //
         ret = readReg(0x40, data, len);
-        //k_usleep(66);
+        //
         //ret = readReg(0x60, (uint8_t *) &check_sum, sizeof(check_sum));
         //k_msleep(100);
 }
@@ -326,13 +316,13 @@ void BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len) {
 
         bool ret;
 
-        //k_usleep(66);
+        //
         writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address));
         k_usleep(BQ27220_RAM_TIMEOUT_US);
         ret = readReg(0x61, (uint8_t *) &data_len, sizeof(data_len));
-        //k_usleep(66);
+        //
         ret = readReg(0x40, buf, len);
-        //k_usleep(66);
+        //
         ret = readReg(0x60, (uint8_t *) &check_sum, sizeof(check_sum));
 
         uint8_t my_check = (uint8_t)0xFF-check_sum; // - data[0] - data[1];
@@ -344,11 +334,11 @@ void BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len) {
 
         my_check = (uint8_t)0xFF - my_check;
 
-        //k_usleep(66);
+        //
         writeReg(0x40, (uint8_t *) data, len);
-        //k_usleep(66);
+        //
         writeReg(0x60, (uint8_t *) &my_check, sizeof(my_check));
-        //k_usleep(66);
+        //
         writeReg(0x61, (uint8_t *) &data_len, sizeof(data_len));
         k_usleep(BQ27220_RAM_TIMEOUT_US);
         //k_msleep(100);
@@ -371,48 +361,38 @@ void BQ27220::setup(bool init) {
 
         //hibernate off?
         //write_RAM(0x9220, 0);
-        //k_usleep(66);
 
+        // design and full charge capacity
         write_RAM(0x929F, 108);
-        //k_usleep(66);
         write_RAM(0x929D, 108); //130
-        //k_usleep(66);
         // near full
         write_RAM(0x926B, 5);
-        //k_usleep(66);
         // charging current
         write_RAM(0x91FB, 100);
-        //k_usleep(66);
         // taper current
         write_RAM(0x9201, 3); //adjust
-        //k_usleep(66);
 
         // experimental: min taper capacity
         write_RAM(0x9203, 4); // standard: 25
-        //k_usleep(66);
 
         // deadband
         uint8_t val = 1;
         write_RAM(0x91DE, &val, sizeof(uint8_t));
-        //k_usleep(66);
+        
         // deadband CC (verursacht Probleme, rm zählt zu schnell?)
         /*val = 5;
         write_RAM(0x91DF, &val, sizeof(uint8_t));
-        k_usleep(66);*/
+        */
         
         // sleep current
         write_RAM(0x9217, 1);
-        //k_usleep(66);
 
         // dischage current trd
         write_RAM(0x9228, 2);
-        //k_usleep(66);
         // charge current trd
         write_RAM(0x922A, 2);
-        //k_usleep(66);
         // quit current
         write_RAM(0x922C, 1);
-        //k_usleep(66);
 
         //dod  0%: 4287
         //dod 10%: 4125
@@ -435,55 +415,45 @@ void BQ27220::setup(bool init) {
 
         // charge voltage
         write_RAM(0x91FD, 4300);
-        //k_usleep(66);
 
         // FC Voltage
         write_RAM(0x9288, 4290);
-        //k_usleep(66);
 
         //k_msleep(2000);
 
         // EMF
         //write_RAM(0x92A7, 36001);
-        //k_usleep(66);
         //C0
         write_RAM(0x92A9, 480); //bat1:250
-        //k_usleep(66);
         //R0
         write_RAM(0x92AB, 19941); //bat1: 19941 //22542 //new bat:  17340
-        //k_usleep(66);
         //R1
-        //write_RAM(0x92AF, 3160); //19941
-        //k_usleep(66);
+        //write_RAM(0x92AF, 3160);
 
         // Configuration gauging FIXED_EDV
         //write_RAM(0x929B, 0x1022); //0x102A
-        //k_usleep(66);
 
         //write_RAM(0x927F, 0x0C8C);
-        //k_usleep(66);
 
         // do not use, only on CT makes sense:
         // SOC Flag, enable FC voltage detection
         uint8_t flags_b = 0x8C;
         write_RAM(0x9281, &flags_b, sizeof(flags_b));
-        //k_usleep(66);
 
         // Overload current
         write_RAM(0x9264, 200);
-        //k_usleep(66);
 
         // CEDV Smoothing Config
         write_RAM(0x9272, 0x0C); //Default: 0x08, Enable SMEXT, SMEN 0x0D
-        //k_usleep(66);
 
         //uint32_t cc_gain = 0x45b6737d; //0x7d73b645;
         uint8_t cc_vals[8] = {0x7d, 0x73, 0xb6, 0x45,
                                 0x92, 0x0a, 0xa5, 0x22};
         write_RAM(0x9184, cc_vals, sizeof(cc_vals));
-        //k_usleep(66);
 
         exit_config_update(init);
+
+        write_command(SEAL);
 }
 
 int BQ27220::set_int_callback(gpio_callback_handler_t handler) {

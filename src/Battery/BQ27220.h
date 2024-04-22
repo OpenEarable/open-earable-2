@@ -10,11 +10,6 @@
 #define BQ27220_I2C_TIMEOUT_US 66
 #define BQ27220_RAM_TIMEOUT_US 1000
 
-/*enum bq27xxx_bat_status {
-        DSG = 0, SYSDWN, TDA, BATTPRES, AUTH_GD, OCVGD, TCA, RSVD,
-        CHGINH, FC, OTD, OTC, SLEEP, OCVFAIL, OCVCOMP, FD
-};*/
-
 struct bat_status {
         bool DSG = false;
         bool SYSDWN = false;
@@ -60,7 +55,21 @@ struct gauge_status {
 
 class BQ27220 {
 public:
-    BQ27220(TwoWire * wire);
+    struct parameters {
+        uint16_t capacity_mAh = 3000;
+        uint16_t nominal_voltage_mV = 3700;
+        uint16_t max_voltage_mV = 4200;
+        uint16_t charge_current_mA = 200;
+        uint16_t taper_current_mA = 100;
+    };
+
+    enum security_level : uint8_t {
+        FAULT = 0,
+        FULL_ACCESS_MODE = 1,
+        UNSEALED = 2,
+        SEALED = 3,
+    };
+
     enum commands : uint16_t {
         CALIBRATION_SW = 0x002D,
         GAUGING_STATUS = 0x0056,
@@ -70,7 +79,7 @@ public:
         CONFIG_UPDATE_EXIT = 0x0091,
         CONFIG_UPDATE_EXIT_NO_INIT = 0x0092,
         RESET = 0x0041,
-        SEALED = 0x0030,
+        SEAL = 0x0030,
     };
 
     enum registers : uint8_t {
@@ -99,6 +108,8 @@ public:
         DATA_LEN = 0x61,
         OP_STAT = 0x3A,
     };
+
+    BQ27220(TwoWire * wire);
 
     int begin();
 

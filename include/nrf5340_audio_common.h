@@ -25,6 +25,11 @@ enum sensor_id {
 
 //#include "nrfx"
 
+struct battery_data {
+    uint8_t battery_level;
+    uint8_t charging_state;
+};
+
 struct sensor_data {
     uint8_t id;
     uint8_t size;

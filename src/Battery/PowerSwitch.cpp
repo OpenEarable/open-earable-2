@@ -7,8 +7,8 @@ int PowerSwitch::begin() {
 
     ret = gpio_is_ready_dt(&power_switch_pin); //bool
     if (!ret) {
-            printk("Power switch not ready.\n");
-            return -1;
+        printk("Power switch not ready.\n");
+        return -1;
     }
 
     ret = gpio_pin_configure_dt(&power_switch_pin, GPIO_INPUT | GPIO_PULL_DOWN);

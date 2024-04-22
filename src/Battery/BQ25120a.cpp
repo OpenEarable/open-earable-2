@@ -35,7 +35,7 @@ int BQ25120a::begin() {
         _pWire->begin();
 
         uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
-        last_high_z = last_high_z = now;
+        last_i2c = last_high_z = now;
 
         return 0;
 }
@@ -65,8 +65,6 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         delay = MAX(delay, delay_hz);
 
-        //printk("delay: %i\n", delay);
-
         if (delay > 0) k_usleep(delay);
 
         _pWire->beginTransmission(address);
@@ -88,7 +86,7 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
         int delay = MIN(BQ25120a_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ25120a_I2C_TIMEOUT_US);
-        int delay_hz = MIN(BQ25120a_HIGH_Z_TIMEOUT_US - (int)(now - last_i2c), BQ25120a_HIGH_Z_TIMEOUT_US);
+        int delay_hz = MIN(BQ25120a_HIGH_Z_TIMEOUT_US - (int)(now - last_high_z), BQ25120a_HIGH_Z_TIMEOUT_US);
 
         delay = MAX(delay, delay_hz);
 

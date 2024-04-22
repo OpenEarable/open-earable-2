@@ -11,14 +11,14 @@ static uint8_t button_state = BUTTON_RELEASED;
 
 static bool notify_enabled;
 
-static struct k_thread button_gatt_thread_data;
-static k_tid_t button_gatt_thread_id;
+static struct k_thread thread_data;
+static k_tid_t thread_id;
 
 ZBUS_SUBSCRIBER_DEFINE(button_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 
 ZBUS_CHAN_DECLARE(button_chan);
 
-K_THREAD_STACK_DEFINE(button_gatt_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE);
+static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE);
 
 static void button_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
@@ -78,19 +78,19 @@ static void write_button_gatt(void)
 			bt_send_button_state(msg.button_action);
 		}
 
-		STACK_USAGE_PRINT("button_msg_thread", &button_gatt_thread_data);
+		STACK_USAGE_PRINT("button_msg_thread", &thread_data);
 	}
 }
 
 int init_button_service() {
     int ret;
 
-	button_gatt_thread_id = k_thread_create(
-		&button_gatt_thread_data, button_gatt_thread_stack,
+	thread_id = k_thread_create(
+		&thread_data, thread_stack,
 		CONFIG_BUTTON_MSG_SUB_STACK_SIZE, (k_thread_entry_t)write_button_gatt, NULL,
 		NULL, NULL, K_PRIO_PREEMPT(CONFIG_BUTTON_MSG_SUB_THREAD_PRIO), 0, K_NO_WAIT);
 
-	ret = k_thread_name_set(button_gatt_thread_id, "BUTTON_GATT_SUB");
+	ret = k_thread_name_set(thread_id, "BUTTON_GATT_SUB");
 	if (ret) {
 		LOG_ERR("Failed to create button_msg thread");
 		return ret;

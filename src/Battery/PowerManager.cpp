@@ -13,7 +13,7 @@
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 
-#include <zephyr/task_wdt/task_wdt.h>
+//#include <zephyr/task_wdt/task_wdt.h>
 
 #include <zephyr/logging/log_ctrl.h>
 
@@ -26,8 +26,11 @@ K_WORK_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handl
 K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_handler);
 K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handler);
 
-void PowerManager::charge_timer_handler(struct k_timer * timer)
-{
+extern struct k_msgq battery_queue;
+
+battery_data PowerManager::msg;
+
+void PowerManager::charge_timer_handler(struct k_timer * timer) {
 	k_work_submit(&charge_ctrl_work);
 }
 
@@ -40,19 +43,22 @@ void PowerManager::power_switch_callback(const struct device *dev, struct gpio_c
 }
 
 void PowerManager::fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-	
+    k_work_submit(&fuel_gauge_work);
 }
 
 void PowerManager::power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
 	bool power_good = battery_controller.power_connected();
 
-        if (power_good) {
-            // start charge control timer
-            k_timer_start(&charge_timer, power_manager.chrg_interval, power_manager.chrg_interval);
-        } else {
-	        k_timer_stop(&charge_timer);
-            if (!power_switch.is_on()) k_work_submit(&power_manager.power_down_work);
-        }
+    k_work_submit(&fuel_gauge_work);
+
+    if (power_good) {
+        power_manager.last_charging_state = 0;
+        // start charge control timer
+        k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
+    } else {
+        k_timer_stop(&charge_timer);
+        if (!power_switch.is_on()) k_work_submit(&power_manager.power_down_work);
+    }
 }
 
 void PowerManager::power_down_work_handler(struct k_work * work) {
@@ -64,15 +70,34 @@ void PowerManager::charge_ctrl_work_handler(struct k_work * work) {
 }
 
 void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
-	
+    int ret;
+
+    LOG_INF("Fuel Gauge GPOUT Interrupt");
+    msg.battery_level = fuel_gauge.state_of_charge();
+
+    battery_controller.exit_high_impedance();
+    msg.charging_state = battery_controller.read_charging_state() >> 6;
+    battery_controller.enter_high_impedance();
+
+	ret = k_msgq_put(&battery_queue, (void *)&msg, K_NO_WAIT);
+	if (ret == -EAGAIN) {
+		LOG_WRN("power manager msg queue full");
+	}
 }
 
 int PowerManager::begin() {
     int ret;
 
-    fuel_gauge.begin();
     battery_controller.begin();
+    fuel_gauge.begin();
     power_switch.begin();
+
+    // check setup
+    op_state state = fuel_gauge.operation_state();
+    if (state.SEC != BQ27220::SEALED) {
+        battery_controller.setup();
+        fuel_gauge.setup();
+    }
 
     k_timer_init(&charge_timer, charge_timer_handler, NULL);
 
@@ -97,6 +122,13 @@ int PowerManager::begin() {
             // normal params
             battery_controller.enable_charge();
         }
+
+        power_manager.last_charging_state = 0;
+        k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
+
+        while(!power_switch.is_on()) {
+            __WFE();
+        }
     }
 
     if (power_switch.is_on()) {
@@ -105,7 +137,8 @@ int PowerManager::begin() {
         power_switch.set_power_off_callback(power_switch_callback);
 
         battery_controller.enter_high_impedance();
-    } else {
+    }
+    else {
         return power_down();
     }
 
@@ -126,7 +159,7 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
 
 int PowerManager::power_down(bool fault) {
     // if charging do not power off
-    uint16_t last_charging_state = 0;
+    //uint16_t last_charging_state = 0;
     if (!fault && battery_controller.power_connected()) {
         return -1;
     }
@@ -152,7 +185,7 @@ int PowerManager::power_down(bool fault) {
     LOG_INF("Power off");
     LOG_PANIC();
 
-    //ret = bt_mgmt_conn_disconnect(msg.conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+    // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
     if (ret) {
@@ -166,9 +199,8 @@ int PowerManager::power_down(bool fault) {
 	ret = led_off(2);
 	ret = led_off(3);
 
-    int wdt_ch_id = task_wdt_delete(wdt_ch_id);
-
-    //k_msleep(100);
+    ret = bt_mgmt_stop_watchdog();
+    ERR_CHK(ret);
 
     const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
@@ -186,11 +218,6 @@ int PowerManager::power_down(bool fault) {
     ret = pm_device_action_run(watch_dog, PM_DEVICE_ACTION_SUSPEND);
     ERR_CHK(ret);*/
 
-    //struct pm_state_info info = {PM_STATE_SOFT_OFF, 0, 0};
-
-    //pm_state_force(0u, &(struct pm_state_info){PM_STATE_SOFT_OFF, 0, 0});
-    //k_sleep(K_SECONDS(SLEEP_S));
-
     //pm_system_suspend();
 
     //pm_suspend_devices();
@@ -206,24 +233,33 @@ int PowerManager::power_down(bool fault) {
 void PowerManager::charge_task() {
     uint16_t charging_state = battery_controller.read_charging_state() >> 6;
 
+    LOG_INF("Charger Watchdog ...................\n");
+
+    if (last_charging_state == 0) {
+        LOG_INF("Setting up charge controller ........");
+        battery_controller.setup();
+        battery_controller.enable_charge();
+    }
+
     if (last_charging_state != charging_state) {
             switch (charging_state) {
             case 0:
-            LOG_INF("charging state: ready\n");
+            LOG_INF("charging state: ready");
             break;
             case 1:
-            LOG_INF("charging state: charing\n");
+            LOG_INF("charging state: charing");
             break;
             case 2:
-            LOG_INF("charging state: done\n");
+            LOG_INF("charging state: done");
             break;
             case 3:
-            LOG_WRN("charging state: fault\n");
+            LOG_WRN("charging state: fault");
 
             uint16_t ts_fault = battery_controller.read_ts_fault();
-            printk("TS_ENABLED: %i, TS: %i\n", ts_fault >> 7, (ts_fault >> 5) & 0x3);ts_fault &= ~(1 << 7);
+            printk("TS_ENABLED: %i, TS FAULT: %i\n", ts_fault >> 7, (ts_fault >> 5) & 0x3);ts_fault &= ~(1 << 7);
 
             battery_controller.disable_ts();
+            battery_controller.setup();
             break;
             }
     }

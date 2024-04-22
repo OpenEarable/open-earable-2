@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+int init_battery_service();
+
 float get_battery_level();
 
 #ifdef __cplusplus

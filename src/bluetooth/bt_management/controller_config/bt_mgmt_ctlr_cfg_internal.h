@@ -10,7 +10,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-//extern int wdt_ch_id;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief	Get the Bluetooth controller manufacturer.
@@ -32,4 +34,11 @@ int bt_mgmt_ctlr_cfg_manufacturer_get(bool print_version, uint16_t *manufacturer
  */
 int bt_mgmt_ctlr_cfg_init(bool watchdog_enable);
 
+int bt_mgmt_stop_watchdog();
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _BT_MGMT_CTRL_CFG_INTERNAL_H_ */
+

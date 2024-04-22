@@ -7,6 +7,8 @@
 #include "BQ25120a.h"
 #include "PowerSwitch.h"
 
+#include "nrf5340_audio_common.h"
+
 #define CHARGE_CONTROLLER_INTERVAL_SECONDS 10
 
 class PowerManager {
@@ -42,6 +44,8 @@ private:
     static void fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
     static void charge_timer_handler(struct k_timer * timer);
+
+    static battery_data msg;
 };
 
 extern PowerManager power_manager;

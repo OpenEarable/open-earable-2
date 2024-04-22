@@ -225,13 +225,16 @@ int main(void) {
 	sensor_config baro_config = {ID_TEMP_BARO, 20, 0};
 
 	SensorManager::manager.start();
-	SensorManager::manager.config(&baro_config);
+	//SensorManager::manager.config(&baro_config);
 	SensorManager::manager.config(&imu_config);
 
 	//fuel_gauge.begin();
 	//battery_controller.begin();
 
 	ret = bt_mgmt_init();
+	ERR_CHK(ret);
+
+	ret = init_battery_service();
 	ERR_CHK(ret);
 
 	ret = init_button_service();
@@ -248,11 +251,12 @@ int main(void) {
 
 	while(true) {
 		k_msleep(1000);
+
 		float voltage = fuel_gauge.voltage();
         printk("Voltage: %.3fV\n", voltage);
 
 		float soc = fuel_gauge.state_of_charge();
-        printk("soc: %.3f%%\n", soc); //\x0a = %
+        printk("soc: %.3f%%\n", soc);
         
         float current = fuel_gauge.current();
         printk("current: %.3fmA\n", current);

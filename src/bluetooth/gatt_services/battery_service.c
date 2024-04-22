@@ -1,7 +1,30 @@
 #include "battery_service.h"
 
-static uint8_t battery_level = 100;
-static uint8_t charging_state = 2;
+#include "macros_common.h"
+#include "nrf5340_audio_common.h"
+
+#include "macros_custom.h"
+
+#include <zephyr/kernel.h>
+#include <zephyr/zbus/zbus.h>
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(battery_service, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
+
+static struct battery_data msg;
+static bool notify_enabled;
+
+DEFINE_GATT_SERVICE(battery, bt_send_battery_level, &msg); //(power_manager);
+
+static void battery_ccc_cfg_changed(const struct bt_gatt_attr *attr,
+				  uint16_t value)
+{
+	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
+#ifdef CONFIG_LOG
+	if (notify_enabled) LOG_INF("subscribe to battery level");
+	else LOG_INF("unsubscribe from battery level");
+#endif
+}
 
 static ssize_t read_battery_level(struct bt_conn *conn,
 			  const struct bt_gatt_attr *attr,
@@ -9,11 +32,10 @@ static ssize_t read_battery_level(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	//battery_level = (uint8_t) fuel_gauge.state_of_charge();
-	battery_level = (uint8_t) get_battery_level();
+	msg.battery_level = (uint8_t) get_battery_level();
 
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, &battery_level,
-					 sizeof(battery_level));
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, &msg.battery_level,
+					 sizeof(msg.battery_level));
 }
 
 static ssize_t read_charging_state(struct bt_conn *conn,
@@ -22,18 +44,32 @@ static ssize_t read_charging_state(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, &charging_state,
-					 sizeof(charging_state));
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, &msg.charging_state,
+					 sizeof(msg.charging_state));
 }
 
 BT_GATT_SERVICE_DEFINE(battery_service,
 BT_GATT_PRIMARY_SERVICE(BT_UUID_BAS),
 BT_GATT_CHARACTERISTIC(BT_UUID_BAS_BATTERY_LEVEL,
-            BT_GATT_CHRC_READ,
+            BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
             BT_GATT_PERM_READ,
-            read_battery_level, NULL, &battery_level),
+            read_battery_level, NULL, &msg.battery_level),
+BT_GATT_CCC(battery_ccc_cfg_changed,
+		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 BT_GATT_CHARACTERISTIC(BT_UUID_BAS_BATTERY_POWER_STATE,
             BT_GATT_CHRC_READ,
             BT_GATT_PERM_READ,
-            read_charging_state, NULL, &charging_state),
+            read_charging_state, NULL, &msg.charging_state),
 );
+
+int bt_send_battery_level(struct battery_data * data)
+{
+	if (!notify_enabled) {
+		LOG_WRN("battery level not subscribed");
+		return -EACCES;
+	}
+
+	LOG_INF("notify battery level change");
+
+	return bt_gatt_notify(NULL, &battery_service.attrs[2], &msg.battery_level, sizeof(msg.battery_level));
+}

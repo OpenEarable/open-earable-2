@@ -9,16 +9,16 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
-static struct k_thread sensor_gatt_thread_data;
+static struct k_thread thread_data;
+static k_tid_t thread_id;
 
-static k_tid_t sensor_gatt_thread_id;
 ZBUS_SUBSCRIBER_DEFINE(sensor_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 //ZBUS_LISTENER_DEFINE()
 
 ZBUS_CHAN_DECLARE(sensor_chan);
 ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
-K_THREAD_STACK_DEFINE(sensor_gatt_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
+static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
 
 //extern const k_tid_t sensor_publish;
 
@@ -30,7 +30,7 @@ static struct sensor_config config;
 
 static int idx_data = 0;
 
-static bool notify_sensor_enabled = false;
+static bool notify_enabled = false;
 
 //k_work gatt_sensor_work;
 
@@ -41,9 +41,9 @@ K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
 
 static void connect_evt_handler(const struct zbus_channel *chan);
 
-ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen_2, connect_evt_handler);
+static ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen, connect_evt_handler);
 
-bool connection_complete = false;
+static bool connection_complete = false;
 
 static void connect_evt_handler(const struct zbus_channel *chan)
 {
@@ -65,7 +65,7 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
-	notify_sensor_enabled = (value == BT_GATT_CCC_NOTIFY);
+	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
 }
 
 static ssize_t read_sensor_value(struct bt_conn *conn,
@@ -119,17 +119,16 @@ BT_GATT_CCC(sensor_ccc_cfg_changed,
 
 static void gatt_work_handler(struct k_work * work) {
 	//send_sensor_data();
-	if (connection_complete && notify_sensor_enabled) {
+	if (connection_complete && notify_enabled) {
 		int ret = send_sensor_data();
 		//if (ret == 0) printk("data send\n");
-		if (ret != 0) printk("data failed\n");
+		if (ret != 0) printk("Failed to send data.\n");
 		//ERR_CHK(ret);
 	}
 }
 
-int send_sensor_data() { //struct sensor_data * _data
-
-	if (!notify_sensor_enabled) {
+int send_sensor_data() {
+	if (!notify_enabled) {
 		return -EACCES;
 	}
 
@@ -138,7 +137,6 @@ int send_sensor_data() { //struct sensor_data * _data
 	const uint16_t size = sizeof(data_buf[idx_data].id) + sizeof(data_buf[idx_data].size) + sizeof(data_buf[idx_data].time) + data_buf[idx_data].size; //sizeof(float)*6;
 
 	return bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
-	//}
 }
 
 static void sensor_gatt_task(void)
@@ -164,8 +162,6 @@ static void sensor_gatt_task(void)
 
 		//ret = zbus_sub_wait_msg(&sensor_gatt_sub, &chan, &data, K_FOREVER);
 		//ERR_CHK(ret);
-
-		
 
 		//printk("rec: %i\n", msg.id);
 
@@ -206,7 +202,7 @@ static void sensor_gatt_task(void)
 
 		if (count >= 100) {
 			count = 0;
-			printk("imu: %.3f, baro: %.3f, enabled: %i\n", 1000 / t_imu, 1000 / t_baro, notify_sensor_enabled);
+			printk("imu: %.3f, baro: %.3f, enabled: %i\n", 1000 / t_imu, 1000 / t_baro, notify_enabled);
 		}
 
 		//if (notify_sensor_enabled) ret = send_sensor_data();
@@ -227,19 +223,19 @@ static void sensor_gatt_task(void)
 		
 		//send_sensor_data();
 
-		STACK_USAGE_PRINT("sensor_msg_thread", &sensor_gatt_thread_data);
+		STACK_USAGE_PRINT("sensor_msg_thread", &thread_data);
 	}
 }
 
 int init_sensor_service() {
 	int ret;
 
-	sensor_gatt_thread_id = k_thread_create(
-		&sensor_gatt_thread_data, sensor_gatt_thread_stack,
+	thread_id = k_thread_create(
+		&thread_data, thread_stack,
 		CONFIG_BUTTON_MSG_SUB_STACK_SIZE, (k_thread_entry_t)sensor_gatt_task, NULL,
 		NULL, NULL, K_PRIO_PREEMPT(4), 0, K_NO_WAIT);
 	
-	ret = k_thread_name_set(sensor_gatt_thread_id, "SENSOR_GATT_SUB");
+	ret = k_thread_name_set(thread_id, "SENSOR_GATT_SUB");
 	if (ret) {
 		LOG_ERR("Failed to create sensor_msg thread");
 		return ret;
@@ -251,7 +247,7 @@ int init_sensor_service() {
 		return ret;
 	}
 
-	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen_2, ZBUS_ADD_OBS_TIMEOUT_MS);
+	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
 		LOG_ERR("Failed to add bt_mgmt listener");
 		return ret;

@@ -51,8 +51,16 @@
         "ostream": "c",
         "streambuf": "c",
         "retained.h": "c",
-        "button_assignments.h": "c"
+        "__bit_reference": "cpp",
+        "__hash_table": "cpp",
+        "__split_buffer": "cpp",
+        "unordered_map": "cpp",
+        "macros_custom.h": "c",
+        "button_assignments.h": "c",
+        "battery_service.h": "c",
+        "cs47l63_spec.h": "c"
     },
     "C_Cpp.default.compilerPath": "/opt/nordic/ncs/toolchains/20d68df7e5/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-g++",
-    "nrf-connect.topdir": "/opt/nordic/ncs/main"
+    "nrf-connect.topdir": "/opt/nordic/ncs/main",
+    "nrf-connect.toolchain.path": "${nrf-connect.toolchain:2.6.0}"
 }

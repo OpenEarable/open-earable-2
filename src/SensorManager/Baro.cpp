@@ -6,7 +6,7 @@
 
 //#include <functional>
 
-extern struct k_msgq sensor_queue;
+//extern struct k_msgq sensor_queue;
 
 static struct sensor_data msg_baro;
 
@@ -65,7 +65,7 @@ bool Baro::init(struct k_msgq * queue) {
 }
 
 void Baro::start(k_timeout_t t) {
-	k_timer_start(&sensor.sensor_timer, t, t);
+	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 
 void Baro::stop() {
