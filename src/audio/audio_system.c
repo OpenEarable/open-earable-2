@@ -35,13 +35,29 @@ K_THREAD_STACK_DEFINE(encoder_thread_stack, CONFIG_ENCODER_STACK_SIZE);
 DATA_FIFO_DEFINE(fifo_tx, FIFO_TX_BLOCK_COUNT, WB_UP(BLOCK_SIZE_BYTES));
 DATA_FIFO_DEFINE(fifo_rx, FIFO_RX_BLOCK_COUNT, WB_UP(BLOCK_SIZE_BYTES));
 
+static K_SEM_DEFINE(sem_encoder_start, 0, 1);
+
 static struct k_thread encoder_thread_data;
 static k_tid_t encoder_thread_id;
+
+static struct k_poll_signal encoder_sig;
+
+static struct k_poll_event encoder_evt =
+	K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &encoder_sig);
 
 static struct sw_codec_config sw_codec_cfg;
 /* Buffer which can hold max 1 period test tone at 1000 Hz */
 static int16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 1000];
 static size_t test_tone_size;
+
+static bool sample_rate_valid(uint32_t sample_rate_hz)
+{
+	if (sample_rate_hz == 16000 || sample_rate_hz == 24000 || sample_rate_hz == 48000) {
+		return true;
+	}
+
+	return false;
+}
 
 static void audio_gateway_configure(void)
 {
@@ -52,16 +68,9 @@ static void audio_gateway_configure(void)
 	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
-	sw_codec_cfg.decoder.enabled = true;
 	sw_codec_cfg.decoder.num_ch = 1;
 	sw_codec_cfg.decoder.channel_mode = SW_CODEC_MONO;
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
-
-	if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
-		sw_codec_cfg.encoder.bitrate = CONFIG_LC3_BITRATE;
-	} else {
-		ERR_CHK_MSG(-EINVAL, "No codec selected");
-	}
 
 	if (IS_ENABLED(CONFIG_MONO_TO_ALL_RECEIVERS)) {
 		sw_codec_cfg.encoder.num_ch = 1;
@@ -71,7 +80,6 @@ static void audio_gateway_configure(void)
 
 	sw_codec_cfg.encoder.channel_mode =
 		(sw_codec_cfg.encoder.num_ch == 1) ? SW_CODEC_MONO : SW_CODEC_STEREO;
-	sw_codec_cfg.encoder.enabled = true;
 }
 
 static void audio_headset_configure(void)
@@ -83,15 +91,8 @@ static void audio_headset_configure(void)
 	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
-	sw_codec_cfg.encoder.enabled = true;
 	sw_codec_cfg.encoder.num_ch = 1;
 	sw_codec_cfg.encoder.channel_mode = SW_CODEC_MONO;
-
-	if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
-		sw_codec_cfg.encoder.bitrate = CONFIG_LC3_BITRATE;
-	} else {
-		ERR_CHK_MSG(-EINVAL, "No codec selected");
-	}
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
 
 	sw_codec_cfg.decoder.num_ch = 1;
@@ -101,8 +102,6 @@ static void audio_headset_configure(void)
 		/* Need an extra decoder channel to decode data from SD card */
 		sw_codec_cfg.decoder.num_ch++;
 	}
-
-	sw_codec_cfg.decoder.enabled = true;
 }
 
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
@@ -122,6 +121,9 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	static uint32_t test_tone_finite_pos;
 
 	while (1) {
+		/* Don't start encoding until the stream needing it has started */
+		ret = k_poll(&encoder_evt, 1, K_FOREVER);
+
 		/* Get PCM data from I2S */
 		/* Since one audio frame is divided into a number of
 		 * blocks, we need to fetch the pointers to all of these
@@ -180,6 +182,17 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	}
 }
 
+void audio_system_encoder_start(void)
+{
+	LOG_DBG("Encoder started");
+	k_poll_signal_raise(&encoder_sig, 0);
+}
+
+void audio_system_encoder_stop(void)
+{
+	k_poll_signal_reset(&encoder_sig);
+}
+
 int audio_system_encode_test_tone_set(uint32_t freq)
 {
 	int ret;
@@ -189,8 +202,14 @@ int audio_system_encode_test_tone_set(uint32_t freq)
 		return 0;
 	}
 
-	ret = tone_gen(test_tone_buf, &test_tone_size, freq, CONFIG_AUDIO_SAMPLE_RATE_HZ, 1);
-	ERR_CHK(ret);
+	if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
+		ret = tone_gen(test_tone_buf, &test_tone_size, freq, CONFIG_AUDIO_SAMPLE_RATE_HZ,
+			       1);
+		ERR_CHK(ret);
+	} else {
+		LOG_ERR("Test tone is not enabled");
+		return -ENXIO;
+	}
 
 	if (test_tone_size > sizeof(test_tone_buf)) {
 		return -ENOMEM;
@@ -227,6 +246,32 @@ int audio_system_encode_test_tone_step(void)
 	if (ret) {
 		LOG_ERR("Failed to generate test tone");
 		return ret;
+	}
+
+	return 0;
+}
+
+int audio_system_config_set(uint32_t encoder_sample_rate_hz, uint32_t encoder_bitrate,
+			    uint32_t decoder_sample_rate_hz)
+{
+	if (sample_rate_valid(encoder_sample_rate_hz)) {
+		sw_codec_cfg.encoder.sample_rate_hz = encoder_sample_rate_hz;
+	} else if (encoder_sample_rate_hz) {
+		LOG_ERR("%d is not a valid sample rate", encoder_sample_rate_hz);
+		return -EINVAL;
+	}
+
+	if (sample_rate_valid(decoder_sample_rate_hz)) {
+		sw_codec_cfg.decoder.enabled = true;
+		sw_codec_cfg.decoder.sample_rate_hz = decoder_sample_rate_hz;
+	} else if (decoder_sample_rate_hz) {
+		LOG_ERR("%d is not a valid sample rate", decoder_sample_rate_hz);
+		return -EINVAL;
+	}
+
+	if (encoder_bitrate) {
+		sw_codec_cfg.encoder.enabled = true;
+		sw_codec_cfg.encoder.bitrate = encoder_bitrate;
 	}
 
 	return 0;
@@ -442,6 +487,8 @@ int audio_system_init(void)
 		return ret;
 	}
 #endif
+	k_poll_signal_init(&encoder_sig);
+
 	return 0;
 }
 

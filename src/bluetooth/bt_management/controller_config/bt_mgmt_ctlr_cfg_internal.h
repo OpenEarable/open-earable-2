@@ -41,4 +41,3 @@ int bt_mgmt_stop_watchdog();
 #endif
 
 #endif /* _BT_MGMT_CTRL_CFG_INTERNAL_H_ */
-

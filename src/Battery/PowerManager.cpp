@@ -8,7 +8,7 @@
 #include <zephyr/pm/pm.h>
 #include <zephyr/pm/device_runtime.h>
 
-#include "led.h"
+//#include "led.h"
 
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
@@ -29,6 +29,8 @@ K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handl
 extern struct k_msgq battery_queue;
 
 battery_data PowerManager::msg;
+
+LoadSwitch PowerManager::v1_8_switch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
 
 void PowerManager::charge_timer_handler(struct k_timer * timer) {
 	k_work_submit(&charge_ctrl_work);
@@ -137,6 +139,7 @@ int PowerManager::begin() {
         power_switch.set_power_off_callback(power_switch_callback);
 
         battery_controller.enter_high_impedance();
+        v1_8_switch.begin();
     }
     else {
         return power_down();
@@ -157,58 +160,75 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
     }
 }
 
+void PowerManager::set_1_8(bool on) {
+    v1_8_switch.set(on);
+}
+
+void PowerManager::set_3_3(bool on) {
+
+}
+
 int PowerManager::power_down(bool fault) {
     // if charging do not power off
     //uint16_t last_charging_state = 0;
-    if (!fault && battery_controller.power_connected()) {
+    /*if (!fault && battery_controller.power_connected()) {
         return -1;
-    }
+    }*/
 
     // power disonnected
     // prepare interrupts
 
     int ret;
 
-    ret = battery_controller.set_wakeup_int();
-    if (ret != 0) return ret;
-    ret = fuel_gauge.set_wakeup_int();
-    if (ret != 0) return ret;
+    power_manager.v1_8_switch.set(false);
+
+    //ret = battery_controller.set_wakeup_int();
+    //if (ret != 0) return ret;
+    //ret = fuel_gauge.set_wakeup_int();
+    //if (ret != 0) return ret;
     
     // check battery good
-    if (!fault) ret = power_switch.set_wakeup_int();
-    if (ret != 0) return ret;
+    //if (!fault) ret = power_switch.set_wakeup_int();
+    //if (ret != 0) return ret;
 
     //led_controller.power_off();
 
     battery_controller.enter_high_impedance();
 
-    LOG_INF("Power off");
-    LOG_PANIC();
+    // LOG_INF("Power off");
+    // LOG_PANIC();
+
+    // k_msleep(1000);
 
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
-    if (ret) {
+    /*if (ret) {
         LOG_ERR("Failed to disconnect: %d", ret);
-    }
+    }*/
 
     bt_disable();
 
-    ret = led_off(0);
+    LOG_INF("Power off");
+    LOG_PANIC();
+
+    //k_msleep(1000);
+
+    /*ret = led_off(0);
 	ret = led_off(1);
 	ret = led_off(2);
-	ret = led_off(3);
+	ret = led_off(3);*/
 
-    ret = bt_mgmt_stop_watchdog();
-    ERR_CHK(ret);
+    //ret = bt_mgmt_stop_watchdog();
+    //ERR_CHK(ret);
 
-    const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+    /*const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
     ERR_CHK(ret);
 
-    const struct device *const i2s = DEVICE_DT_GET(DT_NODELABEL(i2c1));
-    ret = pm_device_action_run(i2s, PM_DEVICE_ACTION_SUSPEND);
-    ERR_CHK(ret);
+    const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+    ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
+    ERR_CHK(ret);*/
 
     /*const struct device *const watch_dog = DEVICE_DT_GET(DT_CHOSEN(zephyr_bt_hci_rpmsg_ipc));
     ret = pm_device_action_run(watch_dog, PM_DEVICE_ACTION_SUSPEND);

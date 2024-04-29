@@ -7,8 +7,8 @@ extern struct k_msgq sensor_queue;
 SensorManager SensorManager::manager = SensorManager();
 
 void SensorManager::start() {
-    baro.init(&sensor_queue);
-	imu.init(&sensor_queue);
+    //baro.init(&sensor_queue);
+	//imu.init(&sensor_queue);
 }
 
 void SensorManager::stop() {
@@ -22,9 +22,11 @@ void SensorManager::config(sensor_config * config) {
 	switch (config->sensorId)
 	{
 	case ID_IMU:
+		imu.init(&sensor_queue);
 		imu.start(t);
 		break;
 	case ID_TEMP_BARO:
+		baro.init(&sensor_queue);
 		baro.start(t);
 		break;
 	

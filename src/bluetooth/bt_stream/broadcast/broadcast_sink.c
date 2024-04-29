@@ -16,7 +16,6 @@
 #include <../subsys/bluetooth/audio/bap_endpoint.h>
 
 #include "macros_common.h"
-#include "le_audio.h"
 #include "nrf5340_audio_common.h"
 #include "channel_assignment.h"
 
@@ -64,9 +63,9 @@ static uint8_t active_stream_index;
 
 static struct bt_audio_codec_cap codec_cap = BT_AUDIO_CODEC_CAP_LC3(
 	BT_AUDIO_CODEC_CAPABILIY_FREQ,
-	(BT_AUDIO_CODEC_LC3_DURATION_10 | BT_AUDIO_CODEC_LC3_DURATION_PREFER_10),
-	BT_AUDIO_CODEC_LC3_CHAN_COUNT_SUPPORT(1), LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE_MIN),
-	LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE_MAX), 1u, BT_AUDIO_CONTEXT_TYPE_MEDIA);
+	(BT_AUDIO_CODEC_CAP_DURATION_10 | BT_AUDIO_CODEC_CAP_DURATION_PREFER_10),
+	BT_AUDIO_CODEC_CAP_CHAN_COUNT_SUPPORT(1), LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE_MIN),
+	LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE_MAX), 1u, BT_AUDIO_CONTEXT_TYPE_ANY);
 
 static struct bt_pacs_cap capabilities = {
 	.codec_cap = &codec_cap,
@@ -129,55 +128,53 @@ static void le_audio_event_publish(enum le_audio_evt_type event)
 
 static void print_codec(const struct audio_codec_info *codec)
 {
-	if (codec->id == BT_AUDIO_CODEC_LC3_ID) {
-		LOG_INF("Codec config for LC3:");
-		LOG_INF("\tFrequency: %d Hz", codec->frequency);
-		LOG_INF("\tFrame Duration: %d us", codec->frame_duration_us);
-		LOG_INF("\tOctets per frame: %d (%d kbps)", codec->octets_per_sdu, codec->bitrate);
-		LOG_INF("\tFrames per SDU: %d", codec->blocks_per_sdu);
-		if (codec->chan_allocation >= 0) {
-			LOG_INF("\tChannel allocation: 0x%x", codec->chan_allocation);
-		}
-	} else {
-		LOG_WRN("Codec is not LC3, codec_id: 0x%2hhx", codec->id);
+	LOG_INF("Codec config for LC3:");
+	LOG_INF("\tFrequency: %d Hz", codec->frequency);
+	LOG_INF("\tFrame Duration: %d us", codec->frame_duration_us);
+	LOG_INF("\tOctets per frame: %d (%d kbps)", codec->octets_per_sdu, codec->bitrate);
+	LOG_INF("\tFrames per SDU: %d", codec->blocks_per_sdu);
+	if (codec->chan_allocation >= 0) {
+		LOG_INF("\tChannel allocation: 0x%x", codec->chan_allocation);
 	}
 }
 
 static void get_codec_info(const struct bt_audio_codec_cfg *codec,
 			   struct audio_codec_info *codec_info)
 {
-	if (codec->id == BT_AUDIO_CODEC_LC3_ID) {
-		/* LC3 uses the generic LTV format - other codecs might do as well */
-		LOG_DBG("Retrieve the codec configuration for LC3");
-		codec_info->id = codec->id;
-		codec_info->cid = codec->cid;
-		codec_info->vid = codec->vid;
-		codec_info->frequency = bt_audio_codec_cfg_get_freq(codec);
-		codec_info->frame_duration_us = bt_audio_codec_cfg_get_frame_duration_us(codec);
-		bt_audio_codec_cfg_get_chan_allocation_val(codec, &codec_info->chan_allocation);
-		codec_info->octets_per_sdu = bt_audio_codec_cfg_get_octets_per_frame(codec);
-		codec_info->bitrate =
-			(codec_info->octets_per_sdu * 8 * 1000000) / codec_info->frame_duration_us;
-		codec_info->blocks_per_sdu =
-			bt_audio_codec_cfg_get_frame_blocks_per_sdu(codec, true);
-	} else {
-		LOG_WRN("Codec is not LC3, codec_id: 0x%2hhx", codec->id);
-	}
-}
+	int ret;
 
-static bool bitrate_check(const struct bt_audio_codec_cfg *codec)
-{
-	uint32_t octets_per_sdu = bt_audio_codec_cfg_get_octets_per_frame(codec);
-
-	if (octets_per_sdu < LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE_MIN)) {
-		LOG_WRN("Bitrate too low");
-		return false;
-	} else if (octets_per_sdu > LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE_MAX)) {
-		LOG_WRN("Bitrate too high");
-		return false;
+	ret = le_audio_freq_hz_get(codec, &codec_info->frequency);
+	if (ret) {
+		LOG_DBG("Failed retrieving sampling frequency: %d", ret);
 	}
 
-	return true;
+	ret = le_audio_duration_us_get(codec, &codec_info->frame_duration_us);
+	if (ret) {
+		LOG_DBG("Failed retrieving frame duration: %d", ret);
+	}
+
+	ret = bt_audio_codec_cfg_get_chan_allocation(codec, &codec_info->chan_allocation);
+	if (ret == -ENODATA) {
+		/* Codec channel allocation not set, defaulting to 0 */
+		codec_info->chan_allocation = 0;
+	} else if (ret) {
+		LOG_DBG("Failed retrieving channel allocation: %d", ret);
+	}
+
+	ret = le_audio_octets_per_frame_get(codec, &codec_info->octets_per_sdu);
+	if (ret) {
+		LOG_DBG("Failed retrieving octets per frame: %d", ret);
+	}
+
+	ret = le_audio_bitrate_get(codec, &codec_info->bitrate);
+	if (ret) {
+		LOG_DBG("Failed calculating bitrate: %d", ret);
+	}
+
+	ret = le_audio_frame_blocks_per_sdu_get(codec, &codec_info->blocks_per_sdu);
+	if (codec_info->octets_per_sdu < 0) {
+		LOG_DBG("Failed retrieving frame blocks per SDU: %d", codec_info->octets_per_sdu);
+	}
 }
 
 static void stream_started_cb(struct bt_bap_stream *stream)
@@ -215,6 +212,10 @@ static void stream_stopped_cb(struct bt_bap_stream *stream, uint8_t reason)
 
 		break;
 
+	case BT_HCI_ERR_TERM_DUE_TO_MIC_FAIL:
+		LOG_INF("MIC fail. The encryption key may be wrong");
+		break;
+
 	default:
 		LOG_WRN("Unhandled reason: %d", reason);
 
@@ -249,96 +250,134 @@ static struct bt_bap_stream_ops stream_ops = {
 	.recv = stream_recv_cb,
 };
 
-static bool parse_cb(struct bt_data *data, void *codec)
+static bool base_subgroup_bis_cb(const struct bt_bap_base_subgroup_bis *bis, void *user_data)
 {
-	if (data->type == BT_AUDIO_CODEC_CONFIG_LC3_CHAN_ALLOC) {
-		((struct audio_codec_info *)codec)->chan_allocation = sys_get_le32(data->data);
+	int ret;
+	struct bt_audio_codec_cfg codec_cfg = {0};
+
+	LOG_DBG("BIS found, index %d", bis->index);
+
+	ret = bt_bap_base_subgroup_bis_codec_to_codec_cfg(bis, &codec_cfg);
+	if (ret != 0) {
+		LOG_WRN("Could not find codec configuration for BIS index %d, ret "
+			"= %d",
+			bis->index, ret);
+		return true;
+	}
+
+	get_codec_info(&codec_cfg, &audio_codec_info[bis->index - 1]);
+
+	LOG_DBG("Channel allocation: 0x%x for BIS index %d",
+		audio_codec_info[bis->index - 1].chan_allocation, bis->index);
+
+	uint32_t chan_bitfield = audio_codec_info[bis->index - 1].chan_allocation;
+	bool single_bit = (chan_bitfield & (chan_bitfield - 1)) == 0;
+
+	if (single_bit) {
+		bis_index_bitfields[bis->index - 1] = BIT(bis->index);
+	} else {
+		LOG_WRN("More than one bit set in channel location, we only support 1 channel per "
+			"BIS");
+	}
+
+	return true;
+}
+
+static bool base_subgroup_cb(const struct bt_bap_base_subgroup *subgroup, void *user_data)
+{
+	int ret;
+	int bis_num;
+	struct bt_audio_codec_cfg codec_cfg = {0};
+	struct bt_bap_base_codec_id codec_id;
+	bool *suitable_stream_found = user_data;
+
+	ret = bt_bap_base_subgroup_codec_to_codec_cfg(subgroup, &codec_cfg);
+	if (ret) {
+		LOG_WRN("Failed to convert codec to codec_cfg: %d", ret);
+		return true;
+	}
+
+	ret = bt_bap_base_get_subgroup_codec_id(subgroup, &codec_id);
+	if (ret && codec_id.cid != BT_HCI_CODING_FORMAT_LC3) {
+		LOG_WRN("Failed to get codec ID or codec ID is not supported: %d", ret);
+		return true;
+	}
+
+	ret = le_audio_bitrate_check(&codec_cfg);
+	if (!ret) {
+		LOG_WRN("Bitrate check failed");
+		return true;
+	}
+
+	ret = le_audio_freq_check(&codec_cfg);
+	if (!ret) {
+		LOG_WRN("Sample rate not supported");
+		return true;
+	}
+
+	bis_num = bt_bap_base_get_subgroup_bis_count(subgroup);
+	LOG_DBG("Subgroup %p has %d BISes", (void *)subgroup, bis_num);
+	if (bis_num > 0) {
+		*suitable_stream_found = true;
+		sync_stream_cnt = bis_num;
+		for (int i = 0; i < bis_num; i++) {
+			get_codec_info(&codec_cfg, &audio_codec_info[i]);
+		}
+
+		ret = bt_bap_base_subgroup_foreach_bis(subgroup, base_subgroup_bis_cb, NULL);
+		if (ret < 0) {
+			LOG_WRN("Could not get BIS for subgroup %p: %d", (void *)subgroup, ret);
+		}
 		return false;
 	}
 
 	return true;
 }
 
-/**
- * @brief	Function which overwrites BIS specific codec information.
- *		I.e. level 3 specific information overwrites general level 2 information.
- *
- * @note	This will change when new host APIs are available.
- *
- * @return	0 for success, error otherwise.
- */
-static int bis_specific_codec_config(struct bt_bap_base_bis_data bis_data,
-				     struct audio_codec_info *codec)
+static void base_recv_cb(struct bt_bap_broadcast_sink *sink, const struct bt_bap_base *base,
+			 size_t base_size)
 {
 	int ret;
-
-	ret = bt_audio_data_parse(bis_data.data, bis_data.data_len, parse_cb, codec);
-	if (ret && ret != -ECANCELED) {
-		LOG_WRN("Could not overwrite BIS specific codec info: %d", ret);
-		return -ENXIO;
-	}
-
-	return 0;
-}
-
-static void base_recv_cb(struct bt_bap_broadcast_sink *sink, const struct bt_bap_base *base)
-{
 	bool suitable_stream_found = false;
 
 	if (init_routine_completed) {
 		return;
 	}
 
-	LOG_DBG("Received BASE with %zu subgroup(s) from broadcast sink", base->subgroup_count);
-
 	sync_stream_cnt = 0;
 
-	/* Search each subgroup for the BIS of interest */
-	for (int i = 0; i < base->subgroup_count; i++) {
-		for (int j = 0; j < base->subgroups[i].bis_count; j++) {
-			const uint8_t index = base->subgroups[i].bis_data[j].index;
+	uint32_t subgroup_count = bt_bap_base_get_subgroup_count(base);
 
-			LOG_DBG("Subgroup: %d BIS: %d index = %d", i, j, index);
+	LOG_DBG("Received BASE with %d subgroup(s) from broadcast sink", subgroup_count);
 
-			if (bitrate_check(&base->subgroups[i].codec_cfg)) {
-				suitable_stream_found = true;
-
-				bis_index_bitfields[sync_stream_cnt] = BIT(index);
-
-				/* Get general (level 2) codec config from the subgroup */
-				audio_streams[sync_stream_cnt].codec_cfg =
-					(struct bt_audio_codec_cfg *)&base->subgroups[i].codec_cfg;
-				get_codec_info(audio_streams[sync_stream_cnt].codec_cfg,
-					       &audio_codec_info[sync_stream_cnt]);
-
-				/* Overwrite codec config with level 3 BIS specific codec config.
-				 * For now, this is only done for channel allocation
-				 */
-				(void)bis_specific_codec_config(base->subgroups[i].bis_data[j],
-								&audio_codec_info[sync_stream_cnt]);
-
-				LOG_DBG("Stream %d in subgroup %d from broadcast sink",
-					sync_stream_cnt, i);
-
-				sync_stream_cnt += 1;
-				if (sync_stream_cnt >= ARRAY_SIZE(audio_streams)) {
-					break;
-				}
-			}
-		}
-
-		if (sync_stream_cnt >= ARRAY_SIZE(audio_streams)) {
-			break;
-		}
+	ret = bt_bap_base_foreach_subgroup(base, base_subgroup_cb, &suitable_stream_found);
+	if (ret != 0 && ret != -ECANCELED) {
+		LOG_WRN("Failed to parse subgroups: %d", ret);
+		return;
 	}
 
 	if (suitable_stream_found) {
 		/* Set the initial active stream based on the defined channel of the device */
 		channel_assignment_get((enum audio_channel *)&active_stream_index);
+
+		/** If the stream matching channel is not present, revert back to first BIS, e.g.
+		 *  mono stream but channel assignment is RIGHT
+		 */
+		if ((active_stream_index + 1) > sync_stream_cnt) {
+			LOG_WRN("BIS index: %d not found, reverting to first BIS",
+				(active_stream_index + 1));
+			active_stream_index = 0;
+		}
+
 		active_stream.stream = &audio_streams[active_stream_index];
 		active_stream.codec = &audio_codec_info[active_stream_index];
-		active_stream.pd = base->pd;
-
+		ret = bt_bap_base_get_pres_delay(base);
+		if (ret == -EINVAL) {
+			LOG_WRN("Failed to get pres_delay: %d", ret);
+			active_stream.pd = 0;
+		} else {
+			active_stream.pd = ret;
+		}
 		le_audio_event_publish(LE_AUDIO_EVT_CONFIG_RECEIVED);
 
 		LOG_DBG("Channel %s active",
@@ -376,9 +415,6 @@ static void syncable_cb(struct bt_bap_broadcast_sink *sink, bool encrypted)
 		return;
 	}
 
-	/* NOTE: The string below is used by the Nordic CI system */
-	LOG_INF("Syncing to broadcast stream index %d", active_stream_index);
-
 	if (bis_index_bitfields[active_stream_index] == 0) {
 		LOG_ERR("No bits set in bitfield");
 		return;
@@ -387,6 +423,9 @@ static void syncable_cb(struct bt_bap_broadcast_sink *sink, bool encrypted)
 		LOG_ERR("Application syncs to only one stream");
 		return;
 	}
+
+	/* NOTE: The string below is used by the Nordic CI system */
+	LOG_INF("Syncing to broadcast stream index %d", active_stream_index);
 
 	ret = bt_bap_broadcast_sink_sync(broadcast_sink, bis_index_bitfields[active_stream_index],
 					 audio_streams_p, bis_encryption_key);

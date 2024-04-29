@@ -41,7 +41,7 @@ K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
 
 static void connect_evt_handler(const struct zbus_channel *chan);
 
-static ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen, connect_evt_handler);
+ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen2, connect_evt_handler); //static
 
 static bool connection_complete = false;
 
@@ -247,7 +247,7 @@ int init_sensor_service() {
 		return ret;
 	}
 
-	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
+	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen2, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
 		LOG_ERR("Failed to add bt_mgmt listener");
 		return ret;

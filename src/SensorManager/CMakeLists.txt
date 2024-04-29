@@ -1,7 +1,7 @@
 
 add_subdirectory(BMP388)
-add_subdirectory(Adafruit_BusIO)
-add_subdirectory(Adafruit_Unified_Sensor)
+#add_subdirectory(Adafruit_BusIO)
+#add_subdirectory(Adafruit_Unified_Sensor)
 add_subdirectory(BMX160)
 
 target_sources(app PRIVATE

@@ -108,6 +108,7 @@ void BQ25120a::setup() {
 
         exit_high_impedance();
 
+        disable_ts();
         write_battery_voltage_control(4.3);
         write_charging_control(110);
         write_termination_control(2.5);
@@ -190,7 +191,7 @@ uint16_t BQ25120a::write_charging_control(float mA) {
 
         if (mA >= 40) {
                 if (mA > 300) mA = 300;
-                status |= (((uint16_t)((mA - 40) / 10)) & 0x1F) << 2;
+                status |= (((uint16_t)((mA - 40) / 10 + EPS)) & 0x1F) << 2;
                 status |= 1 << 7;
         } else {
                 if (mA > 35) mA = 35;
@@ -198,6 +199,40 @@ uint16_t BQ25120a::write_charging_control(float mA) {
         }
 
         writeReg(registers::CHARGE_CTRL, &status, sizeof(status));
+
+        return status;
+}
+
+
+uint16_t BQ25120a::write_LS_control(bool enable) {
+        uint8_t status = 0;
+
+        readReg(registers::LS_LDO_CTRL, &status, sizeof(status));
+
+        uint8_t ls_bit = enable ? 1 : 0;
+
+        status |= ls_bit << 7;
+
+        writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));
+
+        return status;
+}
+
+uint16_t BQ25120a::write_LDO_voltage_control(float volt) {
+        uint8_t status = 0;
+
+        if (volt > 10) volt /= 1000;
+
+        volt = CLAMP(volt, 0.8, 3.3);
+
+        readReg(registers::LS_LDO_CTRL, &status, sizeof(status));
+
+        //status |= (((uint16_t)((volt - 0.8) * 10)) & 0x1F) << 2;
+        status &= 1 << 7;
+        status |= ((uint16_t)((volt - 0.8) * 10 + EPS)) << 2;
+        //status |= 1 << 7;
+
+        writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));
 
         return status;
 }
@@ -219,7 +254,7 @@ uint16_t BQ25120a::write_battery_voltage_control(float volt) {
 
         volt = CLAMP(volt, 3.6, 4.65);
 
-        status |= (((uint16_t)((volt - 3.6) * 100)) & 0x7F) << 1;
+        status |= (((uint16_t)((volt - 3.6) * 100 + EPS)) & 0x7F) << 1;
 
         writeReg(registers::BAT_VOL_CTRL, &status, sizeof(status));
 
@@ -255,6 +290,7 @@ chrg_state BQ25120a::read_termination_control() {
 
 uint16_t BQ25120a::write_termination_control(float mA) {
         uint8_t status = 0;
+
         bool ret = readReg(registers::TERM_CTRL, &status, sizeof(status));
 
         status &= 0x3;
@@ -263,7 +299,7 @@ uint16_t BQ25120a::write_termination_control(float mA) {
 
         if (mA >= 6) {
                 if (mA > 37) mA = 37;
-                status |= (((uint16_t)((mA - 6) / 10)) & 0x1F) << 2;
+                status |= (((uint16_t)((mA - 6) / 10 + EPS)) & 0x1F) << 2;
                 status |= 1 << 7;
         } else {
                 if (mA > 5) mA = 5;

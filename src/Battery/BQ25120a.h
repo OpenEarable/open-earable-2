@@ -8,7 +8,9 @@
 #include <Wire.h>
 
 #define BQ25120a_I2C_TIMEOUT_US 66
-#define BQ25120a_HIGH_Z_TIMEOUT_US 200
+#define BQ25120a_HIGH_Z_TIMEOUT_US 1000
+
+#define EPS 1e-3
 
 struct chrg_state {
         float mAh = 0;
@@ -30,6 +32,7 @@ public:
         CHARGE_CTRL = 0x03,
         TERM_CTRL = 0x04,
         BAT_VOL_CTRL = 0x05,
+        LS_LDO_CTRL = 0x07,
         ILIM_UVLO = 0x09
     };
 
@@ -58,13 +61,15 @@ public:
     ilim_uvlo read_uvlo_ilim();
     uint16_t write_uvlo_ilim(ilim_uvlo param);
     void disable_ts();
+    uint16_t write_LDO_voltage_control(float volt);
+    uint16_t write_LS_control(bool enable);
 
     int set_power_connect_callback(gpio_callback_handler_t handler);
 private:
     bool readReg(uint8_t reg, uint8_t * buffer, uint16_t len);
     void writeReg(uint8_t reg, uint8_t * buffer, uint16_t len);
 
-    int address = 0x6A;
+    const int address = DT_REG_ADDR(DT_NODELABEL(bq25120a));
 
     uint64_t last_i2c;
     uint64_t last_high_z;
@@ -73,7 +78,7 @@ private:
 
     gpio_callback power_connect_cb_data;
 
-    const struct gpio_dt_spec pg_pin = {
+    /*const struct gpio_dt_spec pg_pin = {
         .port = DEVICE_DT_GET(DT_NODELABEL(gpio1)),
         .pin = 14,
         .dt_flags = GPIO_ACTIVE_LOW
@@ -83,7 +88,13 @@ private:
         .port = DEVICE_DT_GET(DT_NODELABEL(gpio1)),
         .pin = 11,
         .dt_flags = GPIO_ACTIVE_HIGH
-    };
+    };*/
+
+    //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
+    //const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), cd_gpios);
+
+    const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), pg_gpios, {0});
+    const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), cd_gpios, {0});
 };
 
 extern BQ25120a battery_controller;

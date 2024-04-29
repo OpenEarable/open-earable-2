@@ -11,7 +11,7 @@ int PowerSwitch::begin() {
         return -1;
     }
 
-    ret = gpio_pin_configure_dt(&power_switch_pin, GPIO_INPUT | GPIO_PULL_DOWN);
+    ret = gpio_pin_configure_dt(&power_switch_pin, GPIO_INPUT | GPIO_PULL_UP);
 	if (ret != 0) {
         printk("Failed to set P0.10 as input.\n");
         return ret;

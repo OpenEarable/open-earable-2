@@ -26,10 +26,13 @@ LOG_MODULE_REGISTER(led, CONFIG_MODULE_LED_LOG_LEVEL);
 #define DT_LABEL_AND_COMMA(node_id)	    DT_PROP(node_id, label),
 #define GPIO_DT_SPEC_GET_AND_COMMA(node_id) GPIO_DT_SPEC_GET(node_id, gpios),
 
+//#if DT_NODE_EXISTS(DT_PATH(leds))
+//#endif
+
 /* The following arrays are populated compile time from the .dts*/
 static const char *const led_labels[] = {DT_FOREACH_CHILD(DT_PATH(leds), DT_LABEL_AND_COMMA)};
 
-static struct gpio_dt_spec leds[] = { //const
+static const struct gpio_dt_spec leds[] = {
 	DT_FOREACH_CHILD(DT_PATH(leds), GPIO_DT_SPEC_GET_AND_COMMA)};
 
 enum led_type {
@@ -101,7 +104,7 @@ static int led_device_tree_parse(void)
 		uint32_t led_unit = strtoul(led_labels[i], &end_ptr, BASE_10);
 
 		if (led_labels[i] == end_ptr) {
-			LOG_ERR("No match for led unit %i. The dts is likely not properly formatted", i);
+			LOG_ERR("No match for led unit. The dts is likely not properly formatted");
 			return -ENXIO;
 		}
 
@@ -288,10 +291,6 @@ int led_init(void)
 	__ASSERT(ARRAY_SIZE(leds) != 0, "No LEDs found in dts");
 
 	leds_num = ARRAY_SIZE(leds);
-
-	/*for (int i = 0; i < leds_num; i++) {
-		leds[i].dt_flags = GPIO_ACTIVE_HIGH;
-	}*/
 
 	ret = led_device_tree_parse();
 	if (ret) {

@@ -139,8 +139,13 @@ void Button::setDebounceTime(unsigned long debounceTime) {
     _debounceDelay = debounceTime;
 }
 
+/*Button earable_btn(DT_GPIO_PIN(DT_ALIAS(sw0), gpios));
+Button volume_up_btn(DT_GPIO_PIN(DT_ALIAS(sw1), gpios));
+Button volume_down_btn(DT_GPIO_PIN(DT_ALIAS(sw2), gpios));
+Button four_btn(DT_GPIO_PIN(DT_ALIAS(sw3), gpios));*/
+//Button five_btn(BUTTON_5);
+
 Button earable_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0}));
 Button volume_up_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}));
 Button volume_down_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}));
 Button four_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0}));
-//Button five_btn(BUTTON_5);

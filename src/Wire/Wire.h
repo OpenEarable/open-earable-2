@@ -33,8 +33,7 @@ namespace arduino {
 class MbedI2C //: public HardwareI2C
 {
   public:
-    MbedI2C(); //int sda, int scl
-    //MbedI2C(PinName sda, PinName scl);
+    MbedI2C(const struct device * master);
     virtual void begin();
     #ifndef DEVICE_I2CSLAVE
     virtual void __attribute__ ((error("I2C Slave mode is not supported"))) begin(uint8_t address);
@@ -89,5 +88,7 @@ private:
 }
 
 extern arduino::MbedI2C Wire;
+
+extern arduino::MbedI2C Wire1;
 
 typedef arduino::MbedI2C TwoWire;

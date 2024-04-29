@@ -10,7 +10,7 @@ static struct sensor_data msg_imu;
 
 /*k_work IMU::sensor_work;
 k_msgq * IMU::sensor_queue;*/
-DFRobot_BMX160 IMU::imu;
+DFRobot_BMX160 IMU::imu(&Wire1);
 
 IMU IMU::sensor;
 

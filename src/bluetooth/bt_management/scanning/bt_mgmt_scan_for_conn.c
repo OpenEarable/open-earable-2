@@ -43,6 +43,22 @@ static void bond_connect(const struct bt_bond_info *info, void *user_data)
 	if (!bt_addr_le_cmp(&info->addr, adv_addr)) {
 		LOG_DBG("Found bonded device");
 
+		/* Check if the device is still connected due to waiting for ACL timeout */
+		struct bt_conn *bonded_conn = bt_conn_lookup_addr_le(BT_ID_DEFAULT, &info->addr);
+		struct bt_conn_info info;
+
+		if (bonded_conn != NULL) {
+			ret = bt_conn_get_info(bonded_conn, &info);
+			if (ret == 0 && info.state == BT_CONN_STATE_CONNECTED) {
+				LOG_DBG("Trying to connect to an already connected conn");
+				bt_conn_unref(bonded_conn);
+				return;
+			}
+
+			/* Unref is needed due to bt_conn_lookup */
+			bt_conn_unref(bonded_conn);
+		}
+
 		bt_le_scan_cb_unregister(&scan_callback);
 		cb_registered = false;
 
@@ -60,7 +76,8 @@ static void bond_connect(const struct bt_bond_info *info, void *user_data)
 		if (ret) {
 			LOG_WRN("Create ACL connection failed: %d", ret);
 
-			ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL);
+			ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL,
+						 BRDCAST_ID_NOT_USED);
 			if (ret) {
 				LOG_ERR("Failed to restart scanning: %d", ret);
 			}
@@ -85,11 +102,26 @@ static bool device_name_check(struct bt_data *data, void *user_data)
 	char addr_string[BT_ADDR_LE_STR_LEN];
 
 	/* We only care about LTVs with name */
-	if (data->type == BT_DATA_NAME_COMPLETE) {
+	if (data->type == BT_DATA_NAME_COMPLETE || data->type == BT_DATA_NAME_SHORTENED) {
 		size_t srch_name_size = strlen(srch_name);
 
 		if ((data->data_len == srch_name_size) &&
 		    (strncmp(srch_name, data->data, srch_name_size) == 0)) {
+			/* Check if the device is still connected due to waiting for ACL timeout */
+			struct bt_conn_info info;
+			struct bt_conn *existing_conn = bt_conn_lookup_addr_le(BT_ID_DEFAULT, addr);
+
+			if (existing_conn != NULL) {
+				ret = bt_conn_get_info(existing_conn, &info);
+				if (ret == 0 && info.state == BT_CONN_STATE_CONNECTED) {
+					LOG_DBG("Trying to connect to an already connected conn");
+					bt_conn_unref(existing_conn);
+					return false;
+				}
+
+				/* Unref is needed due to bt_conn_lookup */
+				bt_conn_unref(existing_conn);
+			}
 			LOG_DBG("Device found: %s", srch_name);
 
 			bt_le_scan_cb_unregister(&scan_callback);
@@ -107,9 +139,10 @@ static bool device_name_check(struct bt_data *data, void *user_data)
 			ret = bt_conn_le_create(addr, BT_CONN_LE_CREATE_CONN, CONNECTION_PARAMETERS,
 						&conn);
 			if (ret) {
-				LOG_ERR("Could not init connection");
+				LOG_ERR("Could not init connection: %d", ret);
 
-				ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL);
+				ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL,
+							 BRDCAST_ID_NOT_USED);
 				if (ret) {
 					LOG_ERR("Failed to restart scanning: %d", ret);
 				}
@@ -149,6 +182,11 @@ static void scan_recv_cb(const struct bt_le_scan_recv_info *info, struct net_buf
 		/* Note: May lead to connection creation */
 		if (bonded_num < CONFIG_BT_MAX_PAIRED) {
 			bt_data_parse(ad, device_name_check, (void *)info->addr);
+		} else {
+			/* All bonded slots are taken, so we will only
+			 * accept previously bonded devices
+			 */
+			bt_foreach_bond(BT_ID_DEFAULT, bond_connect, (void *)info->addr);
 		}
 		break;
 	default:
@@ -169,7 +207,7 @@ int bt_mgmt_scan_for_conn_start(struct bt_le_scan_param *scan_param, char const 
 	} else {
 		/* Already scanning, stop current scan to update param in case it has changed */
 		ret = bt_le_scan_stop();
-		if (ret) {
+		if (ret && ret != -EALREADY) {
 			LOG_ERR("Failed to stop scan: %d", ret);
 			return ret;
 		}

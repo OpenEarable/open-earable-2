@@ -27,29 +27,13 @@ if(CONFIG_AUDIO_DFU EQUAL 2)
     set(PM_STATIC_YML_FILE ${CMAKE_CURRENT_LIST_DIR}/dfu/conf/pm_dfu_external_flash.yml)
 endif()
 
-if ((CONFIG_AUDIO_DFU EQUAL 1) OR (CONFIG_AUDIO_DFU EQUAL 2))
-    list(APPEND empty_net_core_OVERLAY_CONFIG
-        "${CMAKE_CURRENT_LIST_DIR}/dfu/conf/overlay-empty_net_core.conf"
-    )
-
-    # Disable pretick anomaly workaround. The workaround causes a resource conflict between B0N and
-    # the controller, and as the controller does not use RTC to wake up from sleep it is not
-    # affected by the anomaly.
-    list(APPEND empty_net_core_b0n_CONFIG_SOC_NRF53_RTC_PRETICK n)
-
-    if (CONFIG_B0N_MINIMAL)
-        set(min_b0n_flag "-m")
-        list(APPEND empty_net_core_b0n_OVERLAY_CONFIG overlay-minimal-size.conf)
-    endif()
-endif()
-
 # Flag which defines whether application is compiled as gateway/dongle or headset
 add_compile_definitions(HEADSET=1)
 add_compile_definitions(GATEWAY=2)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
-project(NRF5340_AUDIO)
+project(openearable_v2_1)
 
 string(TIMESTAMP NRF5340_AUDIO_CORE_APP_COMP_DATE "%a %b %d %H:%M:%S %Y")
 
@@ -60,9 +44,26 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
 
 # Target sources below are specific to the nRF5340 Audio DK HW
 target_sources(app PRIVATE
-    src/main.cpp
+    src/nrf5340_audio_common.c
     ${CMAKE_BINARY_DIR}/fw_info_app.c
     )
+
+if (CONFIG_BT_BAP_BROADCAST_SINK)
+	add_subdirectory(broadcast_sink)
+endif()
+
+if (CONFIG_BT_BAP_BROADCAST_SOURCE)
+	add_subdirectory(broadcast_source)
+endif()
+
+if (CONFIG_BT_BAP_UNICAST_CLIENT)
+	add_subdirectory(unicast_client)
+endif()
+
+if (CONFIG_BT_BAP_UNICAST_SERVER)
+	add_subdirectory(unicast_server)
+endif()
+
 
 # Include application events and configuration headers
 zephyr_library_include_directories(
@@ -85,12 +86,11 @@ zephyr_library_include_directories(app PRIVATE
 add_subdirectory(src/audio)
 add_subdirectory(src/bluetooth)
 # add_subdirectory(src/drivers)
+add_subdirectory(src/buttons)
 add_subdirectory(src/modules)
 add_subdirectory(src/utils)
-add_subdirectory(src/Wire)
 add_subdirectory(src/SensorManager)
-add_subdirectory(src/led_service)
-add_subdirectory(src/buttons)
+add_subdirectory(src/Wire)
 add_subdirectory(src/Battery)
 
 ## Cirrus Logic
@@ -100,23 +100,4 @@ if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
     else()
         message(FATAL_ERROR "Cirrus Logic/sdk-mcu-drivers repository not found\n")
     endif()
-endif()
-
-if ((CONFIG_AUDIO_DFU EQUAL 1) OR (CONFIG_AUDIO_DFU EQUAL 2))
-    set(BLE5_CTR_SIGN_STEP ${APPLICATION_BINARY_DIR}/dummy)
-    file(TO_CMAKE_PATH ${ZEPHYR_NRF_MODULE_DIR}/lib/bin/bt_ll_acs_nrf53/bin CMAKE_STYLE_LL_ACS_NRF53_BIN)
-
-    add_custom_command(
-        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/tools/buildprog/ble5-ctr-rpmsg_sign.py
-        -I ${CMAKE_STYLE_LL_ACS_NRF53_BIN} -b ${APPLICATION_BINARY_DIR} ${min_b0n_flag}
-        OUTPUT ${BLE5_CTR_SIGN_STEP}
-        DEPENDS merged_domains_hex
-        COMMENT "Running post-build ble5-ctr signing step..."
-    )
-
-    add_custom_target(
-        post_bin ALL
-        DEPENDS
-        ${BLE5_CTR_SIGN_STEP}
-    )
 endif()

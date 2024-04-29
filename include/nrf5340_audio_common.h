@@ -7,23 +7,18 @@
 #ifndef _NRF5340_AUDIO_COMMON_H_
 #define _NRF5340_AUDIO_COMMON_H_
 
-#include <nrfx_timer.h>
+#include <zephyr/bluetooth/audio/audio.h>
 
-#define AUDIO_SYNC_TIMER_I2S_FRAME_START_EVT_CAPTURE_CHANNEL 0
-#define AUDIO_SYNC_TIMER_CURR_TIME_CAPTURE_CHANNEL	     1
-#define ZBUS_READ_TIMEOUT_MS				     K_MSEC(100)
-#define ZBUS_ADD_OBS_TIMEOUT_MS				     K_MSEC(200)
-
-extern const nrfx_timer_t audio_sync_timer_instance;
+#define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
+#define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
 
 #define SENSOR_DATA_FIXED_LENGTH 9
+
 
 enum sensor_id {
 	ID_IMU,
 	ID_TEMP_BARO,
 };
-
-//#include "nrfx"
 
 struct battery_data {
     uint8_t battery_level;
@@ -68,10 +63,17 @@ enum le_audio_evt_type {
 struct le_audio_msg {
 	enum le_audio_evt_type event;
 	struct bt_conn *conn;
+	struct bt_le_per_adv_sync *pa_sync;
+	enum bt_audio_dir dir;
 };
 
+/**
+ * tx_sync_ts_us	The timestamp from get_tx_sync.
+ * curr_ts_us		The current time. This must be in the controller frame of reference.
+ */
 struct sdu_ref_msg {
-	uint32_t timestamp;
+	uint32_t tx_sync_ts_us;
+	uint32_t curr_ts_us;
 	bool adjust;
 };
 
@@ -90,6 +92,7 @@ struct bt_mgmt_msg {
 	struct bt_le_ext_adv *ext_adv;
 	struct bt_le_per_adv_sync *pa_sync;
 	uint32_t broadcast_id;
+	uint8_t pa_sync_term_reason;
 };
 
 enum volume_evt_type {
@@ -113,5 +116,12 @@ enum content_control_evt_type {
 struct content_control_msg {
 	enum content_control_evt_type event;
 };
+
+/**
+ * @brief	Initialize the software modules that are common for all the audio samples.
+ *
+ * @return	0 if successful, error otherwise.
+ */
+int nrf5340_audio_common_init(void);
 
 #endif /* _NRF5340_AUDIO_COMMON_H_ */

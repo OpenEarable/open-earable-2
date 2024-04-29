@@ -447,9 +447,9 @@ void BQ27220::setup(bool init) {
         write_RAM(0x9272, 0x0C); //Default: 0x08, Enable SMEXT, SMEN 0x0D
 
         //uint32_t cc_gain = 0x45b6737d; //0x7d73b645;
-        uint8_t cc_vals[8] = {0x7d, 0x73, 0xb6, 0x45,
+        /*uint8_t cc_vals[8] = {0x7d, 0x73, 0xb6, 0x45,
                                 0x92, 0x0a, 0xa5, 0x22};
-        write_RAM(0x9184, cc_vals, sizeof(cc_vals));
+        write_RAM(0x9184, cc_vals, sizeof(cc_vals));*/
 
         exit_config_update(init);
 

@@ -1,0 +1,23 @@
+#
+# Copyright 2021 Grinn
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+include: [sensor-device.yaml, i2c-device.yaml]
+
+compatible: "ti,bq25120a"
+
+properties:
+  pg-gpios:
+    type: phandle-array
+    description: Power Good pin
+  int-gpios:
+    type: phandle-array
+    description: Alert pin
+  cd-gpios:
+    type: phandle-array
+    description: Chip disable pin
+  lsctrl-gpios:
+    type: phandle-array
+    description: Chip disable pin

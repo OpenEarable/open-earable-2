@@ -6,6 +6,7 @@
 #include "BQ27220.h"
 #include "BQ25120a.h"
 #include "PowerSwitch.h"
+#include "LoadSwitch.h"
 
 #include "nrf5340_audio_common.h"
 
@@ -17,6 +18,11 @@ public:
 
     int power_down(bool fault = false);
     //bool check_boot_condition();
+
+    static LoadSwitch v1_8_switch;
+
+    void set_1_8(bool on);
+    void set_3_3(bool on);
 
     /*BQ27220 fuel_gauge;
     BQ25120a battery_controller;

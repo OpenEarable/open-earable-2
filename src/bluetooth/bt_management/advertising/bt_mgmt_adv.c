@@ -25,17 +25,26 @@ ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 #endif
 
 static struct k_work adv_work;
-
+static bool dir_adv_timed_out;
 static struct bt_le_ext_adv *ext_adv;
 
 static const struct bt_data *adv_local;
 static size_t adv_local_size;
-
 static const struct bt_data *per_adv_local;
 static size_t per_adv_local_size;
 
 /* Bonded address queue */
 K_MSGQ_DEFINE(bonds_queue, sizeof(bt_addr_le_t), BONDS_QUEUE_SIZE, 4);
+
+static struct bt_le_adv_param ext_adv_param = {
+	.id = BT_ID_DEFAULT,
+	.sid = CONFIG_BLE_ACL_ADV_SID,
+	.secondary_max_skip = 0,
+	.options = BT_LE_ADV_OPT_EXT_ADV | BT_LE_ADV_OPT_USE_NAME,
+	.interval_min = CONFIG_BLE_ACL_EXT_ADV_INT_MIN,
+	.interval_max = CONFIG_BLE_ACL_EXT_ADV_INT_MAX,
+	.peer = NULL,
+};
 
 static void bond_find(const struct bt_bond_info *info, void *user_data)
 {
@@ -70,6 +79,17 @@ static void bond_find(const struct bt_bond_info *info, void *user_data)
 	ret = k_msgq_put(&bonds_queue, (void *)&info->addr, K_NO_WAIT);
 	if (ret) {
 		LOG_WRN("No space in the queue for the bond");
+	}
+}
+
+static void filter_accept_list_add(const struct bt_bond_info *info, void *user_data)
+{
+	int ret;
+
+	ret = bt_le_filter_accept_list_add(&info->addr);
+	if (ret) {
+		LOG_WRN("Could not add peer to Filter Accept List: %d", ret);
+		return;
 	}
 }
 
@@ -127,12 +147,11 @@ static const struct bt_le_ext_adv_cb adv_cb = {
 static int direct_adv_create(bt_addr_le_t addr)
 {
 	int ret;
-	struct bt_le_adv_param adv_param;
 	struct bt_le_ext_adv_info ext_adv_info;
 
-	adv_param = *BT_LE_ADV_CONN_DIR_LOW_DUTY(&addr);
-	adv_param.id = BT_ID_DEFAULT;
-	adv_param.options |= BT_LE_ADV_OPT_DIR_ADDR_RPA;
+	ext_adv_param = *BT_LE_ADV_CONN_DIR(&addr);
+	ext_adv_param.id = BT_ID_DEFAULT;
+	ext_adv_param.options |= BT_LE_ADV_OPT_DIR_ADDR_RPA;
 
 	/* Clear ADV data set before update to direct advertising */
 	ret = bt_le_ext_adv_set_data(ext_adv, NULL, 0, NULL, 0);
@@ -141,7 +160,7 @@ static int direct_adv_create(bt_addr_le_t addr)
 		return ret;
 	}
 
-	ret = bt_le_ext_adv_update_param(ext_adv, &adv_param);
+	ret = bt_le_ext_adv_update_param(ext_adv, &ext_adv_param);
 	if (ret) {
 		LOG_ERR("Failed to update ext_adv to direct advertising. Err = %d", ret);
 		return ret;
@@ -213,25 +232,41 @@ static void advertising_process(struct k_work *work)
 
 	if (IS_ENABLED(CONFIG_BT_BONDABLE)) {
 		bt_foreach_bond(BT_ID_DEFAULT, bond_find, NULL);
+		/* Populate Filter Accept List */
+		if (IS_ENABLED(CONFIG_BT_FILTER_ACCEPT_LIST)) {
+			ret = bt_le_filter_accept_list_clear();
+			if (ret) {
+				LOG_ERR("Failed to clear filter accept list");
+				return;
+			}
+
+			bt_foreach_bond(BT_ID_DEFAULT, filter_accept_list_add, NULL);
+		}
 	}
 
 	bt_addr_le_t addr;
 
-	if (!k_msgq_get(&bonds_queue, &addr, K_NO_WAIT)) {
+	if (!k_msgq_get(&bonds_queue, &addr, K_NO_WAIT) && !dir_adv_timed_out) {
 		ret = direct_adv_create(addr);
 		if (ret) {
 			LOG_WRN("Failed to create direct advertisement: %d", ret);
 			return;
 		}
+
+		ret = bt_le_ext_adv_start(
+			ext_adv,
+			BT_LE_EXT_ADV_START_PARAM(BT_GAP_ADV_HIGH_DUTY_CYCLE_MAX_TIMEOUT, 0));
 	} else {
 		ret = extended_adv_create();
 		if (ret) {
 			LOG_WRN("Failed to create extended advertisement: %d", ret);
 			return;
 		}
+
+		dir_adv_timed_out = false;
+		ret = bt_le_ext_adv_start(ext_adv, BT_LE_EXT_ADV_START_DEFAULT);
 	}
 
-	ret = bt_le_ext_adv_start(ext_adv, BT_LE_EXT_ADV_START_DEFAULT);
 	if (ret) {
 		LOG_ERR("Failed to start advertising set. Err: %d", ret);
 		return;
@@ -254,6 +289,46 @@ static void advertising_process(struct k_work *work)
 
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Advertising successfully started");
+}
+
+void bt_mgmt_dir_adv_timed_out(void)
+{
+	int ret;
+
+	dir_adv_timed_out = true;
+
+	LOG_DBG("Clearing ext_adv");
+
+	ret = bt_le_ext_adv_delete(ext_adv);
+	if (ret) {
+		LOG_ERR("Failed to clear ext_adv");
+	}
+
+	if (IS_ENABLED(CONFIG_BT_FILTER_ACCEPT_LIST)) {
+		ret = bt_le_ext_adv_create(LE_AUDIO_EXTENDED_ADV_CONN_NAME_FILTER, &adv_cb,
+					   &ext_adv);
+	} else {
+		ret = bt_le_ext_adv_create(LE_AUDIO_EXTENDED_ADV_CONN_NAME, &adv_cb, &ext_adv);
+	}
+
+	if (ret) {
+		LOG_ERR("Unable to create a connectable extended advertising set: %d", ret);
+		return;
+	}
+
+	/* Restart normal advertising */
+	bt_mgmt_adv_start(NULL, 0, NULL, 0, true);
+}
+
+int bt_mgmt_manufacturer_uuid_populate(struct net_buf_simple *uuid_buf, uint16_t company_id)
+{
+	if (net_buf_simple_tailroom(uuid_buf) >= BT_UUID_SIZE_16) {
+		net_buf_simple_add_le16(uuid_buf, company_id);
+	} else {
+		return -ENOMEM;
+	}
+
+	return 0;
 }
 
 int bt_mgmt_adv_start(const struct bt_data *adv, size_t adv_size, const struct bt_data *per_adv,
@@ -295,7 +370,7 @@ int bt_mgmt_adv_start(const struct bt_data *adv, size_t adv_size, const struct b
 			return ret;
 		}
 	} else {
-		ret = bt_le_ext_adv_create(LE_AUDIO_EXTENDED_ADV_NAME, &adv_cb, &ext_adv);
+		ret = bt_le_ext_adv_create(&ext_adv_param, &adv_cb, &ext_adv);
 		if (ret) {
 			LOG_ERR("Unable to create extended advertising set: %d", ret);
 			return ret;

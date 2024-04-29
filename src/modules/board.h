@@ -14,10 +14,6 @@
  * This is determined by the on-board voltage divider.
  */
 
-#ifdef __cplusplus
-	extern "C" {
-#endif
-
 struct board_version {
 	char name[10];
 	uint32_t mask;
@@ -38,7 +34,7 @@ struct board_version {
 #define BOARD_PCA10121_1_2_0_MSK (BIT(11))
 
 static const struct board_version BOARD_VERSION_ARR[] = {
-	{ "0.0.0", BOARD_PCA10121_0_0_0_MSK, (uint32_t)INT_MIN },
+	{ "0.0.0", BOARD_PCA10121_0_0_0_MSK, INT_MIN },
 	{ "0.6.0", BOARD_PCA10121_0_6_0_MSK, 61 },
 	{ "0.7.0", BOARD_PCA10121_0_7_0_MSK, 102 },
 	{ "0.7.1", BOARD_PCA10121_0_7_1_MSK, 303 },
@@ -62,9 +58,5 @@ static const struct board_version BOARD_VERSION_ARR[] = {
 	(BOARD_PCA10121_0_8_0_MSK | BOARD_PCA10121_0_8_1_MSK | BOARD_PCA10121_0_8_2_MSK |          \
 	 BOARD_PCA10121_0_9_0_MSK | BOARD_PCA10121_0_10_0_MSK | BOARD_PCA10121_1_0_0_MSK |         \
 	 BOARD_PCA10121_1_1_0_MSK | BOARD_PCA10121_1_2_0_MSK)
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

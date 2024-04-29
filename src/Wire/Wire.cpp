@@ -21,11 +21,8 @@
 */
 
 #include "Wire.h"
-//#include "pinDefinitions.h"
 
-//arduino::MbedI2C::MbedI2C(int sda, int scl) : _sda(sda), _scl(scl), usedTxBuffer(0) {}
-
-arduino::MbedI2C::MbedI2C() : usedTxBuffer(0) {}
+arduino::MbedI2C::MbedI2C(const struct device * _device) : master(_device), usedTxBuffer(0) {}
 
 void arduino::MbedI2C::begin() {
 	//end();
@@ -200,4 +197,6 @@ int arduino::MbedI2C::master_read(int address, const char * buf, const uint8_t l
 	return i2c_message(I2C_MSG_READ, address, buf, len, no_stop);
 }
 
-arduino::MbedI2C Wire;
+arduino::MbedI2C Wire(DEVICE_DT_GET(DT_NODELABEL(i2c1)));
+
+arduino::MbedI2C Wire1(DEVICE_DT_GET(DT_NODELABEL(i2c2)));

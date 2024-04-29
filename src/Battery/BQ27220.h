@@ -152,17 +152,20 @@ private:
 
     void write_command(uint16_t cmd);
 
-    int address = 0x55;
+    int address = DT_REG_ADDR(DT_NODELABEL(bq27220));
 
     uint64_t last_i2c;
 
     gpio_callback int_cb_data;
 
-    const gpio_dt_spec gpout_pin = {
+    /*const gpio_dt_spec gpout_pin = {
         .port = DEVICE_DT_GET(DT_NODELABEL(gpio1)),
         .pin = 10, //8
         .dt_flags = GPIO_ACTIVE_LOW
-    };
+    };*/
+
+    //const struct gpio_dt_spec gpout_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq27220), gpout_gpios);
+    const struct gpio_dt_spec gpout_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq27220), gpout_gpios, {0});
 
     TwoWire *_pWire;
 };
