@@ -2,7 +2,8 @@
 
 BQ25120a battery_controller(&Wire);
 
-BQ25120a::BQ25120a(TwoWire * wire) : _pWire(wire) {
+BQ25120a::BQ25120a(TwoWire * wire) : _pWire(wire) , load_switch(LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), lsctrl_gpios))) {
+        
 }
 
 int BQ25120a::begin() {

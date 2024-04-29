@@ -85,7 +85,10 @@ int main(void) {
 
 	//battery_controller.setup();
 
-	power_manager.v1_8_switch.set(true);
+	power_manager.set_3_3(true);
+	power_manager.set_1_8(true);
+
+	//power_manager.v1_8_switch.set(true);
 
 	streamctrl_start();
 

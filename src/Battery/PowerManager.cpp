@@ -165,7 +165,8 @@ void PowerManager::set_1_8(bool on) {
 }
 
 void PowerManager::set_3_3(bool on) {
-
+    battery_controller.write_LDO_voltage_control(3.3);
+    battery_controller.load_switch.set(on);
 }
 
 int PowerManager::power_down(bool fault) {

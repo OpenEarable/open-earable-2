@@ -2,7 +2,7 @@
 
 LoadSwitch::LoadSwitch(const gpio_dt_spec _pin) : ctrl_pin(_pin) {}
 
-int LoadSwitch::begin() {
+int LoadSwitch::begin() const {
     int ret;
 
     ret = device_is_ready(ctrl_pin.port);
@@ -20,13 +20,13 @@ int LoadSwitch::begin() {
     return 0;
 }
 
-bool LoadSwitch::is_on() {
+bool LoadSwitch::is_on() const {
     int power_on = gpio_pin_get_dt(&ctrl_pin);
 
     return power_on;
 }
 
-void LoadSwitch::set(bool on) {
+void LoadSwitch::set(bool on) const {
     if (on) gpio_pin_set_dt(&ctrl_pin, 1);
     else gpio_pin_set_dt(&ctrl_pin, 0);
 }

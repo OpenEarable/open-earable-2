@@ -7,6 +7,8 @@
 #include <math.h>
 #include <Wire.h>
 
+#include "LoadSwitch.h"
+
 #define BQ25120a_I2C_TIMEOUT_US 66
 #define BQ25120a_HIGH_Z_TIMEOUT_US 1000
 
@@ -37,6 +39,8 @@ public:
     };
 
     BQ25120a(TwoWire * wire);
+
+    const LoadSwitch load_switch;
 
     int begin();
     int set_wakeup_int();
@@ -77,18 +81,6 @@ private:
     TwoWire *_pWire;
 
     gpio_callback power_connect_cb_data;
-
-    /*const struct gpio_dt_spec pg_pin = {
-        .port = DEVICE_DT_GET(DT_NODELABEL(gpio1)),
-        .pin = 14,
-        .dt_flags = GPIO_ACTIVE_LOW
-    };
-
-    const struct gpio_dt_spec cd_pin = {
-        .port = DEVICE_DT_GET(DT_NODELABEL(gpio1)),
-        .pin = 11,
-        .dt_flags = GPIO_ACTIVE_HIGH
-    };*/
 
     //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
     //const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), cd_gpios);

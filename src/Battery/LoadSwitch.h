@@ -8,9 +8,9 @@ class LoadSwitch {
 public:
     LoadSwitch(const gpio_dt_spec _pin);
 
-    int begin();
-    void set(bool on);
-    bool is_on();
+    int begin() const;
+    void set(bool on) const;
+    bool is_on() const;
 private:
     const gpio_dt_spec ctrl_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios);
 };
