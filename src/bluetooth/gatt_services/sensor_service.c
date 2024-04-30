@@ -1,7 +1,7 @@
 #include "sensor_service.h"
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
-//#include <
+#include "../SensorManager/SensorManager.h"
 
 #include "macros_common.h"
 #include "nrf5340_audio_common.h"
@@ -96,6 +96,9 @@ static ssize_t write_config(struct bt_conn *conn,
 		printk("Write sensor config: Incorrect data offset");
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
+
+	stop_sensor_manager();
+	config_sensor((struct sensor_config *) buf);
 
 	//SensorManager::manager.stop();
 	//SensorManager::manager.config();

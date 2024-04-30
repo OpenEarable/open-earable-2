@@ -40,6 +40,7 @@
 
 #include "../src/Battery/PowerManager.h"
 #include "../src/SensorManager/MAX30102/MAX30102.h"
+#include "../src/drivers/SSM6515.h"
 
 #include "streamctrl.h"
 
@@ -56,6 +57,7 @@ BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 	     "Console device is not ACM CDC UART device");
 
 static MAX30105 ppg;
+//static SSM6515 dac(&Wire1);
 
 int main(void) {
 	int ret;
@@ -92,6 +94,18 @@ int main(void) {
 	power_manager.set_1_8(true);
 
 	streamctrl_start();
+
+	ret = dac.begin();
+
+	/*k_msleep(10);
+
+	LOG_INF("DAC status: %i", ret);
+
+	dac.setup();
+
+	LOG_INF("DAC setup");
+
+	k_msleep(10);*/
 
 	//ret = led_init();
 	//ERR_CHK(ret);
@@ -148,9 +162,13 @@ int main(void) {
 	sensor_config baro_config = {ID_TEMP_BARO, 20, 0};
 	sensor_config ppg_config = {ID_PPG, 400, 0};
 
-	SensorManager::manager.start();
+	start_sensor_manager();
+
+	config_sensor(&imu_config);
+
+	//SensorManager::manager.start();
 	//SensorManager::manager.config(&baro_config);
-	SensorManager::manager.config(&imu_config);
+	//SensorManager::manager.config(&imu_config);
 	//SensorManager::manager.config(&ppg_config);
 
 	//fuel_gauge.begin();
@@ -167,6 +185,7 @@ int main(void) {
 
 	ret = init_sensor_service();
 	ERR_CHK(ret);
+
 
 	/*ret = leds_set();
 	ERR_CHK(ret);*/

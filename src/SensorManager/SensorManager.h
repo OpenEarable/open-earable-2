@@ -7,27 +7,18 @@
 #include <zephyr/device.h>
 #include <zephyr/logging/log.h>
 
-//#include "BMP388/Adafruit_BMP3XX.h"
-//#include "BMX160/DFRobot_BMX160.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include "IMU.h"
-#include "Baro.h"
-#include "PPG.h"
+void start_sensor_manager();
 
-#define I2C_DEV_LABEL "I2C_1" // Change this to your I2C device label
+void stop_sensor_manager();
 
-class SensorManager {
-public:
-    static SensorManager manager;
+void config_sensor(struct sensor_config * config);
 
-    void start();
-    void stop();
-
-    void config(sensor_config * config);
-private:
-    Baro baro = Baro::sensor;
-    IMU imu = IMU::sensor;
-    PPG ppg = PPG::sensor;
-};
+#ifdef __cplusplus
+}
+#endif
 
 #endif
