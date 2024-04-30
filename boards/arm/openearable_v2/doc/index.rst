@@ -43,7 +43,7 @@ nRF5340 SoC provides support for the following devices:
 * :abbr:`UARTE (Universal asynchronous receiver-transmitter)`
 * :abbr:`WDT (Watchdog Timer)`
 
-.. figure:: img/MDBT53-DB-40.jpg
+.. figure:: img/openearable_v2.png
      :width: 442px
      :align: center
      :alt: MDBT53-DB-40
