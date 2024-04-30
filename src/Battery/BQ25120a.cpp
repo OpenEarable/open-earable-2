@@ -3,7 +3,7 @@
 BQ25120a battery_controller(&Wire);
 
 BQ25120a::BQ25120a(TwoWire * wire) : _pWire(wire) , load_switch(LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), lsctrl_gpios))) {
-        
+
 }
 
 int BQ25120a::begin() {
@@ -30,6 +30,12 @@ int BQ25120a::begin() {
         ret = gpio_pin_interrupt_configure_dt(&pg_pin, GPIO_INT_EDGE_BOTH);
         if (ret != 0) {
                 printk("Failed to setup interrupt on PG.\n");
+                return ret;
+        }
+
+        ret = load_switch.begin();
+        if (ret != 0) {
+                printk("Failed to setup load switch.\n");
                 return ret;
         }
 
@@ -113,6 +119,7 @@ void BQ25120a::setup() {
         write_battery_voltage_control(4.3);
         write_charging_control(110);
         write_termination_control(2.5);
+        write_LDO_voltage_control(3.3);
         write_uvlo_ilim(params);
 
         enter_high_impedance();
@@ -236,6 +243,15 @@ uint16_t BQ25120a::write_LDO_voltage_control(float volt) {
         writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));
 
         return status;
+}
+
+float BQ25120a::read_ldo_voltage() {
+        uint8_t status = 0;
+        bool ret = readReg(registers::LS_LDO_CTRL, (uint8_t *) &status, sizeof(status));
+
+        float voltage = 0.8 + ((status >> 2 & 0x1F)) * 0.1;
+
+        return voltage;
 }
 
 float BQ25120a::read_battery_voltage_control() {

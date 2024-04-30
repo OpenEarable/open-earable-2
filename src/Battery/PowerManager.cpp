@@ -165,7 +165,9 @@ void PowerManager::set_1_8(bool on) {
 }
 
 void PowerManager::set_3_3(bool on) {
-    battery_controller.write_LDO_voltage_control(3.3);
+    float voltage = battery_controller.read_ldo_voltage();
+    if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
+    //k_usleep(10);
     battery_controller.load_switch.set(on);
 }
 
@@ -254,7 +256,7 @@ int PowerManager::power_down(bool fault) {
 void PowerManager::charge_task() {
     uint16_t charging_state = battery_controller.read_charging_state() >> 6;
 
-    LOG_INF("Charger Watchdog ...................\n");
+    LOG_INF("Charger Watchdog ...................");
 
     if (last_charging_state == 0) {
         LOG_INF("Setting up charge controller ........");

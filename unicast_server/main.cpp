@@ -39,6 +39,7 @@
 #include "nrf.h"
 
 #include "../src/Battery/PowerManager.h"
+#include "../src/SensorManager/MAX30102/MAX30102.h"
 
 #include "streamctrl.h"
 
@@ -53,6 +54,8 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
 BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 	     "Console device is not ACM CDC UART device");
+
+static MAX30105 ppg;
 
 int main(void) {
 	int ret;
@@ -87,8 +90,6 @@ int main(void) {
 
 	power_manager.set_3_3(true);
 	power_manager.set_1_8(true);
-
-	//power_manager.v1_8_switch.set(true);
 
 	streamctrl_start();
 
@@ -143,12 +144,14 @@ int main(void) {
 
 	//k_usleep(100);
 
-	sensor_config imu_config = {ID_IMU, 80, 0};
+	sensor_config imu_config = {ID_IMU, 120, 0};
 	sensor_config baro_config = {ID_TEMP_BARO, 20, 0};
+	sensor_config ppg_config = {ID_PPG, 400, 0};
 
 	SensorManager::manager.start();
 	//SensorManager::manager.config(&baro_config);
 	SensorManager::manager.config(&imu_config);
+	//SensorManager::manager.config(&ppg_config);
 
 	//fuel_gauge.begin();
 	//battery_controller.begin();
@@ -171,7 +174,34 @@ int main(void) {
     /*ret = streamctrl_start();
 	ERR_CHK(ret);*/
 
+	/*if (!ppg.begin(Wire1)) {
+			LOG_ERR("Could not find a valid MAX30102 sensor, check wiring!\n");
+	} else {
+			LOG_INF("Success full PPG.\n");
+	}*/
+
+	//ppg.setup();
+	/*ppg.setup(0x64, 1, 2, 400, 215, 8192); //0x1F
+
 	while(true) {
+		if(ppg.check() > 0)
+		{
+			while(ppg.available()) {
+				printk(" %i, %i\n", ppg.getFIFORed(), ppg.getFIFOIR());
+				ppg.nextSample();
+			}
+		}
+		else {
+			k_msleep(1000/400/2);
+		}
+
+		//ppg.safeCheck(250);
+				
+		//printk(" %i, %i\n", ppg.getRed(), 0);
+		//oximter.processPPG(ppg.getRed(), 0); //ppg.getIR()
+	}*/
+
+	/*while(true) {
 		float voltage = fuel_gauge.voltage();
         printk("Voltage: %.3fV\n", voltage);
 
@@ -196,8 +226,8 @@ int main(void) {
         printk("state: %i\n", status_2>>6);
 
         //k_usleep(66);
-        float batter_voltage = battery_controller.read_battery_voltage_control();
-        printk("voltage: %.3fV\n", batter_voltage);
+        float battery_voltage = battery_controller.read_battery_voltage_control();
+        printk("voltage: %.3fV\n", battery_voltage);
 
         //k_usleep(66);
         struct chrg_state charge_ctrl = battery_controller.read_charging_control();
@@ -208,6 +238,9 @@ int main(void) {
         chrg_state term_ctrl = battery_controller.read_termination_control();
         printk("term enabled: %i, %.3fmA\n", term_ctrl.enabled, term_ctrl.mAh);
         //printk("state: %i\n", status_2>>6);
+
+		float ldo_voltage = battery_controller.read_ldo_voltage();
+        printk("LDO voltage: %.3fV\n", ldo_voltage);
 
         //k_usleep(66);
         ilim_uvlo uvlo_ilim = battery_controller.read_uvlo_ilim();
@@ -221,5 +254,5 @@ int main(void) {
         printk("-------------------\n");     
 
 		k_msleep(1000);
-	}
+	}*/
 }

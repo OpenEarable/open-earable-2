@@ -17,26 +17,12 @@ IMU IMU::sensor;
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
 
-	/*sBmx160SensorData_t accel_data;
-	sBmx160SensorData_t gyro_data;
-	sBmx160SensorData_t magno_data;*/
-
 	msg_imu.id = ID_IMU;
 	msg_imu.size = 9 * sizeof(float);
 	msg_imu.time = k_cyc_to_ms_floor32(k_cycle_get_32());
 
 	//imu.getAllData(&magno_data, &gyro_data, &accel_data);
 	imu.getAllData((sBmx160SensorData_t*) &msg_imu.data[6], (sBmx160SensorData_t*) &msg_imu.data[3], (sBmx160SensorData_t*) &msg_imu.data[0]);
-
-	/*msg_imu.data[0] = magno_data.x;
-	msg_imu.data[1] = magno_data.y;
-	msg_imu.data[2] = magno_data.z;
-	msg_imu.data[3] = gyro_data.x;
-	msg_imu.data[4] = gyro_data.y;
-	msg_imu.data[5] = gyro_data.z;
-	msg_imu.data[6] = accel_data.x;
-	msg_imu.data[7] = accel_data.y;
-	msg_imu.data[8] = accel_data.z;*/
 
 	ret = k_msgq_put(sensor_queue, (void *)&msg_imu, K_NO_WAIT);
 	if (ret == -EAGAIN) {

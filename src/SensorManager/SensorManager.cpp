@@ -14,22 +14,23 @@ void SensorManager::start() {
 void SensorManager::stop() {
     baro.stop();
 	imu.stop();
+	ppg.stop();
 }
 
 void SensorManager::config(sensor_config * config) {
-    k_timeout_t t = K_MSEC(1000 / config->sampleRate);
+    k_timeout_t t = K_USEC(1e6 / config->sampleRate);
 
 	switch (config->sensorId)
 	{
 	case ID_IMU:
-		imu.init(&sensor_queue);
-		imu.start(t);
+		if (imu.init(&sensor_queue)) imu.start(t);
 		break;
 	case ID_TEMP_BARO:
-		baro.init(&sensor_queue);
-		baro.start(t);
+		if (baro.init(&sensor_queue)) baro.start(t);
 		break;
-	
+	case ID_PPG:
+		if (ppg.init(&sensor_queue)) ppg.start(t);
+		break;
 	default:
 		break;
 	}

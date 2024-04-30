@@ -12,6 +12,7 @@
 
 #include "IMU.h"
 #include "Baro.h"
+#include "PPG.h"
 
 #define I2C_DEV_LABEL "I2C_1" // Change this to your I2C device label
 
@@ -26,6 +27,7 @@ public:
 private:
     Baro baro = Baro::sensor;
     IMU imu = IMU::sensor;
+    PPG ppg = PPG::sensor;
 };
 
 #endif

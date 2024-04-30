@@ -66,6 +66,7 @@ public:
     uint16_t write_uvlo_ilim(ilim_uvlo param);
     void disable_ts();
     uint16_t write_LDO_voltage_control(float volt);
+    float read_ldo_voltage();
     uint16_t write_LS_control(bool enable);
 
     int set_power_connect_callback(gpio_callback_handler_t handler);

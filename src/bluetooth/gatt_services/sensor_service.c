@@ -193,6 +193,13 @@ static void sensor_gatt_task(void)
 			t_imu = (data_buf[idx_data].time - time_last_imu) * alpha + t_imu * (1 - alpha);
 			time_last_imu = data_buf[idx_data].time;
 			break;
+
+		/*case ID_PPG:
+			//t_imu = (data_buf[idx_data].time - time_last_imu) * alpha + t_imu * (1 - alpha);
+			//time_last_imu = data_buf[idx_data].time;
+			printk("%f, %f\n", data_buf[idx_data].data[0], data_buf[idx_data].data[1]);
+
+			break;*/
 		
 		default:
 			break;

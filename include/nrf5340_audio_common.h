@@ -16,8 +16,9 @@
 
 
 enum sensor_id {
-	ID_IMU,
-	ID_TEMP_BARO,
+	ID_IMU=0,
+	ID_TEMP_BARO=1,
+	ID_PPG=4,
 };
 
 struct battery_data {

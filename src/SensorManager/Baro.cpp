@@ -4,14 +4,8 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
 
-//#include <functional>
-
-//extern struct k_msgq sensor_queue;
-
 static struct sensor_data msg_baro;
 
-/*k_work Baro::sensor_work;
-k_msgq * Baro::sensor_queue;*/
 Adafruit_BMP3XX Baro::bmp;
 
 Baro Baro::sensor;
@@ -53,10 +47,6 @@ bool Baro::init(struct k_msgq * queue) {
     }
 
 	sensor_queue = queue;
-
-	//auto f = std::bind(test, this, _1);
-
-	//f(&sensor_work);
 	
 	k_work_init(&sensor.sensor_work, update_sensor);
 	k_timer_init(&sensor.sensor_timer, sensor_timer_handler, NULL);
