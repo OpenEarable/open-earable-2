@@ -156,6 +156,11 @@
 		pg-gpios = <&gpio0 18 GPIO_ACTIVE_LOW>;
 		lsctrl-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
 	};
+
+	ssm6515: ssm6515@34 {
+		compatible = "analog,ssm6515";
+		reg = <0x34>;
+	};
 };
 
 &i2c2 {

@@ -1,0 +1,122 @@
+#include "SSM6515.h"
+#include <zephyr/logging/log_ctrl.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(SSM6515, CONFIG_MAIN_LOG_LEVEL);
+
+SSM6515 dac(&Wire1);
+
+SSM6515::SSM6515(TwoWire * wire) : _pWire(wire) {
+
+}
+
+int SSM6515::begin() {
+        int ret;
+
+        _pWire->begin();
+
+        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+
+        _pWire->beginTransmission(address);
+        if (_pWire->endTransmission() == 0){
+                return 0;
+        }
+        return -1;
+}
+
+int SSM6515::setup() {
+        uint8_t pwr_ctrl = 0x0;
+        uint8_t dac_ctrl2 = 0x10;
+        uint8_t spt_ctrl1 = 0x10; // 16 BCKL per slot, stereo
+        uint8_t spt_ctrl2 = 0x00; // left channel
+        uint8_t dac_vol = 0x40; // left channel
+
+        LOG_INF("write PWR");
+        writeReg(registers::PWR_CTRL, &pwr_ctrl, sizeof(pwr_ctrl));
+        LOG_INF("write SPT_CTRL1");
+        writeReg(registers::SPT_CTRL1, &spt_ctrl1, sizeof(spt_ctrl1));
+        writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2)); // unmute
+
+        uint8_t status = 0;
+        readReg(registers::DAC_CTRL2, &status, sizeof(status));
+
+        LOG_INF("DAC_CTRL: 0x%02X\n", status);
+
+        return 0;
+}
+
+int SSM6515::mute(bool active) {
+        uint8_t status = 0;
+        readReg(registers::DAC_CTRL2, &status, sizeof(status));
+
+        // clear last bit
+        status &= ~0x1;
+        if (active) status |= 0x1;
+
+        writeReg(registers::DAC_CTRL2, &status, sizeof(status));
+
+        return 0;
+}
+
+int SSM6515::set_volume(uint8_t volume) {
+        uint8_t dac_vol = 0xFF-volume;
+        writeReg(registers::DAC_VOL, &dac_vol, sizeof(dac_vol)); // unmute
+
+        return 0;
+}
+
+uint8_t SSM6515::get_volume() {
+        uint8_t dac_vol = 0;
+        readReg(registers::DAC_VOL, &dac_vol, sizeof(dac_vol));
+        return dac_vol;
+}
+
+int SSM6515::soft_reset(bool full_reset) {
+        int ret;
+
+        uint8_t status = 0x1;
+        if (full_reset) status <<= 4;
+        writeReg(registers::RESET, &status, sizeof(status));
+        return ret;
+}
+
+
+bool SSM6515::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
+        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        int delay = MIN(SSM6515_I2C_TIMEOUT_US - (int)(now - last_i2c), SSM6515_I2C_TIMEOUT_US);
+
+        if (delay > 0) k_usleep(delay);
+
+        _pWire->beginTransmission(address);
+        _pWire->write(reg);
+        if (_pWire->endTransmission() != 0) return false;
+        _pWire->requestFrom(address, len);
+
+        for (uint16_t i = 0; i < len; i++) {
+            buffer[i] = _pWire->read();
+        }
+
+        int ret = _pWire->endTransmission();
+
+        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+
+        return (ret == 0);
+}
+
+void SSM6515::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
+        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        int delay = MIN(SSM6515_I2C_TIMEOUT_US - (int)(now - last_i2c), SSM6515_I2C_TIMEOUT_US);
+
+        /*LOG_INF("delay: %i\n", delay);
+        LOG_PANIC();
+        k_msleep(2000);*/
+
+        if (delay > 0) k_usleep(delay);
+
+        _pWire->beginTransmission(address);
+        _pWire->write(reg);
+        for(uint16_t i = 0; i < len; i ++)
+            _pWire->write(buffer[i]);
+        _pWire->endTransmission();
+
+        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+}
