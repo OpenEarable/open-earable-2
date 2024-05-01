@@ -14,10 +14,9 @@ int SSM6515::begin() {
 
         _pWire->begin();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
-
         _pWire->beginTransmission(address);
         if (_pWire->endTransmission() == 0){
+                last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
                 return 0;
         }
         return -1;
@@ -30,9 +29,7 @@ int SSM6515::setup() {
         uint8_t spt_ctrl2 = 0x00; // left channel
         uint8_t dac_vol = 0x40; // left channel
 
-        LOG_INF("write PWR");
         writeReg(registers::PWR_CTRL, &pwr_ctrl, sizeof(pwr_ctrl));
-        LOG_INF("write SPT_CTRL1");
         writeReg(registers::SPT_CTRL1, &spt_ctrl1, sizeof(spt_ctrl1));
         writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2)); // unmute
 
@@ -67,7 +64,7 @@ int SSM6515::set_volume(uint8_t volume) {
 uint8_t SSM6515::get_volume() {
         uint8_t dac_vol = 0;
         readReg(registers::DAC_VOL, &dac_vol, sizeof(dac_vol));
-        return dac_vol;
+        return 0xFF-dac_vol;
 }
 
 int SSM6515::soft_reset(bool full_reset) {
@@ -98,17 +95,12 @@ bool SSM6515::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
         int ret = _pWire->endTransmission();
 
         last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
-
         return (ret == 0);
 }
 
 void SSM6515::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
         int delay = MIN(SSM6515_I2C_TIMEOUT_US - (int)(now - last_i2c), SSM6515_I2C_TIMEOUT_US);
-
-        /*LOG_INF("delay: %i\n", delay);
-        LOG_PANIC();
-        k_msleep(2000);*/
 
         if (delay > 0) k_usleep(delay);
 
