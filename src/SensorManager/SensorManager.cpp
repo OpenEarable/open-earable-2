@@ -4,6 +4,7 @@
 #include "IMU.h"
 #include "Baro.h"
 #include "PPG.h"
+#include "Temp.h"
 
 extern struct k_msgq sensor_queue;
 
@@ -18,6 +19,7 @@ void stop_sensor_manager() {
     Baro::sensor.stop();
 	IMU::sensor.stop();
 	PPG::sensor.stop();
+	Temp::sensor.stop();
 }
 
 void config_sensor(struct sensor_config * config) {
@@ -33,6 +35,9 @@ void config_sensor(struct sensor_config * config) {
 		break;
 	case ID_PPG:
 		if (PPG::sensor.init(&sensor_queue)) PPG::sensor.start(t);
+		break;
+	case ID_OPTTEMP:
+		if (Temp::sensor.init(&sensor_queue)) Temp::sensor.start(t);
 		break;
 	default:
 		break;

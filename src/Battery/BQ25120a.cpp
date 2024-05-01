@@ -17,7 +17,13 @@ int BQ25120a::begin() {
 
         ret = gpio_pin_configure_dt(&pg_pin, GPIO_INPUT | GPIO_PULL_UP);
 	if (ret != 0) {
-                printk("Failed to set GPOUT as input.\n");
+                printk("Failed to set PG as input.\n");
+                return ret;
+        }
+
+        ret = gpio_pin_configure_dt(&int_pin, GPIO_INPUT | GPIO_PULL_UP);
+	if (ret != 0) {
+                printk("Failed to set INT as input.\n");
                 return ret;
         }
 
@@ -219,6 +225,7 @@ uint16_t BQ25120a::write_LS_control(bool enable) {
 
         uint8_t ls_bit = enable ? 1 : 0;
 
+        status &= ~(1 << 7);
         status |= ls_bit << 7;
 
         writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));

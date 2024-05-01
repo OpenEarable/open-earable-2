@@ -95,17 +95,14 @@ int main(void) {
 
 	streamctrl_start();
 
-	ret = dac.begin();
+	/*ret = dac.begin();
 
-	/*k_msleep(10);
-
-	LOG_INF("DAC status: %i", ret);
+	ret = dac.soft_reset();
 
 	dac.setup();
 
-	LOG_INF("DAC setup");
-
-	k_msleep(10);*/
+	k_msleep(1000);*/
+	//LOG_PANIC();
 
 	//ret = led_init();
 	//ERR_CHK(ret);
@@ -164,7 +161,7 @@ int main(void) {
 
 	start_sensor_manager();
 
-	config_sensor(&imu_config);
+	//config_sensor(&imu_config);
 
 	//SensorManager::manager.start();
 	//SensorManager::manager.config(&baro_config);
@@ -220,7 +217,7 @@ int main(void) {
 		//oximter.processPPG(ppg.getRed(), 0); //ppg.getIR()
 	}*/
 
-	/*while(true) {
+	while(true) {
 		float voltage = fuel_gauge.voltage();
         printk("Voltage: %.3fV\n", voltage);
 
@@ -243,6 +240,21 @@ int main(void) {
         uint16_t status_2 = battery_controller.read_charging_state();
         //printk("charging flags: 0x%x\n", status_2);
         printk("state: %i\n", status_2>>6);
+
+		if (status_2 >> 6 == 3) {
+			k_usleep(66);
+			uint16_t fault = battery_controller.read_fault();
+			//printk("charging flags: 0x%x\n", status_2);
+			LOG_WRN("U_ov: %i, U_uv: %i, BAT_uvlo: %i, BAT_OCP: %i, RESET_FAULT: %i, TIMER_FAULT: %i, VINDPM_STAT: %i, CD_STAT: %i, SYS_EN_STAT: %i",
+			fault >> 7, (fault >> 6) & 0x1, (fault >> 5) & 0x1, (fault >> 4) & 0x1,
+			(status_2 >> 4) & 0x1, (status_2 >> 3) & 0x1, (status_2 >> 2) & 0x1, (status_2 >> 1) & 0x1, status_2 & 0x1);
+
+			k_usleep(66);
+			uint16_t ts_fault = battery_controller.read_ts_fault();
+			//printk("charging flags: 0x%x\n", status_2);
+			LOG_WRN("TS_ENABLED: %i, TS: %i",
+			ts_fault >> 7, (ts_fault >> 5) & 0x3);
+		}
 
         //k_usleep(66);
         float battery_voltage = battery_controller.read_battery_voltage_control();
@@ -272,6 +284,6 @@ int main(void) {
 
         printk("-------------------\n");     
 
-		k_msleep(1000);
-	}*/
+		k_msleep(5000);
+	}
 }

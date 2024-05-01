@@ -1,19 +1,17 @@
-#ifndef _PPG_H
-#define _PPG_H
+#ifndef _TEMP_H
+#define _TEMP_H
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 
-#include "MAX30102/MAX30102.h"
+#include "MLX90632/MLX90632.h"
 #include "EdgeMlSensor.h"
 
 #include "nrf5340_audio_common.h"
 
-class PPG : public EdgeMlSensor {
+class Temp : public EdgeMlSensor {
 public:
-    //PulseOximeter(int _samplerate);
-
-    static PPG sensor;
+    static Temp sensor;
 
     bool init(struct k_msgq * queue) override;
     void start(k_timeout_t t) override;
@@ -21,7 +19,7 @@ public:
 
     void reset();
 private:
-    static MAX30105 ppg;
+    static MLX90632 temp;
 
     static void sensor_timer_handler(struct k_timer *dummy);
 

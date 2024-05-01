@@ -183,7 +183,8 @@ int PowerManager::power_down(bool fault) {
 
     int ret;
 
-    power_manager.v1_8_switch.set(false);
+    power_manager.set_1_8(false);
+    power_manager.set_3_3(false);
 
     //ret = battery_controller.set_wakeup_int();
     //if (ret != 0) return ret;
@@ -206,9 +207,9 @@ int PowerManager::power_down(bool fault) {
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
-    /*if (ret) {
+    if (ret) {
         LOG_ERR("Failed to disconnect: %d", ret);
-    }*/
+    }
 
     bt_disable();
 
@@ -279,10 +280,11 @@ void PowerManager::charge_task() {
             LOG_WRN("charging state: fault");
 
             uint16_t ts_fault = battery_controller.read_ts_fault();
-            printk("TS_ENABLED: %i, TS FAULT: %i\n", ts_fault >> 7, (ts_fault >> 5) & 0x3);ts_fault &= ~(1 << 7);
+            LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
 
             battery_controller.disable_ts();
             battery_controller.setup();
+            
             break;
             }
     }
