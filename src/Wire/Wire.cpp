@@ -27,9 +27,9 @@ arduino::MbedI2C::MbedI2C(const struct device * _device) : master(_device), used
 void arduino::MbedI2C::begin() {
 	//end();
 	//master = new mbed::I2C(_sda, _scl);
-	if (master == NULL || !device_is_ready(master)) {
+	if (!device_is_ready(master)) {
     	//master = device_get_binding(I2C_DEV_LABEL);
-		master = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+		//master = DEVICE_DT_GET(DT_NODELABEL(i2c1));
 		__ASSERT(master != NULL, "I2C_DEV_LABEL not found!");
 		int result = i2c_configure(master, I2C_SPEED_SET(I2C_SPEED_FAST));
 		__ASSERT(result == 0, "Failed to set I2C speed!");

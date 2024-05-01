@@ -23,7 +23,7 @@ void stop_sensor_manager() {
 void config_sensor(struct sensor_config * config) {
     k_timeout_t t = K_USEC(1e6 / config->sampleRate);
 
-	/*switch (config->sensorId)
+	switch (config->sensorId)
 	{
 	case ID_IMU:
 		if (IMU::sensor.init(&sensor_queue)) IMU::sensor.start(t);
@@ -36,5 +36,5 @@ void config_sensor(struct sensor_config * config) {
 		break;
 	default:
 		break;
-	}*/
+	}
 }

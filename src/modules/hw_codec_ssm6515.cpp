@@ -154,12 +154,12 @@ int hw_codec_volume_adjust(int8_t adjustment_db)
 	} else {
 		uint32_t volume_reg_val;
 
-		volume_reg_val  = dac.get_volume();
+		volume_reg_val = dac.get_volume();
 
-		/* The adjustment is in dB, 1 bit equals 0.5 dB,
-		 * so multiply by 2 to get increments of 1 dB
+		/* The adjustment is in dB, 1 bit equals 0.375 dB,
+		 * so multiply by 8/3 to get increments of 1 dB
 		 */
-		new_volume_reg_val = volume_reg_val + (adjustment_db * 2);
+		new_volume_reg_val = volume_reg_val + (adjustment_db * 8 / 3);
 		if (new_volume_reg_val <= 0) {
 			LOG_WRN("Volume at MIN (-64dB)");
 			new_volume_reg_val = 0;
