@@ -11,12 +11,12 @@
 
 class Button {
 public:
-    Button(gpio_dt_spec spec, bool inverted = false);
+    Button(gpio_dt_spec spec);
 
     void begin();
     void end();
 
-    void inverted(bool _inverted = true);
+    //void inverted(bool _inverted = true);
 
     button_action getState() const;
 
@@ -25,7 +25,7 @@ public:
     //static void task();
 private:
     //int _pin;
-    bool _inverted = false;
+    //bool _inverted = false;
     unsigned long _lastDebounceTime;
     //unsigned long _pressStartTime;
     unsigned long _debounceDelay = 25;

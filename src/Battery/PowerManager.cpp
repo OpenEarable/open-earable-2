@@ -8,6 +8,8 @@
 #include <zephyr/pm/pm.h>
 #include <zephyr/pm/device_runtime.h>
 
+#include "../drivers/LED_Controller/KTD2026.h"
+
 //#include "led.h"
 
 #include "bt_mgmt.h"
@@ -174,9 +176,9 @@ void PowerManager::set_3_3(bool on) {
 int PowerManager::power_down(bool fault) {
     // if charging do not power off
     //uint16_t last_charging_state = 0;
-    /*if (!fault && battery_controller.power_connected()) {
+    if (!fault && battery_controller.power_connected()) {
         return -1;
-    }*/
+    }
 
     // power disonnected
     // prepare interrupts
@@ -186,16 +188,16 @@ int PowerManager::power_down(bool fault) {
     power_manager.set_1_8(false);
     power_manager.set_3_3(false);
 
-    //ret = battery_controller.set_wakeup_int();
-    //if (ret != 0) return ret;
-    //ret = fuel_gauge.set_wakeup_int();
-    //if (ret != 0) return ret;
+    ret = battery_controller.set_wakeup_int();
+    if (ret != 0) return ret;
+    ret = fuel_gauge.set_wakeup_int();
+    if (ret != 0) return ret;
     
     // check battery good
-    //if (!fault) ret = power_switch.set_wakeup_int();
-    //if (ret != 0) return ret;
+    if (!fault) ret = power_switch.set_wakeup_int();
+    if (ret != 0) return ret;
 
-    //led_controller.power_off();
+    led_controller.power_off();
 
     battery_controller.enter_high_impedance();
 
@@ -207,9 +209,6 @@ int PowerManager::power_down(bool fault) {
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
-    if (ret) {
-        LOG_ERR("Failed to disconnect: %d", ret);
-    }
 
     bt_disable();
 
@@ -223,8 +222,8 @@ int PowerManager::power_down(bool fault) {
 	ret = led_off(2);
 	ret = led_off(3);*/
 
-    //ret = bt_mgmt_stop_watchdog();
-    //ERR_CHK(ret);
+    ret = bt_mgmt_stop_watchdog();
+    ERR_CHK(ret);
 
     /*const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
@@ -245,10 +244,6 @@ int PowerManager::power_down(bool fault) {
     //pm_system_suspend();
 
     //pm_suspend_devices();
-
-    //pm_device_init_off
-
-    //pm_device_state_get
 
     sys_poweroff();
 }

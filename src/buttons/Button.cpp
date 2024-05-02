@@ -20,7 +20,7 @@ void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 	}*/
 }
 
-Button::Button(gpio_dt_spec spec, bool inverted) : _inverted(inverted), button(spec) {
+Button::Button(gpio_dt_spec spec) : button(spec) {
     
 }
 
@@ -33,7 +33,7 @@ void Button::begin() {
 		return;
 	}
 
-	ret = gpio_pin_configure_dt(&button, GPIO_INPUT);
+	ret = gpio_pin_configure_dt(&button, GPIO_INPUT | GPIO_PULL_UP);
 	if (ret != 0) {
 		printk("Error %d: failed to configure %s pin %d\n",
 		       ret, button.port->name, button.pin);
@@ -55,9 +55,6 @@ void Button::begin() {
 	// initial state
 	bool reading = gpio_pin_get_dt(&button);
 
-    //if (_inverted) reading = !reading;
-    reading = _inverted ^ reading;
-
     if (reading) _buttonState = BUTTON_PRESS;
 
 	//printk("mask:%i\n", button_cb_data.pin_mask);
@@ -68,17 +65,10 @@ void Button::end() {
 	//gpio_remove_callback();
 }
 
-void Button::inverted(bool _inverted) {
-    this->_inverted = _inverted;
-}
-
 void Button::_read_state() {
 	int ret;
 
     bool reading = gpio_pin_get_dt(&button);
-
-    //if (_inverted) reading = !reading;
-    reading = _inverted ^ reading;
 
     //CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER
     unsigned long now = k_cyc_to_ms_floor32(k_cycle_get_32());
@@ -131,13 +121,7 @@ void Button::setDebounceTime(unsigned long debounceTime) {
     _debounceDelay = debounceTime;
 }
 
-/*Button earable_btn(DT_GPIO_PIN(DT_ALIAS(sw0), gpios));
-Button volume_up_btn(DT_GPIO_PIN(DT_ALIAS(sw1), gpios));
-Button volume_down_btn(DT_GPIO_PIN(DT_ALIAS(sw2), gpios));
-Button four_btn(DT_GPIO_PIN(DT_ALIAS(sw3), gpios));*/
-//Button five_btn(BUTTON_5);
-
-Button earable_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0}));
+Button earable_btn(GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios));
 // Button volume_up_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}));
 // Button volume_down_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}));
 // Button four_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0}));
