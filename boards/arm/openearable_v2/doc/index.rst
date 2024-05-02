@@ -1,4 +1,4 @@
-OpenEarable 2.0 Demo Board
+OpenEarable 2.0
 ==========================
 
 Overview
