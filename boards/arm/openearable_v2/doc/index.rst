@@ -6,7 +6,7 @@ Overview
 The OpenEarable 2.0 demo board is a development board featuring the Raytac MDBT53-1M module, utilizing the advanced Nordic Semiconductor nRF5340 ARM Cortex-M33 dual-core SoC. It is designed to facilitate research into ear-based wearable technologies, integrating a wide range of sensors and communication technologies for comprehensive physiological data collection.
 
 The nRF5340 SoC embedded within offers:
-- A fully-featured Arm Cortex-M33F core (application core) capable of running at up to 128 MHz, equipped with DSP instructions, FPU, and Armv8-M Security Extension.
+- A fully-featured Arm Cortex-M33F core (application core) capable of running at up to 128 MHz, FPU, and Armv8-M Security Extension.
 - A secondary Arm Cortex-M33 core (network core), optimized for network processing and running at a fixed 64 MHz.
 
 Key Features:
