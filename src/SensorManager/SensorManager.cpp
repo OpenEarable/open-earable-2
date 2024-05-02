@@ -1,33 +1,44 @@
 #include "SensorManager.h"
 #include <zephyr/kernel.h>
-#include <zephyr/zbus/zbus.h>
+
+#include "IMU.h"
+#include "Baro.h"
+#include "PPG.h"
+#include "Temp.h"
 
 extern struct k_msgq sensor_queue;
 
-SensorManager SensorManager::manager = SensorManager();
+//SensorManager SensorManager::manager = SensorManager();
 
-void SensorManager::start() {
-    baro.init(&sensor_queue);
-	imu.init(&sensor_queue);
+void start_sensor_manager() {
+    //baro.init(&sensor_queue);
+	//imu.init(&sensor_queue);
 }
 
-void SensorManager::stop() {
-    baro.stop();
-	imu.stop();
+void stop_sensor_manager() {
+    Baro::sensor.stop();
+	IMU::sensor.stop();
+	PPG::sensor.stop();
+	Temp::sensor.stop();
 }
 
-void SensorManager::config(sensor_config * config) {
-    k_timeout_t t = K_MSEC(1000 / config->sampleRate);
+void config_sensor(struct sensor_config * config) {
+    k_timeout_t t = K_USEC(1e6 / config->sampleRate);
 
 	switch (config->sensorId)
 	{
 	case ID_IMU:
-		imu.start(t);
+		if (IMU::sensor.init(&sensor_queue)) IMU::sensor.start(t);
 		break;
 	case ID_TEMP_BARO:
-		baro.start(t);
+		if (Baro::sensor.init(&sensor_queue)) Baro::sensor.start(t);
 		break;
-	
+	case ID_PPG:
+		if (PPG::sensor.init(&sensor_queue)) PPG::sensor.start(t);
+		break;
+	case ID_OPTTEMP:
+		if (Temp::sensor.init(&sensor_queue)) Temp::sensor.start(t);
+		break;
 	default:
 		break;
 	}

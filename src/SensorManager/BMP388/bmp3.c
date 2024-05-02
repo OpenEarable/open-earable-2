@@ -2560,8 +2560,8 @@ static int8_t null_ptr_check(const struct bmp3_dev *dev)
 {
     int8_t rslt;
 
-    if ((dev == NULL) || (dev->read == NULL) || (dev->write == NULL) || (dev->delay_us == NULL) ||
-        (dev->intf_ptr == NULL))
+    if ((dev == NULL) || (dev->read == NULL) || (dev->write == NULL) || (dev->delay_us == NULL) /*||
+        (dev->intf_ptr == NULL)*/)
     {
         /* Device structure pointer is not valid */
         rslt = BMP3_E_NULL_PTR;

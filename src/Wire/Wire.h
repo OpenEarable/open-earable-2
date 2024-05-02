@@ -33,8 +33,7 @@ namespace arduino {
 class MbedI2C //: public HardwareI2C
 {
   public:
-    MbedI2C(); //int sda, int scl
-    //MbedI2C(PinName sda, PinName scl);
+    MbedI2C(const struct device * master);
     virtual void begin();
     #ifndef DEVICE_I2CSLAVE
     virtual void __attribute__ ((error("I2C Slave mode is not supported"))) begin(uint8_t address);
@@ -46,21 +45,16 @@ class MbedI2C //: public HardwareI2C
     virtual void setClock(uint32_t freq);
   
     virtual void beginTransmission(uint8_t address);
-    virtual uint8_t endTransmission(bool stopBit);
-    virtual uint8_t endTransmission(void);
+    virtual uint8_t endTransmission(bool stopBit = true);
 
-    virtual size_t requestFrom(uint8_t address, size_t len, bool stopBit);
-    virtual size_t requestFrom(uint8_t address, size_t len);
+    virtual size_t requestFrom(uint8_t address, size_t len, bool stopBit = true);
 
     virtual void onReceive(void(*)(int));
     virtual void onRequest(void(*)(void));
 
     virtual size_t write(uint8_t data);
-    virtual size_t write(int data) {
-      return write ((uint8_t)data);
-    };
     virtual size_t write(const uint8_t* data, int len);
-    //using Print::write;
+    
     virtual int read();
     virtual int peek();
     virtual void flush();
@@ -71,7 +65,6 @@ private:
 #ifdef DEVICE_I2CSLAVE
     mbed::I2CSlave* slave = NULL;
 #endif
-    //mbed::I2C*      master = NULL;
     const struct device * master = NULL;
 
     int master_read(int address, const char * buf, const uint8_t len, bool no_stop);
@@ -95,5 +88,7 @@ private:
 }
 
 extern arduino::MbedI2C Wire;
+
+extern arduino::MbedI2C Wire1;
 
 typedef arduino::MbedI2C TwoWire;

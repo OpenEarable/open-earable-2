@@ -16,10 +16,6 @@ struct btn_config {
 	uint32_t btn_cfg_mask;
 };
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /** @brief Initialize button handler, with buttons defined in button_assignments.h.
  *
  * @note This function may only be called once - there is no reinitialize.
@@ -37,9 +33,5 @@ int button_handler_init(void);
  * @return 0 if success, an error code otherwise.
  */
 int button_pressed(gpio_pin_t button_pin, bool *button_pressed);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* _BUTTON_HANDLER_H_ */

@@ -9,6 +9,7 @@
 
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/audio/audio.h>
 
 #define LE_AUDIO_EXTENDED_ADV_NAME                                                                 \
 	BT_LE_ADV_PARAM(BT_LE_ADV_OPT_EXT_ADV | BT_LE_ADV_OPT_USE_NAME,                            \
@@ -17,6 +18,11 @@
 #define LE_AUDIO_EXTENDED_ADV_CONN_NAME                                                            \
 	BT_LE_ADV_PARAM(BT_LE_ADV_OPT_EXT_ADV | BT_LE_ADV_OPT_CONNECTABLE |                        \
 				BT_LE_ADV_OPT_USE_NAME,                                            \
+			CONFIG_BLE_ACL_EXT_ADV_INT_MIN, CONFIG_BLE_ACL_EXT_ADV_INT_MAX, NULL)
+
+#define LE_AUDIO_EXTENDED_ADV_CONN_NAME_FILTER                                                     \
+	BT_LE_ADV_PARAM(BT_LE_ADV_OPT_EXT_ADV | BT_LE_ADV_OPT_CONNECTABLE |                        \
+				BT_LE_ADV_OPT_USE_NAME | BT_LE_ADV_OPT_FILTER_CONN,                \
 			CONFIG_BLE_ACL_EXT_ADV_INT_MIN, CONFIG_BLE_ACL_EXT_ADV_INT_MAX, NULL)
 
 #define LE_AUDIO_PERIODIC_ADV                                                                      \
@@ -51,6 +57,8 @@ enum bt_mgmt_scan_type {
 	BT_MGMT_SCAN_TYPE_BROADCAST = 2,
 };
 
+#define BRDCAST_ID_NOT_USED (BT_AUDIO_BROADCAST_ID_MAX + 1)
+
 /**
  * @brief	Start scanning for advertisements.
  *
@@ -63,6 +71,10 @@ enum bt_mgmt_scan_type {
  *				device name or broadcast name. Can be max
  *				BLE_SEARCH_NAME_MAX_LEN long; everything beyond that value
  *				will be cropped. Can be NULL. Shall be '\0' terminated.
+ * @param[in]	brdcast_id	Broadcast ID to search for. Only valid if @p type is
+ *				BT_MGMT_SCAN_TYPE_BROADCAST. If both @p name and @p brdcast_id are
+ *				provided, then brdcast_id will be used.
+ *				Set to BRDCAST_ID_NOT_USED if not in use.
  *
  * @note	To restart scanning, call this function with all 0s and NULL, except for @p type.
  *		The same scanning parameters as when bt_mgmt_scan_start was last called will then
@@ -71,7 +83,18 @@ enum bt_mgmt_scan_type {
  * @return	0 if success, error otherwise.
  */
 int bt_mgmt_scan_start(uint16_t scan_intvl, uint16_t scan_win, enum bt_mgmt_scan_type type,
-		       char const *const name);
+		       char const *const name, uint32_t brdcast_id);
+
+/**
+ * @brief	Add manufacturer ID UUID to the advertisement packet.
+ *
+ * @param[out]	uuid_buf	Buffer being populated with UUIDs.
+ * @param[in]	company_id	16 bit UUID specific to the company.
+ *
+ * @return	0 for success, error otherwise.
+ */
+int bt_mgmt_manufacturer_uuid_populate(struct net_buf_simple *uuid_buf, uint16_t company_id);
+
 /**
  * @brief	Create and start advertising for ACL connection.
  *

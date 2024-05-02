@@ -11,8 +11,8 @@ bool button_pressed(enum button_pin_names pin) {
 			return volume_up_btn.getState() == BUTTON_PRESS;
 		case BUTTON_4:
 			return four_btn.getState() == BUTTON_PRESS;
-		case BUTTON_5:
-			return five_btn.getState() == BUTTON_PRESS;
+		/*case BUTTON_5:
+			return five_btn.getState() == BUTTON_PRESS;*/
 		default:
 			return false;
 	}

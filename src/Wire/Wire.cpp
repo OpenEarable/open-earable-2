@@ -21,17 +21,18 @@
 */
 
 #include "Wire.h"
-//#include "pinDefinitions.h"
 
-//arduino::MbedI2C::MbedI2C(int sda, int scl) : _sda(sda), _scl(scl), usedTxBuffer(0) {}
-
-arduino::MbedI2C::MbedI2C() : usedTxBuffer(0) {}
+arduino::MbedI2C::MbedI2C(const struct device * _device) : master(_device), usedTxBuffer(0) {}
 
 void arduino::MbedI2C::begin() {
 	//end();
 	//master = new mbed::I2C(_sda, _scl);
-	if (master == NULL || !device_is_ready(master)) {
-    	master = device_get_binding(I2C_DEV_LABEL);
+	if (!device_is_ready(master)) {
+    	//master = device_get_binding(I2C_DEV_LABEL);
+		//master = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+		__ASSERT(master != NULL, "I2C_DEV_LABEL not found!");
+		int result = i2c_configure(master, I2C_SPEED_SET(I2C_SPEED_FAST));
+		__ASSERT(result == 0, "Failed to set I2C speed!");
 	}
 }
 
@@ -62,14 +63,7 @@ void arduino::MbedI2C::end() {
 }
 
 void arduino::MbedI2C::setClock(uint32_t freq) {
-	/*if (master != NULL) {
-		master->frequency(freq);
-	}
-#ifdef DEVICE_I2CSLAVE
-	if (slave != NULL) {
-		slave->frequency(freq);
-	}
-#endif*/
+	
 }
 
 void arduino::MbedI2C::beginTransmission(uint8_t address) {
@@ -90,10 +84,6 @@ uint8_t arduino::MbedI2C::endTransmission(bool stopBit) {
 	return 2;
 }
 
-uint8_t arduino::MbedI2C::endTransmission(void) {
-	return endTransmission(true);
-}
-
 size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) {
 	char buf[256];
 	int ret = master_read(address, buf, len, !stopBit);
@@ -104,10 +94,6 @@ size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) 
 		rxBuffer.store_char(buf[i]);
 	}
 	return len;
-}
-
-size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len) {
-	return requestFrom(address, len, true);
 }
 
 size_t arduino::MbedI2C::write(uint8_t data) {
@@ -211,4 +197,6 @@ int arduino::MbedI2C::master_read(int address, const char * buf, const uint8_t l
 	return i2c_message(I2C_MSG_READ, address, buf, len, no_stop);
 }
 
-arduino::MbedI2C Wire;
+arduino::MbedI2C Wire(DEVICE_DT_GET(DT_NODELABEL(i2c1)));
+
+arduino::MbedI2C Wire1(DEVICE_DT_GET(DT_NODELABEL(i2c2)));

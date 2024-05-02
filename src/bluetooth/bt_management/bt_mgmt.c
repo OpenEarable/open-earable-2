@@ -16,10 +16,7 @@
 #include "macros_common.h"
 #include "nrf5340_audio_common.h"
 //#include "button_handler.h"
-#include "../buttons/button_manager.h"
-//#include "../buttons/Button.h"
 #include "button_assignments.h"
-#include "ble_hci_vsc.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"
 
@@ -29,6 +26,9 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
+
+#define INTERVAL_MIN 16
+#define INTERVAL_MAX 16
 
 ZBUS_CHAN_DEFINE(bt_mgmt_chan, struct bt_mgmt_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
@@ -71,14 +71,71 @@ static void conn_state_connected_check(struct bt_conn *conn, void *data)
 	(*num_conn)++;
 }
 
+static void exchange_func(struct bt_conn *conn, uint8_t att_err,
+			  struct bt_gatt_exchange_params *params)
+{
+	struct bt_conn_info info = {0};
+	int err;
+
+	printk("MTU exchange %s\n", att_err == 0 ? "successful" : "failed");
+	printk("MTU size is: %d\n", bt_gatt_get_mtu(conn));
+
+	err = bt_conn_get_info(conn, &info);
+	if (err) {
+		printk("Failed to get connection info %d\n", err);
+		return;
+	}
+
+	/*if (info.role == BT_CONN_ROLE_MASTER) {
+		instruction_print();
+		//test_ready = true;
+	}*/
+}
+
+static void le_data_length_updated(struct bt_conn *conn,
+				   struct bt_conn_le_data_len_info *info)
+{
+	printk("LE data len updated: TX (len: %d time: %d)"
+	       " RX (len: %d time: %d)\n", info->tx_max_len,
+	       info->tx_max_time, info->rx_max_len, info->rx_max_time);
+}
+
+static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(INTERVAL_MIN, INTERVAL_MAX, 0, 400);
+
+//callback
+static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
+{
+	struct bt_mgmt_msg msg;
+	int ret;
+
+	LOG_INF("Conn params updated: interval %d unit, latency %d, timeout: %d0 ms",interval, latency, timeout);
+
+	msg.event = BT_MGMT_CONNECTED;
+	msg.conn = conn;
+
+	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
+	ERR_CHK(ret);
+}
+
 static void connected_cb(struct bt_conn *conn, uint8_t err)
 {
 	int ret;
 	char addr[BT_ADDR_LE_STR_LEN] = {0};
 	uint8_t num_conn = 0;
-	uint16_t conn_handle;
-	enum ble_hci_vs_tx_power conn_tx_pwr;
 	struct bt_mgmt_msg msg;
+
+	if (err == BT_HCI_ERR_ADV_TIMEOUT && IS_ENABLED(CONFIG_BT_PERIPHERAL)) {
+		LOG_INF("Directed adv timed out with no connection, reverting to normal adv");
+
+		bt_mgmt_dir_adv_timed_out();
+
+		ret = bt_mgmt_adv_start(NULL, 0, NULL, 0, true);
+		if (ret) {
+			LOG_ERR("Failed to restart advertising: %d", ret);
+		}
+
+		return;
+	}
 
 	(void)bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
@@ -89,8 +146,9 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 		bt_conn_unref(conn);
 
 		if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
-			ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL);
-			if (ret) {
+			ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL,
+						 BRDCAST_ID_NOT_USED);
+			if (ret && ret != -EALREADY) {
 				LOG_ERR("Failed to restart scanning: %d", ret);
 			}
 		}
@@ -113,28 +171,9 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 
 	if (IS_ENABLED(CONFIG_BT_CENTRAL) && (num_conn < MAX_CONN_NUM)) {
 		/* Room for more connections, start scanning again */
-		ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL);
+		ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL, BRDCAST_ID_NOT_USED);
 		if (ret) {
 			LOG_ERR("Failed to resume scanning: %d", ret);
-		}
-	}
-
-	ret = bt_hci_get_conn_handle(conn, &conn_handle);
-	if (ret) {
-		LOG_ERR("Unable to get conn handle");
-	} else {
-		if (IS_ENABLED(CONFIG_NRF_21540_ACTIVE)) {
-			conn_tx_pwr = CONFIG_NRF_21540_MAIN_DBM;
-		} else {
-			conn_tx_pwr = CONFIG_BLE_CONN_TX_POWER_DBM;
-		}
-
-		ret = ble_hci_vsc_conn_tx_pwr_set(conn_handle, conn_tx_pwr);
-		if (ret) {
-			LOG_ERR("Failed to set TX power for conn");
-		} else {
-			LOG_DBG("TX power set to %d dBm for connection %p", conn_tx_pwr,
-				(void *)conn);
 		}
 	}
 
@@ -144,6 +183,35 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
 	ERR_CHK(ret);
 
+	static struct bt_gatt_exchange_params exchange_params;
+	exchange_params.func = exchange_func;
+
+	printk("MTU size is: %d\n", bt_gatt_get_mtu(conn));
+
+	err = bt_gatt_exchange_mtu(conn, &exchange_params);
+	if (err) {
+		printk("MTU exchange failed (err %d)\n", err);
+	} else {
+		printk("MTU exchange pending\n");
+	}
+
+	err = bt_conn_le_phy_update(conn, BT_CONN_LE_PHY_PARAM_2M);
+	if (err) {
+		LOG_ERR("Phy update request failed: %d",  err);
+	}
+
+	err = bt_conn_le_data_len_update(conn, BT_LE_DATA_LEN_PARAM_MAX);
+	if (err) {
+		LOG_ERR("LE data length update request failed: %d",  err);
+	}
+
+	err = bt_conn_le_param_update(conn, conn_param);
+	if (err) {
+		LOG_ERR("Cannot update conneciton parameter (err: %d)", err);
+		return err;
+	}
+	LOG_INF("Connection parameters update requested");
+
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		ret = bt_conn_set_security(conn, BT_SECURITY_L2);
 		if (ret) {
@@ -151,6 +219,8 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 		}
 	}
 }
+
+K_MUTEX_DEFINE(mtx_duplicate_scan);
 
 static void disconnected_cb(struct bt_conn *conn, uint8_t reason)
 {
@@ -179,12 +249,18 @@ static void disconnected_cb(struct bt_conn *conn, uint8_t reason)
 		ERR_CHK(ret);
 	}
 
+	/* The mutex for preventing the racing condition if two headset disconnected too close,
+	 * cause the disconnected_cb() triggered in short time leads to duplicate scanning
+	 * operation.
+	 */
+	k_mutex_lock(&mtx_duplicate_scan, K_FOREVER);
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
-		ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL);
-		if (ret) {
+		ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL, BRDCAST_ID_NOT_USED);
+		if (ret && ret != -EALREADY) {
 			LOG_ERR("Failed to restart scanning: %d", ret);
 		}
 	}
+	k_mutex_unlock(&mtx_duplicate_scan);
 }
 
 #if defined(CONFIG_BT_SMP)
@@ -194,10 +270,10 @@ static void security_changed_cb(struct bt_conn *conn, bt_security_t level, enum 
 	struct bt_mgmt_msg msg;
 
 	if (err) {
-		LOG_ERR("Security failed: level %d err %d", level, err);
-		ret = bt_conn_disconnect(conn, err);
+		LOG_WRN("Security failed: level %d err %d", level, err);
+		ret = bt_conn_disconnect(conn, BT_HCI_ERR_AUTH_FAIL);
 		if (ret) {
-			LOG_ERR("Failed to disconnect %d", ret);
+			LOG_WRN("Failed to disconnect %d", ret);
 		}
 	} else {
 		LOG_DBG("Security changed: level %d", level);
@@ -214,6 +290,8 @@ static void security_changed_cb(struct bt_conn *conn, bt_security_t level, enum 
 static struct bt_conn_cb conn_callbacks = {
 	.connected = connected_cb,
 	.disconnected = disconnected_cb,
+	.le_param_updated = conn_params_updated,
+	.le_data_len_updated = le_data_length_updated,
 #if defined(CONFIG_BT_SMP)
 	.security_changed = security_changed_cb,
 #endif /* defined(CONFIG_BT_SMP) */
@@ -236,21 +314,20 @@ static int bonding_clear_check(void)
 	int ret;
 	bool pressed;
 
-	//ret = button_pressed(BUTTON_5, &pressed);
-	/*if (ret) {
+	ret = button_pressed(BUTTON_5, &pressed);
+	if (ret) {
 		return ret;
-	}*/
-
-	pressed = button_pressed(BUTTON_5); //five_btn.getState() == PRESSED;
+	}
 
 	if (pressed) {
 		ret = bt_mgmt_bonding_clear();
 		return ret;
 	}
+
 	return 0;
 }
 
-static int random_static_addr_cfg(void)
+static int ficr_static_addr_set(void)
 {
 	int ret;
 	static bt_addr_le_t addr;
@@ -282,6 +359,27 @@ static int random_static_addr_cfg(void)
 	 * FICR), then a random address is created
 	 */
 	LOG_WRN("Unable to read from FICR");
+
+	return 0;
+}
+
+/* This function generates a random address for bonding testing */
+static int random_static_addr_set(void)
+{
+	int ret;
+	static bt_addr_le_t addr;
+
+	ret = bt_addr_le_create_static(&addr);
+	if (ret < 0) {
+		LOG_ERR("Failed to create address %d", ret);
+		return ret;
+	}
+
+	ret = bt_id_create(&addr, NULL);
+	if (ret < 0) {
+		LOG_ERR("Failed to create ID %d", ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -367,7 +465,7 @@ int bt_mgmt_init(void)
 	int ret;
 
 	if (!IS_ENABLED(CONFIG_BT_PRIVACY)) {
-		ret = random_static_addr_cfg();
+		ret = ficr_static_addr_set();
 		if (ret) {
 			return ret;
 		}
@@ -384,15 +482,34 @@ int bt_mgmt_init(void)
 		return ret;
 	}
 
+	if (IS_ENABLED(CONFIG_TESTING_BLE_ADDRESS_RANDOM)) {
+		ret = random_static_addr_set();
+		if (ret) {
+			return ret;
+		}
+	}
+
 	if (IS_ENABLED(CONFIG_SETTINGS)) {
 		ret = settings_load();
 		if (ret) {
 			return ret;
 		}
 
-		ret = bonding_clear_check();
+		/*ret = bonding_clear_check();
 		if (ret) {
 			return ret;
+		}*/
+
+		ret = bt_mgmt_bonding_clear();
+		if (ret) {
+			return ret;
+		}
+
+		if (IS_ENABLED(CONFIG_TESTING_BLE_ADDRESS_RANDOM)) {
+			ret = bt_mgmt_bonding_clear();
+			if (ret) {
+				return ret;
+			}
 		}
 	}
 
@@ -413,6 +530,7 @@ int bt_mgmt_init(void)
 		bt_mgmt_dfu_start();
 	}
 #endif
+
 	ret = bt_mgmt_ctlr_cfg_init(IS_ENABLED(CONFIG_WDT_CTLR));
 	if (ret) {
 		return ret;

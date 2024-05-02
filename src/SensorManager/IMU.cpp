@@ -4,22 +4,18 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
 
-extern struct k_msgq sensor_queue;
+//extern struct k_msgq sensor_queue;
 
 static struct sensor_data msg_imu;
 
 /*k_work IMU::sensor_work;
 k_msgq * IMU::sensor_queue;*/
-DFRobot_BMX160 IMU::imu;
+DFRobot_BMX160 IMU::imu(&Wire1);
 
 IMU IMU::sensor;
 
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
-
-	/*sBmx160SensorData_t accel_data;
-	sBmx160SensorData_t gyro_data;
-	sBmx160SensorData_t magno_data;*/
 
 	msg_imu.id = ID_IMU;
 	msg_imu.size = 9 * sizeof(float);
@@ -27,16 +23,6 @@ void IMU::update_sensor(struct k_work *work) {
 
 	//imu.getAllData(&magno_data, &gyro_data, &accel_data);
 	imu.getAllData((sBmx160SensorData_t*) &msg_imu.data[6], (sBmx160SensorData_t*) &msg_imu.data[3], (sBmx160SensorData_t*) &msg_imu.data[0]);
-
-	/*msg_imu.data[0] = magno_data.x;
-	msg_imu.data[1] = magno_data.y;
-	msg_imu.data[2] = magno_data.z;
-	msg_imu.data[3] = gyro_data.x;
-	msg_imu.data[4] = gyro_data.y;
-	msg_imu.data[5] = gyro_data.z;
-	msg_imu.data[6] = accel_data.x;
-	msg_imu.data[7] = accel_data.y;
-	msg_imu.data[8] = accel_data.z;*/
 
 	ret = k_msgq_put(sensor_queue, (void *)&msg_imu, K_NO_WAIT);
 	if (ret == -EAGAIN) {
@@ -68,7 +54,7 @@ bool IMU::init(struct k_msgq * queue) {
 }
 
 void IMU::start(k_timeout_t t) {
-	k_timer_start(&sensor.sensor_timer, t, t);
+	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 
 void IMU::stop() {

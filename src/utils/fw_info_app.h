@@ -7,10 +7,6 @@
 #ifndef _FW_INFO_APP_H_
 #define _FW_INFO_APP_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * @brief Prints firmware info, such as Git details, compiled timestamp etc.
  *
@@ -18,9 +14,5 @@ extern "C" {
  *              Otherwise, error from underlying drivers
  */
 int fw_info_app_print(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* _FW_INFO_APP_H_ */

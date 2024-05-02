@@ -28,7 +28,7 @@ void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 	}
 }
 
-Button::Button(button_pin_names pin, bool inverted) : _inverted(inverted), button(buttons[pin - 2]) {
+Button::Button(gpio_dt_spec spec, bool inverted) : _inverted(inverted), button(spec) {
     
 }
 
@@ -68,7 +68,7 @@ void Button::begin() {
 
     if (reading) _buttonState = BUTTON_PRESS;
 
-	printk("mask:%i\n", button_cb_data.pin_mask);
+	//printk("mask:%i\n", button_cb_data.pin_mask);
 }
 
 void Button::end() {
@@ -139,8 +139,13 @@ void Button::setDebounceTime(unsigned long debounceTime) {
     _debounceDelay = debounceTime;
 }
 
-Button earable_btn(BUTTON_PLAY_PAUSE);
-Button volume_up_btn(BUTTON_VOLUME_UP);
-Button volume_down_btn(BUTTON_VOLUME_DOWN);
-Button four_btn(BUTTON_4);
-Button five_btn(BUTTON_5);
+/*Button earable_btn(DT_GPIO_PIN(DT_ALIAS(sw0), gpios));
+Button volume_up_btn(DT_GPIO_PIN(DT_ALIAS(sw1), gpios));
+Button volume_down_btn(DT_GPIO_PIN(DT_ALIAS(sw2), gpios));
+Button four_btn(DT_GPIO_PIN(DT_ALIAS(sw3), gpios));*/
+//Button five_btn(BUTTON_5);
+
+Button earable_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0}));
+Button volume_up_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}));
+Button volume_down_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}));
+Button four_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0}));

@@ -7,11 +7,11 @@
 #include <zephyr/kernel.h>
 #include <nrfx_clock.h>
 
-#include "nrf5340_audio_common.h"
 #include "streamctrl.h"
 #include "audio_datapath.h"
 #include "macros_common.h"
 #include "audio_system.h"
+#include "audio_sync_timer.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(le_audio_rx, CONFIG_LE_AUDIO_RX_LOG_LEVEL);
@@ -43,22 +43,26 @@ void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, boo
 			      size_t desired_data_size)
 {
 	int ret;
-	bool data_size_mismatch = false;
 	uint32_t blocks_alloced_num, blocks_locked_num;
 	struct ble_iso_data *iso_received = NULL;
 	static struct rx_stats rx_stats[AUDIO_CH_NUM];
+	static uint32_t num_overruns;
+	static uint32_t num_thrown;
 
 	if (!initialized) {
 		ERR_CHK_MSG(-EPERM, "Data received but le_audio_rx is not initialized");
 	}
 
 	/* Capture timestamp of when audio frame is received */
-	uint32_t recv_frame_ts = nrfx_timer_capture(&audio_sync_timer_instance,
-						    AUDIO_SYNC_TIMER_CURR_TIME_CAPTURE_CHANNEL);
+	uint32_t recv_frame_ts = audio_sync_timer_capture();
 
 	rx_stats[channel_index].recv_cnt++;
-	if (data_size != desired_data_size && !bad_frame) {
-		data_size_mismatch = true;
+
+	if (data_size != desired_data_size) {
+		/* A valid frame should always be equal to desired_data_size, set bad_frame
+		 * if that is not the case
+		 */
+		bad_frame = true;
 		rx_stats[channel_index].data_size_mismatch_cnt++;
 	}
 
@@ -73,15 +77,13 @@ void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, boo
 			rx_stats[channel_index].data_size_mismatch_cnt);
 	}
 
-	if (data_size_mismatch) {
-		/* Return if sizes do not match */
-		LOG_WRN("Data size mismatch");
-		return;
-	}
-
 	if (stream_state_get() != STATE_STREAMING) {
 		/* Throw away data */
-		LOG_WRN("Not in streaming state, throwing data: %d", stream_state_get());
+		num_thrown++;
+		if ((num_thrown % 100) == 1) {
+			LOG_WRN("Not in streaming state (%d), thrown %d packet(s)",
+				stream_state_get(), num_thrown);
+		}
 		return;
 	}
 
@@ -98,8 +100,11 @@ void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, boo
 
 		void *stale_data;
 		size_t stale_size;
+		num_overruns++;
 
-		LOG_WRN("BLE ISO RX overrun");
+		if ((num_overruns % 100) == 1) {
+			LOG_WRN("BLE ISO RX overrun: Num: %d", num_overruns);
+		}
 
 		ret = data_fifo_pointer_last_filled_get(&ble_fifo_rx, &stale_data, &stale_size,
 							K_NO_WAIT);
