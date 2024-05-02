@@ -3,6 +3,7 @@
 
 #include "LED.h"
 #include <zephyr/bluetooth/gatt.h>
+#include "../drivers/LED_Controller/KTD2026.h"
 
 #define BT_UUID_LED_VAL \
 	BT_UUID_128_ENCODE(0x81040a2e, 0x4819, 0x11ee, 0xbe56, 0x0242ac120002)
@@ -17,11 +18,6 @@
 class LED_Service {
 public:
     void begin();
-
-    //void static receiveState(BLEDevice central, BLECharacteristic characteristic);
-/*private:
-    BLEService * _ledService{};
-    BLECharacteristic * _ledSetStateC{};*/
 };
 
 extern LED_Service led_service;

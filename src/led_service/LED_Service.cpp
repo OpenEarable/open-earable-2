@@ -18,7 +18,8 @@ static ssize_t write_led(struct bt_conn *conn,
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
 
-    earable_led.set_color((uint8_t*)buf);
+    //earable_led.set_color((uint8_t*)buf);
+	led_controller.setColor((uint8_t*)buf);
 
 	return len;
 }
@@ -32,8 +33,8 @@ BT_GATT_PRIMARY_SERVICE(BT_UUID_LED),
 );
 
 void LED_Service::begin() {
-    earable_led.init();
+    //earable_led.init();
+	led_controller.begin();
 }
-
 
 LED_Service led_service;

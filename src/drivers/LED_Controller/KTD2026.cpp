@@ -21,7 +21,9 @@ void KTD2026::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         _pWire->endTransmission();
 }
 
-void KTD2026::setup() {
+void KTD2026::begin() {
+        _pWire->begin();
+
         reset();
 }
 

@@ -19,7 +19,7 @@ public:
 
     RGBColor current_color;
 
-    void setup();
+    void begin();
     void reset();
     void power_off();
     void setColor(RGBColor color);
