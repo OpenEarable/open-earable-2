@@ -4,14 +4,6 @@
 
 struct gpio_callback Button::button_cb_data;
 
-const struct gpio_dt_spec Button::buttons[] = {
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0}), // BUTTON_VOLUME_DOWN
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}), // BUTTON_VOLUME_UP
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}), // BUTTON_PLAY_PAUSE
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0}), // BUTTON_4
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw4), gpios, {0}), // BUTTON_5
-};
-
 void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins)
 {
@@ -146,6 +138,6 @@ Button four_btn(DT_GPIO_PIN(DT_ALIAS(sw3), gpios));*/
 //Button five_btn(BUTTON_5);
 
 Button earable_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0}));
-Button volume_up_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}));
-Button volume_down_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}));
-Button four_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0}));
+// Button volume_up_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}));
+// Button volume_down_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}));
+// Button four_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0}));

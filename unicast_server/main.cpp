@@ -18,20 +18,20 @@
 #include "nrf5340_audio_common.h"
 #include "streamctrl.h"
 
+
+#include "../src/Battery/PowerManager.h"
 #include "../src/SensorManager/SensorManager.h"
-#include "../src/led_service/LED_Service.h"
 #include "../src/buttons/Button.h"
 
 #include "device_info.h"
 #include "battery_service.h"
 #include "button_service.h"
 #include "sensor_service.h"
+#include "led_service.h"
 
-#include "unicast_server.h"
+//#include "unicast_server.h"
 
 #include "nrf.h"
-
-#include "../src/Battery/PowerManager.h"
 
 #include "streamctrl.h"
 
@@ -59,7 +59,7 @@ int main(void) {
 
 	streamctrl_start();
 
-	//led_service.begin();
+	led_service.begin();
 	//earable_led.init();
 
 	earable_btn.begin();

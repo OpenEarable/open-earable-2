@@ -50,9 +50,9 @@ private:
 };
 
 extern Button earable_btn;
-extern Button volume_up_btn;
-extern Button volume_down_btn;
-extern Button four_btn;
-//extern Button five_btn;
+// extern Button volume_up_btn;
+// extern Button volume_down_btn;
+// extern Button four_btn;
+// extern Button five_btn;
 
 #endif //OPEN_EARABLE_BUTTON_H
