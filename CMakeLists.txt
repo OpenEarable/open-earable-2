@@ -76,7 +76,6 @@ zephyr_library_include_directories(
     src/Wire
     src/Battery
     src/drivers
-    src/led_service
 )
 
 # src/drivers
@@ -88,7 +87,6 @@ zephyr_library_include_directories(app PRIVATE
 add_subdirectory(src/audio)
 add_subdirectory(src/bluetooth)
 add_subdirectory(src/drivers)
-add_subdirectory(src/led_service)
 add_subdirectory(src/buttons)
 add_subdirectory(src/modules)
 add_subdirectory(src/utils)

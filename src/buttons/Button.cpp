@@ -11,13 +11,13 @@ void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 		earable_btn._read_state();
 	}
 
-	if (pins & BIT(BUTTON_VOLUME_UP)) {
+	/*if (pins & BIT(BUTTON_VOLUME_UP)) {
 		volume_up_btn._read_state();
 	}
 
 	if (pins & BIT(BUTTON_VOLUME_DOWN)) {
 		volume_down_btn._read_state();
-	}
+	}*/
 }
 
 Button::Button(gpio_dt_spec spec, bool inverted) : _inverted(inverted), button(spec) {

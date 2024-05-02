@@ -7,12 +7,6 @@
 
 typedef uint8_t RGBColor[3];
 
-enum Colors : RGBColor {
-    RED = {255,0,0},
-    GREEN = {0,255,0},
-    BLUE = {0,0,255},
-}
-
 class KTD2026 {
 public:
     enum registers : uint8_t {
