@@ -119,12 +119,10 @@
 
 &gpio0 {
 	status = "okay";
-	sense-edge-mask = <0xffffffff>;
 };
 
 &gpio1 {
 	status = "okay";
-	sense-edge-mask = <0xffffffff>;
 };
 
 &i2s0 {

@@ -210,7 +210,13 @@ int PowerManager::power_down(bool fault) {
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
 
-    bt_disable();
+    ret = bt_le_adv_stop();
+
+    /*ret = bt_disable();
+
+    if (ret != 0) {
+        NVIC_SystemReset();
+    }*/
 
     LOG_INF("Power off");
     LOG_PANIC();
@@ -225,9 +231,9 @@ int PowerManager::power_down(bool fault) {
     ret = bt_mgmt_stop_watchdog();
     ERR_CHK(ret);
 
-    /*const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+    const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
-    ERR_CHK(ret);
+    /*ERR_CHK(ret);
 
     const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
@@ -246,6 +252,10 @@ int PowerManager::power_down(bool fault) {
     //pm_suspend_devices();
 
     sys_poweroff();
+
+    k_msleep(1000);
+
+    NVIC_SystemReset();
 }
 
 
@@ -277,7 +287,6 @@ void PowerManager::charge_task() {
             uint16_t ts_fault = battery_controller.read_ts_fault();
             LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
 
-            battery_controller.disable_ts();
             battery_controller.setup();
             
             break;

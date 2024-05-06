@@ -18,7 +18,6 @@
 #include "nrf5340_audio_common.h"
 #include "streamctrl.h"
 
-
 #include "../src/Battery/PowerManager.h"
 #include "../src/SensorManager/SensorManager.h"
 #include "../src/buttons/Button.h"
