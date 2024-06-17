@@ -108,11 +108,6 @@ int PowerManager::begin() {
     // check charging state
     bool charging = battery_controller.power_connected();
 
-    float temp_min = 0;
-    float temp_fast_min = 15;
-    float temp_fast_max = 45;
-    float temp_max = 50;
-
     if (charging) {
         float temp = fuel_gauge.temperature();
         
@@ -121,33 +116,35 @@ int PowerManager::begin() {
             battery_controller.disable_charge();
         } else if (temp < temp_fast_min || temp > temp_fast_max) {
             // set params
+            battery_controller.write_charging_control(55);
             battery_controller.enable_charge();
         } else {
             // normal params
+            battery_controller.write_charging_control(110);
             battery_controller.enable_charge();
         }
 
         power_manager.last_charging_state = 0;
         k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
 
-        while(!power_switch.is_on()) {
+        while(!power_switch.is_on() && battery_controller.power_connected()) {
             __WFE();
         }
     }
 
     if (power_switch.is_on()) {
+        //TODO: check power on condition
+        
         battery_controller.set_power_connect_callback(power_good_callback);
         fuel_gauge.set_int_callback(fuel_gauge_callback);
         power_switch.set_power_off_callback(power_switch_callback);
 
         battery_controller.enter_high_impedance();
         v1_8_switch.begin();
-    }
-    else {
-        return power_down();
+        return 0;
     }
 
-    return 0;
+    return power_down();
 }
 
 void bt_disconnect_handler(struct bt_conn *conn, void * data) {
@@ -174,37 +171,13 @@ void PowerManager::set_3_3(bool on) {
 }
 
 int PowerManager::power_down(bool fault) {
-    // if charging do not power off
-    //uint16_t last_charging_state = 0;
-    if (!fault && battery_controller.power_connected()) {
-        return -1;
-    }
-
-    // power disonnected
-    // prepare interrupts
-
     int ret;
+    // if charging do not power off
+    // uint16_t last_charging_state = 0;
+    /*if (!fault && battery_controller.power_connected()) {
+        return -1;
+    }*/
 
-    power_manager.set_1_8(false);
-    power_manager.set_3_3(false);
-
-    ret = battery_controller.set_wakeup_int();
-    if (ret != 0) return ret;
-    ret = fuel_gauge.set_wakeup_int();
-    if (ret != 0) return ret;
-    
-    // check battery good
-    if (!fault) ret = power_switch.set_wakeup_int();
-    if (ret != 0) return ret;
-
-    led_controller.power_off();
-
-    battery_controller.enter_high_impedance();
-
-    // LOG_INF("Power off");
-    // LOG_PANIC();
-
-    // k_msleep(1000);
 
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
@@ -212,6 +185,30 @@ int PowerManager::power_down(bool fault) {
 
     ret = bt_le_adv_stop();
 
+    // power disonnected
+    // prepare interrupts
+
+    led_controller.power_off();
+
+    power_manager.set_1_8(false);
+    power_manager.set_3_3(false);
+
+    bool charging = battery_controller.power_connected();
+
+    if (!charging) {
+        ret = battery_controller.set_wakeup_int();
+        if (ret != 0) return ret;
+        ret = fuel_gauge.set_wakeup_int();
+        if (ret != 0) return ret;
+        
+        // check battery good
+        if (!fault) ret = power_switch.set_wakeup_int();
+        if (ret != 0) return ret;
+
+        battery_controller.enter_high_impedance();
+    }
+
+    //TODO: prevent crashing with bt_disable (does not wake up)
     /*ret = bt_disable();
 
     if (ret != 0) {
@@ -221,15 +218,13 @@ int PowerManager::power_down(bool fault) {
     LOG_INF("Power off");
     LOG_PANIC();
 
-    //k_msleep(1000);
-
-    /*ret = led_off(0);
-	ret = led_off(1);
-	ret = led_off(2);
-	ret = led_off(3);*/
-
     ret = bt_mgmt_stop_watchdog();
     ERR_CHK(ret);
+
+    if (charging) {
+        NVIC_SystemReset();
+        return 0;
+    }
 
     const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
@@ -253,6 +248,7 @@ int PowerManager::power_down(bool fault) {
 
     sys_poweroff();
 
+    // safety if poweroff failed
     k_msleep(1000);
 
     NVIC_SystemReset();
@@ -273,23 +269,23 @@ void PowerManager::charge_task() {
     if (last_charging_state != charging_state) {
             switch (charging_state) {
             case 0:
-            LOG_INF("charging state: ready");
-            break;
+                LOG_INF("charging state: ready");
+                break;
             case 1:
-            LOG_INF("charging state: charing");
-            break;
+                LOG_INF("charging state: charing");
+                break;
             case 2:
-            LOG_INF("charging state: done");
-            break;
+                LOG_INF("charging state: done");
+                break;
             case 3:
-            LOG_WRN("charging state: fault");
+                LOG_WRN("charging state: fault");
 
-            uint16_t ts_fault = battery_controller.read_ts_fault();
-            LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
+                uint16_t ts_fault = battery_controller.read_ts_fault();
+                LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
 
-            battery_controller.setup();
-            
-            break;
+                battery_controller.setup();
+                
+                break;
             }
     }
 

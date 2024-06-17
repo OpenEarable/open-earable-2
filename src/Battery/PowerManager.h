@@ -52,6 +52,11 @@ private:
     static void charge_timer_handler(struct k_timer * timer);
 
     static battery_data msg;
+
+    const float temp_min = 0;
+    const float temp_fast_min = 15;
+    const float temp_fast_max = 45;
+    const float temp_max = 50;
 };
 
 extern PowerManager power_manager;
