@@ -35,11 +35,6 @@ class MbedI2C //: public HardwareI2C
   public:
     MbedI2C(const struct device * master);
     virtual void begin();
-    #ifndef DEVICE_I2CSLAVE
-    virtual void __attribute__ ((error("I2C Slave mode is not supported"))) begin(uint8_t address);
-    #else
-    virtual void begin(uint8_t address);
-    #endif
     virtual void end();
 
     virtual void setClock(uint32_t freq);
@@ -61,11 +56,9 @@ class MbedI2C //: public HardwareI2C
     virtual int available();
 
 private:
-
-#ifdef DEVICE_I2CSLAVE
-    mbed::I2CSlave* slave = NULL;
-#endif
     const struct device * master = NULL;
+
+    struct k_mutex mutex;
 
     int master_read(int address, const char * buf, const uint8_t len, bool no_stop);
     int master_write(int address, const char * buf, const uint8_t len, bool no_stop);
@@ -79,10 +72,6 @@ private:
     uint32_t usedTxBuffer;
     voidFuncPtrParamInt onReceiveCb = NULL;
     voidFuncPtr onRequestCb = NULL;
-#ifdef DEVICE_I2CSLAVE
-    rtos::Thread* slave_th;
-    void receiveThd();
-#endif
 };
 
 }
