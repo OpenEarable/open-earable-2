@@ -25,21 +25,26 @@ void stop_sensor_manager() {
 void config_sensor(struct sensor_config * config) {
     k_timeout_t t = K_USEC(1e6 / config->sampleRate);
 
+	EdgeMlSensor * sensor;
+
 	switch (config->sensorId)
 	{
 	case ID_IMU:
-		if (IMU::sensor.init(&sensor_queue)) IMU::sensor.start(t);
+		sensor = &(IMU::sensor);
 		break;
 	case ID_TEMP_BARO:
-		if (Baro::sensor.init(&sensor_queue)) Baro::sensor.start(t);
+		sensor = &(Baro::sensor);
 		break;
 	case ID_PPG:
-		if (PPG::sensor.init(&sensor_queue)) PPG::sensor.start(t);
+		sensor = &(PPG::sensor);
 		break;
 	case ID_OPTTEMP:
-		if (Temp::sensor.init(&sensor_queue)) Temp::sensor.start(t);
+		sensor = &(Temp::sensor);
 		break;
 	default:
-		break;
+		return;
 	}
+
+	if (config->sampleRate == 0) sensor->stop();
+	else if (sensor->init(&sensor_queue)) sensor->start(t);
 }

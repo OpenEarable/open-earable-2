@@ -446,6 +446,8 @@ MLX90632::status MLX90632::readRegister16(uint16_t addr, uint16_t &outputPointer
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
 
+  _i2cPort->aquire();
+
   _i2cPort->beginTransmission(_deviceAddress);
   _i2cPort->write(addr >> 8); //MSB
   _i2cPort->write(addr & 0xFF); //LSB
@@ -472,6 +474,8 @@ MLX90632::status MLX90632::readRegister16(uint16_t addr, uint16_t &outputPointer
     returnError = SENSOR_I2C_ERROR;
   }
 
+  _i2cPort->release();
+
   return (returnError); //Report whether we were successful or not
 }
 
@@ -479,6 +483,8 @@ MLX90632::status MLX90632::readRegister16(uint16_t addr, uint16_t &outputPointer
 MLX90632::status MLX90632::readRegister32(uint16_t addr, uint32_t &outputPointer)
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
+
+  _i2cPort->aquire();
  
   _i2cPort->beginTransmission(_deviceAddress);
   _i2cPort->write(addr >> 8); //MSB
@@ -504,6 +510,8 @@ MLX90632::status MLX90632::readRegister32(uint16_t addr, uint32_t &outputPointer
  
     outputPointer = (uint32_t)upper << 16 | lower;
   }
+
+  _i2cPort->release();
  
   return (returnError); //Report whether we were successful or not
 }
@@ -512,6 +520,8 @@ MLX90632::status MLX90632::readRegister32(uint16_t addr, uint32_t &outputPointer
 MLX90632::status MLX90632::writeRegister16(uint16_t addr, uint16_t val)
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
+
+  _i2cPort->aquire();
 
   _i2cPort->beginTransmission(_deviceAddress);
   _i2cPort->write(addr >> 8); //MSB
@@ -524,6 +534,8 @@ MLX90632::status MLX90632::writeRegister16(uint16_t addr, uint16_t val)
     LOG_WRN("I2C Error: End transmission");
     returnError = SENSOR_I2C_ERROR;
   }
+
+  _i2cPort->release();
 
   return (returnError); //Report whether we were successful or not
 }

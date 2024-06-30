@@ -58,8 +58,11 @@ Adafruit_BMP3XX::Adafruit_BMP3XX(void) {
 }
 
 bool Adafruit_BMP3XX::detect(int address) {
+  i2c_dev->aquire();
   i2c_dev->beginTransmission(address);
-  return i2c_dev->endTransmission() == 0;
+  int ret = i2c_dev->endTransmission();
+  i2c_dev->release();
+  return ret == 0;
 }
 
 /**************************************************************************/
@@ -395,27 +398,32 @@ bool Adafruit_BMP3XX::setOutputDataRate(uint8_t odr) {
 }
 
 bool readReg(int reg, uint8_t * buffer, int len) {
+        Wire.aquire();
         Wire.beginTransmission(address);
         Wire.write(reg);
         if (Wire.endTransmission() != 0) return false;
         Wire.requestFrom(address, len);
 
-        //printk("available: %i\n", Wire.available());
-
         for (uint16_t i = 0; i < len; i++) {
                 buffer[i] = Wire.read();
         }
 
-        return (Wire.endTransmission() == 0);
+        int ret = Wire.endTransmission();
+
+        Wire.release();
+
+        return (ret == 0);
 }
 
 void writeReg(const uint8_t reg, const uint8_t *pBuf, uint16_t len)
 {
+        Wire.aquire();
         Wire.beginTransmission(address);
         Wire.write(reg);
         for(uint16_t i = 0; i < len; i ++)
                 Wire.write(pBuf[i]);
         Wire.endTransmission();
+        Wire.release();
 }
 
 /**************************************************************************/
@@ -425,8 +433,6 @@ void writeReg(const uint8_t reg, const uint8_t *pBuf, uint16_t len)
 /**************************************************************************/
 int8_t i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len,
                 void *intf_ptr) {
-  // Serial.print("I2C read address 0x"); Serial.print(reg_addr, HEX);
-  // Serial.print(" len "); Serial.println(len, HEX);
 
   readReg(reg_addr, reg_data, len);
 

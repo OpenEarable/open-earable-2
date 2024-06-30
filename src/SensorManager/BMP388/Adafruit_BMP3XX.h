@@ -83,6 +83,9 @@ private:
   struct bmp3_dev the_sensor;
 
   bool detect(int address);
+
+  //bool readReg(int reg, uint8_t * buffer, int len);
+  //void writeReg(const uint8_t reg, const uint8_t *pBuf, uint16_t len);
 };
 
 #endif

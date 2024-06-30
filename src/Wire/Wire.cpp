@@ -49,23 +49,21 @@ void arduino::MbedI2C::setClock(uint32_t freq) {
 }
 
 void arduino::MbedI2C::beginTransmission(uint8_t address) {
+	//k_mutex_lock(&mutex, K_FOREVER);
 	_address = address;
 	usedTxBuffer = 0;
-	k_mutex_lock(&mutex, K_FOREVER);
 }
 
 uint8_t arduino::MbedI2C::endTransmission(bool stopBit) {
-	//#ifndef TARGET_PORTENTA_H7
 	if (usedTxBuffer == 0) {
 		// we are scanning, return 0 if the addresed device responds with an ACK
 		char buf[1];
 		int ret = master_read(_address, buf, 1, !stopBit);
-		k_mutex_unlock(&mutex);
+		//k_mutex_unlock(&mutex);
 		return ret;
 	}
-	//#endif
 	int ret = master_write(_address, (const char *) txBuffer, usedTxBuffer, !stopBit);
-	k_mutex_unlock(&mutex);
+	//k_mutex_unlock(&mutex);
 	if (ret == 0) {
 		return 0;
 	}
@@ -74,13 +72,16 @@ uint8_t arduino::MbedI2C::endTransmission(bool stopBit) {
 
 size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) {
 	char buf[256];
+	//k_mutex_lock(&mutex, K_FOREVER);
 	int ret = master_read(address, buf, len, !stopBit);
 	if (ret != 0) {
+		//k_mutex_unlock(&mutex);
 		return 0;
 	}
 	for (size_t i=0; i<len; i++) {
 		rxBuffer.store_char(buf[i]);
 	}
+	//k_mutex_unlock(&mutex);
 	return len;
 }
 
@@ -120,6 +121,14 @@ void arduino::MbedI2C::onReceive(voidFuncPtrParamInt cb) {
 }
 void arduino::MbedI2C::onRequest(voidFuncPtr cb) {
 	onRequestCb = cb;
+}
+
+void arduino::MbedI2C::aquire() {
+	k_mutex_lock(&mutex, K_FOREVER);
+}
+
+void arduino::MbedI2C::release() {
+	k_mutex_unlock(&mutex);
 }
 
 int arduino::MbedI2C::i2c_message(uint8_t read_write, int address, const char * buf, const uint8_t len, bool no_stop) {

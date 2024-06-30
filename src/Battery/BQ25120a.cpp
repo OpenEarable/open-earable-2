@@ -80,9 +80,14 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
+        _pWire->aquire();
+
         _pWire->beginTransmission(address);
         _pWire->write(reg);
-        if (_pWire->endTransmission() != 0) return false;
+        if (_pWire->endTransmission() != 0) {
+                _pWire->release();
+                return false;
+        }
         _pWire->requestFrom(address, len);
 
         for (uint16_t i = 0; i < len; i++) {
@@ -90,6 +95,8 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
         }
 
         int ret = _pWire->endTransmission();
+
+        _pWire->release();
 
         last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
 
@@ -105,11 +112,15 @@ void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
+        _pWire->aquire();
+
         _pWire->beginTransmission(address);
         _pWire->write(reg);
         for(uint16_t i = 0; i < len; i ++)
             _pWire->write(buffer[i]);
         _pWire->endTransmission();
+
+        _pWire->release();
 
         last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
 }

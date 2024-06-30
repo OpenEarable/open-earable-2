@@ -29,6 +29,8 @@
 		compatible = "load-switch";
 		/* using built-in LED pin for demonstration */
 		gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+		//zephyr,pm-device-runtime-auto;
 	};
 
 	/*leds {

@@ -21,7 +21,7 @@ void Baro::update_sensor(struct k_work *work) {
 	msg_baro.data[0] = bmp.temperature;
 	msg_baro.data[1] = bmp.pressure;
 
-	ret = k_msgq_put(sensor_queue, (void *)&msg_baro, K_NO_WAIT);
+	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
 	if (ret == -EAGAIN) {
 		//LOG_WRN("sensor msg queue full");
 		printk("sensor msg queue full");

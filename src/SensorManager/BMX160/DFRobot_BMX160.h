@@ -671,7 +671,7 @@ typedef struct {
   float y;           /**< Y-axis sensor data */
   float z;           /**< Z-axis sensor data */
   uint32_t sensortime; /**< sensor time */
-}sBmx160SensorData_t;
+}sBmx160SensorData_t; // __attribute__((packed));
 
 /**
  * @enum eBmx160IntChannel_t

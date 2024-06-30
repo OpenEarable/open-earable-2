@@ -610,10 +610,14 @@ uint16_t MAX30105::check(void)
     //For this example we are just doing Red and IR (3 bytes each)
     int bytesLeftToRead = numberOfSamples * activeLEDs * 3;
 
+    _i2cPort->aquire();
+
     //Get ready to read a burst of data from the FIFO register
     _i2cPort->beginTransmission(MAX30105_ADDRESS);
     _i2cPort->write(MAX30105_FIFODATA);
     _i2cPort->endTransmission();
+
+    _i2cPort->release();
 
     //We may need to read as many as 288 bytes so we read in blocks no larger than I2C_BUFFER_LENGTH
     //I2C_BUFFER_LENGTH changes based on the platform. 64 bytes for SAMD21, 32 bytes for Uno.
@@ -631,6 +635,8 @@ uint16_t MAX30105::check(void)
       }
 
       bytesLeftToRead -= toGet;
+
+      _i2cPort->aquire();
 
       //Request toGet number of bytes from sensor
       _i2cPort->requestFrom(MAX30105_ADDRESS, toGet);
@@ -691,6 +697,8 @@ uint16_t MAX30105::check(void)
         toGet -= activeLEDs * 3;
       }
 
+      _i2cPort->release();
+
     } //End while (bytesLeftToRead > 0)
 
   } //End readPtr != writePtr
@@ -733,23 +741,29 @@ void MAX30105::bitMask(uint8_t reg, uint8_t mask, uint8_t thing)
 // Low-level I2C Communication
 //
 uint8_t MAX30105::readRegister8(uint8_t address, uint8_t reg) {
+  _i2cPort->aquire();
   _i2cPort->beginTransmission(address);
   _i2cPort->write(reg);
   _i2cPort->endTransmission(false);
 
   _i2cPort->requestFrom((uint8_t)address, (uint8_t)1); // Request 1 byte
+  int ret = 0;
   if (_i2cPort->available())
   {
-    return(_i2cPort->read());
+    ret = _i2cPort->read();
   }
 
-  return (0); //Fail
+  _i2cPort->release();
+
+  return ret; //0 if Fail
 
 }
 
 void MAX30105::writeRegister8(uint8_t address, uint8_t reg, uint8_t value) {
+  _i2cPort->aquire();
   _i2cPort->beginTransmission(address);
   _i2cPort->write(reg);
   _i2cPort->write(value);
   _i2cPort->endTransmission();
+  _i2cPort->release();
 }

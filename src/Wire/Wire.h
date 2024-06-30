@@ -55,6 +55,9 @@ class MbedI2C //: public HardwareI2C
     virtual void flush();
     virtual int available();
 
+    void aquire();
+    void release();
+
 private:
     const struct device * master = NULL;
 

@@ -7,7 +7,7 @@ Temp Temp::sensor;
 
 MLX90632 Temp::temp;
 
-static struct sensor_data msg_ppg;
+static struct sensor_data msg_temp;
 
 bool Temp::init(struct k_msgq * queue) {
     if (!temp.begin()) {   // hardware I2C mode, can pass in address & alt Wire
@@ -30,12 +30,12 @@ void Temp::reset() {
 void Temp::update_sensor(struct k_work *work) {
     //ppg.check();
     float temperature = temp.getObjectTempF();
-    msg_ppg.id = ID_OPTTEMP;
-    msg_ppg.size = sizeof(float);
-    msg_ppg.time = k_cyc_to_ms_floor32(k_cycle_get_32());
-    msg_ppg.data[0]=temperature;
+    msg_temp.id = ID_OPTTEMP;
+    msg_temp.size = sizeof(float);
+    msg_temp.time = k_cyc_to_ms_floor32(k_cycle_get_32());
+    msg_temp.data[0]=temperature;
 
-    int ret = k_msgq_put(sensor_queue, (void *)&msg_ppg, K_NO_WAIT);
+    int ret = k_msgq_put(sensor_queue, &msg_temp, K_NO_WAIT);
     if (ret == -EAGAIN) {
         //LOG_WRN("sensor msg queue full");
         printk("sensor msg queue full");

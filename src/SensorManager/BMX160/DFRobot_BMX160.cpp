@@ -243,31 +243,37 @@ void DFRobot_BMX160::writeBmxReg(uint8_t reg, uint8_t value)
 
 void DFRobot_BMX160::writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
+   _pWire->aquire();
    _pWire->beginTransmission(_addr);
    _pWire->write(reg);
     for(uint16_t i = 0; i < len; i ++)
        _pWire->write(pBuf[i]);
    _pWire->endTransmission();
+   _pWire->release();
 }
 
 void DFRobot_BMX160::readReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
+   _pWire->aquire();
    _pWire->beginTransmission(_addr);
    _pWire->write(reg);
-    if(_pWire->endTransmission() != 0)
+    if(_pWire->endTransmission() != 0) {
+        _pWire->release();
         return;
+    }
    _pWire->requestFrom(_addr, (uint8_t) len);
     for(uint16_t i = 0; i < len; i ++) {
         pBuf[i] =_pWire->read();
     }
    _pWire->endTransmission();
+   _pWire->release();
 }
 
 bool DFRobot_BMX160::scan()
 {
+   _pWire->aquire();
    _pWire->beginTransmission(_addr);
-    if (_pWire->endTransmission() == 0){
-        return true;
-    }
-    return false;
+   int ret = _pWire->endTransmission();
+   _pWire->release();
+   return (ret == 0);
 }

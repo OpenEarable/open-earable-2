@@ -41,6 +41,7 @@ public:
     SSM6515(TwoWire * wire);
 
     int begin();
+    int end();
     int setup();
     int mute(bool active);
     int set_volume(uint8_t volume);
