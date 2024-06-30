@@ -7,6 +7,8 @@
 #include "bt_mgmt.h"
 #include "fw_info_app.h"
 
+#include "nrf5340_audio_common.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(nrf5340_audio_common, CONFIG_NRF5340_AUDIO_COMMON_LOG_LEVEL);
 
@@ -28,3 +30,7 @@ int nrf5340_audio_common_init(void)
 
 	return 0;
 }
+
+const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+const struct device *const ls_1_8 = DEVICE_DT_GET(load_switch_1_8_id);
+const struct device *const ls_3_3 = DEVICE_DT_GET(load_switch_3_3_id);
