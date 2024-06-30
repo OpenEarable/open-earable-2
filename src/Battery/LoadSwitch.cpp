@@ -1,4 +1,6 @@
 #include "LoadSwitch.h"
+#include "LoadSwitchPM.h"
+#include "PowerManager.h"
 
 LoadSwitch::LoadSwitch(const gpio_dt_spec _pin) : ctrl_pin(_pin) {}
 
@@ -30,3 +32,29 @@ void LoadSwitch::set(bool on) const {
     if (on) gpio_pin_set_dt(&ctrl_pin, 1);
     else gpio_pin_set_dt(&ctrl_pin, 0);
 }
+
+/*
+int dev_pm_control(const struct device *dev,
+                           enum pm_device_action action)
+{
+    switch (action) {
+    case PM_DEVICE_ACTION_SUSPEND:
+        power_manager.v1_8_switch.set(false);
+        //printk("switch off\n");
+        break;
+    case PM_DEVICE_ACTION_RESUME:
+        power_manager.v1_8_switch.set(true);
+        //printk("switch on\n");
+        k_msleep(10);
+        break;
+    default:
+        return -ENOTSUP;
+    }
+
+    return 0;
+}
+
+int dev_pm_init(const struct device *dev) {
+    power_manager.v1_8_switch.begin();
+    return 0;
+}*/

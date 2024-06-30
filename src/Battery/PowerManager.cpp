@@ -3,14 +3,14 @@
 #include "macros_common.h"
 
 #include <zephyr/sys/poweroff.h>
-#include <zephyr/pm/device.h>
-#include <zephyr/pm/state.h>
+
 #include <zephyr/pm/pm.h>
+#include <zephyr/pm/state.h>
+#include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
 #include "../drivers/LED_Controller/KTD2026.h"
-
-//#include "led.h"
+#include "../drivers/SSM6515.h"
 
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
@@ -24,7 +24,9 @@ LOG_MODULE_REGISTER(power_manager, CONFIG_MAIN_LOG_LEVEL);
 
 K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
 
-K_WORK_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
+K_WORK_DELAYABLE_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
+
+//K_WORK_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
 K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_handler);
 K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handler);
 
@@ -42,7 +44,10 @@ void PowerManager::power_switch_callback(const struct device *dev, struct gpio_c
 	bool power_on = power_switch.is_on();
 
     if (!power_on) {
-        k_work_submit(&power_manager.power_down_work);
+        k_work_reschedule(&power_manager.power_down_work, K_MSEC(DEBOUNCE_POWER_MS));
+        //k_work_submit(&power_manager.power_down_work);
+    } else {
+        k_work_cancel_delayable(&power_manager.power_down_work);
     }
 }
 
@@ -61,7 +66,8 @@ void PowerManager::power_good_callback(const struct device *dev, struct gpio_cal
         k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
     } else {
         k_timer_stop(&charge_timer);
-        if (!power_switch.is_on()) k_work_submit(&power_manager.power_down_work);
+        //if (!power_switch.is_on()) k_work_submit(&power_manager.power_down_work);
+        if (!power_switch.is_on()) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
     }
 }
 
@@ -79,27 +85,31 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     LOG_INF("Fuel Gauge GPOUT Interrupt");
     msg.battery_level = fuel_gauge.state_of_charge();
 
-    battery_controller.exit_high_impedance();
-    msg.charging_state = battery_controller.read_charging_state() >> 6;
-    battery_controller.enter_high_impedance();
+    battery_level_status status;
 
-	ret = k_msgq_put(&battery_queue, (void *)&msg, K_NO_WAIT);
+    power_manager.get_battery_status(status);
+
+    msg.charging_state = status.power_state;
+
+	ret = k_msgq_put(&battery_queue, &msg, K_NO_WAIT);
 	if (ret == -EAGAIN) {
 		LOG_WRN("power manager msg queue full");
 	}
 }
 
 int PowerManager::begin() {
-    int ret;
+    //int ret;
 
     battery_controller.begin();
     fuel_gauge.begin();
     power_switch.begin();
 
+    battery_controller.setup();
+
     // check setup
     op_state state = fuel_gauge.operation_state();
     if (state.SEC != BQ27220::SEALED) {
-        battery_controller.setup();
+        //battery_controller.setup();
         fuel_gauge.setup();
     }
 
@@ -125,7 +135,8 @@ int PowerManager::begin() {
         }
 
         power_manager.last_charging_state = 0;
-        k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
+        //k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
+        k_timer_start(&charge_timer, power_manager.chrg_interval, power_manager.chrg_interval);
 
         while(!power_switch.is_on() && battery_controller.power_connected()) {
             __WFE();
@@ -139,12 +150,79 @@ int PowerManager::begin() {
         fuel_gauge.set_int_callback(fuel_gauge_callback);
         power_switch.set_power_off_callback(power_switch_callback);
 
+        //float voltage = battery_controller.read_ldo_voltage();
+        //if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
+
         battery_controller.enter_high_impedance();
-        v1_8_switch.begin();
+        //v1_8_switch.begin();
+
+        int ret = pm_device_runtime_enable(ls_1_8);
+        if (ret != 0) {
+            LOG_WRN("Error setting up load switch.");
+        }
+
+        ret = pm_device_runtime_enable(ls_3_3);
+        if (ret != 0) {
+            LOG_WRN("Error setting up load switch.");
+        }
+
+        //pm_device_runtime_get(ls_3_3);
+
+        //enum pm_device_state state;
+        //pm_device_state_get(DEVICE_DT_GET(DT_NODELABEL(load_switch)), &state);
+
+        /*ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(bq25120a)));
+        if (ret == 0) {
+                //printk("Sucessful getting device.\n");
+                LOG_INF("Sucessful getting device.\n");
+        } else {
+                //printk("Error getting device.\n");
+                LOG_WRN("Error getting device.\n");
+        }*/
+
         return 0;
     }
 
     return power_down();
+}
+
+void PowerManager::get_battery_status(battery_level_status &status) {
+    battery_controller.exit_high_impedance();
+    uint8_t charging_state = battery_controller.read_charging_state() >> 6;
+    status.power_state = 0x1; // battery_present
+
+    // charging state
+    if (battery_controller.power_connected())  {
+        status.power_state |= (0x1 << 1); // external source wired (wireless = 3-4),
+        if (charging_state == 0x1) {
+            status.power_state |= (0x1 << 5); // charging
+            status.power_state |= (0x1 << 9); // const current
+        }
+        else if (charging_state == 0x2) status.power_state |= (0x3 << 5); // inactive discharge
+    } else {
+        status.power_state |= (0x2 << 5); // active discharge
+    }
+    battery_controller.enter_high_impedance();
+
+    // battery level
+    gauge_status gs = fuel_gauge.gauging_state();
+
+    // charge level
+    if (gs.edv1) status.power_state |= (0x3 << 7); // critical
+    else if (gs.edv2) status.power_state |= (0x2 << 7); //low
+    else status.power_state |= (0x1 << 7); // good
+	//	| (0x1 << 12); // fault reason
+}
+
+void PowerManager::get_energy_status(battery_energy_status &status) {
+    float voltage = fuel_gauge.voltage();
+    float current_mA = fuel_gauge.current();
+    float capacity = fuel_gauge.capacity(); 
+
+    status.flags = 0b00011010; // presence of fields
+    status.voltage = voltage;
+    status.charge_rate = voltage * current_mA / 1000;
+    status.available_capacity = 3.7 * capacity / 1000;
 }
 
 void bt_disconnect_handler(struct bt_conn *conn, void * data) {
@@ -190,8 +268,8 @@ int PowerManager::power_down(bool fault) {
 
     led_controller.power_off();
 
-    power_manager.set_1_8(false);
-    power_manager.set_3_3(false);
+    //power_manager.set_1_8(false);
+    //power_manager.set_3_3(false);
 
     bool charging = battery_controller.power_connected();
 
@@ -221,12 +299,19 @@ int PowerManager::power_down(bool fault) {
     ret = bt_mgmt_stop_watchdog();
     ERR_CHK(ret);
 
+    dac.end();
+
+    // TODO: check states of load switch (should already be suspended
+    // if all devieses have been terminated correctly)
+
+    ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
+    ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
+
     if (charging) {
         NVIC_SystemReset();
         return 0;
     }
 
-    const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
     /*ERR_CHK(ret);
 
@@ -241,10 +326,6 @@ int PowerManager::power_down(bool fault) {
     /*const struct device *const watch_dog = DEVICE_DT_GET(DT_ALIAS(watchdog0));
     ret = pm_device_action_run(watch_dog, PM_DEVICE_ACTION_SUSPEND);
     ERR_CHK(ret);*/
-
-    //pm_system_suspend();
-
-    //pm_suspend_devices();
 
     sys_poweroff();
 

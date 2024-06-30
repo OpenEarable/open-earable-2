@@ -8,9 +8,13 @@
 #include "PowerSwitch.h"
 #include "LoadSwitch.h"
 
+#include "../bluetooth/gatt_services/battery_service.h"
+
 #include "nrf5340_audio_common.h"
 
 #define CHARGE_CONTROLLER_INTERVAL_SECONDS 10
+
+#define DEBOUNCE_POWER_MS 100
 
 class PowerManager {
 public:
@@ -20,6 +24,9 @@ public:
     //bool check_boot_condition();
 
     static LoadSwitch v1_8_switch;
+
+    void get_battery_status(battery_level_status &status);
+    void get_energy_status(battery_energy_status &status);
 
     void set_1_8(bool on);
     void set_3_3(bool on);
@@ -38,7 +45,8 @@ private:
     static k_timer charge_timer;
 
     static k_work charge_ctrl_work;
-    static k_work power_down_work;
+    //static k_work power_down_work;
+    static k_work_delayable power_down_work;
     static k_work fuel_gauge_work;
 
     static void charge_ctrl_work_handler(struct k_work * work);

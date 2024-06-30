@@ -26,6 +26,8 @@ private:
     static void sensor_timer_handler(struct k_timer *dummy);
 
     static void update_sensor(struct k_work *work);
+
+    bool _active = false;
 };
 
 #endif

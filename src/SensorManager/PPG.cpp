@@ -3,6 +3,8 @@
 #include "math.h"
 #include "stdlib.h"
 
+#include "nrf5340_audio_common.h"
+
 PPG PPG::sensor;
 
 MAX30105 PPG::ppg;
@@ -10,8 +12,17 @@ MAX30105 PPG::ppg;
 static struct sensor_data msg_ppg;
 
 bool PPG::init(struct k_msgq * queue) {
+    if (!_active) {
+        pm_device_runtime_get(ls_1_8);
+        pm_device_runtime_get(ls_3_3);
+    	_active = true;
+	}
+    
     if (!ppg.begin(Wire1)) {   // hardware I2C mode, can pass in address & alt Wire
 		printk("Could not find a valid PPG sensor, check wiring!");
+        _active = false;
+        pm_device_runtime_put(ls_1_8);
+        pm_device_runtime_put(ls_3_3);
 		return false;
     }
 
@@ -28,7 +39,6 @@ void PPG::reset() {
 }
 
 void PPG::update_sensor(struct k_work *work) {
-    //ppg.check();
     if(ppg.check() > 0) {
         while(ppg.available()) {
             //printk(" %i, %i\n", sensor.ppg.getFIFORed(), sensor.ppg.getFIFOIR());
@@ -38,7 +48,7 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.data[0]=ppg.getFIFORed();
             msg_ppg.data[1]=ppg.getFIFOIR();
 
-            int ret = k_msgq_put(sensor_queue, (void *)&msg_ppg, K_NO_WAIT);
+            int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
             if (ret == -EAGAIN) {
                 //LOG_WRN("sensor msg queue full");
                 printk("sensor msg queue full");
@@ -56,10 +66,17 @@ void PPG::sensor_timer_handler(struct k_timer *dummy) {
 }
 
 void PPG::start(k_timeout_t t) {
+    if (!_active) return;
     ppg.setup(0x64, 1, 2, 400, 215, 8192);
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 
 void PPG::stop() {
+    if (!_active) return;
+    _active = false;
+
 	k_timer_stop(&sensor.sensor_timer);
+
+    pm_device_runtime_put(ls_1_8);
+    pm_device_runtime_put(ls_3_3);
 }
