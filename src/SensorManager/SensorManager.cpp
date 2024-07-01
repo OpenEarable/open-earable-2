@@ -7,12 +7,16 @@
 #include "Temp.h"
 
 extern struct k_msgq sensor_queue;
+extern k_tid_t sensor_publish;
 
 //SensorManager SensorManager::manager = SensorManager();
 
 void start_sensor_manager() {
-    //baro.init(&sensor_queue);
-	//imu.init(&sensor_queue);
+	//empty message queue
+	k_msgq_purge(&sensor_queue);
+
+	//k_thread_start(sensor_publish);
+	k_thread_resume(sensor_publish);
 }
 
 void stop_sensor_manager() {
@@ -20,6 +24,8 @@ void stop_sensor_manager() {
 	IMU::sensor.stop();
 	PPG::sensor.stop();
 	Temp::sensor.stop();
+
+	k_thread_suspend(sensor_publish);
 }
 
 void config_sensor(struct sensor_config * config) {
@@ -27,8 +33,7 @@ void config_sensor(struct sensor_config * config) {
 
 	EdgeMlSensor * sensor;
 
-	switch (config->sensorId)
-	{
+	switch (config->sensorId) {
 	case ID_IMU:
 		sensor = &(IMU::sensor);
 		break;

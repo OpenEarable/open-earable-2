@@ -15,7 +15,7 @@ ZBUS_SUBSCRIBER_DEFINE(name ## _sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE); \
 ZBUS_CHAN_DECLARE(name ## _chan); \
 static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE); \
 \
-static void write_battery_gatt(void)\ 
+static void write_ ## name ## _gatt(void)\ 
 {\
 	int ret;\
 	const struct zbus_channel *chan;\
@@ -38,25 +38,23 @@ int init_ ## name ## _service() {\
 \
 	thread_id = k_thread_create(\
 		&thread_data, thread_stack,\
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE, (k_thread_entry_t)write_battery_gatt, NULL,\
+		CONFIG_BUTTON_MSG_SUB_STACK_SIZE, (k_thread_entry_t)write_ ## name ## _gatt, NULL,\
 		NULL, NULL, K_PRIO_PREEMPT(CONFIG_BUTTON_MSG_SUB_THREAD_PRIO), 0, K_NO_WAIT);\
 \
 	ret = k_thread_name_set(thread_id, " ## name ## _gatt_sub");\
 	if (ret) {\
-		LOG_ERR("Failed to create button_msg thread");\
+		LOG_ERR("Failed to create  ## name ##_msg thread");\
 		return ret;\
 	}\
 \
     ret = zbus_chan_add_obs(&name ## _chan, &name ## _sub, ZBUS_ADD_OBS_TIMEOUT_MS);\
 	if (ret) {\
-		LOG_ERR("Failed to add button sub");\
+		LOG_ERR("Failed to add ## name ## sub");\
 		return ret;\
 	}\
 \
     return 0;\
 }
-
-//bt_send_battery_level(msg.battery_level);
 
 #ifdef __cplusplus
 }

@@ -41,8 +41,14 @@ void Baro::sensor_timer_handler(struct k_timer *dummy)
 };
 
 bool Baro::init(struct k_msgq * queue) {
+	if (!_active) {
+		pm_device_runtime_get(ls_1_8);
+    	_active = true;
+	}
+
     if (!bmp.begin_I2C()) {   // hardware I2C mode, can pass in address & alt Wire
 		printk("Could not find a valid BMP388 sensor, check wiring!");
+		pm_device_runtime_put(ls_1_8);
 		return false;
     }
 
@@ -59,5 +65,10 @@ void Baro::start(k_timeout_t t) {
 }
 
 void Baro::stop() {
+	if (!_active) return;
+    _active = false;
+
 	k_timer_stop(&sensor.sensor_timer);
+
+    pm_device_runtime_put(ls_1_8);
 }

@@ -8,6 +8,7 @@
 
 #include <sfloat.h>
 
+// Battery Level Status
 // as defined in GATT Specification Supplement
 struct battery_level_status {
 	uint8_t flags;

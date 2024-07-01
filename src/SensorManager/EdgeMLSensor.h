@@ -9,6 +9,7 @@ public:
     virtual bool init(struct k_msgq * queue) = 0;
     virtual void start(k_timeout_t t) = 0;
     virtual void stop() = 0;
+    //virtual void end() = 0;
     //virtual void update_sensor(struct k_work * work) = 0;
 
     /**

@@ -19,6 +19,8 @@ private:
     static Adafruit_BMP3XX bmp;
 
     static void update_sensor(struct k_work *work);
+
+    bool _active = false;
 };
 
 #endif

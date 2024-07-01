@@ -84,24 +84,24 @@ static ssize_t write_config(struct bt_conn *conn,
 			 const void *buf,
 			 uint16_t len, uint16_t offset, uint8_t flags)
 {
-	printk("Attribute write, handle: %u, conn: %p", attr->handle,
-		(void *)conn);
+	LOG_INF("Attribute write, handle: %u, conn: %p", attr->handle, (void *)conn);
 
 	if (len != sizeof(struct sensor_config)) {
-		printk("Write sensor config: Incorrect data length");
+		LOG_WRN("Write sensor config: Incorrect data length: Expected %i but got %i", sizeof(struct sensor_config), len);
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
 	}
 
 	if (offset != 0) {
-		printk("Write sensor config: Incorrect data offset");
+		LOG_WRN("Write sensor config: Incorrect data offset");
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
 
-	stop_sensor_manager();
-	config_sensor((struct sensor_config *) buf);
+	LOG_INF("Setup sensor ID %i with samplerate %f", ((struct sensor_config *)buf)->sensorId, ((struct sensor_config *)buf)->sampleRate);
 
-	//SensorManager::manager.stop();
-	//SensorManager::manager.config();
+	//stop_sensor_manager();
+	config_sensor((struct sensor_config *) buf);
+	//struct sensor_config ppg_config = {ID_PPG, 400, 0};
+	//config_sensor(&ppg_config);
 
 	return len;
 }
@@ -139,7 +139,7 @@ int send_sensor_data() {
 	//const uint16_t size = 42 * N_COLLECT; 
 	const uint16_t size = sizeof(data_buf[idx_data].id) + sizeof(data_buf[idx_data].size) + sizeof(data_buf[idx_data].time) + data_buf[idx_data].size; //sizeof(float)*6;
 
-	return bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
+	return bt_gatt_notify(NULL, &sensor_service.attrs[4], &(data_buf[idx_data]), size);
 }
 
 static void sensor_gatt_task(void)

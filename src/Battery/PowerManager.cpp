@@ -12,6 +12,9 @@
 #include "../drivers/LED_Controller/KTD2026.h"
 #include "../drivers/SSM6515.h"
 
+
+#include "../SensorManager/SensorManager.h"
+
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 
@@ -255,6 +258,8 @@ int PowerManager::power_down(bool fault) {
     // prepare interrupts
 
     led_controller.power_off();
+
+    stop_sensor_manager();
 
     //power_manager.set_1_8(false);
     //power_manager.set_3_3(false);

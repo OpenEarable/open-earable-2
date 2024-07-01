@@ -17,7 +17,7 @@ int PowerSwitch::begin() {
         return ret;
     }
 
-    ret = gpio_pin_interrupt_configure_dt(&power_switch_pin, GPIO_INT_EDGE_TO_INACTIVE);
+    ret = gpio_pin_interrupt_configure_dt(&power_switch_pin, GPIO_INT_EDGE_BOTH); //GPIO_INT_EDGE_TO_INACTIVE
     if (ret != 0) {
         printk("Failed to setup interrupt on power switch.\n");
         return ret;

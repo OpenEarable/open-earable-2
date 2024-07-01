@@ -167,7 +167,7 @@ static void button_isr(const struct device *port, struct gpio_callback *cb, uint
 	msg.button_pin = btn_pin;
 	msg.button_action = BUTTON_PRESS;
 
-	ret = k_msgq_put(&button_queue, (void *)&msg, K_NO_WAIT);
+	ret = k_msgq_put(&button_queue, &msg, K_NO_WAIT);
 	if (ret == -EAGAIN) {
 		LOG_WRN("Btn msg queue full");
 	}

@@ -420,7 +420,6 @@ int bt_mgmt_bonding_clear(void)
 			return ret;
 		}
 	}
-
 	return 0;
 }
 

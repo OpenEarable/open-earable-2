@@ -53,13 +53,12 @@ int main(void) {
 	ret = power_manager.begin();
 	ERR_CHK(ret);
 
-	power_manager.set_3_3(true);
-	power_manager.set_1_8(true);
+	//power_manager.set_3_3(true);
+	//power_manager.set_1_8(true);
 
 	streamctrl_start();
 
 	led_service.begin();
-	//earable_led.init();
 
 	earable_btn.begin();
 
