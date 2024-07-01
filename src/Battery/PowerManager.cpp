@@ -34,7 +34,7 @@ extern struct k_msgq battery_queue;
 
 battery_data PowerManager::msg;
 
-LoadSwitch PowerManager::v1_8_switch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
+//LoadSwitch PowerManager::v1_8_switch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
 
 void PowerManager::charge_timer_handler(struct k_timer * timer) {
 	k_work_submit(&charge_ctrl_work);
@@ -154,31 +154,16 @@ int PowerManager::begin() {
         //if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
 
         battery_controller.enter_high_impedance();
-        //v1_8_switch.begin();
 
         int ret = pm_device_runtime_enable(ls_1_8);
         if (ret != 0) {
-            LOG_WRN("Error setting up load switch.");
+            LOG_WRN("Error setting up load switch 1.8V.");
         }
 
         ret = pm_device_runtime_enable(ls_3_3);
         if (ret != 0) {
-            LOG_WRN("Error setting up load switch.");
+            LOG_WRN("Error setting up load switch 3.3V.");
         }
-
-        //pm_device_runtime_get(ls_3_3);
-
-        //enum pm_device_state state;
-        //pm_device_state_get(DEVICE_DT_GET(DT_NODELABEL(load_switch)), &state);
-
-        /*ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(bq25120a)));
-        if (ret == 0) {
-                //printk("Sucessful getting device.\n");
-                LOG_INF("Sucessful getting device.\n");
-        } else {
-                //printk("Error getting device.\n");
-                LOG_WRN("Error getting device.\n");
-        }*/
 
         return 0;
     }
@@ -189,6 +174,8 @@ int PowerManager::begin() {
 void PowerManager::get_battery_status(battery_level_status &status) {
     battery_controller.exit_high_impedance();
     uint8_t charging_state = battery_controller.read_charging_state() >> 6;
+
+    status.flags = 0;
     status.power_state = 0x1; // battery_present
 
     // charging state
@@ -211,7 +198,7 @@ void PowerManager::get_battery_status(battery_level_status &status) {
     if (gs.edv1) status.power_state |= (0x3 << 7); // critical
     else if (gs.edv2) status.power_state |= (0x2 << 7); //low
     else status.power_state |= (0x1 << 7); // good
-	//	| (0x1 << 12); // fault reason
+	//	status.power_state |= (0x1 << 12); // fault reason
 }
 
 void PowerManager::get_energy_status(battery_energy_status &status) {
@@ -220,9 +207,9 @@ void PowerManager::get_energy_status(battery_energy_status &status) {
     float capacity = fuel_gauge.capacity(); 
 
     status.flags = 0b00011010; // presence of fields
-    status.voltage = voltage;
-    status.charge_rate = voltage * current_mA / 1000;
-    status.available_capacity = 3.7 * capacity / 1000;
+    status.voltage = sfloat_from_float(voltage);
+    status.charge_rate = sfloat_from_float(voltage * current_mA / 1000);
+    status.available_capacity = sfloat_from_float(3.7f * capacity / 1000);
 }
 
 void bt_disconnect_handler(struct bt_conn *conn, void * data) {
@@ -237,6 +224,7 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
     }
 }
 
+/*
 void PowerManager::set_1_8(bool on) {
     v1_8_switch.set(on);
 }
@@ -246,7 +234,7 @@ void PowerManager::set_3_3(bool on) {
     if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
     //k_usleep(10);
     battery_controller.load_switch.set(on);
-}
+}*/
 
 int PowerManager::power_down(bool fault) {
     int ret;

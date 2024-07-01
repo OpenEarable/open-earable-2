@@ -6,6 +6,8 @@
 #include <zephyr/bluetooth/gatt.h>
 #include "nrf5340_audio_common.h"
 
+#include <sfloat.h>
+
 // as defined in GATT Specification Supplement
 struct battery_level_status {
 	uint8_t flags;
@@ -18,12 +20,12 @@ struct battery_level_status {
 // Battery Energy Status
 struct battery_energy_status {
 	uint8_t flags;
-	//uint16_t external_power_source;
-    __fp16 voltage;
-	//__fp16 available_energy;
-	__fp16 available_capacity;
-	__fp16 charge_rate;
-	//__fp16 available_energy_last;
+	//struct sfloat external_power_source;
+    struct sfloat voltage;
+	//struct sfloat available_energy;
+	struct sfloat available_capacity;
+	struct sfloat charge_rate;
+	//struct sfloat available_energy_last;
 } __attribute__((packed));
 
 #ifdef __cplusplus

@@ -6,7 +6,7 @@
 #include "BQ27220.h"
 #include "BQ25120a.h"
 #include "PowerSwitch.h"
-#include "LoadSwitch.h"
+//#include "LoadSwitch.h"
 
 #include "../bluetooth/gatt_services/battery_service.h"
 
@@ -23,13 +23,13 @@ public:
     int power_down(bool fault = false);
     //bool check_boot_condition();
 
-    static LoadSwitch v1_8_switch;
+    //static LoadSwitch v1_8_switch;
 
     void get_battery_status(battery_level_status &status);
     void get_energy_status(battery_energy_status &status);
 
-    void set_1_8(bool on);
-    void set_3_3(bool on);
+    //void set_1_8(bool on);
+    //void set_3_3(bool on);
 
     /*BQ27220 fuel_gauge;
     BQ25120a battery_controller;
