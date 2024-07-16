@@ -10,6 +10,8 @@
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/drivers/gpio.h>
 
+//#include <../Battery/PowerSwitch.h>
+
 /* Print everything from the error handler */
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(error_handler, CONFIG_ERROR_HANDLER_LOG_LEVEL);
@@ -32,8 +34,14 @@ void error_handler(unsigned int reason, const z_arch_esf_t *esf)
 	(void)gpio_pin_configure_dt(&center_led_b, GPIO_OUTPUT_INACTIVE);
 #endif /* defined(CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP) */
 	irq_lock();
+	const struct gpio_dt_spec power_switch_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(power_switch), gpios, {0});
+
 	while (1) {
-		__asm__ volatile("nop");
+		int power_on = gpio_pin_get_dt(&power_switch_pin);
+		if (power_on == 0) NVIC_SystemReset();
+
+		k_busy_wait(10000);
+		//__asm__ volatile("nop");
 	}
 #else
 	LOG_ERR("Caught system error -- reason %d. Cold rebooting.", reason);
