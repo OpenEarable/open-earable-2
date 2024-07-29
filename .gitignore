@@ -1,2 +1,9 @@
-.vscode/
-build/
+# build
+/build*/
+/cmake-build-debug/**
+
+# IntelliJ
+/.idea/**
+
+# VS Code
+/.vscode/**
