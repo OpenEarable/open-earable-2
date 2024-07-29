@@ -7,3 +7,6 @@
 
 # VS Code
 /.vscode/**
+
+# MacOS Finder settings
+**/.DS_Store
