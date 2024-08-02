@@ -5,7 +5,7 @@
  */
 
 #include "led.h"
-#include "button_handler.h"
+//#include "button_handler.h"
 #include "button_assignments.h"
 #include "nrfx_clock.h"
 #include "sd_card.h"

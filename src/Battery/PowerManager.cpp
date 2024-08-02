@@ -3,6 +3,7 @@
 #include "macros_common.h"
 
 #include <zephyr/sys/poweroff.h>
+#include <zephyr/sys/reboot.h>
 
 #include <zephyr/pm/pm.h>
 #include <zephyr/pm/state.h>
@@ -47,7 +48,7 @@ void PowerManager::power_switch_callback(const struct device *dev, struct gpio_c
 	bool power_on = power_switch.is_on();
 
     if (!power_on) {
-        k_work_reschedule(&power_manager.power_down_work, K_MSEC(DEBOUNCE_POWER_MS));
+        k_work_reschedule(&power_manager.power_down_work, DEBOUNCE_POWER_MS);
         //k_work_submit(&power_manager.power_down_work);
     } else {
         k_work_cancel_delayable(&power_manager.power_down_work);
@@ -148,6 +149,7 @@ int PowerManager::begin() {
 
     if (power_switch.is_on()) {
         //TODO: check power on condition
+        // either not charging and edv1 or charging and edv0 and temperature
         
         battery_controller.set_power_connect_callback(power_good_callback);
         fuel_gauge.set_int_callback(fuel_gauge_callback);
@@ -257,6 +259,7 @@ int PowerManager::power_down(bool fault) {
     // power disonnected
     // prepare interrupts
 
+    led_controller.begin();
     led_controller.power_off();
 
     stop_sensor_manager();
@@ -284,6 +287,7 @@ int PowerManager::power_down(bool fault) {
 
     if (ret != 0) {
         NVIC_SystemReset();
+        sys_reboot(SYS_REBOOT_COLD);
     }*/
 
     LOG_INF("Power off");
@@ -301,7 +305,8 @@ int PowerManager::power_down(bool fault) {
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
 
     if (charging) {
-        NVIC_SystemReset();
+        //NVIC_SystemReset();
+        sys_reboot(SYS_REBOOT_COLD);
         return 0;
     }
 
@@ -325,7 +330,8 @@ int PowerManager::power_down(bool fault) {
     // safety if poweroff failed
     k_msleep(1000);
 
-    NVIC_SystemReset();
+    //NVIC_SystemReset();
+    sys_reboot(SYS_REBOOT_COLD);
 }
 
 

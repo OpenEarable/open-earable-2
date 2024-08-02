@@ -14,7 +14,7 @@
 
 #define CHARGE_CONTROLLER_INTERVAL_SECONDS 10
 
-#define DEBOUNCE_POWER_MS 100
+#define DEBOUNCE_POWER_MS K_MSEC(100)
 
 class PowerManager {
 public:

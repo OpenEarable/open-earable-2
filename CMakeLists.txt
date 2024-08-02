@@ -78,8 +78,6 @@ zephyr_library_include_directories(
     src/drivers
 )
 
-# src/drivers
-
 zephyr_library_include_directories(app PRIVATE
     ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340)
 

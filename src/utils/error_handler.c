@@ -38,7 +38,7 @@ void error_handler(unsigned int reason, const z_arch_esf_t *esf)
 
 	while (1) {
 		int power_on = gpio_pin_get_dt(&power_switch_pin);
-		if (power_on == 0) NVIC_SystemReset();
+		if (power_on == 0) sys_reboot(SYS_REBOOT_COLD);
 
 		k_busy_wait(10000);
 		//__asm__ volatile("nop");

@@ -66,8 +66,6 @@ static ssize_t read_energy_state(struct bt_conn *conn,
 			  uint16_t offset)
 {
 	power_manager.get_energy_status(en_status);
-	//bat_status.flags = 0; //no level no addition
-	//bat_status.power_state = msg.charging_state;
 
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, &en_status,
 					 sizeof(en_status));
