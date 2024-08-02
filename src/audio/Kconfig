@@ -140,6 +140,20 @@ config AUDIO_SOURCE_I2S
 	bool "Use I2S as audio source"
 endchoice
 
+choice AUDIO_MIC_SOURCE
+	depends on STREAM_BIDIRECTIONAL
+	prompt "Audio microphone source for bidirectional stream"
+	default AUDIO_MIC_I2S
+	help
+	  Select microphone source for the bidrectional le audio.
+
+config AUDIO_MIC_PDM
+	bool "Use Mic via PDM"
+
+config AUDIO_MIC_I2S
+	bool "Use Mic via I2S"
+endchoice
+
 choice AUDIO_HEADSET_CHANNEL
 	prompt "Headset audio channel assignment"
 	default AUDIO_HEADSET_CHANNEL_RUNTIME
