@@ -88,5 +88,8 @@ void IMU::stop() {
 
 	k_timer_stop(&sensor.sensor_timer);
 
+	// turn off imu (?)
+	imu.softReset();
+
     pm_device_runtime_put(ls_1_8);
 }
