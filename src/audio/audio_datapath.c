@@ -677,7 +677,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	static uint32_t *rx_buf;
 	static int prev_ret;
 
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) {
+	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
 		/* Lock last filled buffer into message queue */
 		if (rx_buf_released != NULL) {
 			ret = data_fifo_block_lock(ctrl_blk.in.fifo, (void **)&rx_buf_released,
@@ -748,7 +748,7 @@ static void audio_datapath_i2s_start(void)
 	}
 
 	/* RX */
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) {
+	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
 		uint32_t alloced_cnt;
 		uint32_t locked_cnt;
 
@@ -1038,6 +1038,7 @@ int audio_datapath_init(void)
 	memset(&ctrl_blk, 0, sizeof(ctrl_blk));
 	audio_i2s_blk_comp_cb_register(audio_datapath_i2s_blk_complete);
 	audio_i2s_init();
+	pdm_mic_init();
 	ctrl_blk.datapath_initialized = true;
 	ctrl_blk.drift_comp.enabled = true;
 	ctrl_blk.pres_comp.enabled = true;

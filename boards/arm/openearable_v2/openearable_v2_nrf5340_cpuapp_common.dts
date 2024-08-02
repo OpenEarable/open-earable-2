@@ -7,7 +7,6 @@
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
-
 	chosen {
 		zephyr,console = &cdc_acm_uart0;
 		zephyr,shell-uart = &uart0;
@@ -111,6 +110,10 @@
 	};
 };
 
+&clock {
+	hfclkaudio-frequency = <12288000>;
+};
+
 &adc {
 	status = "okay";
 };
@@ -133,6 +136,14 @@
 	pinctrl-0 = <&i2s0_default>;
 	pinctrl-1 = <&i2s0_sleep>;
 	pinctrl-names = "default", "sleep";
+};
+
+dmic_dev: &pdm0 {
+	compatible = "nordic,nrf-pdm";
+	status = "okay";
+	pinctrl-0 = <&pdm0_default_alt>;
+	pinctrl-names = "default";
+	clock-source = "ACLK";
 };
 
 &i2c1 {
