@@ -430,7 +430,8 @@ void BQ27220::setup(bool init) {
         // FC Voltage
         write_RAM(0x9288, 4290);
 
-        //k_msleep(2000);
+        // Electonic Load in 3µA steps
+        write_RAM(0x9269, 6); // 18 µA
 
         // EMF
         //write_RAM(0x92A7, 36001);
