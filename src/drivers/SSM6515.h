@@ -6,9 +6,12 @@
 
 #include <Wire.h>
 
-#define OUT_VOLUME_DEFAULT 0x40
-#define MAX_VOLUME_REG_VAL 0x80
+#define OUT_VOLUME_DEFAULT 0x80
+#define MAX_VOLUME_REG_VAL 0xA0
 #define MAX_VOLUME_DB 24
+
+//#define OUT_VOLUME_DEFAULT 0x40
+//#define MAX_VOLUME_REG_VAL 0x80
 
 #define SSM6515_I2C_TIMEOUT_US 66
 
