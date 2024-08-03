@@ -23,7 +23,6 @@
 LOG_MODULE_REGISTER(hw_codec, CONFIG_MODULE_HW_CODEC_LOG_LEVEL);
 
 #define VOLUME_ADJUST_STEP_DB 3
-#define BASE_10		      10
 
 ZBUS_SUBSCRIBER_DEFINE(volume_evt_sub, CONFIG_VOLUME_MSG_SUB_QUEUE_SIZE);
 
@@ -42,7 +41,8 @@ K_THREAD_STACK_DEFINE(volume_msg_sub_thread_stack, CONFIG_VOLUME_MSG_SUB_STACK_S
  */
 static uint16_t zbus_vol_conversion(uint8_t volume)
 {
-	return (((uint16_t)volume + 1) / 2) + 0x40;
+	//return (((uint16_t)volume + 1) / 2) + 0x40;
+	return (((int)volume + 1) * (MAX_VOLUME_REG_VAL - MIN_VOLUME_REG_VAL) / 255) + MIN_VOLUME_REG_VAL;
 }
 
 /**

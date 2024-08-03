@@ -7,7 +7,8 @@
 #include <Wire.h>
 
 #define OUT_VOLUME_DEFAULT 0x80
-#define MAX_VOLUME_REG_VAL 0xA0
+#define MAX_VOLUME_REG_VAL 0xC0
+#define MIN_VOLUME_REG_VAL 0x20
 #define MAX_VOLUME_DB 24
 
 //#define OUT_VOLUME_DEFAULT 0x40
