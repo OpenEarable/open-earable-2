@@ -499,10 +499,10 @@ int bt_mgmt_init(void)
 			return ret;
 		}*/
 
-		ret = bt_mgmt_bonding_clear();
+		/*ret = bt_mgmt_bonding_clear();
 		if (ret) {
 			return ret;
-		}
+		}*/
 
 		if (IS_ENABLED(CONFIG_TESTING_BLE_ADDRESS_RANDOM)) {
 			ret = bt_mgmt_bonding_clear();
