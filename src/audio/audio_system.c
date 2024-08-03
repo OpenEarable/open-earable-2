@@ -412,10 +412,9 @@ void audio_system_start(void)
 	ret = hw_codec_default_conf_enable();
 	ERR_CHK(ret);
 
-	//if (IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
-		ret = audio_datapath_start(&fifo_rx);
-		ERR_CHK(ret);
-	//} else
+	ret = audio_datapath_start(&fifo_rx);
+	ERR_CHK(ret);
+
 	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		ret = pdm_datapath_start(&fifo_rx);
 		ERR_CHK(ret);

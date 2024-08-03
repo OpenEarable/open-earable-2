@@ -27,6 +27,8 @@ static void vcs_state_rend_cb_handler(int err, uint8_t volume, uint8_t mute)
 {
 	int ret;
 
+	static uint8_t prev_mute = 0;
+
 	if (err) {
 		LOG_ERR("VCS state callback error: %d", err);
 		return;
@@ -39,12 +41,22 @@ static void vcs_state_rend_cb_handler(int err, uint8_t volume, uint8_t mute)
 		LOG_WRN("Failed to set volume");
 	}
 
-	if (mute) {
-		ret = bt_r_and_c_volume_mute(true);
-		if (ret) {
-			LOG_WRN("Error muting volume");
+	if (prev_mute != mute) {
+		if (mute) {
+			ret = bt_r_and_c_volume_mute(true);
+			if (ret) {
+				LOG_WRN("Error muting volume");
+			}
+		} else {
+			ret = bt_r_and_c_volume_unmute(true);
+			if (ret) {
+				LOG_WRN("Error muting volume");
+			}
 		}
+
+		prev_mute = mute;
 	}
+	
 }
 
 /**

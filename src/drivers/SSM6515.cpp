@@ -56,7 +56,7 @@ int SSM6515::setup() {
         uint8_t status = 0;
         readReg(registers::DAC_CTRL2, &status, sizeof(status));
 
-        LOG_INF("DAC_CTRL: 0x%02X", status);
+        //LOG_INF("DAC_CTRL: 0x%02X", status);
 
         return 0;
 }
