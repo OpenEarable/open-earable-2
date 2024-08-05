@@ -34,22 +34,12 @@ void pdm_mic_start(void) {
     int ret;
     nrfx_err_t err;
 
-    int16_t *buffer;
-
-    //data_fifo_empty(fifo_pdm);
-
     bool initialized = nrfx_pdm_init_check();
 
     if (!initialized) {
         LOG_ERR("PDM not initialized.");
         return;
     }
-
-    //nrf_pdm_enable(NRF_PDM0);
-
-    //bool enabled = nrfx_pdm_enable_check();
-
-    //LOG_INF("PDM enabled: %i", enabled);
 
 	err = nrfx_pdm_start();
 	if (err != NRFX_SUCCESS) {
