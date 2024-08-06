@@ -217,6 +217,17 @@ void PowerManager::get_energy_status(battery_energy_status &status) {
     status.available_capacity = sfloat_from_float(3.7f * capacity / 1000);
 }
 
+void PowerManager::get_health_status(battery_health_status &status) {
+    float state_of_health = fuel_gauge.state_of_health();
+    int cycle_count = fuel_gauge.cycle_count();
+    float temp = fuel_gauge.temperature(); 
+
+    status.flags = 0b00000111; // presence of fields
+    status.battery_health_summary = state_of_health;
+    status.cycle_count = cycle_count;
+    status.current_temperature = round(CLAMP(temp,-127,128));
+}
+
 void bt_disconnect_handler(struct bt_conn *conn, void * data) {
     int ret;
     struct bt_conn_info info;

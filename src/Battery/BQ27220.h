@@ -98,6 +98,7 @@ public:
         CYCT = 0x2A,
         AE = 0x22,
         SOC = 0x2C,
+        SOH = 0x2E,
         DCAP = 0x3C,
         AP = 0x24,
         CC = 0x32,
@@ -120,6 +121,7 @@ public:
     float time_to_full();
     float time_to_empty();
     float state_of_charge();
+    float state_of_health();
     float current();
     float average_current();
     float design_cap();

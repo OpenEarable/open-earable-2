@@ -29,6 +29,15 @@ struct battery_energy_status {
 	//struct sfloat available_energy_last;
 } __attribute__((packed));
 
+// Battery Energy Status
+struct battery_health_status {
+	uint8_t flags;
+	uint8_t battery_health_summary;
+    uint16_t cycle_count;
+	int8_t current_temperature;
+	//uint16_t deep_discharge_count;
+} __attribute__((packed));
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -181,6 +181,12 @@ float BQ27220::state_of_charge() {
         return soc;
 }
 
+float BQ27220::state_of_health() {
+        uint16_t soc = 0;
+        bool ret = readReg(registers::SOH, (uint8_t *) &soc, sizeof(soc));
+        return soc;
+}
+
 float BQ27220::current() {
         int16_t mA = 0;
         bool ret = readReg(registers::NAC, (uint8_t *) &mA, sizeof(mA));

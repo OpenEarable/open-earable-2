@@ -22,6 +22,7 @@ DEFINE_GATT_SERVICE(battery, bt_send_battery_level, &msg); //(power_manager);
 
 struct battery_level_status bat_status;
 struct battery_energy_status en_status;
+struct battery_health_status health_status;
 
 static void battery_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
@@ -71,6 +72,18 @@ static ssize_t read_energy_state(struct bt_conn *conn,
 					 sizeof(en_status));
 }
 
+static ssize_t read_health_state(struct bt_conn *conn,
+			  const struct bt_gatt_attr *attr,
+			  void *buf,
+			  uint16_t len,
+			  uint16_t offset)
+{
+	power_manager.get_health_status(health_status);
+
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, &health_status,
+					 sizeof(health_status));
+}
+
 BT_GATT_SERVICE_DEFINE(battery_service,
 BT_GATT_PRIMARY_SERVICE(BT_UUID_BAS),
 BT_GATT_CHARACTERISTIC(BT_UUID_BAS_BATTERY_LEVEL,
@@ -91,6 +104,10 @@ BT_GATT_CHARACTERISTIC(BT_UUID_BAS_BATTERY_ENERGY_STATUS,
             BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
             BT_GATT_PERM_READ,
             read_energy_state, NULL, &en_status),
+BT_GATT_CHARACTERISTIC(BT_UUID_BAS_BATTERY_HEALTH_STATUS,
+            BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+            BT_GATT_PERM_READ,
+            read_health_state, NULL, &health_status),
 );
 
 int bt_send_battery_level(struct battery_data * data)
