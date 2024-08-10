@@ -196,6 +196,7 @@ void audio_system_encoder_start(void)
 void audio_system_encoder_stop(void)
 {
 	k_poll_signal_reset(&encoder_sig);
+	LOG_DBG("Encoder stopped");
 }
 
 int audio_system_encode_test_tone_set(uint32_t freq)
@@ -442,6 +443,9 @@ void audio_system_stop(void)
 
 	ret = audio_datapath_stop();
 	ERR_CHK(ret);
+	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+		pdm_mic_stop();
+	}
 #endif /* ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB) */
 
 	ret = sw_codec_uninit(sw_codec_cfg);

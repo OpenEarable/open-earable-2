@@ -208,13 +208,13 @@ static void le_audio_msg_sub_thread(void)
 		case LE_AUDIO_EVT_NOT_STREAMING:
 			LOG_DBG("LE audio evt not streaming");
 
+			if (msg.dir == BT_AUDIO_DIR_SOURCE) {
+				audio_system_encoder_stop();
+			}
+
 			if (strm_state == STATE_PAUSED) {
 				LOG_DBG("Got not_streaming event in paused state");
 				break;
-			}
-
-			if (msg.dir == BT_AUDIO_DIR_SOURCE) {
-				audio_system_encoder_stop();
 			}
 
 			stream_state_set(STATE_PAUSED);

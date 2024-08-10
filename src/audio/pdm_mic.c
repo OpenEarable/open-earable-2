@@ -13,16 +13,10 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(pdm_mic, CONFIG_MAIN_LOG_LEVEL);
 
-#define MAX_SAMPLE_RATE  48000
-#define SAMPLE_BIT_WIDTH 16
-
 #define BYTES_PER_SAMPLE sizeof(int16_t)
-
 #define PDM_GAIN 0x38
 
 #define NRF_PDM_FREQ_3072K_ACL 0x40000000
-
-const struct device *const dmic_dev = DEVICE_DT_GET(DT_NODELABEL(dmic_dev));
 
 #define PDM0 DT_NODELABEL(dmic_dev)
 PINCTRL_DT_DEFINE(PDM0);
@@ -46,8 +40,6 @@ void pdm_mic_start(void) {
 		LOG_ERR("START trigger failed: %d", err);
 		return;
 	}
-
-    //k_poll_signal_raise(&pdm_sig, 0);
 }
 
 void pdm_handler(nrfx_pdm_evt_t const *evt) {
@@ -55,6 +47,13 @@ void pdm_handler(nrfx_pdm_evt_t const *evt) {
 
     static int16_t *buffer;
     static int prev_ret;
+
+    /* Lock last filled buffer into message queue */
+    if (evt->buffer_released != NULL) {
+        ret = data_fifo_block_lock(fifo_pdm, (void **)&(evt->buffer_released),
+                        BLOCK_SIZE_BYTES);
+        ERR_CHK_MSG(ret, "Unable to lock block RX");
+    }
 
     if (evt->buffer_requested) {
         /* Get new empty buffer to send to PDM */
@@ -89,37 +88,16 @@ void pdm_handler(nrfx_pdm_evt_t const *evt) {
 
         nrfx_pdm_buffer_set(buffer, BLOCK_SIZE_BYTES / BYTES_PER_SAMPLE);
     }
-
-    /* Lock last filled buffer into message queue */
-    if (evt->buffer_released != NULL) {
-        ret = data_fifo_block_lock(fifo_pdm, (void **)&(evt->buffer_released),
-                        BLOCK_SIZE_BYTES);
-        ERR_CHK_MSG(ret, "Unable to lock block RX");
-    }
 }
 
 void pdm_mic_stop(void) {
-    
     nrfx_err_t err = nrfx_pdm_stop();
 	if (err != NRFX_SUCCESS) {
 		LOG_ERR("STOP trigger failed: %d", err);
 	}
-
-	//k_poll_signal_reset(&pdm_sig);
 }
 
-// delete
 int pdm_mic_init(void) {
-    /*LOG_INF("PCM output rate: %u, channels: %u",
-		cfg->streams[0].pcm_rate, cfg->channel.req_num_chan);*/
-
-    LOG_INF("Init PDM Mic .................................");
-
-	/*if (!device_is_ready(dmic_dev)) {
-		LOG_ERR("%s is not ready", dmic_dev->name);
-		return -1;
-	}*/
-
     nrfx_pdm_config_t pdm_config = {
         .mode = NRF_PDM_MODE_STEREO,
         .edge = NRF_PDM_EDGE_LEFTFALLING,
