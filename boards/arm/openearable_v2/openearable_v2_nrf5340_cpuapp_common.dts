@@ -26,10 +26,16 @@
 
 	load_switch: load_switch {
 		compatible = "load-switch";
-		/* using built-in LED pin for demonstration */
 		gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 		//zephyr,pm-device-runtime-auto;
+	};
+
+
+	load_switch_sd: load_switch_sd {
+		compatible = "load-switch";
+		gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+		status = "okay";
 	};
 
 	/*leds {
@@ -234,12 +240,23 @@ dmic_dev: &pdm0 {
 
 &spi4 {
 	compatible = "nordic,nrf-spim";
-	status = "disabled";
+	status = "okay";
 	cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
 
 	pinctrl-0 = <&spi4_default>;
 	pinctrl-1 = <&spi4_sleep>;
 	pinctrl-names = "default", "sleep";
+	sdhc0: sdhc@0 {
+		compatible = "zephyr,sdhc-spi-slot";
+		reg = <0>;
+		status = "okay";
+		sdmmc {
+			compatible = "zephyr,sdmmc-disk";
+			status = "okay";
+		};
+
+		spi-max-frequency = <32000000>;
+	};
 };
 
 &flash0 {

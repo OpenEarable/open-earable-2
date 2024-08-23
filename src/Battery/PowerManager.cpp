@@ -314,6 +314,7 @@ int PowerManager::power_down(bool fault) {
 
     ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
+    ret = pm_device_action_run(ls_sd, PM_DEVICE_ACTION_SUSPEND);
 
     if (charging) {
         //NVIC_SystemReset();

@@ -20,12 +20,14 @@
 
 #define SENSOR_DATA_FIXED_LENGTH 9
 
+#define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
 #define load_switch_3_3_id DT_NODELABEL(bq25120a)
 
 extern const struct device *const cons;
 extern const struct device *const ls_1_8;
 extern const struct device *const ls_3_3;
+extern const struct device *const ls_sd;
 
 enum sensor_id {
 	ID_IMU=0,

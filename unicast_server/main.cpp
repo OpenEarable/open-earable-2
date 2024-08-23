@@ -10,6 +10,8 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/i2c.h>
 
+#include "../src/modules/sd_card.h"
+
 #include <zephyr/settings/settings.h>
 
 #include <zephyr/zbus/zbus.h>
@@ -45,6 +47,11 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 	     "Console device is not ACM CDC UART device");
 
+#define BUFFER_SIZE (16 * 1024)
+
+size_t size = BUFFER_SIZE;
+char buf[BUFFER_SIZE];
+
 int main(void) {
 	int ret;
 
@@ -53,10 +60,44 @@ int main(void) {
 	ret = power_manager.begin();
 	ERR_CHK(ret);
 
-	//power_manager.set_3_3(true);
-	//power_manager.set_1_8(true);
-
 	streamctrl_start();
+
+	ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch)));
+	ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch_sd)));
+
+	k_msleep(50);
+
+	LOG_INF("SD initing .........................................");
+
+	ret = sd_card_init();
+	LOG_INF("SD initialization: %i", ret);
+	if (ret != -ENODEV) {
+		LOG_INF("SD successful: %i", ret);
+
+		//sd_card_list_files(&path, buffer, &size);
+		//printk("%s", buf);
+
+		struct fs_file_t f_entry;
+
+		ret = sd_card_open("play_file_2.wav", &f_entry);
+		int start = k_cyc_to_us_floor32(k_cycle_get_32());
+		ret = sd_card_read(buf, &size, &f_entry);
+
+		int end = k_cyc_to_us_floor32(k_cycle_get_32());
+
+		sd_card_close(&f_entry);
+
+		LOG_INF("File closed.");
+
+		double duration = end - start;
+
+		double throuput = (double) (BUFFER_SIZE) / duration;
+
+		LOG_INF("Duration: %i", end - start);
+		LOG_INF("Troughput: %.5f MB/s", throuput);
+	} else {
+		LOG_WRN("SD failed\n");
+	}
 
 	led_service.begin();
 
@@ -71,6 +112,11 @@ int main(void) {
 
 	start_sensor_manager();
 
+	//sensor_config imu = {ID_IMU, 80, 0};
+	sensor_config imu = {ID_PPG, 400, 0};
+
+	//config_sensor(&imu);
+
 	ret = init_battery_service();
 	ERR_CHK(ret);
 
@@ -79,4 +125,8 @@ int main(void) {
 
 	ret = init_sensor_service();
 	ERR_CHK(ret);
+
+	// error test
+	//long *a = nullptr;
+	//*a = 10;
 }

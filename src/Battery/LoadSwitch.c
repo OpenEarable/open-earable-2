@@ -74,6 +74,14 @@ static struct load_switch_data load_switch_3_3 = {
     .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_3_3_id, lsctrl_gpios),
 };
 
+static struct load_switch_data load_switch_sd_d = {
+    .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_sd_id, gpios),
+};
+
+PM_DEVICE_DT_DEFINE(load_switch_sd_id, generic_pm_control);
+DEVICE_DT_DEFINE(load_switch_sd_id, init_pm_device, PM_DEVICE_DT_GET(load_switch_sd_id),
+                    &load_switch_sd_d, NULL, POST_KERNEL, 80, NULL);
+
 PM_DEVICE_DT_DEFINE(load_switch_1_8_id, generic_pm_control);
 DEVICE_DT_DEFINE(load_switch_1_8_id, init_pm_device, PM_DEVICE_DT_GET(load_switch_1_8_id),
                     &load_switch_1_8, NULL, POST_KERNEL, 80, NULL);
