@@ -3,6 +3,8 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
+#include "nrf5340_audio_common.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(LED, CONFIG_MAIN_LOG_LEVEL);
 
@@ -38,7 +40,7 @@ void KTD2026::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 }
 
 void KTD2026::begin() {
-        int ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch)));
+        int ret = pm_device_runtime_get(ls_1_8);
         if (ret == 0) {
                 //printk("Sucessful getting device.\n");
                 LOG_INF("Sucessful getting device.\n");

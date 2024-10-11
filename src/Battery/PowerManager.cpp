@@ -165,6 +165,11 @@ int PowerManager::begin() {
             LOG_WRN("Error setting up load switch 1.8V.");
         }
 
+        ret = pm_device_runtime_enable(ls_sd);
+        if (ret != 0) {
+            LOG_WRN("Error setting up load switch SD.");
+        }
+
         ret = pm_device_runtime_enable(ls_3_3);
         if (ret != 0) {
             LOG_WRN("Error setting up load switch 3.3V.");

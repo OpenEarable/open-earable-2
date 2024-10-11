@@ -30,7 +30,7 @@
 #include <Wire.h>
 
 //The default I2C address for the MLX90632 on the SparkX breakout is 0x3B. 0x3A is also possible.
-#define MLX90632_DEFAULT_ADDRESS 0x3B 
+#define MLX90632_DEFAULT_ADDRESS 0x3A 
 
 //Registers
 #define EE_VERSION 0x240B

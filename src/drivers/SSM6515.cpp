@@ -1,5 +1,6 @@
 #include "SSM6515.h"
 #include "LoadSwitchPM.h"
+#include "nrf5340_audio_common.h"
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(SSM6515, CONFIG_MAIN_LOG_LEVEL);
@@ -13,7 +14,7 @@ SSM6515::SSM6515(TwoWire * wire) : _pWire(wire) {
 int SSM6515::begin() {
         int ret;
 
-        ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch)));
+        ret = pm_device_runtime_get(ls_1_8);
 
         _pWire->begin();
 

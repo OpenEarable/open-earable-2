@@ -24,13 +24,18 @@
 		gpios = <&gpio0 7 GPIO_ACTIVE_LOW>;
 	};
 
+	sd_state: sd_state {
+		compatible = "power-switch";
+		/* using built-in LED pin for demonstration */
+		gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+	};
+
 	load_switch: load_switch {
 		compatible = "load-switch";
 		gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 		//zephyr,pm-device-runtime-auto;
 	};
-
 
 	load_switch_sd: load_switch_sd {
 		compatible = "load-switch";
@@ -255,7 +260,7 @@ dmic_dev: &pdm0 {
 			status = "okay";
 		};
 
-		spi-max-frequency = <32000000>;
+		spi-max-frequency = <16000000>;
 	};
 };
 
@@ -320,6 +325,10 @@ zephyr_udc0: &usbd {
 			/* Non-Secure image memory */
 		};
 	};
+};
+
+&uicr {
+	nfct-pins-as-gpios;
 };
 
 /* Include partition configuration file */
