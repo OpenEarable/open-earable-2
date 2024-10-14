@@ -39,7 +39,7 @@
 
 	load_switch_sd: load_switch_sd {
 		compatible = "load-switch";
-		gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 

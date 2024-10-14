@@ -62,16 +62,60 @@ int main(void) {
 
 	streamctrl_start();
 
+	/*LoadSwitch ls_sd = LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch_sd), gpios));
+	LoadSwitch ls_1_8 = LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
+
+	ls_sd.begin();
+
+	ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch_sd)));
+
+	//ls_sd.set(true);
+
+	k_msleep(10);*/
+	/*ls_1_8.begin();
+
 	ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch)));
 	ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch_sd)));
 
-	k_msleep(50);
+	ls_sd.set(true);
+	ls_1_8.set(true);
 
-	LOG_INF("SD initing .........................................");
+	//k_msleep(10);
 
-	ret = sd_card_init();
-	LOG_INF("SD initialization: %i", ret);
-	if (ret != -ENODEV) {
+	LOG_INF("SD power on: %i", ls_sd.is_on());
+	LOG_INF("1.8V power on: %i", ls_1_8.is_on());*/
+
+	//ret = pm_device_runtime_get(ls_sd);
+	//k_msleep(10);
+
+	/*LOG_INF("SD initing .........................................");
+
+	//const struct device *const dmic_dev = DEVICE_DT_GET(DT_NODELABEL(sdhc0));
+
+	const struct gpio_dt_spec state_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(sd_state), gpios);
+
+	ret = device_is_ready(state_pin.port); //bool
+	if (!ret) {
+			printk("BQ25120a pins not ready.\n");
+			return -1;
+	}
+
+	ret = gpio_pin_configure_dt(&state_pin, GPIO_INPUT);
+	if (ret != 0) {
+			printk("Failed to set PG as input.\n");
+			return ret;
+	}
+
+	for (int i = 0; i < 4; i++) {
+		LOG_INF("sd state: %i\n", gpio_pin_get_dt(&state_pin));
+	}*/
+
+	/*ret = sd_card_init();
+	for (int i = 0; i < 10; i++) {
+		LOG_INF("%i\n", ret);
+	}*/
+	
+	/*if (ret != -ENODEV) {
 		LOG_INF("SD successful: %i", ret);
 
 		//sd_card_list_files(&path, buffer, &size);
@@ -97,7 +141,7 @@ int main(void) {
 		LOG_INF("Troughput: %.5f MB/s", throuput);
 	} else {
 		LOG_WRN("SD failed\n");
-	}
+	}*/
 
 	led_service.begin();
 
@@ -129,4 +173,6 @@ int main(void) {
 	// error test
 	//long *a = nullptr;
 	//*a = 10;
+
+	return 0;
 }
