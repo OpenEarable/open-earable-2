@@ -4,10 +4,15 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 
-#include "MAX30102/MAX30102.h"
+//#include "MAX30102/MAX30102.h"
+#include "MAXM86161/MAXM86161.h"
 #include "EdgeMlSensor.h"
 
 #include "nrf5340_audio_common.h"
+
+enum led_order {
+    red, green, ir, ambient
+};
 
 class PPG : public EdgeMlSensor {
 public:
@@ -21,11 +26,13 @@ public:
 
     void reset();
 private:
-    static MAX30105 ppg;
+    static MAXM86161 ppg;
 
     static void sensor_timer_handler(struct k_timer *dummy);
 
     static void update_sensor(struct k_work *work);
+
+    ppg_sample data_buffer[64];
 
     bool _active = false;
 };
