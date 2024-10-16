@@ -1,7 +1,5 @@
 
 add_subdirectory(BMP388)
-#add_subdirectory(Adafruit_BusIO)
-#add_subdirectory(Adafruit_Unified_Sensor)
 add_subdirectory(BMX160)
 add_subdirectory(MAX30102)
 add_subdirectory(MLX90632)

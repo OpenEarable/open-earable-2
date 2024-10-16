@@ -68,6 +68,9 @@
 #define REG_CONTROL 0x3001
 #define REG_STATUS 0x3FFF
 
+#define EE_MEAS_1 0x24E1
+#define EE_MEAS_2 0x24E2
+
 //User RAM
 #define RAM_1 0x4000
 #define RAM_2 0x4001
@@ -145,6 +148,11 @@ class MLX90632 {
     uint8_t getMode();
     uint8_t getMode(status &returnError);
     MLX90632::status setSOC(); //Set the start conversion bit
+
+    void setSampleRate(float sample_rate);
+    float getSampleRate();
+
+    void reset();
 
   private:
 

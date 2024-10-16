@@ -117,7 +117,7 @@ bool MLX90632::begin(uint8_t deviceAddress, TwoWire &wirePort, status &returnErr
   setMode(MODE_SLEEP); //Before reading EEPROM sensor needs to stop taking readings
 
   //Load all the static calibration factors
-  /*int16_t tempValue16;
+  int16_t tempValue16;
   int32_t tempValue32;
   readRegister32(EE_P_R, (uint32_t&)tempValue32);
   P_R = (double)tempValue32 * pow(2, -8);
@@ -145,9 +145,9 @@ bool MLX90632::begin(uint8_t deviceAddress, TwoWire &wirePort, status &returnErr
   readRegister16(EE_Ha, (uint16_t&)tempValue16);
   Ha = (double)tempValue16 * pow(2, -14); //Ha!
   readRegister16(EE_Hb, (uint16_t&)tempValue16);
-  Hb = (double)tempValue16 * pow(2, -14);*/
+  Hb = (double)tempValue16 * pow(2, -14);
 
-  LOG_WRN("MLX90632 online");
+  LOG_INF("MLX90632 online");
 
   //Note, sensor is in sleep mode
 
@@ -545,45 +545,61 @@ MLX90632::status MLX90632::writeRegister16(uint16_t addr, uint16_t val)
 //The datasheet doesn't go a good job of explaining how writing to EEPROM works.
 //This should work but doesn't. It seems the IC is very sensitive to I2C traffic while
 //the sensor is recording the new EEPROM.
-void MLX90632::writeEEPROM(uint16_t addr, uint16_t val)
-{
-  //Put device into halt mode (page 15)
+void MLX90632::writeEEPROM(uint16_t addr, uint16_t val) {
+  
+  //unlock EEPROM
+  writeRegister16(0x3005, 0x554C);
+
+  writeRegister16(addr, 0x00);
+
+  // wait for EEPROM
+  while (eepromBusy()) k_msleep(1);
+
+  // unlock EEPROM
+  writeRegister16(0x3005, 0x554C);
+
+  writeRegister16(addr, val);
+
+  // wait for EEPROM
+  while (eepromBusy()) k_msleep(1);
+}
+
+void MLX90632::reset() {
+  setMode(MODE_STEP);
+
+  writeRegister16(0x3005, 0x0006);
+
+  k_usleep(200);
+
+  //writeRegister16(REG_CONTROL, reg_value);
+}
+
+void MLX90632::setSampleRate(float sample_rate) {
+  uint16_t val;
+
+  val = round(log2f(CLAMP(2 * sample_rate,1,128)));
+
   uint8_t originalMode = getMode();
   setMode(MODE_SLEEP);
 
-  //Wait for complete
-  while (deviceBusy()) k_msleep(1);
+  writeEEPROM(EE_MEAS_1, 0x800D | (val << 8));
+  writeEEPROM(EE_MEAS_2, 0x801D | (val << 8));
 
-  //Magic unlock (page 17)
-  writeRegister16(0x3005, 0x554C);
-
-  //Wait for complete
-  k_msleep(100);
-
-  //Now we can write to one EEPROM word
-  //Write 0x0000 to user's location (page 16) to erase
-  writeRegister16(addr, 0x0000);
-
-  //Wait for complete
-  k_msleep(100);
-  //while (eepromBusy()) k_msleep(1);
-  //while (deviceBusy()) k_msleep(1);
-
-  //Magic unlock again
-  writeRegister16(0x3005, 0x554C);
-
-  //Wait for complete
-  k_msleep(100);
-
-  //Now we can write to one EEPROM word
-  writeRegister16(addr, val);
-
-  //Wait for complete
-  k_msleep(100);
-  //while (eepromBusy()) k_msleep(1);
-  //while (deviceBusy()) k_msleep(1);
-
-  //Return to original mode
   setMode(originalMode);
 }
 
+float MLX90632::getSampleRate() {
+  uint16_t val1, val2;
+  float result;
+
+  readRegister16(EE_MEAS_1, val1);
+  readRegister16(EE_MEAS_2, val2);
+
+  if ((val1 | 0x0010) != val2) LOG_WRN("Unequal values for EE_MEAS_1 and EE_MEAS_2.");
+
+  val1 = (val1 >> 8) & 0xF;
+
+  result = (1 << val1) / 2;
+
+  return result;
+}

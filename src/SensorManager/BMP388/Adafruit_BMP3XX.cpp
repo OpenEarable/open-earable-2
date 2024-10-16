@@ -398,32 +398,32 @@ bool Adafruit_BMP3XX::setOutputDataRate(uint8_t odr) {
 }
 
 bool readReg(int reg, uint8_t * buffer, int len) {
-        Wire.aquire();
-        Wire.beginTransmission(address);
-        Wire.write(reg);
-        if (Wire.endTransmission() != 0) return false;
-        Wire.requestFrom(address, len);
+        Wire1.aquire();
+        Wire1.beginTransmission(address);
+        Wire1.write(reg);
+        if (Wire1.endTransmission() != 0) return false;
+        Wire1.requestFrom(address, len);
 
         for (uint16_t i = 0; i < len; i++) {
                 buffer[i] = Wire.read();
         }
 
-        int ret = Wire.endTransmission();
+        int ret = Wire1.endTransmission();
 
-        Wire.release();
+        Wire1.release();
 
         return (ret == 0);
 }
 
 void writeReg(const uint8_t reg, const uint8_t *pBuf, uint16_t len)
 {
-        Wire.aquire();
-        Wire.beginTransmission(address);
-        Wire.write(reg);
+        Wire1.aquire();
+        Wire1.beginTransmission(address);
+        Wire1.write(reg);
         for(uint16_t i = 0; i < len; i ++)
-                Wire.write(pBuf[i]);
-        Wire.endTransmission();
-        Wire.release();
+                Wire1.write(pBuf[i]);
+        Wire1.endTransmission();
+        Wire1.release();
 }
 
 /**************************************************************************/
