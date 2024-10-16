@@ -42,7 +42,7 @@ void Temp::reset() {
 }
 
 void Temp::update_sensor(struct k_work *work) {
-    float temperature = temp.getObjectTempF();
+    float temperature = temp.getObjectTemp();
     msg_temp.id = ID_OPTTEMP;
     msg_temp.size = sizeof(float);
     msg_temp.time = millis();
@@ -64,6 +64,8 @@ void Temp::sensor_timer_handler(struct k_timer *dummy) {
 void Temp::start(k_timeout_t t) {
     if (!_active) return;
 
+    temp.continuousMode();
+
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 
@@ -72,6 +74,8 @@ void Temp::stop() {
     _active = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+
+    temp.sleepMode();
 
     pm_device_runtime_put(ls_1_8);
     pm_device_runtime_put(ls_3_3);
