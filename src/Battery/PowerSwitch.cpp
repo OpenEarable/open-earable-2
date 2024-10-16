@@ -11,9 +11,15 @@ int PowerSwitch::begin() {
         return -1;
     }
 
-    ret = gpio_pin_configure_dt(&power_switch_pin, GPIO_INPUT | GPIO_PULL_UP);
+    ret = gpio_pin_configure_dt(&power_switch_pin, GPIO_INPUT);
 	if (ret != 0) {
-        printk("Failed to set P0.10 as input.\n");
+        printk("Failed to set PowerSwitch as input.\n");
+        return ret;
+    }
+
+    ret = gpio_pin_configure_dt(&button_pin, GPIO_INPUT);
+	if (ret != 0) {
+        printk("Failed to set Button as input.\n");
         return ret;
     }
 
@@ -46,8 +52,9 @@ int PowerSwitch::set_wakeup_int() {
 
 bool PowerSwitch::is_on() {
     int power_on = gpio_pin_get_dt(&power_switch_pin);
+    int button_pressed = gpio_pin_get_dt(&button_pin);
 
-    return power_on;
+    return power_on || button_pressed;
 }
 
 int PowerSwitch::set_power_off_callback(gpio_callback_handler_t handler) {

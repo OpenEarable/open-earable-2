@@ -19,6 +19,8 @@
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 
+#include "../buttons/Button.h"
+
 //#include <zephyr/task_wdt/task_wdt.h>
 
 #include <zephyr/logging/log_ctrl.h>
@@ -107,6 +109,7 @@ int PowerManager::begin() {
     battery_controller.begin();
     fuel_gauge.begin();
     power_switch.begin();
+    earable_btn.begin();
 
     battery_controller.setup();
 
@@ -264,7 +267,6 @@ int PowerManager::power_down(bool fault) {
     /*if (!fault && battery_controller.power_connected()) {
         return -1;
     }*/
-
 
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;

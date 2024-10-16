@@ -21,6 +21,7 @@ private:
 
     //const struct gpio_dt_spec power_switch_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(power_switch), gpios);
     const struct gpio_dt_spec power_switch_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(power_switch), gpios, {0});
+    const struct gpio_dt_spec button_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(button0), gpios, {0});
 
     gpio_callback power_switch_cb_data;
 

@@ -77,12 +77,12 @@ static void exchange_func(struct bt_conn *conn, uint8_t att_err,
 	struct bt_conn_info info = {0};
 	int err;
 
-	printk("MTU exchange %s\n", att_err == 0 ? "successful" : "failed");
-	printk("MTU size is: %d\n", bt_gatt_get_mtu(conn));
+	LOG_INF("MTU exchange %s", att_err == 0 ? "successful" : "failed");
+	LOG_INF("MTU size is: %d", bt_gatt_get_mtu(conn));
 
 	err = bt_conn_get_info(conn, &info);
 	if (err) {
-		printk("Failed to get connection info %d\n", err);
+		LOG_WRN("Failed to get connection info %d\n", err);
 		return;
 	}
 
@@ -95,8 +95,8 @@ static void exchange_func(struct bt_conn *conn, uint8_t att_err,
 static void le_data_length_updated(struct bt_conn *conn,
 				   struct bt_conn_le_data_len_info *info)
 {
-	printk("LE data len updated: TX (len: %d time: %d)"
-	       " RX (len: %d time: %d)\n", info->tx_max_len,
+	LOG_INF("LE data len updated: TX (len: %d time: %d)"
+	       " RX (len: %d time: %d)", info->tx_max_len,
 	       info->tx_max_time, info->rx_max_len, info->rx_max_time);
 }
 
@@ -186,13 +186,13 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	static struct bt_gatt_exchange_params exchange_params;
 	exchange_params.func = exchange_func;
 
-	printk("MTU size is: %d\n", bt_gatt_get_mtu(conn));
+	LOG_INF("MTU size is: %d", bt_gatt_get_mtu(conn));
 
 	err = bt_gatt_exchange_mtu(conn, &exchange_params);
 	if (err) {
-		printk("MTU exchange failed (err %d)\n", err);
+		LOG_WRN("MTU exchange failed (err %d)", err);
 	} else {
-		printk("MTU exchange pending\n");
+		LOG_INF("MTU exchange pending");
 	}
 
 	err = bt_conn_le_phy_update(conn, BT_CONN_LE_PHY_PARAM_2M);
@@ -314,7 +314,7 @@ static int bonding_clear_check(void)
 	int ret;
 	bool pressed;
 
-	ret = button_pressed(BUTTON_5, &pressed);
+	ret = button_pressed(BUTTON_PLAY_PAUSE, &pressed); //BUTTON_5
 	if (ret) {
 		return ret;
 	}
@@ -494,10 +494,10 @@ int bt_mgmt_init(void)
 			return ret;
 		}
 
-		/*ret = bonding_clear_check();
+		ret = bonding_clear_check();
 		if (ret) {
 			return ret;
-		}*/
+		}
 
 		/*ret = bt_mgmt_bonding_clear();
 		if (ret) {

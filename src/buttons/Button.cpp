@@ -1,6 +1,10 @@
 #include "Button.h"
 
 #include "button_manager.h"
+#include "../Battery/PowerManager.h"
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(button);
 
 struct gpio_callback Button::button_cb_data;
 
@@ -33,7 +37,7 @@ void Button::begin() {
 		return;
 	}
 
-	ret = gpio_pin_configure_dt(&button, GPIO_INPUT | GPIO_PULL_UP);
+	ret = gpio_pin_configure_dt(&button, GPIO_INPUT);
 	if (ret != 0) {
 		printk("Error %d: failed to configure %s pin %d\n",
 		       ret, button.port->name, button.pin);
@@ -50,14 +54,12 @@ void Button::begin() {
 
 	gpio_init_callback(&button_cb_data, button_isr, button_cb_data.pin_mask | BIT(button.pin));
 	gpio_add_callback(button.port, &button_cb_data);
-	printk("Set up button at %s pin %d\n", button.port->name, button.pin);
+	LOG_INF("Set up button at %s pin %d", button.port->name, button.pin);
 
 	// initial state
 	bool reading = gpio_pin_get_dt(&button);
 
     if (reading) _buttonState = BUTTON_PRESS;
-
-	//printk("mask:%i\n", button_cb_data.pin_mask);
 }
 
 void Button::end() {
@@ -91,6 +93,9 @@ void Button::_read_state() {
 
     if (now - _lastDebounceTime < _debounceDelay) return;
     _buttonState = BUTTON_PRESS;
+
+	k_work_cancel_delayable(&power_manager.power_down_work);
+	
     //button_service.write_state(_buttonState);
     //printk("Button pressed at %" PRIu32 "\n", now);
 
@@ -106,9 +111,10 @@ int Button::update_state() {
 
 	ret = k_msgq_put(&button_queue, &msg, K_NO_WAIT);
 	if (ret == -EAGAIN) {
-		//LOG_WRN("Btn msg queue full");
-		printk("Btn msg queue full");
+		LOG_WRN("Btn msg queue full");
 	}
+
+	LOG_INF("Button state: %i", _buttonState);
 
 	return ret;
 }
