@@ -11,6 +11,8 @@
 
 #include "MAX30102.h"
 
+#include "nrf5340_audio_common.h"
+
 // Status Registers
 static const uint8_t MAX30105_INTSTAT1 =		0x00;
 static const uint8_t MAX30105_INTSTAT2 =		0x01;
@@ -216,8 +218,8 @@ void MAX30105::softReset(void) {
 
   // Poll for bit to clear, reset is then complete
   // Timeout after 100ms
-  unsigned long startTime = k_cyc_to_ms_floor32(k_cycle_get_32());
-  while (k_cyc_to_ms_floor32(k_cycle_get_32()) - startTime < 100)
+  unsigned long startTime = millis();
+  while (millis() - startTime < 100)
   {
     uint8_t response = readRegister8(_i2caddr, MAX30105_MODECONFIG);
     if ((response & MAX30105_RESET) == 0) break; //We're done!
@@ -373,8 +375,8 @@ float MAX30105::readTemperature() {
 
   // Poll for bit to clear, reading is then complete
   // Timeout after 100ms
-  unsigned long startTime = k_cyc_to_ms_floor32(k_cycle_get_32());
-  while (k_cyc_to_ms_floor32(k_cycle_get_32()) - startTime < 100)
+  unsigned long startTime = millis();
+  while (millis() - startTime < 100)
   {
     //uint8_t response = readRegister8(_i2caddr, MAX30105_DIETEMPCONFIG); //Original way
     //if ((response & 0x01) == 0) break; //We're done!
@@ -711,11 +713,11 @@ uint16_t MAX30105::check(void)
 //Returns false if new data was not found
 bool MAX30105::safeCheck(uint8_t maxTimeToCheck)
 {
-  uint32_t markTime = k_cyc_to_ms_floor32(k_cycle_get_32());
+  uint32_t markTime = millis();
   
   while(1)
   {
-	if(k_cyc_to_ms_floor32(k_cycle_get_32()) - markTime > maxTimeToCheck) return(false);
+	if(millis() - markTime > maxTimeToCheck) return(false);
 
 	if(check() == true) //We found new data!
 	  return(true);
