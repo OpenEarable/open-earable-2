@@ -11,6 +11,9 @@ class KTD2026 {
 public:
     enum registers : uint8_t {
         CTRL = 0x00,
+        FP = 0x01,
+        PWM1 = 0x02,
+        PWM2 = 0x03,
         EN_CH = 0x04,
         I_R = 0x06,
         I_G = 0x07,
@@ -24,6 +27,8 @@ public:
     void power_off();
     void setColor(RGBColor color);
     void getColor(RGBColor * color);
+
+    void blink(RGBColor color, const int time_on_millis, const int period_millis);
     //void setPower();
 private:
     bool readReg(uint8_t reg, uint8_t *buffer, uint16_t len);
