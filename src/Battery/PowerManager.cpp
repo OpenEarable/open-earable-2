@@ -178,6 +178,18 @@ int PowerManager::begin() {
             LOG_WRN("Error setting up load switch 3.3V.");
         }
 
+        ret = device_is_ready(error_led.port); //bool
+        if (!ret) {
+            printk("Error LED not ready.\n");
+            return -1;
+        }
+
+        ret = gpio_pin_configure_dt(&error_led, GPIO_OUTPUT_INACTIVE);
+        if (ret != 0) {
+            printk("Failed to set Error LED as output: ERROR -%i.\n", ret);
+            return ret;
+        }
+
         return 0;
     }
 
@@ -330,9 +342,12 @@ int PowerManager::power_down(bool fault) {
     }
 
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
-    /*ERR_CHK(ret);
+    //ERR_CHK(ret);
 
-    const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+    // turn off error led
+	gpio_pin_set_dt(&error_led, 0);
+
+    /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
     ERR_CHK(ret);*/
 

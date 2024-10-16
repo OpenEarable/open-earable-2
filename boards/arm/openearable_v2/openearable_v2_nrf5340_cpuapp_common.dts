@@ -43,6 +43,14 @@
 		status = "okay";
 	};
 
+	error-leds {
+		compatible = "gpio-leds";
+		led_error: led_error {
+			gpios = <&gpio1 8 GPIO_ACTIVE_HIGH>;
+			label = "Red LED";
+		};
+	};
+
 	/*leds {
 		compatible = "gpio-leds";
 		led0: led_0 {

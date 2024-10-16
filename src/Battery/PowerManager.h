@@ -67,6 +67,8 @@ private:
     const float temp_fast_min = 15;
     const float temp_fast_max = 45;
     const float temp_max = 50;
+
+    const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
 };
 
 extern PowerManager power_manager;
