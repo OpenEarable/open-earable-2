@@ -17,7 +17,7 @@ void Baro::update_sensor(struct k_work *work) {
 
 	msg_baro.id = ID_TEMP_BARO;
 	msg_baro.size = 2 * sizeof(float);
-	msg_baro.time = k_cyc_to_ms_floor32(k_cycle_get_32());
+	msg_baro.time = millis();
 	msg_baro.data[0] = bmp.temperature;
 	msg_baro.data[1] = bmp.pressure;
 

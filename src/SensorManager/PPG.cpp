@@ -5,6 +5,9 @@
 
 #include "nrf5340_audio_common.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(MAXM86161);
+
 PPG PPG::sensor;
 
 MAXM86161 PPG::ppg(Wire1);
@@ -19,7 +22,7 @@ bool PPG::init(struct k_msgq * queue) {
 	}
     
     if (ppg.init() != 0) {   // hardware I2C mode, can pass in address & alt Wire
-		printk("Could not find a valid PPG sensor, check wiring!");
+		LOG_WRN("Could not find a valid PPG sensor, check wiring!");
         _active = false;
         pm_device_runtime_put(ls_1_8);
         pm_device_runtime_put(ls_3_3);
@@ -47,10 +50,10 @@ void PPG::update_sensor(struct k_work *work) {
         for (int i = 0; i < num_samples; i++) {
             msg_ppg.id = ID_PPG;
             msg_ppg.size = 4 * sizeof(uint32_t);
-            msg_ppg.time = k_cyc_to_ms_floor32(k_cycle_get_32());
+            msg_ppg.time = millis();
             msg_ppg.data[0]=sensor.data_buffer[i][red];
             msg_ppg.data[1]=sensor.data_buffer[i][green];
-            msg_ppg.data[3]=sensor.data_buffer[i][ir];
+            msg_ppg.data[2]=sensor.data_buffer[i][ir];
             msg_ppg.data[3]=sensor.data_buffer[i][ambient];
         }
     }

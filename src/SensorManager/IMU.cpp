@@ -19,7 +19,7 @@ void IMU::update_sensor(struct k_work *work) {
 
 	msg_imu.id = ID_IMU;
 	msg_imu.size = 9 * sizeof(float);
-	msg_imu.time = k_cyc_to_ms_floor32(k_cycle_get_32());
+	msg_imu.time = millis();
 
 	sBmx160SensorData_t magno_data;
 	sBmx160SensorData_t gyro_data;

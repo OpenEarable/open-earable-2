@@ -20,6 +20,8 @@
 
 #define SENSOR_DATA_FIXED_LENGTH 9
 
+#define millis() k_cyc_to_ms_floor32(k_cycle_get_32())
+
 #define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
 #define load_switch_3_3_id DT_NODELABEL(bq25120a)

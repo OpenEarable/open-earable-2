@@ -153,7 +153,7 @@ static void sensor_gatt_task(void)
 
 	const float alpha = 0.01;
 
-	uint32_t time_last_imu = k_cyc_to_ms_floor32(k_cycle_get_32());
+	uint32_t time_last_imu = millis();
 	uint32_t time_last_baro = time_last_imu;
 
 	while (1) {

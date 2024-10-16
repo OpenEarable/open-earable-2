@@ -73,7 +73,7 @@ void Button::_read_state() {
     bool reading = gpio_pin_get_dt(&button);
 
     //CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER
-    unsigned long now = k_cyc_to_ms_floor32(k_cycle_get_32());
+    unsigned long now = millis();
 
     if (!reading) {
         if (_buttonState != BUTTON_RELEASED) {
