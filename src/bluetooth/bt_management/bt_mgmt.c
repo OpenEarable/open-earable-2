@@ -314,7 +314,7 @@ static int bonding_clear_check(void)
 	int ret;
 	bool pressed;
 
-	ret = button_pressed(BUTTON_PLAY_PAUSE, &pressed); //BUTTON_5
+	ret = button_pressed(BUTTON_EARABLE, &pressed); //BUTTON_5
 	if (ret) {
 		return ret;
 	}

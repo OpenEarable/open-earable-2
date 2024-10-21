@@ -109,7 +109,6 @@ int PowerManager::begin() {
     battery_controller.begin();
     fuel_gauge.begin();
     power_switch.begin();
-    earable_btn.begin();
 
     battery_controller.setup();
 
@@ -153,6 +152,8 @@ int PowerManager::begin() {
     if (power_switch.is_on()) {
         //TODO: check power on condition
         // either not charging and edv1 or charging and edv0 and temperature
+
+        earable_btn.begin();
         
         battery_controller.set_power_connect_callback(power_good_callback);
         fuel_gauge.set_int_callback(fuel_gauge_callback);

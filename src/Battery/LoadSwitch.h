@@ -15,7 +15,7 @@ public:
     void set(bool on) const;
     bool is_on() const;
 private:
-    const gpio_dt_spec ctrl_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios);
+    const gpio_dt_spec ctrl_pin; // = GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios);
 };
 
 #endif

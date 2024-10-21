@@ -31,6 +31,13 @@ extern const struct device *const ls_1_8;
 extern const struct device *const ls_3_3;
 extern const struct device *const ls_sd;
 
+enum earable_state {
+	UNPAIRED,
+	PAIRING,
+	PAIRED,
+	CONNECTED,
+};
+
 enum sensor_id {
 	ID_IMU=0,
 	ID_TEMP_BARO=1,

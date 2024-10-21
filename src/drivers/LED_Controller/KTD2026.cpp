@@ -43,14 +43,6 @@ void KTD2026::begin() {
         int ret = pm_device_runtime_get(ls_1_8);
         ret = pm_device_runtime_get(ls_3_3);
 
-        if (ret == 0) {
-                //printk("Sucessful getting device.\n");
-                LOG_INF("Sucessful getting device.\n");
-        } else {
-                //printk("Error getting device.\n");
-                LOG_WRN("Error getting device.\n");
-        }
-
         k_msleep(10);
 
         _pWire->begin();

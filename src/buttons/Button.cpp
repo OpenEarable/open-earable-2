@@ -6,13 +6,18 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(button);
 
+K_WORK_DELAYABLE_DEFINE(Button::button_work, Button::button_work_handler);
+
 struct gpio_callback Button::button_cb_data;
 
 void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins)
 {
-	if (pins & BIT(BUTTON_PLAY_PAUSE)) {
-		earable_btn._read_state();
+	Button * button;
+
+	if (pins & BIT(BUTTON_EARABLE)) {
+		//earable_btn._read_state();
+		button = &earable_btn;
 	}
 
 	/*if (pins & BIT(BUTTON_VOLUME_UP)) {
@@ -22,6 +27,16 @@ void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 	if (pins & BIT(BUTTON_VOLUME_DOWN)) {
 		volume_down_btn._read_state();
 	}*/
+
+	button->_temp_buttonState = static_cast<button_action>(gpio_pin_get_dt(&(button->button)));
+
+	if (earable_btn._temp_buttonState == BUTTON_PRESS) k_work_cancel_delayable(&power_manager.power_down_work);
+
+	if (button->_buttonState == button->_temp_buttonState) {
+		k_work_cancel_delayable(&(button->button_work));
+	} else {
+		k_work_reschedule(&(button->button_work), BUTTON_DEBOUNCE);
+	}
 }
 
 Button::Button(gpio_dt_spec spec) : button(spec) {
@@ -32,14 +47,14 @@ void Button::begin() {
     int ret;
 
     if (!gpio_is_ready_dt(&button)) {
-		printk("Error: button device %s is not ready\n",
+		LOG_ERR("Error: button device %s is not ready\n",
 		       button.port->name);
 		return;
 	}
 
 	ret = gpio_pin_configure_dt(&button, GPIO_INPUT);
 	if (ret != 0) {
-		printk("Error %d: failed to configure %s pin %d\n",
+		LOG_ERR("Error %d: failed to configure %s pin %d\n",
 		       ret, button.port->name, button.pin);
 		return;
 	}
@@ -47,7 +62,7 @@ void Button::begin() {
 	ret = gpio_pin_interrupt_configure_dt(&button,
 					      GPIO_INT_EDGE_BOTH);
 	if (ret != 0) {
-		printk("Error %d: failed to configure interrupt on %s pin %d\n",
+		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
 			ret, button.port->name, button.pin);
 		return;
 	}
@@ -67,6 +82,11 @@ void Button::end() {
 	//gpio_remove_callback();
 }
 
+void Button::button_work_handler(struct k_work * work) {
+	earable_btn._buttonState = earable_btn._temp_buttonState;
+	earable_btn.update_state();
+}
+
 void Button::_read_state() {
 	int ret;
 
@@ -76,17 +96,19 @@ void Button::_read_state() {
     unsigned long now = millis();
 
     if (!reading) {
+		_lastDebounceTime = now;
+
         if (_buttonState != BUTTON_RELEASED) {
             //button_service.write_state(RELEASED);
             //printk("Button released at %" PRIu32 "\n", now);
 
 			_buttonState = BUTTON_RELEASED;
-			_lastDebounceTime = now;
+			
 
 			ret = update_state();
         }
+
         _buttonState = BUTTON_RELEASED;
-        _lastDebounceTime = now;
 		
         return;
     }

@@ -1,5 +1,8 @@
 #include "PowerSwitch.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(power_switch, CONFIG_MAIN_LOG_LEVEL);
+
 PowerSwitch power_switch;
 
 int PowerSwitch::begin() {
@@ -7,25 +10,25 @@ int PowerSwitch::begin() {
 
     ret = gpio_is_ready_dt(&power_switch_pin); //bool
     if (!ret) {
-        printk("Power switch not ready.\n");
+        LOG_INF("Power switch not ready.");
         return -1;
     }
 
     ret = gpio_pin_configure_dt(&power_switch_pin, GPIO_INPUT);
 	if (ret != 0) {
-        printk("Failed to set PowerSwitch as input.\n");
+        LOG_INF("Failed to set PowerSwitch as input.");
         return ret;
     }
 
     ret = gpio_pin_configure_dt(&button_pin, GPIO_INPUT);
 	if (ret != 0) {
-        printk("Failed to set Button as input.\n");
+        LOG_INF("Failed to set Button as input.");
         return ret;
     }
 
     ret = gpio_pin_interrupt_configure_dt(&power_switch_pin, GPIO_INT_EDGE_BOTH); //GPIO_INT_EDGE_TO_INACTIVE
     if (ret != 0) {
-        printk("Failed to setup interrupt on power switch.\n");
+        LOG_INF("Failed to setup interrupt on power switch.");
         return ret;
     }
 
@@ -37,13 +40,13 @@ int PowerSwitch::set_wakeup_int() {
 
     ret = gpio_is_ready_dt(&power_switch_pin); //bool
     if (!ret) {
-            printk("Power switch not ready.\n");
-            return -1;
+        LOG_INF("Power switch not ready.");
+        return -1;
     }
 
     ret = gpio_pin_interrupt_configure_dt(&power_switch_pin, GPIO_INT_LEVEL_ACTIVE);
     if (ret != 0) {
-        printk("Failed to setup interrupt on power switch.\n");
+        LOG_INF("Failed to setup interrupt on power switch.");
         return ret;
     }
 
