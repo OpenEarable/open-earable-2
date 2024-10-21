@@ -23,6 +23,7 @@
 #include "../src/Battery/PowerManager.h"
 #include "../src/SensorManager/SensorManager.h"
 #include "../src/buttons/Button.h"
+#include "../src/utils/StateIndicator.h"
 
 #include "device_info.h"
 #include "battery_service.h"
@@ -32,7 +33,7 @@
 
 //#include "unicast_server.h"
 
-#include "nrf.h"
+// #include "nrf.h"
 
 #include "streamctrl.h"
 
@@ -47,10 +48,16 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 	     "Console device is not ACM CDC UART device");
 
-#define BUFFER_SIZE (16 * 1024)
+/*#define BUFFER_SIZE (16 * 1024)
 
 size_t size = BUFFER_SIZE;
-char buf[BUFFER_SIZE];
+char buf[BUFFER_SIZE];*/
+
+int bonded_device_count = 0;
+
+void count_bonds(const bt_bond_info *info, void *user_data) {
+	bonded_device_count++;
+}
 
 int main(void) {
 	int ret;
@@ -62,33 +69,26 @@ int main(void) {
 
 	streamctrl_start();
 
-	/*LoadSwitch ls_sd = LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch_sd), gpios));
-	LoadSwitch ls_1_8 = LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
+	//LOG_INF("Bonded devices: %i", bonded_device_count);
 
-	ls_sd.begin();
+	/*LoadSwitch ls_sd_dev = LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch_sd), gpios));
+	LoadSwitch ls_1_8_dev = LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
 
-	ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch_sd)));
+	//ls_sd_dev.begin();
+	//ls_1_8_dev.begin();
 
-	//ls_sd.set(true);
+	ret = pm_device_runtime_get(ls_1_8);
+	ret = pm_device_runtime_get(ls_sd);
 
-	k_msleep(10);*/
-	/*ls_1_8.begin();
-
-	ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch)));
-	ret = pm_device_runtime_get(DEVICE_DT_GET(DT_NODELABEL(load_switch_sd)));
-
-	ls_sd.set(true);
-	ls_1_8.set(true);
+	//ls_sd_dev.set(true);
+	//ls_1_8_dev.set(true);
 
 	//k_msleep(10);
 
-	LOG_INF("SD power on: %i", ls_sd.is_on());
-	LOG_INF("1.8V power on: %i", ls_1_8.is_on());*/
+	// LOG_INF("SD power on: %i", ls_sd_dev.is_on());
+	// LOG_INF("1.8V power on: %i", ls_1_8_dev.is_on());
 
-	//ret = pm_device_runtime_get(ls_sd);
-	//k_msleep(10);
-
-	/*LOG_INF("SD initing .........................................");
+	// LOG_INF("SD initing .........................................");
 
 	//const struct device *const dmic_dev = DEVICE_DT_GET(DT_NODELABEL(sdhc0));
 
@@ -96,21 +96,21 @@ int main(void) {
 
 	ret = device_is_ready(state_pin.port); //bool
 	if (!ret) {
-			printk("BQ25120a pins not ready.\n");
-			return -1;
+		LOG_INF("SD state pins not ready.\n");
+		return -1;
 	}
 
 	ret = gpio_pin_configure_dt(&state_pin, GPIO_INPUT);
 	if (ret != 0) {
-			printk("Failed to set PG as input.\n");
-			return ret;
+		LOG_INF("Failed to set state pin as input.\n");
+		return ret;
 	}
 
 	for (int i = 0; i < 4; i++) {
 		LOG_INF("sd state: %i\n", gpio_pin_get_dt(&state_pin));
-	}*/
+	}
 
-	/*ret = sd_card_init();
+	ret = sd_card_init();
 	for (int i = 0; i < 10; i++) {
 		LOG_INF("%i\n", ret);
 	}*/
@@ -145,7 +145,13 @@ int main(void) {
 
 	led_service.begin();
 
-	earable_btn.begin();
+	bt_foreach_bond(BT_ID_DEFAULT, count_bonds, NULL);
+
+	if (bonded_device_count > 0) {
+		state_indicator.init(PAIRED);
+	} else {
+		state_indicator.init(UNPAIRED);
+	}
 
 	/*if (board_rev.mask & BOARD_VERSION_VALID_MSK_SD_CARD) {
 		ret = sd_card_init();
@@ -157,9 +163,10 @@ int main(void) {
 	start_sensor_manager();
 
 	//sensor_config imu = {ID_IMU, 80, 0};
-	sensor_config imu = {ID_PPG, 400, 0};
+	/*sensor_config imu = {ID_PPG, 400, 0};
+	sensor_config temp = {ID_OPTTEMP, 10, 0};
 
-	//config_sensor(&imu);
+	config_sensor(&temp);*/
 
 	ret = init_battery_service();
 	ERR_CHK(ret);
