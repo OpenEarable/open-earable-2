@@ -43,6 +43,8 @@ private:
 
     void power_connected();
 
+    bool check_battery();
+
     k_timeout_t chrg_interval = CHARGE_CONTROLLER_INTERVAL;
 
     static k_timer charge_timer;
@@ -67,6 +69,8 @@ private:
     const float temp_fast_min = 15;
     const float temp_fast_max = 45;
     const float temp_max = 50;
+
+    const float charge_prevention_voltage = 2.5;
 
     const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
 };

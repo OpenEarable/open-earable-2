@@ -121,25 +121,20 @@ int PowerManager::begin() {
 
     k_timer_init(&charge_timer, charge_timer_handler, NULL);
 
+    bool battery_condition = check_battery();
+
     // check charging state
     bool charging = battery_controller.power_connected();
 
-    if (charging) {
-        float temp = fuel_gauge.temperature();
-        
-        if (temp < temp_min || temp > temp_max) {
-            // set params
-            battery_controller.disable_charge();
-        } else if (temp < temp_fast_min || temp > temp_fast_max) {
-            // set params
-            battery_controller.write_charging_control(55);
-            battery_controller.enable_charge();
-        } else {
-            // normal params
-            battery_controller.write_charging_control(110);
-            battery_controller.enable_charge();
+    if (!battery_condition) {
+        // LOG_ERR("Bad battery condition.");
+        if (!charging){
+            //TODO: Flash red LED once
+            return power_down(false);
         }
+    }
 
+    if (charging) {
         power_manager.last_charging_state = 0;
         //k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
         k_timer_start(&charge_timer, power_manager.chrg_interval, power_manager.chrg_interval);
@@ -197,6 +192,41 @@ int PowerManager::begin() {
     return power_down();
 }
 
+bool PowerManager::check_battery() {
+    bool charging = battery_controller.power_connected();
+
+    if (charging) {
+        float voltage = fuel_gauge.voltage();
+
+        if (voltage < charge_prevention_voltage) {
+            battery_controller.disable_charge();
+            return false;
+        }
+
+        float temp = fuel_gauge.temperature();
+        
+        if (temp < temp_min || temp > temp_max) {
+            // set params
+            battery_controller.disable_charge();
+            return false;
+        } else if (temp < temp_fast_min || temp > temp_fast_max) {
+            // set params
+            battery_controller.write_charging_control(55);
+            battery_controller.enable_charge();
+        } else {
+            // normal params
+            battery_controller.write_charging_control(110);
+            battery_controller.enable_charge();
+        }
+    } else {
+        gauge_status gs = fuel_gauge.gauging_state();
+
+        if (gs.edv1) return false; // critical battery state
+    }
+
+    return true;
+}
+
 void PowerManager::get_battery_status(battery_level_status &status) {
     battery_controller.exit_high_impedance();
     uint8_t charging_state = battery_controller.read_charging_state() >> 6;
@@ -222,7 +252,7 @@ void PowerManager::get_battery_status(battery_level_status &status) {
 
     // charge level
     if (gs.edv1) status.power_state |= (0x3 << 7); // critical
-    else if (gs.edv2) status.power_state |= (0x2 << 7); //low
+    else if (gs.edv2) status.power_state |= (0x2 << 7); // low
     else status.power_state |= (0x1 << 7); // good
 	//	status.power_state |= (0x1 << 12); // fault reason
 }
@@ -261,25 +291,8 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
     }
 }
 
-/*
-void PowerManager::set_1_8(bool on) {
-    v1_8_switch.set(on);
-}
-
-void PowerManager::set_3_3(bool on) {
-    float voltage = battery_controller.read_ldo_voltage();
-    if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
-    //k_usleep(10);
-    battery_controller.load_switch.set(on);
-}*/
-
 int PowerManager::power_down(bool fault) {
     int ret;
-    // if charging do not power off
-    // uint16_t last_charging_state = 0;
-    /*if (!fault && battery_controller.power_connected()) {
-        return -1;
-    }*/
 
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
@@ -294,9 +307,6 @@ int PowerManager::power_down(bool fault) {
     led_controller.power_off();
 
     stop_sensor_manager();
-
-    //power_manager.set_1_8(false);
-    //power_manager.set_3_3(false);
 
     bool charging = battery_controller.power_connected();
 
@@ -334,7 +344,7 @@ int PowerManager::power_down(bool fault) {
 
     ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(ls_sd, PM_DEVICE_ACTION_SUSPEND);
+    ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
 
     if (charging) {
         //NVIC_SystemReset();
@@ -382,26 +392,26 @@ void PowerManager::charge_task() {
     }
 
     if (last_charging_state != charging_state) {
-            switch (charging_state) {
-            case 0:
-                LOG_INF("charging state: ready");
-                break;
-            case 1:
-                LOG_INF("charging state: charing");
-                break;
-            case 2:
-                LOG_INF("charging state: done");
-                break;
-            case 3:
-                LOG_WRN("charging state: fault");
+        switch (charging_state) {
+        case 0:
+            LOG_INF("charging state: ready");
+            break;
+        case 1:
+            LOG_INF("charging state: charging");
+            break;
+        case 2:
+            LOG_INF("charging state: done");
+            break;
+        case 3:
+            LOG_WRN("charging state: fault");
 
-                uint16_t ts_fault = battery_controller.read_ts_fault();
-                LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
+            uint16_t ts_fault = battery_controller.read_ts_fault();
+            LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
 
-                battery_controller.setup();
-                
-                break;
-            }
+            battery_controller.setup();
+            
+            break;
+        }
     }
 
     last_charging_state = charging_state;
