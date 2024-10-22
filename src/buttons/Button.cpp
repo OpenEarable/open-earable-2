@@ -1,12 +1,14 @@
 #include "Button.h"
 
+#include <zephyr/sys/util.h>
+
 #include "button_manager.h"
 #include "../Battery/PowerManager.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(button);
 
-K_WORK_DELAYABLE_DEFINE(Button::button_work, Button::button_work_handler);
+//K_WORK_DELAYABLE_DEFINE(Button::button_work, Button::button_work_handler);
 
 struct gpio_callback Button::button_cb_data;
 
@@ -40,7 +42,7 @@ void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 }
 
 Button::Button(gpio_dt_spec spec) : button(spec) {
-    
+    k_work_init_delayable(&button_work, button_work_handler);
 }
 
 void Button::begin() {
@@ -83,50 +85,16 @@ void Button::end() {
 }
 
 void Button::button_work_handler(struct k_work * work) {
-	earable_btn._buttonState = earable_btn._temp_buttonState;
-	earable_btn.update_state();
-}
+	Button *btn = CONTAINER_OF(work, Button, button_work);
 
-void Button::_read_state() {
-	int ret;
-
-    bool reading = gpio_pin_get_dt(&button);
-
-    //CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER
-    unsigned long now = millis();
-
-    if (!reading) {
-		_lastDebounceTime = now;
-
-        if (_buttonState != BUTTON_RELEASED) {
-            //button_service.write_state(RELEASED);
-            //printk("Button released at %" PRIu32 "\n", now);
-
-			_buttonState = BUTTON_RELEASED;
-			
-
-			ret = update_state();
-        }
-
-        _buttonState = BUTTON_RELEASED;
-		
-        return;
-    }
-
-    if (now - _lastDebounceTime < _debounceDelay) return;
-    _buttonState = BUTTON_PRESS;
-
-	k_work_cancel_delayable(&power_manager.power_down_work);
-	
-    //button_service.write_state(_buttonState);
-    //printk("Button pressed at %" PRIu32 "\n", now);
-
-	ret = update_state();
+	btn->update_state();
 }
 
 int Button::update_state() {
 	struct button_msg msg;
 	int ret;
+
+	_buttonState = _temp_buttonState;
 
 	msg.button_pin = button.pin;
 	msg.button_action = _buttonState;
@@ -143,10 +111,6 @@ int Button::update_state() {
 
 button_action Button::getState() const {
     return _buttonState;
-}
-
-void Button::setDebounceTime(unsigned long debounceTime) {
-    _debounceDelay = debounceTime;
 }
 
 Button earable_btn(GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios));

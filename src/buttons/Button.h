@@ -18,25 +18,9 @@ public:
     void begin();
     void end();
 
-    //void inverted(bool _inverted = true);
-
     button_action getState() const;
-
-    void setDebounceTime(unsigned long debounceTime);
-
-    //static void task();
 private:
-    //int _pin;
-    //bool _inverted = false;
-    unsigned long _lastDebounceTime;
-    //unsigned long _pressStartTime;
-    unsigned long _debounceDelay = 25;
-
-    //static bool running = false;
-
-    //static const k_tid_t button_publish;
-
-    const static struct gpio_dt_spec buttons[];
+    k_work_delayable button_work;
 
     const struct gpio_dt_spec button;
     static struct gpio_callback button_cb_data;
@@ -44,14 +28,10 @@ private:
     button_action _buttonState = BUTTON_RELEASED;
     button_action _temp_buttonState = BUTTON_RELEASED;
 
-    void _read_state();
-    //static void _earable_btn_read_state();
     static void button_isr(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins);
 
     int update_state();
-
-    static k_work_delayable button_work;
 
     static void button_work_handler(struct k_work * work);
 };
