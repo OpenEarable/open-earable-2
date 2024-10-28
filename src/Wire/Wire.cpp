@@ -24,10 +24,10 @@
 
 arduino::MbedI2C::MbedI2C(const struct device * _device) : master(_device), usedTxBuffer(0) {}
 
-void arduino::MbedI2C::begin() {
+void arduino::MbedI2C::begin(uint32_t speed) {
 	__ASSERT(master != NULL, "I2C_DEV_LABEL not found!");
 	if (!device_is_ready(master)) {
-		int result = i2c_configure(master, I2C_SPEED_SET(I2C_SPEED_FAST));
+		int result = i2c_configure(master, I2C_SPEED_SET(speed));
 		__ASSERT(result == 0, "Failed to set I2C speed!");
 		k_mutex_init(&mutex);
 	}
@@ -63,11 +63,12 @@ uint8_t arduino::MbedI2C::endTransmission(bool stopBit) {
 	if (ret == 0) {
 		return 0;
 	}
+	
 	return 2;
 }
 
 size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) {
-	char buf[256];
+	char buf[BUFFER_RX_SIZE];
 	//k_mutex_lock(&mutex, K_FOREVER);
 	int ret = master_read(address, buf, len, !stopBit);
 	if (ret != 0) {
@@ -82,13 +83,13 @@ size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) 
 }
 
 size_t arduino::MbedI2C::write(uint8_t data) {
-	if (usedTxBuffer == 256) return 0;
+	if (usedTxBuffer == BUFFER_TX_SIZE) return 0;
 	txBuffer[usedTxBuffer++] = data;
 	return 1;
 }
 
 size_t arduino::MbedI2C::write(const uint8_t* data, int len) {
-	if (usedTxBuffer + len > 256) len = 256 - usedTxBuffer;
+	if (usedTxBuffer + len > BUFFER_TX_SIZE) len = BUFFER_TX_SIZE - usedTxBuffer;
 	memcpy(txBuffer + usedTxBuffer, data, len);
 	usedTxBuffer += len;
 	return len;
@@ -127,7 +128,7 @@ void arduino::MbedI2C::release() {
 	k_mutex_unlock(&mutex);
 }
 
-int arduino::MbedI2C::i2c_message(uint8_t read_write, int address, const char * buf, const uint8_t len, bool no_stop) {
+int arduino::MbedI2C::i2c_message(uint8_t read_write, int address, const char * buf, const uint32_t len, bool no_stop) {
     uint8_t stop = no_stop ? 0 : I2C_MSG_STOP;
 
     struct i2c_msg msg;
@@ -139,11 +140,11 @@ int arduino::MbedI2C::i2c_message(uint8_t read_write, int address, const char * 
     return i2c_transfer(master, &msg, 1, address);
 }
 
-int arduino::MbedI2C::master_write(int address, const char * buf, const uint8_t len, bool no_stop) {
+int arduino::MbedI2C::master_write(int address, const char * buf, const uint32_t len, bool no_stop) {
     return i2c_message(I2C_MSG_WRITE, address, buf, len, no_stop);
 }
 
-int arduino::MbedI2C::master_read(int address, const char * buf, const uint8_t len, bool no_stop) {
+int arduino::MbedI2C::master_read(int address, const char * buf, const uint32_t len, bool no_stop) {
 	return i2c_message(I2C_MSG_READ, address, buf, len, no_stop);
 }
 

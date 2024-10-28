@@ -22,7 +22,8 @@
 
 #pragma once
 
-#define I2C_DEV_LABEL "I2C_1"
+#define BUFFER_TX_SIZE 256
+#define BUFFER_RX_SIZE 512
 
 typedef void (*voidFuncPtr)(void);
 typedef void (*voidFuncPtrParamInt)(int);
@@ -34,7 +35,7 @@ class MbedI2C //: public HardwareI2C
 {
   public:
     MbedI2C(const struct device * master);
-    virtual void begin();
+    virtual void begin(uint32_t speed = I2C_SPEED_FAST);
     virtual void end();
 
     virtual void setClock(uint32_t freq);
@@ -63,15 +64,15 @@ private:
 
     struct k_mutex mutex;
 
-    int master_read(int address, const char * buf, const uint8_t len, bool no_stop);
-    int master_write(int address, const char * buf, const uint8_t len, bool no_stop);
-    int i2c_message(uint8_t read_write, int address, const char * buf, const uint8_t len, bool no_stop);
+    int master_read(int address, const char * buf, const uint32_t len, bool no_stop);
+    int master_write(int address, const char * buf, const uint32_t len, bool no_stop);
+    int i2c_message(uint8_t read_write, int address, const char * buf, const uint32_t len, bool no_stop);
     
     //PinName _sda;
     //PinName _scl;
     int _address;
-    RingBufferN<256> rxBuffer;
-    uint8_t txBuffer[256];
+    RingBufferN<BUFFER_RX_SIZE> rxBuffer;
+    uint8_t txBuffer[BUFFER_TX_SIZE];
     uint32_t usedTxBuffer;
     voidFuncPtrParamInt onReceiveCb = NULL;
     voidFuncPtr onRequestCb = NULL;
