@@ -25,27 +25,22 @@ ssize_t serializeSensorComponentGroup(SensorComponentGroup* group, char* buffer,
     char* bufferStart = buffer;
     for (size_t i = 0; i < group->componentCount; i++) {
         *buffer = group->components[i].parseType;
+        buffer++;
 
         *buffer = group->name.size();
         buffer++;
         memcpy(buffer, group->name.c_str(), group->name.size());
         buffer += group->name.size();
-        // *buffer = '\0';
-        // buffer++;
 
         *buffer = group->components[i].name.size();
         buffer++;
         memcpy(buffer, group->components[i].name.c_str(), group->components[i].name.size());
         buffer += group->components[i].name.size();
-        // *buffer = '\0';
-        // buffer++;
 
         *buffer = group->components[i].unit.size();
         buffer++;
         memcpy(buffer, group->components[i].unit.c_str(), group->components[i].unit.size());
         buffer += group->components[i].unit.size();
-        // *buffer = '\0';
-        // buffer++;
     }
 
     return buffer - bufferStart;
