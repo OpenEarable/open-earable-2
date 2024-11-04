@@ -76,6 +76,7 @@ zephyr_library_include_directories(
     src/Wire
     src/Battery
     src/drivers
+    src/ParseInfo
 )
 
 zephyr_library_include_directories(app PRIVATE
@@ -91,6 +92,7 @@ add_subdirectory(src/utils)
 add_subdirectory(src/SensorManager)
 add_subdirectory(src/Wire)
 add_subdirectory(src/Battery)
+add_subdirectory(src/ParseInfo)
 
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)

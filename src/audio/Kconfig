@@ -355,6 +355,12 @@ config CONTENT_CONTROL_MSG_SUB_THREAD_PRIO
 	  This is a preemptible thread.
 	  This thread will subscribe to content control events from zbus.
 
+config PARSE_INFO_THREAD_PRIO
+	int "Thread priority for parse info thread"
+	default 5
+	help
+	  This is a preemptible thread.
+
 endmenu # Thread priorities
 
 #----------------------------------------------------------------------------#
@@ -380,6 +386,10 @@ config LE_AUDIO_MSG_SUB_STACK_SIZE
 
 config CONTENT_CONTROL_MSG_SUB_STACK_SIZE
 	int "Stack size for content control subscriber"
+	default 1024
+
+config PARSE_INFO_STACK_SIZE
+	int "Stack size for parse info thread"
 	default 1024
 
 endmenu # Stack sizes
