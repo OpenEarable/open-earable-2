@@ -68,7 +68,6 @@ uint8_t arduino::MbedI2C::endTransmission(bool stopBit) {
 }
 
 size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) {
-	char buf[BUFFER_RX_SIZE];
 	//k_mutex_lock(&mutex, K_FOREVER);
 	int ret = master_read(address, buf, len, !stopBit);
 	if (ret != 0) {

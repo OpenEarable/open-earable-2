@@ -71,6 +71,7 @@ private:
     //PinName _sda;
     //PinName _scl;
     int _address;
+    char buf[BUFFER_RX_SIZE];
     RingBufferN<BUFFER_RX_SIZE> rxBuffer;
     uint8_t txBuffer[BUFFER_TX_SIZE];
     uint32_t usedTxBuffer;
