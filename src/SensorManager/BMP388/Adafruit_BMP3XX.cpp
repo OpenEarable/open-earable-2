@@ -41,7 +41,7 @@ static void delay_usec(uint32_t us, void *intf_ptr);
 static int8_t validate_trimming_param(struct bmp3_dev *dev);
 static int8_t cal_crc(uint8_t seed, uint8_t data);
 
-static int address;
+//static int address;
 
 /***************************************************************************
  PUBLIC FUNCTIONS
@@ -83,7 +83,10 @@ bool Adafruit_BMP3XX::begin_I2C(uint8_t addr, TwoWire *theWire) {
 
   i2c_dev = theWire; //new Adafruit_I2CDevice(addr, theWire);
 
-  address = addr;
+  //address = addr;
+
+  dev_inf.addr = addr;
+  dev_inf.i2c_dev = theWire;
 
   // verify i2c address was found
   i2c_dev->begin();
@@ -96,7 +99,7 @@ bool Adafruit_BMP3XX::begin_I2C(uint8_t addr, TwoWire *theWire) {
   the_sensor.intf = BMP3_I2C_INTF;
   the_sensor.read = &i2c_read;
   the_sensor.write = &i2c_write;
-  //the_sensor.intf_ptr = new Adafruit_I2CDevice(addr, theWire);
+  the_sensor.intf_ptr = &dev_inf;
   the_sensor.dummy_byte = 0;
 
   return _init();
@@ -397,35 +400,6 @@ bool Adafruit_BMP3XX::setOutputDataRate(uint8_t odr) {
   return true;
 }
 
-bool readReg(int reg, uint8_t * buffer, int len) {
-        Wire1.aquire();
-        Wire1.beginTransmission(address);
-        Wire1.write(reg);
-        if (Wire1.endTransmission() != 0) return false;
-        Wire1.requestFrom(address, len);
-
-        for (uint16_t i = 0; i < len; i++) {
-                buffer[i] = Wire.read();
-        }
-
-        int ret = Wire1.endTransmission();
-
-        Wire1.release();
-
-        return (ret == 0);
-}
-
-void writeReg(const uint8_t reg, const uint8_t *pBuf, uint16_t len)
-{
-        Wire1.aquire();
-        Wire1.beginTransmission(address);
-        Wire1.write(reg);
-        for(uint16_t i = 0; i < len; i ++)
-                Wire1.write(pBuf[i]);
-        Wire1.endTransmission();
-        Wire1.release();
-}
-
 /**************************************************************************/
 /*!
     @brief  Reads 8 bit values over I2C
@@ -434,7 +408,23 @@ void writeReg(const uint8_t reg, const uint8_t *pBuf, uint16_t len)
 int8_t i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len,
                 void *intf_ptr) {
 
-  readReg(reg_addr, reg_data, len);
+  BMP3XX_dev_inf * dev_info = (BMP3XX_dev_inf *) intf_ptr;
+
+  dev_info->i2c_dev->aquire();
+  dev_info->i2c_dev->beginTransmission(dev_info->addr);
+  dev_info->i2c_dev->write(reg_addr);
+  if (dev_info->i2c_dev->endTransmission() != 0) return false;
+  dev_info->i2c_dev->requestFrom(dev_info->addr, len);
+
+  for (uint16_t i = 0; i < len; i++) {
+          reg_data[i] = Wire.read();
+  }
+
+  int ret = dev_info->i2c_dev->endTransmission();
+
+  dev_info->i2c_dev->release();
+
+  return (ret == 0);
 
   return 0;
 }
@@ -446,10 +436,15 @@ int8_t i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len,
 /**************************************************************************/
 int8_t i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
                  void *intf_ptr) {
-  // Serial.print("I2C write address 0x"); Serial.print(reg_addr, HEX);
-  // Serial.print(" len "); Serial.println(len, HEX);
+  BMP3XX_dev_inf * dev_info = (BMP3XX_dev_inf *) intf_ptr;
 
-  writeReg(reg_addr, reg_data, len);
+  dev_info->i2c_dev->aquire();
+  dev_info->i2c_dev->beginTransmission(dev_info->addr);
+  dev_info->i2c_dev->write(reg_addr);
+  for(uint16_t i = 0; i < len; i ++)
+    dev_info->i2c_dev->write(reg_data[i]);
+  dev_info->i2c_dev->endTransmission();
+  dev_info->i2c_dev->release();
 
   return 0;
 }
