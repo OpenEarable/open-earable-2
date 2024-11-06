@@ -43,8 +43,6 @@ void KTD2026::begin() {
         int ret = pm_device_runtime_get(ls_1_8);
         ret = pm_device_runtime_get(ls_3_3);
 
-        k_msleep(10);
-
         _pWire->begin();
 
         reset();

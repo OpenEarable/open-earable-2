@@ -383,7 +383,7 @@ int PowerManager::power_down(bool fault) {
 void PowerManager::charge_task() {
     uint16_t charging_state = battery_controller.read_charging_state() >> 6;
 
-    LOG_INF("Charger Watchdog ...................");
+    //LOG_INF("Charger Watchdog ...................");
 
     if (last_charging_state == 0) {
         LOG_INF("Setting up charge controller ........");

@@ -206,11 +206,8 @@ int hw_codec_volume_mute(void)
 	int ret;
 
 	ret = dac.mute(true);
-	if (ret) {
-		return ret;
-	}
-
-	return 0;
+	
+	return ret;
 }
 
 int hw_codec_volume_unmute(void)
@@ -218,11 +215,8 @@ int hw_codec_volume_unmute(void)
 	int ret;
 
 	ret = dac.mute(false);
-	if (ret) {
-		return ret;
-	}
 
-	return 0;
+	return ret;
 }
 
 int hw_codec_default_conf_enable(void)
