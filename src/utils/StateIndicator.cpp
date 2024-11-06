@@ -42,20 +42,20 @@ void StateIndicator::set_state(enum earable_state state) {
     case UNPAIRED:
         color[0] = 0;    // Rot
         color[1] = 0;    // Grün
-        color[2] = 255;  // Blau
+        color[2] = 16;  // Blau
 
-        led_controller.blink(color, 100, 1000);
+        led_controller.blink(color, 100, 500);
         break;
     case PAIRED:
         color[0] = 0;    // Rot
         color[1] = 0;    // Grün
-        color[2] = 255;  // Blau 
+        color[2] = 16;  // Blau 
 
         led_controller.blink(color, 100, 2000);
         break;
     case CONNECTED:
         color[0] = 0;    // Rot
-        color[1] = 255;  // Grün
+        color[1] = 16;  // Grün
         color[2] = 0;    // Blau
 
         led_controller.blink(color, 100, 2000);
