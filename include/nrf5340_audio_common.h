@@ -44,6 +44,7 @@ enum sensor_id {
 	ID_PPG=4,
 	ID_PULSOX=5,
 	ID_OPTTEMP=6,
+	ID_BONE_CONDUCTION=7,
 };
 
 struct battery_data {
