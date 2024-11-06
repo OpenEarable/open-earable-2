@@ -31,6 +31,9 @@
 #include "sensor_service.h"
 #include "led_service.h"
 
+#include "SensorScheme.h"
+#include "DefaultSensors.h"
+
 //#include "unicast_server.h"
 
 // #include "nrf.h"
@@ -320,6 +323,9 @@ int main(void) {
 	ERR_CHK(ret);
 
 	ret = init_sensor_service();
+	ERR_CHK(ret);
+
+	ret = initParseInfoService(&defaultSensors);
 	ERR_CHK(ret);
 
 	// error test
