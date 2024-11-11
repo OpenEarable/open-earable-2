@@ -27,6 +27,8 @@
 #include "audio_sync_timer.h"
 #include "sd_card_playback.h"
 
+#include "Equalizer.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
@@ -644,7 +646,6 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 
 				tx_buf = (uint8_t *)&ctrl_blk.out
 						 .fifo[next_out_blk_idx * BLK_STEREO_NUM_SAMPS];
-
 			} else {
 				if (stream_state_get() == STATE_STREAMING) {
 					underrun_condition = true;
@@ -764,6 +765,8 @@ static void audio_datapath_i2s_start(void)
 							 K_NO_WAIT);
 		ERR_CHK_MSG(ret, "RX failed to get block");
 	}
+
+	reset_eq();
 
 	/* Start I2S */
 	audio_i2s_start(tx_buf_one, rx_buf_one);
@@ -983,6 +986,16 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 			       &((int32_t *)ctrl_blk.decoded_data)[i * BLK_STEREO_NUM_SAMPS],
 			       BLK_STEREO_SIZE_OCTETS);
 		}
+
+		//LOG_INF("out_blk_idx: %i", out_blk_idx);
+
+		//uint32_t start = k_cyc_to_us_floor32(k_cycle_get_32());
+
+		equalize(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS], BLK_STEREO_NUM_SAMPS);
+
+		/*uint32_t end = k_cyc_to_us_floor32(k_cycle_get_32());
+
+		LOG_INF("time: %i", end - start);*/
 
 		/* Record producer block start reference */
 		ctrl_blk.out.prod_blk_ts[out_blk_idx] = recv_frame_ts_us + (i * BLK_PERIOD_US);
