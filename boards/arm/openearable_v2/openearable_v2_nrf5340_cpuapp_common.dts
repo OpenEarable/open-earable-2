@@ -175,15 +175,15 @@ dmic_dev: &pdm0 {
 	bq27220: bq27220@55 {
 		compatible = "ti,bq27220";
 		reg = <0x55>;
-		gpout-gpios = <&gpio0 22 GPIO_ACTIVE_LOW>;
+		gpout-gpios = <&gpio0 22 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
 	};
 
 	bq25120a: bq25120a@6A {
 		compatible = "ti,bq25120a";
 		reg = <0x6A>;
-		int-gpios = <&gpio0 16 GPIO_ACTIVE_LOW>;
+		int-gpios = <&gpio0 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		cd-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
-		pg-gpios = <&gpio0 18 GPIO_ACTIVE_LOW>;
+		pg-gpios = <&gpio0 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		lsctrl-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
 	};
 

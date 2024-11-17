@@ -12,7 +12,7 @@ bool KTD2026::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
         _pWire->aquire();
         _pWire->beginTransmission(address);
         _pWire->write(reg);
-        if (_pWire->endTransmission() != 0) {
+        if (_pWire->endTransmission(false) != 0) {
                 _pWire->release();
                 return false;
         }
@@ -91,10 +91,34 @@ void KTD2026::blink(RGBColor color, const int time_on_millis, const int period_m
         writeReg(registers::EN_CH, &channel_enable, sizeof(channel_enable));
 
         uint8_t flash_period = (period_millis >> 7) & 0x7F; // =/ 128
-
         uint8_t time_on = 250 * time_on_millis / period_millis; // to 0.4% steps
+        uint8_t t_rise_fall = 0;
 
         writeReg(registers::FP, &flash_period, sizeof(flash_period));
+        writeReg(registers::RAMP, &t_rise_fall, sizeof(t_rise_fall));
+        writeReg(registers::PWM1, &time_on, sizeof(time_on));
+}
+
+void KTD2026::pulse(RGBColor color, const int time_on_millis, const int time_rise_millis, const int time_fall_millis, const int period_millis) {
+        uint8_t channel_enable = 0;
+        for (int i = 0; i < 3; i++) {
+                if (color[i] > 0) {
+                        channel_enable |= 2 << (2 * i);
+                        color[i]--;
+                }
+                //writeReg(registers::I_R + i, &color[i], sizeof(uint8_t));
+        }
+
+        writeReg(registers::I_R, color, sizeof(RGBColor));
+        //k_usleep(10);
+        writeReg(registers::EN_CH, &channel_enable, sizeof(channel_enable));
+
+        uint8_t flash_period = (period_millis >> 7) & 0x7F; // =/ 128
+        uint8_t time_on = 250 * time_on_millis / period_millis; // to 0.4% steps
+        uint8_t t_rise_fall = ((time_rise_millis >> 7) & 0x0F) | ((time_fall_millis >> 7) & 0x0F) << 4; // =/ 128
+
+        writeReg(registers::FP, &flash_period, sizeof(flash_period));
+        writeReg(registers::RAMP, &t_rise_fall, sizeof(t_rise_fall));
         writeReg(registers::PWM1, &time_on, sizeof(time_on));
 }
 
