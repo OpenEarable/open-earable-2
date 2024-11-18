@@ -15,7 +15,7 @@ int BQ27220::begin() {
                 return -1;
         }
 
-        ret = gpio_pin_configure_dt(&gpout_pin, GPIO_INPUT | GPIO_PULL_UP);
+        ret = gpio_pin_configure_dt(&gpout_pin, GPIO_INPUT);
 	if (ret != 0) {
                 printk("Failed to set GPOUT as input: ERROR -%i.\n", ret);
                 return ret;
@@ -309,21 +309,11 @@ void BQ27220::exit_config_update(bool init) {
 }
 
 void BQ27220::read_RAM(uint16_t ram_address, uint8_t * data, int len) {
-        //uint8_t check_sum=0;
-        //uint8_t data_len=0;
-
         bool ret;
 
-        //
         writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address));
         k_usleep(BQ27220_RAM_TIMEOUT_US);
-        //k_msleep(100);
-        //ret = readReg(0x61, (uint8_t *) &data_len, sizeof(data_len));
-        //
         ret = readReg(0x40, data, len);
-        //
-        //ret = readReg(0x60, (uint8_t *) &check_sum, sizeof(check_sum));
-        //k_msleep(100);
 }
 
 void BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len) {
@@ -371,6 +361,11 @@ void BQ27220::write_RAM(uint16_t ram_address, uint16_t val) {
 }
 
 void BQ27220::setup(bool init) {
+        /*write_command(0x0414);
+        k_msleep(100);
+        write_command(0x3672);
+        k_msleep(100);*/
+        
         full_access();
 
         enter_config_update();
@@ -471,6 +466,7 @@ void BQ27220::setup(bool init) {
 
         exit_config_update(init);
 
+        // put fuel gauge to sealed state
         write_command(SEAL);
 }
 

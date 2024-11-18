@@ -201,6 +201,8 @@ void DFRobot_BMX160::setAccelRange(eAccelRange_t bits){
             accelRange = BMX160_ACCEL_MG_LSB_2G * 10;
             break;
     }
+
+    writeBmxReg(BMX160_ACCEL_RANGE_ADDR, bits);
 }
 
 void DFRobot_BMX160::getAllData(sBmx160SensorData_t *magn, sBmx160SensorData_t *gyro, sBmx160SensorData_t *accel){

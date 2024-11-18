@@ -69,6 +69,8 @@ bool IMU::init(struct k_msgq * queue) {
 		return false;
     }
 
+	imu.setAccelRange(eAccelRange_2G);
+
 	sensor_queue = queue;
 	
 	k_work_init(&sensor.sensor_work, update_sensor);

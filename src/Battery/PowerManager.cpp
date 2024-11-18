@@ -12,16 +12,11 @@
 
 #include "../drivers/LED_Controller/KTD2026.h"
 #include "../drivers/SSM6515.h"
-
-
+#include "../buttons/Button.h"
 #include "../SensorManager/SensorManager.h"
 
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
-
-#include "../buttons/Button.h"
-
-//#include <zephyr/task_wdt/task_wdt.h>
 
 #include <zephyr/logging/log_ctrl.h>
 
@@ -87,11 +82,12 @@ void PowerManager::charge_ctrl_work_handler(struct k_work * work) {
 
 void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     int ret;
+    battery_level_status status;
 
     LOG_INF("Fuel Gauge GPOUT Interrupt");
     msg.battery_level = fuel_gauge.state_of_charge();
 
-    battery_level_status status;
+    //k_msleep(100);
 
     power_manager.get_battery_status(status);
 
@@ -104,7 +100,6 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 }
 
 int PowerManager::begin() {
-    //int ret;
 
     battery_controller.begin();
     fuel_gauge.begin();
@@ -383,7 +378,7 @@ int PowerManager::power_down(bool fault) {
 void PowerManager::charge_task() {
     uint16_t charging_state = battery_controller.read_charging_state() >> 6;
 
-    LOG_INF("Charger Watchdog ...................");
+    //LOG_INF("Charger Watchdog ...................");
 
     if (last_charging_state == 0) {
         LOG_INF("Setting up charge controller ........");
@@ -392,6 +387,8 @@ void PowerManager::charge_task() {
     }
 
     if (last_charging_state != charging_state) {
+        k_work_submit(&fuel_gauge_work);
+        //state_inidicator.set_state()
         switch (charging_state) {
         case 0:
             LOG_INF("charging state: ready");

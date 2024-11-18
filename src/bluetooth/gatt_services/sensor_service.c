@@ -4,7 +4,6 @@
 #include "../SensorManager/SensorManager.h"
 
 #include "macros_common.h"
-#include "nrf5340_audio_common.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
@@ -162,6 +161,8 @@ static void sensor_gatt_task(void)
 
 		ret = zbus_chan_read(chan, &data_buf[idx_data], ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
+
+		printk("temp: %.3f°C\n", data_buf[idx_data].data[0]);
 
 		//ret = zbus_sub_wait_msg(&sensor_gatt_sub, &chan, &data, K_FOREVER);
 		//ERR_CHK(ret);

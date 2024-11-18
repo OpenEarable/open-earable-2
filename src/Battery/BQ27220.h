@@ -55,13 +55,13 @@ struct gauge_status {
 
 class BQ27220 {
 public:
-    struct parameters {
+    /*struct parameters {
         uint16_t capacity_mAh = 3000;
         uint16_t nominal_voltage_mV = 3700;
         uint16_t max_voltage_mV = 4200;
         uint16_t charge_current_mA = 200;
         uint16_t taper_current_mA = 100;
-    };
+    };*/
 
     enum security_level : uint8_t {
         FAULT = 0,

@@ -108,7 +108,7 @@ bool SSM6515::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         _pWire->beginTransmission(address);
         _pWire->write(reg);
-        if (_pWire->endTransmission() != 0) {
+        if (_pWire->endTransmission(false) != 0) {
                 _pWire->release();
                 return false;
         }

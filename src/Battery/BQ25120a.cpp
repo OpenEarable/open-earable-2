@@ -15,13 +15,13 @@ int BQ25120a::begin() {
                 return -1;
         }
 
-        ret = gpio_pin_configure_dt(&pg_pin, GPIO_INPUT | GPIO_PULL_UP);
+        ret = gpio_pin_configure_dt(&pg_pin, GPIO_INPUT);
 	if (ret != 0) {
                 printk("Failed to set PG as input.\n");
                 return ret;
         }
 
-        ret = gpio_pin_configure_dt(&int_pin, GPIO_INPUT | GPIO_PULL_UP);
+        ret = gpio_pin_configure_dt(&int_pin, GPIO_INPUT);
 	if (ret != 0) {
                 printk("Failed to set INT as input.\n");
                 return ret;
