@@ -5,6 +5,5 @@
 #
 
 target_sources(app PRIVATE
-	       ${CMAKE_CURRENT_SOURCE_DIR}/DFRobot_BMX160.h
 		   ${CMAKE_CURRENT_SOURCE_DIR}/DFRobot_BMX160.cpp
 )

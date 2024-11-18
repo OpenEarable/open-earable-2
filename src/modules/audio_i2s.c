@@ -12,7 +12,7 @@
 #include <nrfx_i2s.h>
 #include <nrfx_clock.h>
 
-#include "nrf5340_audio_common.h"
+#include "audio_sync_timer.h"
 
 #define I2S_NL DT_NODELABEL(i2s0)
 
@@ -51,7 +51,8 @@ static nrfx_i2s_config_t cfg = {
 	.ratio = CONFIG_AUDIO_RATIO,
 	.mck_setup = 0x66666000,
 #if (CONFIG_AUDIO_BIT_DEPTH_16)
-	.sample_width = NRF_I2S_SWIDTH_16BIT,
+	//.sample_width = NRF_I2S_SWIDTH_16BIT,
+	.sample_width = NRF_I2S_SWIDTH_16BIT_IN32BIT,
 #elif (CONFIG_AUDIO_BIT_DEPTH_32)
 	.sample_width = NRF_I2S_SWIDTH_32BIT,
 #else
@@ -66,8 +67,7 @@ static i2s_blk_comp_callback_t i2s_blk_comp_callback;
 
 static void i2s_comp_handler(nrfx_i2s_buffers_t const *released_bufs, uint32_t status)
 {
-	uint32_t frame_start_ts = nrfx_timer_capture_get(
-		&audio_sync_timer_instance, AUDIO_SYNC_TIMER_I2S_FRAME_START_EVT_CAPTURE_CHANNEL);
+	uint32_t frame_start_ts = audio_sync_timer_capture_get();
 
 	if ((status == NRFX_I2S_STATUS_NEXT_BUFFERS_NEEDED) && released_bufs &&
 	    i2s_blk_comp_callback && (released_bufs->p_rx_buffer || released_bufs->p_tx_buffer)) {
@@ -79,7 +79,7 @@ static void i2s_comp_handler(nrfx_i2s_buffers_t const *released_bufs, uint32_t s
 void audio_i2s_set_next_buf(const uint8_t *tx_buf, uint32_t *rx_buf)
 {
 	__ASSERT_NO_MSG(state == AUDIO_I2S_STATE_STARTED);
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) {
+	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
 		__ASSERT_NO_MSG(rx_buf != NULL);
 	}
 
@@ -87,8 +87,9 @@ void audio_i2s_set_next_buf(const uint8_t *tx_buf, uint32_t *rx_buf)
 		__ASSERT_NO_MSG(tx_buf != NULL);
 	}
 
-	const nrfx_i2s_buffers_t i2s_buf = { .p_rx_buffer = rx_buf,
-					     .p_tx_buffer = (uint32_t *)tx_buf };
+	const nrfx_i2s_buffers_t i2s_buf = {.p_rx_buffer = rx_buf,
+					    .p_tx_buffer = (uint32_t *)tx_buf,
+					    .buffer_size = I2S_SAMPLES_NUM};
 
 	nrfx_err_t ret;
 
@@ -99,7 +100,7 @@ void audio_i2s_set_next_buf(const uint8_t *tx_buf, uint32_t *rx_buf)
 void audio_i2s_start(const uint8_t *tx_buf, uint32_t *rx_buf)
 {
 	__ASSERT_NO_MSG(state == AUDIO_I2S_STATE_IDLE);
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) {
+	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
 		__ASSERT_NO_MSG(rx_buf != NULL);
 	}
 
@@ -107,13 +108,14 @@ void audio_i2s_start(const uint8_t *tx_buf, uint32_t *rx_buf)
 		__ASSERT_NO_MSG(tx_buf != NULL);
 	}
 
-	const nrfx_i2s_buffers_t i2s_buf = { .p_rx_buffer = rx_buf,
-					     .p_tx_buffer = (uint32_t *)tx_buf };
+	const nrfx_i2s_buffers_t i2s_buf = {.p_rx_buffer = rx_buf,
+					    .p_tx_buffer = (uint32_t *)tx_buf,
+					    .buffer_size = I2S_SAMPLES_NUM};
 
 	nrfx_err_t ret;
 
 	/* Buffer size in 32-bit words */
-	ret = nrfx_i2s_start(&i2s_inst, &i2s_buf, I2S_SAMPLES_NUM, 0);
+	ret = nrfx_i2s_start(&i2s_inst, &i2s_buf, 0);
 	__ASSERT_NO_MSG(ret == NRFX_SUCCESS);
 
 	state = AUDIO_I2S_STATE_STARTED;

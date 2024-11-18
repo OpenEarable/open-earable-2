@@ -9,7 +9,7 @@ extern "C" {
 
 extern struct k_msgq button_queue;
 
-bool button_pressed(enum button_pin_names pin);
+int button_pressed(enum button_pin_names pin, bool * pressed);
 
 #ifdef __cplusplus
 }

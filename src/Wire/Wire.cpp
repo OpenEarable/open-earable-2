@@ -21,28 +21,16 @@
 */
 
 #include "Wire.h"
-//#include "pinDefinitions.h"
 
-//arduino::MbedI2C::MbedI2C(int sda, int scl) : _sda(sda), _scl(scl), usedTxBuffer(0) {}
+arduino::MbedI2C::MbedI2C(const struct device * _device) : master(_device), usedTxBuffer(0) {}
 
-arduino::MbedI2C::MbedI2C() : usedTxBuffer(0) {}
-
-void arduino::MbedI2C::begin() {
-	//end();
-	//master = new mbed::I2C(_sda, _scl);
-	if (master == NULL || !device_is_ready(master)) {
-    	master = device_get_binding(I2C_DEV_LABEL);
+void arduino::MbedI2C::begin(uint32_t speed) {
+	__ASSERT(master != NULL, "I2C_DEV_LABEL not found!");
+	if (!device_is_ready(master)) {
+		int result = i2c_configure(master, I2C_SPEED_SET(speed));
+		__ASSERT(result == 0, "Failed to set I2C speed!");
+		k_mutex_init(&mutex);
 	}
-}
-
-void arduino::MbedI2C::begin(uint8_t slaveAddr) {
-#ifdef DEVICE_I2CSLAVE
-	end();
-	slave = new mbed::I2CSlave((PinName)_sda, (PinName)_scl);
-	slave->address(slaveAddr);
-	slave_th = new rtos::Thread(osPriorityNormal, 2048, nullptr, "I2CSlave");
-	slave_th->start(mbed::callback(this, &arduino::MbedI2C::receiveThd));
-#endif
 }
 
 void arduino::MbedI2C::end() {
@@ -50,74 +38,57 @@ void arduino::MbedI2C::end() {
 		delete master;
 		master = NULL;
 	}
-#ifdef DEVICE_I2CSLAVE
-	if (slave != NULL) {
-		slave_th->terminate();
-		slave_th->free_stack();
-		delete slave_th;
-		delete slave;
-		slave = NULL;
-	}
-#endif
 }
 
 void arduino::MbedI2C::setClock(uint32_t freq) {
-	/*if (master != NULL) {
-		master->frequency(freq);
-	}
-#ifdef DEVICE_I2CSLAVE
-	if (slave != NULL) {
-		slave->frequency(freq);
-	}
-#endif*/
+	
 }
 
 void arduino::MbedI2C::beginTransmission(uint8_t address) {
+	//k_mutex_lock(&mutex, K_FOREVER);
 	_address = address;
 	usedTxBuffer = 0;
 }
 
 uint8_t arduino::MbedI2C::endTransmission(bool stopBit) {
-	#ifndef TARGET_PORTENTA_H7
 	if (usedTxBuffer == 0) {
 		// we are scanning, return 0 if the addresed device responds with an ACK
 		char buf[1];
 		int ret = master_read(_address, buf, 1, !stopBit);
+		//k_mutex_unlock(&mutex);
 		return ret;
 	}
-	#endif
-	if (master_write(_address, (const char *) txBuffer, usedTxBuffer, !stopBit) == 0) return 0;
+	int ret = master_write(_address, (const char *) txBuffer, usedTxBuffer, !stopBit);
+	//k_mutex_unlock(&mutex);
+	if (ret == 0) {
+		return 0;
+	}
+	
 	return 2;
 }
 
-uint8_t arduino::MbedI2C::endTransmission(void) {
-	return endTransmission(true);
-}
-
 size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) {
-	char buf[256];
+	//k_mutex_lock(&mutex, K_FOREVER);
 	int ret = master_read(address, buf, len, !stopBit);
 	if (ret != 0) {
+		//k_mutex_unlock(&mutex);
 		return 0;
 	}
 	for (size_t i=0; i<len; i++) {
 		rxBuffer.store_char(buf[i]);
 	}
+	//k_mutex_unlock(&mutex);
 	return len;
 }
 
-size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len) {
-	return requestFrom(address, len, true);
-}
-
 size_t arduino::MbedI2C::write(uint8_t data) {
-	if (usedTxBuffer == 256) return 0;
+	if (usedTxBuffer == BUFFER_TX_SIZE) return 0;
 	txBuffer[usedTxBuffer++] = data;
 	return 1;
 }
 
 size_t arduino::MbedI2C::write(const uint8_t* data, int len) {
-	if (usedTxBuffer + len > 256) len = 256 - usedTxBuffer;
+	if (usedTxBuffer + len > BUFFER_TX_SIZE) len = BUFFER_TX_SIZE - usedTxBuffer;
 	memcpy(txBuffer + usedTxBuffer, data, len);
 	usedTxBuffer += len;
 	return len;
@@ -141,49 +112,6 @@ int arduino::MbedI2C::peek() {
 void arduino::MbedI2C::flush() {
 }
 
-#ifdef DEVICE_I2CSLAVE
-void arduino::MbedI2C::receiveThd() {
-	while (1) {
-		int i = slave->receive();
-		int c = 0;
-		int buf_idx = 0;
-		switch (i) {
-			case mbed::I2CSlave::ReadAddressed:
-				if (onRequestCb != NULL) {
-					onRequestCb();
-				}
-				if (usedTxBuffer != 0) {
-					slave->write((const char *) txBuffer, usedTxBuffer);
-					usedTxBuffer = 0;
-				}
-				//slave->stop();
-				break;
-			case mbed::I2CSlave::WriteGeneral:
-			case mbed::I2CSlave::WriteAddressed:
-				rxBuffer.clear();
-				char buf[240];
-				c = slave->read(buf, sizeof(buf));
-				for (buf_idx = 0; buf_idx < c; buf_idx++) {
-					if (rxBuffer.availableForStore()) {
-						rxBuffer.store_char(uint8_t(buf[buf_idx]));
-					} else {
-						break;
-					}
-				}
-				if (rxBuffer.available() > 0 && onReceiveCb != NULL) {
-					onReceiveCb(rxBuffer.available());
-				}
-				//slave->stop();
-				break;
-		case mbed::I2CSlave::NoData:
-			//slave->stop();
-			yield();
-			break;
-		}
-	}
-}
-#endif
-
 void arduino::MbedI2C::onReceive(voidFuncPtrParamInt cb) {
 	onReceiveCb = cb;
 }
@@ -191,7 +119,15 @@ void arduino::MbedI2C::onRequest(voidFuncPtr cb) {
 	onRequestCb = cb;
 }
 
-int arduino::MbedI2C::i2c_message(uint8_t read_write, int address, const char * buf, const uint8_t len, bool no_stop) {
+void arduino::MbedI2C::aquire() {
+	k_mutex_lock(&mutex, K_FOREVER);
+}
+
+void arduino::MbedI2C::release() {
+	k_mutex_unlock(&mutex);
+}
+
+int arduino::MbedI2C::i2c_message(uint8_t read_write, int address, const char * buf, const uint32_t len, bool no_stop) {
     uint8_t stop = no_stop ? 0 : I2C_MSG_STOP;
 
     struct i2c_msg msg;
@@ -203,12 +139,14 @@ int arduino::MbedI2C::i2c_message(uint8_t read_write, int address, const char * 
     return i2c_transfer(master, &msg, 1, address);
 }
 
-int arduino::MbedI2C::master_write(int address, const char * buf, const uint8_t len, bool no_stop) {
+int arduino::MbedI2C::master_write(int address, const char * buf, const uint32_t len, bool no_stop) {
     return i2c_message(I2C_MSG_WRITE, address, buf, len, no_stop);
 }
 
-int arduino::MbedI2C::master_read(int address, const char * buf, const uint8_t len, bool no_stop) {
+int arduino::MbedI2C::master_read(int address, const char * buf, const uint32_t len, bool no_stop) {
 	return i2c_message(I2C_MSG_READ, address, buf, len, no_stop);
 }
 
-arduino::MbedI2C Wire;
+arduino::MbedI2C Wire(DEVICE_DT_GET(DT_NODELABEL(i2c1)));
+
+arduino::MbedI2C Wire1(DEVICE_DT_GET(DT_NODELABEL(i2c2)));

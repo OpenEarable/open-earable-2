@@ -671,7 +671,7 @@ typedef struct {
   float y;           /**< Y-axis sensor data */
   float z;           /**< Z-axis sensor data */
   uint32_t sensortime; /**< sensor time */
-}sBmx160SensorData_t;
+}sBmx160SensorData_t; // __attribute__((packed));
 
 /**
  * @enum eBmx160IntChannel_t
@@ -967,10 +967,10 @@ typedef enum{
  * @enum eAccelRange_t
  */
 typedef enum{
-    eAccelRange_2G,   /**< Macro for mg per LSB at +/- 2g sensitivity (1 LSB = 0.000061035mg) */
-    eAccelRange_4G,   /**< Macro for mg per LSB at +/- 4g sensitivity (1 LSB = 0.000122070mg) */
-    eAccelRange_8G,   /**< Macro for mg per LSB at +/- 8g sensitivity (1 LSB = 0.000244141mg) */
-    eAccelRange_16G   /**< Macro for mg per LSB at +/- 16g sensitivity (1 LSB = 0.000488281mg) */
+    eAccelRange_2G  = 0b0011,   /**< Macro for mg per LSB at +/- 2g sensitivity (1 LSB = 0.000061035mg) */
+    eAccelRange_4G  = 0b0101,   /**< Macro for mg per LSB at +/- 4g sensitivity (1 LSB = 0.000122070mg) */
+    eAccelRange_8G  = 0b1000,   /**< Macro for mg per LSB at +/- 8g sensitivity (1 LSB = 0.000244141mg) */
+    eAccelRange_16G = 0b1100,   /**< Macro for mg per LSB at +/- 16g sensitivity (1 LSB = 0.000488281mg) */
 }eAccelRange_t;
 
 class DFRobot_BMX160{

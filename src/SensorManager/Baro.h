@@ -14,14 +14,13 @@ public:
     void start(k_timeout_t t) override;
     void stop() override;
 private:
-    /*static k_work sensor_work;
-    static k_msgq * sensor_queue;*/
-
     static void sensor_timer_handler(struct k_timer *dummy);
 
     static Adafruit_BMP3XX bmp;
 
     static void update_sensor(struct k_work *work);
+
+    bool _active = false;
 };
 
 #endif

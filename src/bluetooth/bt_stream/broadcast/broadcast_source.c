@@ -18,6 +18,7 @@
 #include <../subsys/bluetooth/audio/bap_endpoint.h>
 
 #include "macros_common.h"
+#include "bt_le_audio_tx.h"
 #include "le_audio.h"
 #include "nrf5340_audio_common.h"
 
@@ -33,77 +34,21 @@ BUILD_ASSERT(CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT <= 2,
 ZBUS_CHAN_DEFINE(le_audio_chan, struct le_audio_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
-ZBUS_CHAN_DEFINE(sdu_ref_chan, struct sdu_ref_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
-		 ZBUS_MSG_INIT(0));
-
-#if CONFIG_BT_AUDIO_BROADCAST_CONFIGURABLE
-#define BT_BAP_LC3_BROADCAST_PRESET_NRF5340_AUDIO                                                  \
-	BT_BAP_LC3_PRESET_CONFIGURABLE(                                                            \
-		BT_AUDIO_LOCATION_FRONT_LEFT | BT_AUDIO_LOCATION_FRONT_RIGHT,                      \
-		BT_AUDIO_CONTEXT_TYPE_MEDIA, CONFIG_BT_AUDIO_BITRATE_BROADCAST_SRC)
-
-#elif CONFIG_BT_BAP_BROADCAST_16_2_1
-#define BT_BAP_LC3_BROADCAST_PRESET_NRF5340_AUDIO                                                  \
-	BT_BAP_LC3_BROADCAST_PRESET_16_2_1(BT_AUDIO_LOCATION_FRONT_LEFT |                          \
-						   BT_AUDIO_LOCATION_FRONT_RIGHT,                  \
-					   BT_AUDIO_CONTEXT_TYPE_MEDIA)
-
-#elif CONFIG_BT_BAP_BROADCAST_24_2_1
-#define BT_BAP_LC3_BROADCAST_PRESET_NRF5340_AUDIO                                                  \
-	BT_BAP_LC3_BROADCAST_PRESET_24_2_1(BT_AUDIO_LOCATION_FRONT_LEFT |                          \
-						   BT_AUDIO_LOCATION_FRONT_RIGHT,                  \
-					   BT_AUDIO_CONTEXT_TYPE_MEDIA)
-
-#elif CONFIG_BT_BAP_BROADCAST_16_2_2
-#define BT_BAP_LC3_BROADCAST_PRESET_NRF5340_AUDIO                                                  \
-	BT_BAP_LC3_BROADCAST_PRESET_16_2_2(BT_AUDIO_LOCATION_FRONT_LEFT |                          \
-						   BT_AUDIO_LOCATION_FRONT_RIGHT,                  \
-					   BT_AUDIO_CONTEXT_TYPE_MEDIA)
-
-#elif CONFIG_BT_BAP_BROADCAST_24_2_2
-#define BT_BAP_LC3_BROADCAST_PRESET_NRF5340_AUDIO                                                  \
-	BT_BAP_LC3_BROADCAST_PRESET_24_2_2(BT_AUDIO_LOCATION_FRONT_LEFT |                          \
-						   BT_AUDIO_LOCATION_FRONT_RIGHT,                  \
-					   BT_AUDIO_CONTEXT_TYPE_MEDIA)
-
-#else
-#error Unsupported LC3 codec preset for broadcast
-#endif /* CONFIG_BT_AUDIO_BROADCAST_CONFIGURABLE */
-
-#define STANDARD_QUALITY_16KHZ 16000
-#define STANDARD_QUALITY_24KHZ 24000
-#define HIGH_QUALITY_48KHZ     48000
-
-#define HCI_ISO_BUF_ALLOC_PER_CHAN 2
-/* For being able to dynamically define iso_tx_pools */
-#define NET_BUF_POOL_ITERATE(i, _)                                                                 \
-	NET_BUF_POOL_FIXED_DEFINE(iso_tx_pool_##i, HCI_ISO_BUF_ALLOC_PER_CHAN,                     \
-				  BT_ISO_SDU_BUF_SIZE(CONFIG_BT_ISO_TX_MTU), 8, NULL);
-#define NET_BUF_POOL_PTR_ITERATE(i, ...) IDENTITY(&iso_tx_pool_##i)
-LISTIFY(CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT, NET_BUF_POOL_ITERATE, (;))
-
-/* clang-format off */
-static struct net_buf_pool *iso_tx_pools[] = { LISTIFY(CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT,
-						       NET_BUF_POOL_PTR_ITERATE, (,)) };
-/* clang-format on */
-
 static struct bt_cap_broadcast_source *broadcast_source;
-
 static struct bt_cap_stream cap_streams[CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT];
-
 static struct bt_bap_lc3_preset lc3_preset = BT_BAP_LC3_BROADCAST_PRESET_NRF5340_AUDIO;
-
 static struct bt_le_ext_adv *adv;
-static atomic_t iso_tx_pool_alloc[CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT];
-static uint32_t seq_num[CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT];
 static bool initialized;
 static bool delete_broadcast_src;
 
 #if (CONFIG_AURACAST)
-NET_BUF_SIMPLE_DEFINE(pba_buf, BT_UUID_SIZE_16 + 2);
-static struct bt_data ext_ad[4];
+/* Make sure pba_buf is large enough for a 16bit UUID and meta data
+ * (any addition to pba_buf requires an increase of this value)
+ */
+NET_BUF_SIMPLE_DEFINE(pba_buf, BT_UUID_SIZE_16 + 8);
+static struct bt_data ext_ad[5];
 #else
-static struct bt_data ext_ad[3];
+static struct bt_data ext_ad[4];
 #endif /* (CONFIG_AURACAST) */
 
 static struct bt_data per_ad[1];
@@ -117,24 +62,6 @@ static void le_audio_event_publish(enum le_audio_evt_type event)
 
 	ret = zbus_chan_pub(&le_audio_chan, &msg, LE_AUDIO_ZBUS_EVENT_WAIT_TIME);
 	ERR_CHK(ret);
-}
-
-static bool is_iso_buffer_full(uint8_t idx)
-{
-	/* net_buf_alloc allocates buffers for APP->NET transfer over HCI RPMsg,
-	 * but when these buffers are released it is not guaranteed that the
-	 * data has actually been sent. The data might be qued on the NET core,
-	 * and this can cause delays in the audio.
-	 * When stream_sent_cb() is called the data has been sent.
-	 * Data will be discarded if allocation becomes too high, to avoid audio delays.
-	 * If the NET and APP core operates in clock sync, discarding should not occur.
-	 */
-
-	if (atomic_get(&iso_tx_pool_alloc[idx]) >= HCI_ISO_BUF_ALLOC_PER_CHAN) {
-		return true;
-	}
-
-	return false;
 }
 
 static int get_stream_index(struct bt_bap_stream *stream, uint8_t *index)
@@ -153,22 +80,10 @@ static int get_stream_index(struct bt_bap_stream *stream, uint8_t *index)
 
 static void stream_sent_cb(struct bt_bap_stream *stream)
 {
-	static uint32_t sent_cnt[ARRAY_SIZE(cap_streams)];
 	uint8_t index = 0;
 
 	get_stream_index(stream, &index);
-
-	if (atomic_get(&iso_tx_pool_alloc[index])) {
-		atomic_dec(&iso_tx_pool_alloc[index]);
-	} else {
-		LOG_WRN("Decreasing atomic variable for stream %d failed", index);
-	}
-
-	sent_cnt[index]++;
-
-	if ((sent_cnt[index] % 1000U) == 0U) {
-		LOG_DBG("Sent %d total ISO packets on stream %d", sent_cnt[index], index);
-	}
+	ERR_CHK(bt_le_audio_tx_stream_sent(index));
 }
 
 static void stream_started_cb(struct bt_bap_stream *stream)
@@ -176,19 +91,26 @@ static void stream_started_cb(struct bt_bap_stream *stream)
 	uint8_t index = 0;
 
 	get_stream_index(stream, &index);
-	seq_num[index] = 0;
+	ERR_CHK(bt_le_audio_tx_stream_started(index));
 
 	le_audio_event_publish(LE_AUDIO_EVT_STREAMING);
 
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Broadcast source %p started", (void *)stream);
+
+	le_audio_print_codec(stream->codec_cfg, BT_AUDIO_DIR_SOURCE);
 }
 
 static void stream_stopped_cb(struct bt_bap_stream *stream, uint8_t reason)
 {
 	int ret;
+	uint8_t index = 0;
+
+	get_stream_index(stream, &index);
 
 	le_audio_event_publish(LE_AUDIO_EVT_NOT_STREAMING);
+
+	ERR_CHK(bt_le_audio_tx_stream_stopped(index));
 
 	LOG_INF("Broadcast source %p stopped. Reason: %d", (void *)stream, reason);
 
@@ -228,9 +150,9 @@ static void public_broadcast_features_set(uint8_t *features)
 		*features |= 0x01;
 	}
 
-	if (freq == STANDARD_QUALITY_16KHZ || freq == STANDARD_QUALITY_24KHZ) {
+	if (freq == BT_AUDIO_CODEC_CFG_FREQ_16KHZ || freq == BT_AUDIO_CODEC_CFG_FREQ_24KHZ) {
 		*features |= 0x02;
-	} else if (freq == HIGH_QUALITY_48KHZ) {
+	} else if (freq == BT_AUDIO_CODEC_CFG_FREQ_48KHZ) {
 		*features |= 0x04;
 	} else {
 		LOG_WRN("%dkHz is not compatible with Auracast, choose 16kHz, 24kHz or 48kHz",
@@ -248,8 +170,16 @@ static int adv_create(void)
 	NET_BUF_SIMPLE_DEFINE_STATIC(brdcst_id_buf, BT_UUID_SIZE_16 + BT_AUDIO_BROADCAST_ID_SIZE);
 	/* Buffer for Appearance */
 	NET_BUF_SIMPLE_DEFINE_STATIC(brdcst_appearance_buf, BT_UUID_SIZE_16);
+	/* Buffer for manufacturer ID */
+	NET_BUF_SIMPLE_DEFINE_STATIC(manufacturer_id_buf, BT_UUID_SIZE_16);
 	/* Buffer for Public Broadcast Announcement */
 	NET_BUF_SIMPLE_DEFINE_STATIC(base_buf, 128);
+
+	net_buf_simple_add_le16(&manufacturer_id_buf, CONFIG_BT_DEVICE_MANUFACTURER_ID);
+
+	ext_ad[0].data_len = manufacturer_id_buf.len;
+	ext_ad[0].type = BT_DATA_UUID16_SOME;
+	ext_ad[0].data = manufacturer_id_buf.data;
 
 	if (IS_ENABLED(CONFIG_BT_AUDIO_USE_BROADCAST_ID_RANDOM)) {
 		ret = bt_cap_initiator_broadcast_get_id(broadcast_source, &broadcast_id);
@@ -261,22 +191,29 @@ static int adv_create(void)
 		broadcast_id = CONFIG_BT_AUDIO_BROADCAST_ID_FIXED;
 	}
 
-	ext_ad[0] = (struct bt_data)BT_DATA(BT_DATA_BROADCAST_NAME, CONFIG_BT_AUDIO_BROADCAST_NAME,
-					    sizeof(CONFIG_BT_AUDIO_BROADCAST_NAME) - 1);
+	if (IS_ENABLED(CONFIG_BT_AUDIO_USE_BROADCAST_NAME_ALT)) {
+		ext_ad[1] = (struct bt_data)BT_DATA(BT_DATA_BROADCAST_NAME,
+						    CONFIG_BT_AUDIO_BROADCAST_NAME_ALT,
+						    sizeof(CONFIG_BT_AUDIO_BROADCAST_NAME_ALT) - 1);
+	} else {
+		ext_ad[1] = (struct bt_data)BT_DATA(BT_DATA_BROADCAST_NAME,
+						    CONFIG_BT_AUDIO_BROADCAST_NAME,
+						    sizeof(CONFIG_BT_AUDIO_BROADCAST_NAME) - 1);
+	}
 
 	/* Setup extended advertising data */
 	net_buf_simple_add_le16(&brdcst_id_buf, BT_UUID_BROADCAST_AUDIO_VAL);
 	net_buf_simple_add_le24(&brdcst_id_buf, broadcast_id);
 
-	ext_ad[1].data_len = brdcst_id_buf.len;
-	ext_ad[1].type = BT_DATA_SVC_DATA16;
-	ext_ad[1].data = brdcst_id_buf.data;
+	ext_ad[2].data_len = brdcst_id_buf.len;
+	ext_ad[2].type = BT_DATA_SVC_DATA16;
+	ext_ad[2].data = brdcst_id_buf.data;
 
 	net_buf_simple_add_le16(&brdcst_appearance_buf, CONFIG_BT_DEVICE_APPEARANCE);
 
-	ext_ad[2].data_len = brdcst_appearance_buf.len;
-	ext_ad[2].type = BT_DATA_GAP_APPEARANCE;
-	ext_ad[2].data = brdcst_appearance_buf.data;
+	ext_ad[3].data_len = brdcst_appearance_buf.len;
+	ext_ad[3].type = BT_DATA_GAP_APPEARANCE;
+	ext_ad[3].data = brdcst_appearance_buf.data;
 
 #if (CONFIG_AURACAST)
 	uint8_t pba_features = 0;
@@ -284,12 +221,32 @@ static int adv_create(void)
 
 	net_buf_simple_add_le16(&pba_buf, 0x1856);
 	net_buf_simple_add_u8(&pba_buf, pba_features);
-	/* No metadata, set length to 0 */
-	net_buf_simple_add_u8(&pba_buf, 0x00);
 
-	ext_ad[3].data_len = pba_buf.len;
-	ext_ad[3].type = BT_DATA_SVC_DATA16;
-	ext_ad[3].data = pba_buf.data;
+	/* Metadata */
+	/* 3 bytes for parental_rating and 3 bytes for active_flag LTVs */
+	net_buf_simple_add_u8(&pba_buf, 0x06);
+
+	/* Parental rating*/
+	/* Length */
+	net_buf_simple_add_u8(&pba_buf, 0x02);
+	/* Type */
+	net_buf_simple_add_u8(&pba_buf, BT_AUDIO_METADATA_TYPE_PARENTAL_RATING);
+	/* Value */
+	net_buf_simple_add_u8(&pba_buf, CONFIG_BT_AUDIO_BROADCAST_PARENTAL_RATING);
+
+	/* Active flag */
+	/* Length */
+	net_buf_simple_add_u8(&pba_buf, 0x02);
+	/* Type */
+	net_buf_simple_add_u8(&pba_buf, BT_AUDIO_METADATA_TYPE_AUDIO_STATE);
+	/* Value */
+	net_buf_simple_add_u8(&pba_buf, BT_AUDIO_ACTIVE_STATE_ENABLED);
+
+	/* If any additional data is to be added, remember to increase NET_BUF size */
+
+	ext_ad[4].data_len = pba_buf.len;
+	ext_ad[4].type = BT_DATA_SVC_DATA16;
+	ext_ad[4].data = pba_buf.data;
 #endif /* (CONFIG_AURACAST) */
 
 	/* Setup periodic advertising data */
@@ -317,7 +274,7 @@ static void bt_audio_codec_allocation_set(uint8_t *data, uint8_t data_len,
 					  enum bt_audio_location loc)
 {
 	data[0] = data_len - 1;
-	data[1] = BT_AUDIO_CODEC_CONFIG_LC3_CHAN_ALLOC;
+	data[1] = BT_AUDIO_CODEC_CFG_CHAN_ALLOC;
 	sys_put_le32((const uint32_t)loc, &data[2]);
 }
 
@@ -396,81 +353,15 @@ int broadcast_source_stop(void)
 int broadcast_source_send(struct le_audio_encoded_audio enc_audio)
 {
 	int ret;
-	static bool wrn_printed[CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT];
-	struct net_buf *buf;
-	size_t num_streams = ARRAY_SIZE(cap_streams);
-	size_t data_size_pr_stream;
-	struct bt_iso_tx_info tx_info = {0};
-	struct sdu_ref_msg msg;
+	struct bt_bap_stream *bap_tx_streams[CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT];
 
-	if ((enc_audio.num_ch == 1) || (enc_audio.num_ch == num_streams)) {
-		data_size_pr_stream = enc_audio.size / enc_audio.num_ch;
-	} else {
-		LOG_ERR("Num enc channels is %d Must be 1 or num streams", enc_audio.num_ch);
-		return -EINVAL;
+	for (int i = 0; i < ARRAY_SIZE(cap_streams); i++) {
+		bap_tx_streams[i] = &cap_streams[i].bap_stream;
 	}
 
-	if (data_size_pr_stream != LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE)) {
-		LOG_ERR("The encoded data size does not match the SDU size");
-		return -ECANCELED;
-	}
-
-	for (int i = 0; i < num_streams; i++) {
-		if (cap_streams[i].bap_stream.ep->status.state != BT_BAP_EP_STATE_STREAMING) {
-			LOG_DBG("Stream %d not in streaming state", i);
-			continue;
-		}
-
-		if (is_iso_buffer_full(i)) {
-			if (!wrn_printed[i]) {
-				LOG_WRN("HCI ISO TX overrun on ch %d - Single print", i);
-				wrn_printed[i] = true;
-			}
-
-			return -ENOMEM;
-		}
-
-		wrn_printed[i] = false;
-
-		buf = net_buf_alloc(iso_tx_pools[i], K_NO_WAIT);
-		if (buf == NULL) {
-			/* This should never occur because of the is_iso_buffer_full() check */
-			LOG_WRN("Out of TX buffers");
-			return -ENOMEM;
-		}
-
-		net_buf_reserve(buf, BT_ISO_CHAN_SEND_RESERVE);
-		if (enc_audio.num_ch == 1) {
-			net_buf_add_mem(buf, &enc_audio.data[0], data_size_pr_stream);
-		} else {
-			net_buf_add_mem(buf, &enc_audio.data[i * data_size_pr_stream],
-					data_size_pr_stream);
-		}
-
-		atomic_inc(&iso_tx_pool_alloc[i]);
-
-		ret = bt_bap_stream_send(&cap_streams[i].bap_stream, buf, seq_num[i]++,
-					 BT_ISO_TIMESTAMP_NONE);
-		if (ret < 0) {
-			LOG_WRN("Failed to send audio data: %d", ret);
-			net_buf_unref(buf);
-			atomic_dec(&iso_tx_pool_alloc[i]);
-			return ret;
-		}
-	}
-
-	ret = bt_iso_chan_get_tx_sync(&cap_streams[0].bap_stream.ep->iso->chan, &tx_info);
-
+	ret = bt_le_audio_tx_send(bap_tx_streams, enc_audio, ARRAY_SIZE(cap_streams));
 	if (ret) {
-		LOG_DBG("Error getting ISO TX anchor point: %d", ret);
-	} else {
-		msg.timestamp = tx_info.ts;
-		msg.adjust = false;
-
-		ret = zbus_chan_pub(&sdu_ref_chan, &msg, K_NO_WAIT);
-		if (ret) {
-			LOG_WRN("Failed to publish timestamp: %d", ret);
-		}
+		return ret;
 	}
 
 	return 0;
@@ -519,6 +410,11 @@ int broadcast_source_enable(void)
 		return -EALREADY;
 	}
 
+	ret = bt_le_audio_tx_init();
+	if (ret) {
+		return ret;
+	}
+
 	LOG_INF("Enabling broadcast_source %s", CONFIG_BT_AUDIO_BROADCAST_NAME);
 
 	(void)memset(cap_streams, 0, sizeof(cap_streams));
@@ -545,9 +441,8 @@ int broadcast_source_enable(void)
 		subgroup_params[i].stream_params = &stream_params[i];
 		subgroup_params[i].codec_cfg = &lc3_preset.codec_cfg;
 #if (CONFIG_BT_AUDIO_BROADCAST_IMMEDIATE_FLAG)
-		/* Immediate rendering flag */
-		subgroup_params[i].codec_cfg->meta_len++;
-		subgroup_params[i].codec_cfg->meta[subgroup_params[i].codec_cfg->meta_len] = 0x09;
+		bt_audio_codec_cfg_meta_set_bcast_audio_immediate_rend_flag(
+			subgroup_params[i].codec_cfg);
 #endif /* (CONFIG_BT_AUDIO_BROADCAST_IMMEDIATE_FLAG) */
 	}
 

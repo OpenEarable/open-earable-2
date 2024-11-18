@@ -22,7 +22,8 @@
 
 #pragma once
 
-#define I2C_DEV_LABEL "I2C_1"
+#define BUFFER_TX_SIZE 256
+#define BUFFER_RX_SIZE 512
 
 typedef void (*voidFuncPtr)(void);
 typedef void (*voidFuncPtrParamInt)(int);
@@ -33,67 +34,55 @@ namespace arduino {
 class MbedI2C //: public HardwareI2C
 {
   public:
-    MbedI2C(); //int sda, int scl
-    //MbedI2C(PinName sda, PinName scl);
-    virtual void begin();
-    #ifndef DEVICE_I2CSLAVE
-    virtual void __attribute__ ((error("I2C Slave mode is not supported"))) begin(uint8_t address);
-    #else
-    virtual void begin(uint8_t address);
-    #endif
+    MbedI2C(const struct device * master);
+    virtual void begin(uint32_t speed = I2C_SPEED_FAST);
     virtual void end();
 
     virtual void setClock(uint32_t freq);
   
     virtual void beginTransmission(uint8_t address);
-    virtual uint8_t endTransmission(bool stopBit);
-    virtual uint8_t endTransmission(void);
+    virtual uint8_t endTransmission(bool stopBit = true);
 
-    virtual size_t requestFrom(uint8_t address, size_t len, bool stopBit);
-    virtual size_t requestFrom(uint8_t address, size_t len);
+    virtual size_t requestFrom(uint8_t address, size_t len, bool stopBit = true);
 
     virtual void onReceive(void(*)(int));
     virtual void onRequest(void(*)(void));
 
     virtual size_t write(uint8_t data);
-    virtual size_t write(int data) {
-      return write ((uint8_t)data);
-    };
     virtual size_t write(const uint8_t* data, int len);
-    //using Print::write;
+    
     virtual int read();
     virtual int peek();
     virtual void flush();
     virtual int available();
 
-private:
+    void aquire();
+    void release();
 
-#ifdef DEVICE_I2CSLAVE
-    mbed::I2CSlave* slave = NULL;
-#endif
-    //mbed::I2C*      master = NULL;
+private:
     const struct device * master = NULL;
 
-    int master_read(int address, const char * buf, const uint8_t len, bool no_stop);
-    int master_write(int address, const char * buf, const uint8_t len, bool no_stop);
-    int i2c_message(uint8_t read_write, int address, const char * buf, const uint8_t len, bool no_stop);
+    struct k_mutex mutex;
+
+    int master_read(int address, const char * buf, const uint32_t len, bool no_stop);
+    int master_write(int address, const char * buf, const uint32_t len, bool no_stop);
+    int i2c_message(uint8_t read_write, int address, const char * buf, const uint32_t len, bool no_stop);
     
     //PinName _sda;
     //PinName _scl;
     int _address;
-    RingBufferN<256> rxBuffer;
-    uint8_t txBuffer[256];
+    char buf[BUFFER_RX_SIZE];
+    RingBufferN<BUFFER_RX_SIZE> rxBuffer;
+    uint8_t txBuffer[BUFFER_TX_SIZE];
     uint32_t usedTxBuffer;
     voidFuncPtrParamInt onReceiveCb = NULL;
     voidFuncPtr onRequestCb = NULL;
-#ifdef DEVICE_I2CSLAVE
-    rtos::Thread* slave_th;
-    void receiveThd();
-#endif
 };
 
 }
 
 extern arduino::MbedI2C Wire;
+
+extern arduino::MbedI2C Wire1;
 
 typedef arduino::MbedI2C TwoWire;

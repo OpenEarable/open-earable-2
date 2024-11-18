@@ -24,8 +24,10 @@
 
 #include "bmp3.h"
 
-#include "../Adafruit_BusIO/Adafruit_I2CDevice.h"
+//#include "../Adafruit_BusIO/Adafruit_I2CDevice.h"
 //#include "Adafruit_SPIDevice.h"
+
+#include "Wire.h"
 
 /*=========================================================================
     I2C ADDRESS/BITS
@@ -37,6 +39,11 @@
 /** Adafruit_BMP3XX Class for both I2C and SPI usage.
  *  Wraps the Bosch library for Arduino usage
  */
+
+struct BMP3XX_dev_inf {
+    uint8_t addr;
+    TwoWire * i2c_dev;
+};
 
 class Adafruit_BMP3XX {
 public:
@@ -66,8 +73,7 @@ public:
   double pressure;
 
 private:
-  Adafruit_I2CDevice *i2c_dev = NULL; ///< Pointer to I2C bus interface
-  //Adafruit_SPIDevice *spi_dev = NULL; ///< Pointer to SPI bus interface
+  TwoWire *i2c_dev = NULL;
 
   bool _init(void);
 
@@ -80,6 +86,13 @@ private:
   //uint8_t spixfer(uint8_t x);
 
   struct bmp3_dev the_sensor;
+
+  bool detect(int address);
+
+  BMP3XX_dev_inf dev_inf;
+
+  //bool readReg(int reg, uint8_t * buffer, int len);
+  //void writeReg(const uint8_t reg, const uint8_t *pBuf, uint16_t len);
 };
 
 #endif

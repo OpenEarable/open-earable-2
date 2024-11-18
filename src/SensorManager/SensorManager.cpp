@@ -1,34 +1,55 @@
 #include "SensorManager.h"
 #include <zephyr/kernel.h>
-#include <zephyr/zbus/zbus.h>
+
+#include "IMU.h"
+#include "Baro.h"
+#include "PPG.h"
+#include "Temp.h"
 
 extern struct k_msgq sensor_queue;
+extern k_tid_t sensor_publish;
 
-SensorManager SensorManager::manager = SensorManager();
+//SensorManager SensorManager::manager = SensorManager();
 
-void SensorManager::start() {
-    baro.init(&sensor_queue);
-	imu.init(&sensor_queue);
+void start_sensor_manager() {
+	//empty message queue
+	k_msgq_purge(&sensor_queue);
+
+	//k_thread_start(sensor_publish);
+	k_thread_resume(sensor_publish);
 }
 
-void SensorManager::stop() {
-    baro.stop();
-	imu.stop();
+void stop_sensor_manager() {
+    Baro::sensor.stop();
+	IMU::sensor.stop();
+	PPG::sensor.stop();
+	Temp::sensor.stop();
+
+	k_thread_suspend(sensor_publish);
 }
 
-void SensorManager::config(sensor_config * config) {
-    k_timeout_t t = K_MSEC(1000 / config->sampleRate);
+void config_sensor(struct sensor_config * config) {
+    k_timeout_t t = K_USEC(1e6 / config->sampleRate);
 
-	switch (config->sensorId)
-	{
+	EdgeMlSensor * sensor;
+
+	switch (config->sensorId) {
 	case ID_IMU:
-		imu.start(t);
+		sensor = &(IMU::sensor);
 		break;
 	case ID_TEMP_BARO:
-		baro.start(t);
+		sensor = &(Baro::sensor);
 		break;
-	
+	case ID_PPG:
+		sensor = &(PPG::sensor);
+		break;
+	case ID_OPTTEMP:
+		sensor = &(Temp::sensor);
+		break;
 	default:
-		break;
+		return;
 	}
+
+	if (config->sampleRate == 0) sensor->stop();
+	else if (sensor->init(&sensor_queue)) sensor->start(t);
 }

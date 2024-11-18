@@ -8,6 +8,10 @@ menuconfig NRF5340_AUDIO
 	 bool "nRF5340 Audio [EXPERIMENTAL]"
 	 select EXPERIMENTAL
 
+config USE_LEDS
+	bool "has leds"
+	default y
+	
 if NRF5340_AUDIO
 
 config AUDIO_DEV
@@ -32,11 +36,25 @@ config TRANSPORT_CIS
 
 endchoice
 
-config ZBUS_RUNTIME_OBSERVERS_POOL_SIZE
-	int "Number of zbus observers"
-	default 6
-
 #----------------------------------------------------------------------------#
+# if (TRANSPORT_BIS && AUDIO_DEV = 1)
+# rsource "broadcast_sink/Kconfig.defaults"
+# endif # TRANSPORT_BIS && AUDIO_DEV = 1
+
+# if (TRANSPORT_BIS && AUDIO_DEV = 2)
+# rsource "broadcast_source/Kconfig.defaults"
+# endif # TRANSPORT_BIS && AUDIO_DEV = 2
+
+if (TRANSPORT_CIS && AUDIO_DEV = 1)
+rsource "unicast_server/Kconfig.defaults"
+endif # TRANSPORT_CIS && AUDIO_DEV = 1
+
+# if (TRANSPORT_CIS && AUDIO_DEV = 2)
+# rsource "unicast_client/Kconfig.defaults"
+# endif # TRANSPORT_CIS && AUDIO_DEV = 2
+
+
+
 rsource "Kconfig.defaults"
 rsource "src/audio/Kconfig"
 rsource "src/bluetooth/Kconfig"
@@ -50,6 +68,10 @@ menu "Logging"
 
 module = MAIN
 module-str = main
+source "subsys/logging/Kconfig.template.log_config"
+
+module = NRF5340_AUDIO_COMMON
+module-str = nrf5340_audio_common
 source "subsys/logging/Kconfig.template.log_config"
 
 config PRINT_STACK_USAGE_MS

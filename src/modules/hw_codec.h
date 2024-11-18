@@ -9,6 +9,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief  Set volume on HW_CODEC
  *
@@ -92,5 +96,9 @@ int hw_codec_soft_reset(void);
  * @return 0 if successful, error otherwise
  */
 int hw_codec_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _HW_CODEC_H_ */

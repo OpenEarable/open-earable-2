@@ -7,23 +7,73 @@
 #ifndef _NRF5340_AUDIO_COMMON_H_
 #define _NRF5340_AUDIO_COMMON_H_
 
-#include <nrfx_timer.h>
+#include <zephyr/bluetooth/audio/audio.h>
+#include <zephyr/drivers/gpio.h>
 
-#define AUDIO_SYNC_TIMER_I2S_FRAME_START_EVT_CAPTURE_CHANNEL 0
-#define AUDIO_SYNC_TIMER_CURR_TIME_CAPTURE_CHANNEL	     1
-#define ZBUS_READ_TIMEOUT_MS				     K_MSEC(100)
-#define ZBUS_ADD_OBS_TIMEOUT_MS				     K_MSEC(200)
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/device_runtime.h>
 
-extern const nrfx_timer_t audio_sync_timer_instance;
+#include "LoadSwitchPM.h"
 
-#define SENSOR_DATA_FIXED_LENGTH 12
+#define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
+#define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
 
-enum sensor_id {
-	ID_IMU,
-	ID_TEMP_BARO,
+#define SENSOR_DATA_FIXED_LENGTH 9
+
+#define millis() k_cyc_to_ms_floor32(k_cycle_get_32())
+
+#define load_switch_sd_id DT_NODELABEL(load_switch_sd)
+#define load_switch_1_8_id DT_NODELABEL(load_switch)
+#define load_switch_3_3_id DT_NODELABEL(bq25120a)
+
+extern const struct device *const cons;
+extern const struct device *const ls_1_8;
+extern const struct device *const ls_3_3;
+extern const struct device *const ls_sd;
+
+/*
+enum earable_state {
+	UNPAIRED,
+	PAIRING,
+	PAIRED,
+	CONNECTED,
+	CHARGING,
+	FULLY_CHARGED,
+	FAULT
+};*/
+
+enum pairing_state {
+	UNPAIRED,
+	PAIRING,
+	PAIRED,
+	CONNECTED,
 };
 
-//#include "nrfx"
+enum charging_state {
+	DISCHARGING,
+	CHARGING,
+	FULLY_CHARGED,
+	FAULT,
+};
+
+struct earable_state {
+	enum pairing_state pairing_state;
+	enum charging_state charging_state;
+};	 
+
+enum sensor_id {
+	ID_IMU=0,
+	ID_TEMP_BARO=1,
+	ID_PPG=4,
+	ID_PULSOX=5,
+	ID_OPTTEMP=6,
+	ID_BONE_CONDUCTION=7,
+};
+
+struct battery_data {
+    uint8_t battery_level;
+    uint16_t charging_state;
+};
 
 struct sensor_data {
     uint8_t id;
@@ -31,13 +81,13 @@ struct sensor_data {
     uint32_t time;
     float data[SENSOR_DATA_FIXED_LENGTH];
     //uint8_t * data;
-};
+} __attribute__((packed));
 
 struct sensor_config {
     uint8_t sensorId;
     float sampleRate;
     uint32_t latency;
-};
+} __attribute__((packed));
 
 /***** Messages for zbus ******/
 
@@ -63,10 +113,17 @@ enum le_audio_evt_type {
 struct le_audio_msg {
 	enum le_audio_evt_type event;
 	struct bt_conn *conn;
+	struct bt_le_per_adv_sync *pa_sync;
+	enum bt_audio_dir dir;
 };
 
+/**
+ * tx_sync_ts_us	The timestamp from get_tx_sync.
+ * curr_ts_us		The current time. This must be in the controller frame of reference.
+ */
 struct sdu_ref_msg {
-	uint32_t timestamp;
+	uint32_t tx_sync_ts_us;
+	uint32_t curr_ts_us;
 	bool adjust;
 };
 
@@ -85,6 +142,7 @@ struct bt_mgmt_msg {
 	struct bt_le_ext_adv *ext_adv;
 	struct bt_le_per_adv_sync *pa_sync;
 	uint32_t broadcast_id;
+	uint8_t pa_sync_term_reason;
 };
 
 enum volume_evt_type {
@@ -108,5 +166,12 @@ enum content_control_evt_type {
 struct content_control_msg {
 	enum content_control_evt_type event;
 };
+
+/**
+ * @brief	Initialize the software modules that are common for all the audio samples.
+ *
+ * @return	0 if successful, error otherwise.
+ */
+int nrf5340_audio_common_init(void);
 
 #endif /* _NRF5340_AUDIO_COMMON_H_ */

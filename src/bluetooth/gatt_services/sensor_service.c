@@ -1,34 +1,70 @@
 #include "sensor_service.h"
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
+#include "../SensorManager/SensorManager.h"
 
 #include "macros_common.h"
-#include "nrf5340_audio_common.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
-static struct k_thread sensor_gatt_thread_data;
+static struct k_thread thread_data;
+static k_tid_t thread_id;
 
-static k_tid_t sensor_gatt_thread_id;
 ZBUS_SUBSCRIBER_DEFINE(sensor_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 //ZBUS_LISTENER_DEFINE()
 
 ZBUS_CHAN_DECLARE(sensor_chan);
+ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
-K_THREAD_STACK_DEFINE(sensor_gatt_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE);
+static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
 
 //extern const k_tid_t sensor_publish;
 
-static struct sensor_data data;
+#define N_COLLECT 1
+
+//static struct sensor_data data;
+static struct sensor_data data_buf[N_COLLECT];
 static struct sensor_config config;
 
-static bool notify_sensor_enabled;
+static int idx_data = 0;
+
+static bool notify_enabled = false;
+
+//k_work gatt_sensor_work;
+
+static void gatt_work_handler(struct k_work * work);
+int send_sensor_data();
+
+K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
+
+static void connect_evt_handler(const struct zbus_channel *chan);
+
+ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen2, connect_evt_handler); //static
+
+static bool connection_complete = false;
+
+static void connect_evt_handler(const struct zbus_channel *chan)
+{
+	const struct bt_mgmt_msg *msg;
+
+	msg = zbus_chan_const_msg(chan);
+
+	switch (msg->event) {
+	case BT_MGMT_CONNECTED:
+		connection_complete = true;
+		break;
+
+	case BT_MGMT_DISCONNECTED:
+		connection_complete = false;
+		break;
+	}
+}
 
 static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
-	notify_sensor_enabled = (value == BT_GATT_CCC_NOTIFY);
+	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
 }
 
 static ssize_t read_sensor_value(struct bt_conn *conn,
@@ -37,9 +73,9 @@ static ssize_t read_sensor_value(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	const uint16_t size = sizeof(data.id) + sizeof(data.size) + sizeof(data.time) + data.size;
+	const uint16_t size = sizeof(data_buf[idx_data].id) + sizeof(data_buf[idx_data].size) + sizeof(data_buf[idx_data].time) + data_buf[idx_data].size;
 
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, &data, size);
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, &data_buf[idx_data], size);
 }
 
 static ssize_t write_config(struct bt_conn *conn,
@@ -47,21 +83,24 @@ static ssize_t write_config(struct bt_conn *conn,
 			 const void *buf,
 			 uint16_t len, uint16_t offset, uint8_t flags)
 {
-	printk("Attribute write, handle: %u, conn: %p", attr->handle,
-		(void *)conn);
+	LOG_INF("Attribute write, handle: %u, conn: %p", attr->handle, (void *)conn);
 
 	if (len != sizeof(struct sensor_config)) {
-		printk("Write sensor config: Incorrect data length");
+		LOG_WRN("Write sensor config: Incorrect data length: Expected %i but got %i", sizeof(struct sensor_config), len);
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
 	}
 
 	if (offset != 0) {
-		printk("Write sensor config: Incorrect data offset");
+		LOG_WRN("Write sensor config: Incorrect data offset");
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
 
-	//SensorManager::manager.stop();
-	//SensorManager::manager.config();
+	LOG_INF("Setup sensor ID %i with samplerate %f", ((struct sensor_config *)buf)->sensorId, ((struct sensor_config *)buf)->sampleRate);
+
+	//stop_sensor_manager();
+	config_sensor((struct sensor_config *) buf);
+	//struct sensor_config ppg_config = {ID_PPG, 400, 0};
+	//config_sensor(&ppg_config);
 
 	return len;
 }
@@ -75,21 +114,31 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG,
 BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_DATA,
             BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
             BT_GATT_PERM_READ,
-            read_sensor_value, NULL, &data),
+            read_sensor_value, NULL, data_buf),
 BT_GATT_CCC(sensor_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
-int send_sensor_data() { //struct sensor_data * _data
+static void gatt_work_handler(struct k_work * work) {
+	//send_sensor_data();
+	if (connection_complete && notify_enabled) {
+		int ret = send_sensor_data();
+		//if (ret == 0) printk("data send\n");
+		if (ret != 0) printk("Failed to send data.\n");
+		//ERR_CHK(ret);
+	}
+}
 
-	if (!notify_sensor_enabled) {
+int send_sensor_data() {
+	if (!notify_enabled) {
 		return -EACCES;
 	}
 
 	//const uint16_t size = sizeof(_data->id) + sizeof(_data->size) + sizeof(_data->time) + _data->size;
-	const uint16_t size = sizeof(data.id) + sizeof(data.size) + sizeof(data.time) + data.size;
+	//const uint16_t size = 42 * N_COLLECT; 
+	const uint16_t size = sizeof(data_buf[idx_data].id) + sizeof(data_buf[idx_data].size) + sizeof(data_buf[idx_data].time) + data_buf[idx_data].size; //sizeof(float)*6;
 
-	return bt_gatt_notify(NULL, &sensor_service.attrs[4], &data, size);
+	return bt_gatt_notify(NULL, &sensor_service.attrs[4], &(data_buf[idx_data]), size);
 }
 
 static void sensor_gatt_task(void)
@@ -97,21 +146,26 @@ static void sensor_gatt_task(void)
 	int ret;
 	const struct zbus_channel *chan;
 
-	float t_imu = 1000/50;
+	float t_imu = 1000/80;
 	float t_baro = 1000/20;
 	int count = 0;
 
 	const float alpha = 0.01;
 
-	uint32_t time_last_imu = k_cyc_to_ms_floor32(k_cycle_get_32());
+	uint32_t time_last_imu = millis();
 	uint32_t time_last_baro = time_last_imu;
 
 	while (1) {
 		ret = zbus_sub_wait(&sensor_gatt_sub, &chan, K_FOREVER);
 		ERR_CHK(ret);
 
-		ret = zbus_chan_read(chan, &data, ZBUS_READ_TIMEOUT_MS);
+		ret = zbus_chan_read(chan, &data_buf[idx_data], ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
+
+		printk("temp: %.3f°C\n", data_buf[idx_data].data[0]);
+
+		//ret = zbus_sub_wait_msg(&sensor_gatt_sub, &chan, &data, K_FOREVER);
+		//ERR_CHK(ret);
 
 		//printk("rec: %i\n", msg.id);
 
@@ -132,17 +186,24 @@ static void sensor_gatt_task(void)
 			break;
 		}*/
 
-		switch (data.id)
+		switch (data_buf[idx_data].id)
 		{
 		case ID_TEMP_BARO:
-			t_baro = (data.time - time_last_baro) * alpha + t_baro * (1 - alpha);
-			time_last_baro = data.time;
+			t_baro = (data_buf[idx_data].time - time_last_baro) * alpha + t_baro * (1 - alpha);
+			time_last_baro = data_buf[idx_data].time;
 			break;
 
 		case ID_IMU:
-			t_imu = (data.time - time_last_imu) * alpha + t_imu * (1 - alpha);
-			time_last_imu = data.time;
+			t_imu = (data_buf[idx_data].time - time_last_imu) * alpha + t_imu * (1 - alpha);
+			time_last_imu = data_buf[idx_data].time;
 			break;
+
+		/*case ID_PPG:
+			//t_imu = (data_buf[idx_data].time - time_last_imu) * alpha + t_imu * (1 - alpha);
+			//time_last_imu = data_buf[idx_data].time;
+			printk("%f, %f\n", data_buf[idx_data].data[0], data_buf[idx_data].data[1]);
+
+			break;*/
 		
 		default:
 			break;
@@ -152,24 +213,40 @@ static void sensor_gatt_task(void)
 
 		if (count >= 100) {
 			count = 0;
-			printk("imu: %.3f, baro: %.3f\n", 1000 / t_imu, 1000 / t_baro);
+			printk("imu: %.3f, baro: %.3f, enabled: %i\n", 1000 / t_imu, 1000 / t_baro, notify_enabled);
 		}
-		
-		send_sensor_data();
 
-		STACK_USAGE_PRINT("sensor_msg_thread", &sensor_gatt_thread_data);
+		//if (notify_sensor_enabled) ret = send_sensor_data();
+		//ERR_CHK(ret);
+
+		/*idx_data++;
+
+		if (idx_data == N_COLLECT) {
+			idx_data = 0;
+
+			//k_work_submit(&gatt_sensor_work);
+			if (notify_sensor_enabled) ret = send_sensor_data();
+		}*/
+
+		k_work_submit(&gatt_sensor_work);
+
+		//if (notify_sensor_enabled) ret = send_sensor_data();
+		
+		//send_sensor_data();
+
+		STACK_USAGE_PRINT("sensor_msg_thread", &thread_data);
 	}
 }
 
 int init_sensor_service() {
 	int ret;
 
-	sensor_gatt_thread_id = k_thread_create(
-		&sensor_gatt_thread_data, sensor_gatt_thread_stack,
+	thread_id = k_thread_create(
+		&thread_data, thread_stack,
 		CONFIG_BUTTON_MSG_SUB_STACK_SIZE, (k_thread_entry_t)sensor_gatt_task, NULL,
 		NULL, NULL, K_PRIO_PREEMPT(4), 0, K_NO_WAIT);
 	
-	ret = k_thread_name_set(sensor_gatt_thread_id, "SENSOR_GATT_SUB");
+	ret = k_thread_name_set(thread_id, "SENSOR_GATT_SUB");
 	if (ret) {
 		LOG_ERR("Failed to create sensor_msg thread");
 		return ret;
@@ -178,6 +255,12 @@ int init_sensor_service() {
     ret = zbus_chan_add_obs(&sensor_chan, &sensor_gatt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
 		LOG_ERR("Failed to add sensor sub");
+		return ret;
+	}
+
+	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen2, ZBUS_ADD_OBS_TIMEOUT_MS);
+	if (ret) {
+		LOG_ERR("Failed to add bt_mgmt listener");
 		return ret;
 	}
 

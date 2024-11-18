@@ -137,6 +137,7 @@ void DFRobot_BMX160::defaultParamSettg(sBmx160Dev_t *dev)
 
 void DFRobot_BMX160::setMagnConf()
 {
+    // puts magnetometer into mag_if setup mode
     writeBmxReg(BMX160_MAGN_IF_0_ADDR, 0x80);
     delay(50);
     // Sleep mode
@@ -148,11 +149,13 @@ void DFRobot_BMX160::setMagnConf()
     // REPZ regular preset
     writeBmxReg(BMX160_MAGN_IF_3_ADDR, 0x0E);
     writeBmxReg(BMX160_MAGN_IF_2_ADDR, 0x52);
-    
+    // Prepare MAG_IF[1-3] for mag_if data mode
     writeBmxReg(BMX160_MAGN_IF_3_ADDR, 0x02);
     writeBmxReg(BMX160_MAGN_IF_2_ADDR, 0x4C);
     writeBmxReg(BMX160_MAGN_IF_1_ADDR, 0x42);
+    // sets the sampling rate t0 100Hz
     writeBmxReg(BMX160_MAGN_CONFIG_ADDR, 0x08);
+    // puts magnetometer into mag_if data mode sets data length of read burst operation to 8 bytes
     writeBmxReg(BMX160_MAGN_IF_0_ADDR, 0x03);
     delay(50);
 }
@@ -198,6 +201,8 @@ void DFRobot_BMX160::setAccelRange(eAccelRange_t bits){
             accelRange = BMX160_ACCEL_MG_LSB_2G * 10;
             break;
     }
+
+    writeBmxReg(BMX160_ACCEL_RANGE_ADDR, bits);
 }
 
 void DFRobot_BMX160::getAllData(sBmx160SensorData_t *magn, sBmx160SensorData_t *gyro, sBmx160SensorData_t *accel){
@@ -240,31 +245,37 @@ void DFRobot_BMX160::writeBmxReg(uint8_t reg, uint8_t value)
 
 void DFRobot_BMX160::writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
+   _pWire->aquire();
    _pWire->beginTransmission(_addr);
    _pWire->write(reg);
     for(uint16_t i = 0; i < len; i ++)
        _pWire->write(pBuf[i]);
    _pWire->endTransmission();
+   _pWire->release();
 }
 
 void DFRobot_BMX160::readReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
+   _pWire->aquire();
    _pWire->beginTransmission(_addr);
    _pWire->write(reg);
-    if(_pWire->endTransmission() != 0)
+    if(_pWire->endTransmission() != 0) {
+        _pWire->release();
         return;
+    }
    _pWire->requestFrom(_addr, (uint8_t) len);
     for(uint16_t i = 0; i < len; i ++) {
         pBuf[i] =_pWire->read();
     }
    _pWire->endTransmission();
+   _pWire->release();
 }
 
 bool DFRobot_BMX160::scan()
 {
+   _pWire->aquire();
    _pWire->beginTransmission(_addr);
-    if (_pWire->endTransmission() == 0){
-        return true;
-    }
-    return false;
+   int ret = _pWire->endTransmission();
+   _pWire->release();
+   return (ret == 0);
 }

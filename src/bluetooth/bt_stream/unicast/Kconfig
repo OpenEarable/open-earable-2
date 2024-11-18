@@ -36,6 +36,13 @@ config BT_BAP_UNICAST_24_2_1
 	help
 	  Unicast codec capability 24_2_1.
 	  24kHz, 48kbps, 2 retransmits, 10ms transport latency, and 40ms presentation delay.
+
+config BT_BAP_UNICAST_48_4_1
+	bool "48_4_1"
+	depends on TRANSPORT_CIS
+	help
+	  Unicast codec capability 48_4_1.
+	  48kHz, 96kbps, 5 retransmits, 20ms transport latency, and 40ms presentation delay.
 endchoice
 
 choice	BT_AUDIO_PRES_DLY_SRCH
@@ -73,6 +80,13 @@ config BT_AUDIO_PRES_DELAY_SRCH_SOURCE
 	  the max and min supported by the audio receivers. If it is outside this range,
 	  then it will revert to the closest supported value.
 endchoice
+
+config BT_AUDIO_EP_PRINT
+	bool "Print discovered endpoint capabilities"
+	default n
+	help
+	  Print the supported capabilities of an endpoint when it is discovered.
+
 
 config CODEC_CAP_COUNT_MAX
 	int "Max storage of codec capabilities"
@@ -114,6 +128,23 @@ config BT_AUDIO_BITRATE_UNICAST_SRC
 	default 64000
 	help
 	  Bitrate for the unicast source ISO stream.
+
+config BT_SET_IDENTITY_RESOLVING_KEY_DEFAULT
+	string
+	default "NRF5340_TWS_DEMO"
+	help
+	  Default string to configure the Set Identify Resolving Key (SIRK), must
+	  be changed before production uniquely for each coordinated set.
+
+config BT_SET_IDENTITY_RESOLVING_KEY
+	string "String used to configure the SIRK"
+	depends on TRANSPORT_CIS && BT_BAP_UNICAST_SERVER
+	default BT_SET_IDENTITY_RESOLVING_KEY_DEFAULT
+	help
+	  Defines a string to configure the Set Identify Resolving Key (SIRK), must
+	  be changed before production uniquely for each coordinated set. The SIRK
+	  must be 16 characters (16 bytes).
+
 
 #----------------------------------------------------------------------------#
 menu "Log levels"

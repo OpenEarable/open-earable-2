@@ -1,49 +1,62 @@
 #include "Button.h"
 
+#include <zephyr/sys/util.h>
+
 #include "button_manager.h"
+#include "../Battery/PowerManager.h"
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(button);
+
+//K_WORK_DELAYABLE_DEFINE(Button::button_work, Button::button_work_handler);
 
 struct gpio_callback Button::button_cb_data;
-
-const struct gpio_dt_spec Button::buttons[] = {
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0}), // BUTTON_VOLUME_DOWN
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}), // BUTTON_VOLUME_UP
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}), // BUTTON_PLAY_PAUSE
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0}), // BUTTON_4
-	GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw4), gpios, {0}), // BUTTON_5
-};
 
 void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins)
 {
-	if (pins & BIT(BUTTON_PLAY_PAUSE)) {
-		earable_btn._read_state();
+	Button * button;
+
+	if (pins & BIT(BUTTON_EARABLE)) {
+		//earable_btn._read_state();
+		button = &earable_btn;
 	}
 
-	if (pins & BIT(BUTTON_VOLUME_UP)) {
+	/*if (pins & BIT(BUTTON_VOLUME_UP)) {
 		volume_up_btn._read_state();
 	}
 
 	if (pins & BIT(BUTTON_VOLUME_DOWN)) {
 		volume_down_btn._read_state();
+	}*/
+
+	button->_temp_buttonState = static_cast<button_action>(gpio_pin_get_dt(&(button->button)));
+
+	if (earable_btn._temp_buttonState == BUTTON_PRESS) k_work_cancel_delayable(&power_manager.power_down_work);
+
+	if (button->_buttonState == button->_temp_buttonState) {
+		k_work_cancel_delayable(&(button->button_work));
+	} else {
+		k_work_reschedule(&(button->button_work), BUTTON_DEBOUNCE);
 	}
 }
 
-Button::Button(button_pin_names pin, bool inverted) : _inverted(inverted), button(buttons[pin - 2]) {
-    
+Button::Button(gpio_dt_spec spec) : button(spec) {
+    k_work_init_delayable(&button_work, button_work_handler);
 }
 
 void Button::begin() {
     int ret;
 
     if (!gpio_is_ready_dt(&button)) {
-		printk("Error: button device %s is not ready\n",
+		LOG_ERR("Error: button device %s is not ready\n",
 		       button.port->name);
 		return;
 	}
 
 	ret = gpio_pin_configure_dt(&button, GPIO_INPUT);
 	if (ret != 0) {
-		printk("Error %d: failed to configure %s pin %d\n",
+		LOG_ERR("Error %d: failed to configure %s pin %d\n",
 		       ret, button.port->name, button.pin);
 		return;
 	}
@@ -51,24 +64,19 @@ void Button::begin() {
 	ret = gpio_pin_interrupt_configure_dt(&button,
 					      GPIO_INT_EDGE_BOTH);
 	if (ret != 0) {
-		printk("Error %d: failed to configure interrupt on %s pin %d\n",
+		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
 			ret, button.port->name, button.pin);
 		return;
 	}
 
 	gpio_init_callback(&button_cb_data, button_isr, button_cb_data.pin_mask | BIT(button.pin));
 	gpio_add_callback(button.port, &button_cb_data);
-	printk("Set up button at %s pin %d\n", button.port->name, button.pin);
+	LOG_INF("Set up button at %s pin %d", button.port->name, button.pin);
 
 	// initial state
 	bool reading = gpio_pin_get_dt(&button);
 
-    //if (_inverted) reading = !reading;
-    reading = _inverted ^ reading;
-
     if (reading) _buttonState = BUTTON_PRESS;
-
-	printk("mask:%i\n", button_cb_data.pin_mask);
 }
 
 void Button::end() {
@@ -76,57 +84,27 @@ void Button::end() {
 	//gpio_remove_callback();
 }
 
-void Button::inverted(bool _inverted) {
-    this->_inverted = _inverted;
-}
+void Button::button_work_handler(struct k_work * work) {
+	Button *btn = CONTAINER_OF(work, Button, button_work);
 
-void Button::_read_state() {
-	int ret;
-
-    bool reading = gpio_pin_get_dt(&button);
-
-    //if (_inverted) reading = !reading;
-    reading = _inverted ^ reading;
-
-    //CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER
-    unsigned long now = k_cyc_to_ms_floor32(k_cycle_get_32());
-
-    if (!reading) {
-        if (_buttonState != BUTTON_RELEASED) {
-            //button_service.write_state(RELEASED);
-            //printk("Button released at %" PRIu32 "\n", now);
-
-			_buttonState = BUTTON_RELEASED;
-			_lastDebounceTime = now;
-
-			ret = update_state();
-        }
-        _buttonState = BUTTON_RELEASED;
-        _lastDebounceTime = now;
-		
-        return;
-    }
-
-    if (now - _lastDebounceTime < _debounceDelay) return;
-    _buttonState = BUTTON_PRESS;
-    //button_service.write_state(_buttonState);
-    //printk("Button pressed at %" PRIu32 "\n", now);
-
-	ret = update_state();
+	btn->update_state();
 }
 
 int Button::update_state() {
 	struct button_msg msg;
 	int ret;
 
+	_buttonState = _temp_buttonState;
+
 	msg.button_pin = button.pin;
 	msg.button_action = _buttonState;
 
 	ret = k_msgq_put(&button_queue, &msg, K_NO_WAIT);
 	if (ret == -EAGAIN) {
-		//LOG_WRN("Btn msg queue full");
-		printk("Btn msg queue full");
+		LOG_WRN("Btn msg queue full");
 	}
+
+	LOG_INF("Button state: %i", _buttonState);
 
 	return ret;
 }
@@ -135,12 +113,7 @@ button_action Button::getState() const {
     return _buttonState;
 }
 
-void Button::setDebounceTime(unsigned long debounceTime) {
-    _debounceDelay = debounceTime;
-}
-
-Button earable_btn(BUTTON_PLAY_PAUSE);
-Button volume_up_btn(BUTTON_VOLUME_UP);
-Button volume_down_btn(BUTTON_VOLUME_DOWN);
-Button four_btn(BUTTON_4);
-Button five_btn(BUTTON_5);
+Button earable_btn(GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios));
+// Button volume_up_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}));
+// Button volume_down_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}));
+// Button four_btn(GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0}));

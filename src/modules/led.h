@@ -22,6 +22,10 @@
 #define GRN GREEN
 #define BLU BLUE
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum led_color {
 	LED_COLOR_OFF, /* 000 */
 	LED_COLOR_RED, /* 001 */
@@ -38,10 +42,6 @@ enum led_color {
 
 #define LED_BLINK true
 #define LED_SOLID false
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /**
  * @brief Set the state of a given LED unit to blink.

@@ -7,7 +7,7 @@
 """ Tools to program multiple nRF5340 Audio DKs """
 
 from threading import Thread
-from os import system
+from os import system, path
 from typing import List
 from nrf5340_audio_dk_devices import DeviceConf, SelectFlags, AudioDevice
 
@@ -15,10 +15,11 @@ MEM_ADDR_UICR_SNR = 0x00FF80F0
 MEM_ADDR_UICR_CH = 0x00FF80F4
 
 
-def __populate_UICR(dev):
+def __populate_uicr(dev):
     """Program UICR in device with information from JSON file"""
     if dev.nrf5340_audio_dk_dev == AudioDevice.headset:
-        cmd = f"nrfjprog --memwr {MEM_ADDR_UICR_CH} --val {dev.channel.value} --snr {dev.nrf5340_audio_dk_snr}"
+        cmd = (f"nrfjprog --memwr {MEM_ADDR_UICR_CH} --val {dev.channel.value} "
+               f"--snr {dev.nrf5340_audio_dk_snr}")
         # Write channel information to UICR
         print("Programming UICR")
         ret_val = system(cmd)
@@ -26,7 +27,8 @@ def __populate_UICR(dev):
         if ret_val:
             return False
 
-    cmd = f"nrfjprog --memwr {MEM_ADDR_UICR_SNR} --val {dev.nrf5340_audio_dk_snr} --snr {dev.nrf5340_audio_dk_snr}"
+    cmd = (f"nrfjprog --memwr {MEM_ADDR_UICR_SNR} --val {dev.nrf5340_audio_dk_snr} "
+           f"--snr {dev.nrf5340_audio_dk_snr}")
 
     # Write segger nr to UICR
     ret_val = system(cmd)
@@ -36,10 +38,15 @@ def __populate_UICR(dev):
         return True
 
 
-def _program_cores(dev: DeviceConf, mcuboot_type) -> int:
+def _program_cores(dev: DeviceConf) -> int:
     if dev.core_net_programmed == SelectFlags.TBD:
+        if not path.isfile(dev.hex_path_net):
+            print("NET core hex not found. Built as APP core child image.")
+            return 1
+
         print(f"Programming net core on: {dev}")
-        cmd = f"nrfjprog --program {dev.hex_path_net}  -f NRF53  -q --snr {dev.nrf5340_audio_dk_snr} --sectorerase --coprocessor CP_NETWORK"
+        cmd = (f"nrfjprog --program {dev.hex_path_net}  -f NRF53  -q "
+               f"--snr {dev.nrf5340_audio_dk_snr} --sectorerase --coprocessor CP_NETWORK")
         ret_val = system(cmd)
         if ret_val != 0:
             if not dev.recover_on_fail:
@@ -50,27 +57,23 @@ def _program_cores(dev: DeviceConf, mcuboot_type) -> int:
 
     if dev.core_app_programmed == SelectFlags.TBD:
         print(f"Programming app core on: {dev}")
-        cmd = f"nrfjprog --program {dev.hex_path_app} -f NRF53  -q --snr {dev.nrf5340_audio_dk_snr} --chiperase --coprocessor CP_APPLICATION"
+        cmd = (f"nrfjprog --program {dev.hex_path_app} -f NRF53  -q "
+               f"--snr {dev.nrf5340_audio_dk_snr} --chiperase --coprocessor CP_APPLICATION")
         ret_val = system(cmd)
         if ret_val != 0:
             if not dev.recover_on_fail:
-                dev.core_app_programmed =  SelectFlags.FAIL
+                dev.core_app_programmed = SelectFlags.FAIL
             return ret_val
         else:
             dev.core_app_programmed = SelectFlags.DONE
-
         # Populate UICR data matching the JSON file
-        if not __populate_UICR(dev):
+        if not __populate_uicr(dev):
             dev.core_app_programmed = SelectFlags.FAIL
             return 1
 
     if dev.core_net_programmed != SelectFlags.NOT or dev.core_app_programmed != SelectFlags.NOT:
-        if mcuboot_type =='external':
-            print(f"Hard resetting {dev}")
-            cmd = f"nrfjprog -p --snr {dev.nrf5340_audio_dk_snr}"
-        else:
-            print(f"Resetting {dev}")
-            cmd = f"nrfjprog -r --snr {dev.nrf5340_audio_dk_snr}"
+        print(f"Resetting {dev}")
+        cmd = f"nrfjprog -r --snr {dev.nrf5340_audio_dk_snr}"
         ret_val = system(cmd)
         if ret_val != 0:
             return ret_val
@@ -92,7 +95,7 @@ def _recover(dev: DeviceConf):
         dev.core_app_programmed = SelectFlags.FAIL
 
 
-def __program_thread(dev: DeviceConf, mcuboot_type):
+def __program_thread(dev: DeviceConf):
     if dev.only_reboot == SelectFlags.TBD:
         print(f"Resetting {dev}")
         cmd = f"nrfjprog -r --snr {dev.nrf5340_audio_dk_snr}"
@@ -100,13 +103,13 @@ def __program_thread(dev: DeviceConf, mcuboot_type):
         dev.only_reboot = SelectFlags.FAIL if ret_val else SelectFlags.DONE
         return
 
-    return_code = _program_cores(dev, mcuboot_type)
+    return_code = _program_cores(dev)
     if return_code != 0 and dev.recover_on_fail:
         _recover(dev)
-        _program_cores(dev, mcuboot_type)
+        _program_cores(dev)
 
 
-def program_threads_run(devices_list: List[DeviceConf], mcuboot_type, sequential: bool = False):
+def program_threads_run(devices_list: List[DeviceConf], sequential: bool = False):
     """Program devices in parallel"""
     threads = []
     # First program net cores if applicable
@@ -116,7 +119,7 @@ def program_threads_run(devices_list: List[DeviceConf], mcuboot_type, sequential
             dev.core_app_programmed = SelectFlags.NOT
             dev.core_net_programmed = SelectFlags.NOT
             continue
-        thread = Thread(target=__program_thread, args=(dev, mcuboot_type))
+        thread = Thread(target=__program_thread, args=(dev,))
         threads.append(thread)
         thread.start()
         if sequential:

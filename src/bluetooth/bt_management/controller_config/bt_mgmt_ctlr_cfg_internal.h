@@ -10,14 +10,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
- * @brief	Get the Bluetooth controller version from the network core.
+ * @brief	Get the Bluetooth controller manufacturer.
  *
- * @param[out]	ctrl_version	The controller version.
+ * @param[in]   print_version   Print the controller version.
+ * @param[out]	manufacturer	The controller manufacturer.
  *
  * @return	0 if success, error otherwise.
  */
-int bt_mgmt_ctlr_cfg_version_get(uint16_t *ctrl_version);
+int bt_mgmt_ctlr_cfg_manufacturer_get(bool print_version, uint16_t *manufacturer);
 
 /**
  * @brief	Configure the Bluetooth controller.
@@ -28,5 +33,11 @@ int bt_mgmt_ctlr_cfg_version_get(uint16_t *ctrl_version);
  * @return	0 if success, error otherwise.
  */
 int bt_mgmt_ctlr_cfg_init(bool watchdog_enable);
+
+int bt_mgmt_stop_watchdog();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _BT_MGMT_CTRL_CFG_INTERNAL_H_ */
