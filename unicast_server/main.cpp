@@ -291,17 +291,11 @@ int main(void) {
 
 	bt_foreach_bond(BT_ID_DEFAULT, count_bonds, NULL);
 
-        earable_state state;
-
-        state.charging_state = DISCHARGING;
-
 	if (bonded_device_count > 0) {
-		state.pairing_state = PAIRED;
+                state_indicator.set_pairing_state(PAIRED);
 	} else {
-		state.pairing_state = UNPAIRED;
+                state_indicator.set_pairing_state(UNPAIRED);
 	}
-
-        state_indicator.init(state);
 
 	/*if (board_rev.mask & BOARD_VERSION_VALID_MSK_SD_CARD) {
 		ret = sd_card_init();

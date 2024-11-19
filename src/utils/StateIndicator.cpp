@@ -71,12 +71,16 @@ ZBUS_LISTENER_DEFINE(power_evt_listen, power_evt_handler); //static
 
 void StateIndicator::init(struct earable_state state) {
     int ret;
+
+    led_controller.begin();
+
     ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen3, ZBUS_ADD_OBS_TIMEOUT_MS);
-    if (ret) {
+    if (ret && ret != -EALREADY) {
 		LOG_ERR("Failed to add bt_mgmt listener");
 	}
+
     ret = zbus_chan_add_obs(&battery_chan, &power_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
-	if (ret) {
+	if (ret && ret != -EALREADY) {
 		LOG_ERR("Failed to add battery listener");
 	}
 
@@ -94,52 +98,51 @@ void StateIndicator::set_pairing_state(enum pairing_state state) {
 }
 
 void StateIndicator::set_state(struct earable_state state) {
-
     _state = state;
 
     RGBColor color = {0,0,0};
     switch (_state.charging_state) {
     case CHARGING:
-        color[0] = 24;    // Rot
+        color[0] = 24; // Rot
         color[1] = 8;  // Grün
-        color[2] = 0;    // Blau
+        color[2] = 0;  // Blau
 
         led_controller.pulse(color, 1000, 1000, 512, 2000);
         break;
     case FULLY_CHARGED:
-        color[0] = 0;    // Rot
+        color[0] = 0;   // Rot
         color[1] = 32;  // Grün
-        color[2] = 0;    // Blau
+        color[2] = 0;   // Blau
 
         led_controller.setColor(color);
         break;
     case FAULT:
-        color[0] = 32;    // Rot
+        color[0] = 32; // Rot
         color[1] = 0;  // Grün
-        color[2] = 0;    // Blau
+        color[2] = 0;  // Blau
 
         led_controller.pulse(color, 1000, 1000, 512, 2000);
         break;
     default:
         switch (_state.pairing_state) {
         case UNPAIRED:
-            color[0] = 0;    // Rot
-            color[1] = 0;    // Grün
+            color[0] = 0;   // Rot
+            color[1] = 0;   // Grün
             color[2] = 16;  // Blau
 
             led_controller.blink(color, 100, 500);
             break;
         case PAIRED:
-            color[0] = 0;    // Rot
-            color[1] = 0;    // Grün
+            color[0] = 0;   // Rot
+            color[1] = 0;   // Grün
             color[2] = 16;  // Blau 
 
             led_controller.blink(color, 100, 2000);
             break;
         case CONNECTED:
-            color[0] = 0;    // Rot
+            color[0] = 0;   // Rot
             color[1] = 16;  // Grün
-            color[2] = 0;    // Blau
+            color[2] = 0;   // Blau
 
             led_controller.blink(color, 100, 2000);
             break;

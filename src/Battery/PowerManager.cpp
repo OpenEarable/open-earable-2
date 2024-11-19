@@ -15,6 +15,8 @@
 #include "../buttons/Button.h"
 #include "../SensorManager/SensorManager.h"
 
+#include "../src/utils/StateIndicator.h"
+
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 
@@ -87,8 +89,6 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     LOG_INF("Fuel Gauge GPOUT Interrupt");
     msg.battery_level = fuel_gauge.state_of_charge();
 
-    //k_msleep(100);
-
     power_manager.get_battery_status(status);
 
     msg.charging_state = status.power_state;
@@ -100,6 +100,10 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 }
 
 int PowerManager::begin() {
+
+    earable_state oe_state;
+    oe_state.charging_state = DISCHARGING;
+    oe_state.pairing_state = PAIRED;
 
     battery_controller.begin();
     fuel_gauge.begin();
@@ -134,9 +138,34 @@ int PowerManager::begin() {
         //k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
         k_timer_start(&charge_timer, power_manager.chrg_interval, power_manager.chrg_interval);
 
+        int ret = pm_device_runtime_enable(ls_1_8);
+        if (ret != 0) {
+            LOG_WRN("Error setting up load switch 1.8V.");
+        }
+
+        ret = pm_device_runtime_enable(ls_3_3);
+        if (ret != 0) {
+            LOG_WRN("Error setting up load switch 3.3V.");
+        }
+
+        //battery_level_status bat_status;
+        //get_battery_status(&bat_status);
+
+        uint16_t charging_state = battery_controller.read_charging_state() >> 6;
+
+        if (charging_state == 2) {
+            oe_state.charging_state = FULLY_CHARGED;
+        } else {
+            oe_state.charging_state = CHARGING;
+        }
+
+        state_indicator.init(oe_state);
+
         while(!power_switch.is_on() && battery_controller.power_connected()) {
             __WFE();
         }
+    } else {
+        oe_state.charging_state = DISCHARGING;
     }
 
     if (power_switch.is_on()) {
@@ -159,14 +188,14 @@ int PowerManager::begin() {
             LOG_WRN("Error setting up load switch 1.8V.");
         }
 
-        ret = pm_device_runtime_enable(ls_sd);
-        if (ret != 0) {
-            LOG_WRN("Error setting up load switch SD.");
-        }
-
         ret = pm_device_runtime_enable(ls_3_3);
         if (ret != 0) {
             LOG_WRN("Error setting up load switch 3.3V.");
+        }
+
+        ret = pm_device_runtime_enable(ls_sd);
+        if (ret != 0) {
+            LOG_WRN("Error setting up load switch SD.");
         }
 
         ret = device_is_ready(error_led.port); //bool
@@ -180,6 +209,8 @@ int PowerManager::begin() {
             printk("Failed to set Error LED as output: ERROR -%i.\n", ret);
             return ret;
         }
+
+        state_indicator.init(oe_state);
 
         return 0;
     }
@@ -337,9 +368,10 @@ int PowerManager::power_down(bool fault) {
     // TODO: check states of load switch (should already be suspended
     // if all devieses have been terminated correctly)
 
-    ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
+
+    // turn off error led
+	gpio_pin_set_dt(&error_led, 0);
 
     if (charging) {
         //NVIC_SystemReset();
@@ -347,11 +379,11 @@ int PowerManager::power_down(bool fault) {
         return 0;
     }
 
+    ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
+    ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
+
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
     //ERR_CHK(ret);
-
-    // turn off error led
-	gpio_pin_set_dt(&error_led, 0);
 
     /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
