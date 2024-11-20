@@ -68,30 +68,30 @@ SensorComponentGroup ppgGroups[PPG_GROUP_COUNT] = {
 
 #define OPTIC_TEMP_COUNT 1
 SensorComponent opticTemperatureComponents[OPTIC_TEMP_COUNT] = {
-    { .name = "TEMP", .unit = "°C", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "Temperature", .unit = "°C", .parseType = PARSE_TYPE_FLOAT },
 };
 
 #define OPTIC_TEMP_GROUP_COUNT 1
 SensorComponentGroup opticTemperatureGroups[OPTIC_TEMP_GROUP_COUNT] = {
-    { .name = "Temperature", .componentCount = OPTIC_TEMP_COUNT, .components = opticTemperatureComponents },
+    { .name = "TEMP", .componentCount = OPTIC_TEMP_COUNT, .components = opticTemperatureComponents },
 };
 
 // ============= Baro =============
 
 #define BARO_TEMP_COUNT 1
 SensorComponent baroTempComponents[BARO_TEMP_COUNT] = {
-    { .name = "TEMP", .unit = "°C", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "Temperature", .unit = "°C", .parseType = PARSE_TYPE_FLOAT },
 };
 
 #define BARO_PRESSURE_COUNT 1
 SensorComponent baroPressureCompoents[BARO_PRESSURE_COUNT] = {
-    { .name = "PRESSURE", .unit = "kPa", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "Pressure", .unit = "kPa", .parseType = PARSE_TYPE_FLOAT },
 };
 
 #define BARO_GROUP_COUNT 2
 SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
-    { .name = "Temperature", .componentCount = BARO_TEMP_COUNT, .components = baroTempComponents },
-    { .name = "Pressure", .componentCount = BARO_PRESSURE_COUNT, .components = baroPressureCompoents },
+    { .name = "TEMP", .componentCount = BARO_TEMP_COUNT, .components = baroTempComponents },
+    { .name = "PRESSURE", .componentCount = BARO_PRESSURE_COUNT, .components = baroPressureCompoents },
 };
 
 // ============= Sensors =============
@@ -100,9 +100,9 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 SensorScheme sensors[SENSOR_COUNT] = {
     { .name = "IMU", .id = ID_IMU, .groupCount = IMU_GROUP_COUNT, .groups = imuGroups },
     { .name = "PPG", .id = ID_PPG, .groupCount = PPG_GROUP_COUNT, .groups = ppgGroups },
-    { .name = "Optic Temperature", .id = ID_OPTTEMP, .groupCount = OPTIC_TEMP_GROUP_COUNT, .groups = opticTemperatureGroups },
-    { .name = "Barometer", .id = ID_TEMP_BARO, .groupCount = BARO_GROUP_COUNT, .groups = baroGroups },
-    { .name = "Bone Conduction IMU", .id = ID_BONE_CONDUCTION, .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT, .groups = boneConductionIMUGroups },
+    { .name = "OPTTEMP", .id = ID_OPTTEMP, .groupCount = OPTIC_TEMP_GROUP_COUNT, .groups = opticTemperatureGroups },
+    { .name = "BARO", .id = ID_TEMP_BARO, .groupCount = BARO_GROUP_COUNT, .groups = baroGroups },
+    { .name = "BONEIMU", .id = ID_BONE_CONDUCTION, .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT, .groups = boneConductionIMUGroups },
 };
 
 ParseInfoScheme defaultSensors = {
