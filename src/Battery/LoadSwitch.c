@@ -26,7 +26,7 @@ int generic_pm_control(const struct device *dev, enum pm_device_action action)
     case PM_DEVICE_ACTION_RESUME:
         /* resume the device */
         gpio_pin_set_dt(&data->ctrl_pin, 1);
-        k_msleep(10);
+        k_msleep(1); //LS: t_on = 250µs, LDO: 500µs
         break;
     default:
         return -ENOTSUP;
