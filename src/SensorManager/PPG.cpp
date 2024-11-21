@@ -18,6 +18,21 @@ bool PPG::init(struct k_msgq * queue) {
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
         pm_device_runtime_get(ls_3_3);
+
+        const struct gpio_dt_spec LDO_EN = {
+            .port = DEVICE_DT_GET(DT_NODELABEL(gpio0)),
+            .pin = 6,
+            .dt_flags = GPIO_ACTIVE_HIGH
+        };
+
+        int ret = gpio_pin_configure_dt(&LDO_EN, GPIO_OUTPUT_ACTIVE);
+        if (ret != 0) {
+            LOG_WRN("Failed to set GPOUT as input.\n");
+            return false;
+        }
+
+        k_msleep(5);
+
     	_active = true;
 	}
     
@@ -55,6 +70,12 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.data[1]=sensor.data_buffer[i][green];
             msg_ppg.data[2]=sensor.data_buffer[i][ir];
             msg_ppg.data[3]=sensor.data_buffer[i][ambient];
+
+            int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
+            if (ret == -EAGAIN) {
+                //LOG_WRN("sensor msg queue full");
+                LOG_WRN("sensor msg queue full");
+            }
         }
     }
 }

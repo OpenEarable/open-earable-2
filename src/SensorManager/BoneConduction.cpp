@@ -52,6 +52,11 @@ void BoneConduction::update_sensor(struct k_work *work) {
             msg_bc.data[0]=sensor.fifo_acc_data[i].x;
             msg_bc.data[1]=sensor.fifo_acc_data[i].y;
             msg_bc.data[2]=sensor.fifo_acc_data[i].z;
+
+            int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
+            if (ret == -EAGAIN) {
+                LOG_WRN("sensor msg queue full");
+            }
         }
     //}
 }
