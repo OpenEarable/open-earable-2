@@ -4,6 +4,9 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(BMP388);
+
 static struct sensor_data msg_baro;
 
 Adafruit_BMP3XX Baro::bmp;
@@ -24,7 +27,7 @@ void Baro::update_sensor(struct k_work *work) {
 	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
 	if (ret == -EAGAIN) {
 		//LOG_WRN("sensor msg queue full");
-		printk("sensor msg queue full");
+		LOG_WRN("sensor msg queue full");
 	}
 }
 
@@ -47,7 +50,7 @@ bool Baro::init(struct k_msgq * queue) {
 	}
 
     if (!bmp.begin_I2C()) {   // hardware I2C mode, can pass in address & alt Wire
-		printk("Could not find a valid BMP388 sensor, check wiring!");
+		LOG_WRN("Could not find a valid BMP388 sensor, check wiring!");
 		pm_device_runtime_put(ls_1_8);
 		return false;
     }

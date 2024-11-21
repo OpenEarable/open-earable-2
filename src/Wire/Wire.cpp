@@ -51,20 +51,20 @@ void arduino::MbedI2C::beginTransmission(uint8_t address) {
 }
 
 uint8_t arduino::MbedI2C::endTransmission(bool stopBit) {
+	int ret;
+
 	if (usedTxBuffer == 0) {
 		// we are scanning, return 0 if the addresed device responds with an ACK
 		char buf[1];
-		int ret = master_read(_address, buf, 1, !stopBit);
+		ret = master_read(_address, buf, 1, !stopBit);
 		//k_mutex_unlock(&mutex);
 		return ret;
 	}
-	int ret = master_write(_address, (const char *) txBuffer, usedTxBuffer, !stopBit);
-	//k_mutex_unlock(&mutex);
-	if (ret == 0) {
-		return 0;
-	}
 	
-	return 2;
+	ret = master_write(_address, (const char *) txBuffer, usedTxBuffer, !stopBit);
+	//k_mutex_unlock(&mutex);
+	
+	return ret;
 }
 
 size_t arduino::MbedI2C::requestFrom(uint8_t address, size_t len, bool stopBit) {

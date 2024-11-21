@@ -28,9 +28,10 @@
 #include "Adafruit_BMP3XX.h"
 #include <math.h>
 
-#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(BMP388, 3);
 
-//#define BMP3XX_DEBUG
+#include <zephyr/kernel.h>
 
 // Our hardware interface functions
 static int8_t i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
@@ -58,10 +59,10 @@ Adafruit_BMP3XX::Adafruit_BMP3XX(void) {
 }
 
 bool Adafruit_BMP3XX::detect(int address) {
-  i2c_dev->aquire();
-  i2c_dev->beginTransmission(address);
-  int ret = i2c_dev->endTransmission();
-  i2c_dev->release();
+  dev_inf.i2c_dev->aquire();
+  dev_inf.i2c_dev->beginTransmission(address);
+  int ret = dev_inf.i2c_dev->endTransmission();
+  dev_inf.i2c_dev->release();
   return ret == 0;
 }
 
@@ -79,21 +80,10 @@ bool Adafruit_BMP3XX::detect(int address) {
 */
 /**************************************************************************/
 bool Adafruit_BMP3XX::begin_I2C(uint8_t addr, TwoWire *theWire) {
-  //if (i2c_dev) delete i2c_dev;
-
-  i2c_dev = theWire; //new Adafruit_I2CDevice(addr, theWire);
-
-  //address = addr;
-
   dev_inf.addr = addr;
   dev_inf.i2c_dev = theWire;
 
-  // verify i2c address was found
-  i2c_dev->begin();
-
-  if (!detect(addr)) {
-    return false;
-  }
+  dev_inf.i2c_dev->begin();
 
   the_sensor.chip_id = addr;
   the_sensor.intf = BMP3_I2C_INTF;
@@ -102,12 +92,15 @@ bool Adafruit_BMP3XX::begin_I2C(uint8_t addr, TwoWire *theWire) {
   the_sensor.intf_ptr = &dev_inf;
   the_sensor.dummy_byte = 0;
 
+  // verify i2c address was found
+  if (!detect(addr)) {
+    return false;
+  }
+
   return _init();
 }
 
 bool Adafruit_BMP3XX::_init(void) {
-  //g_i2c_dev = i2c_dev;
-  //g_spi_dev = spi_dev;
   the_sensor.delay_us = delay_usec;
   int8_t rslt = BMP3_OK;
 
@@ -413,20 +406,24 @@ int8_t i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len,
   dev_info->i2c_dev->aquire();
   dev_info->i2c_dev->beginTransmission(dev_info->addr);
   dev_info->i2c_dev->write(reg_addr);
-  if (dev_info->i2c_dev->endTransmission() != 0) return false;
+
+  if (dev_info->i2c_dev->endTransmission(false) != 0) {
+    dev_info->i2c_dev->release();
+    LOG_WRN("I2C reading error");
+    return -1;
+  }
+
   dev_info->i2c_dev->requestFrom(dev_info->addr, len);
 
   for (uint16_t i = 0; i < len; i++) {
-          reg_data[i] = Wire.read();
+    reg_data[i] = dev_info->i2c_dev->read();
   }
 
   int ret = dev_info->i2c_dev->endTransmission();
 
   dev_info->i2c_dev->release();
 
-  return (ret == 0);
-
-  return 0;
+  return ret;
 }
 
 /**************************************************************************/

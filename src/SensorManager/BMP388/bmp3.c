@@ -36,6 +36,9 @@
 *
 */
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(BMP388);
+
 /*! @file bmp3.c
  * @brief Sensor driver for BMP3 sensor */
 #include "bmp3.h"
