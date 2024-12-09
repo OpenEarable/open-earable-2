@@ -21,6 +21,8 @@
 #include "bt_le_audio_tx.h"
 #include "le_audio.h"
 
+#include "../../../Battery/BootState.h"
+
 #include <../subsys/bluetooth/audio/bap_endpoint.h>
 
 #include <zephyr/logging/log.h>
@@ -77,6 +79,11 @@ static uint8_t unicast_server_adv_data[] = {
 	BT_AUDIO_UNICAST_ANNOUNCEMENT_TARGETED,
 	BT_BYTES_LIST_LE16(AVAILABLE_SINK_CONTEXT),
 	BT_BYTES_LIST_LE16(AVAILABLE_SOURCE_CONTEXT),
+	0x00, /* Metadata length */
+};
+
+static uint8_t device_identifier[] = {
+	BT_BYTES_LIST_LE64(0x0),
 	0x00, /* Metadata length */
 };
 
@@ -597,6 +604,23 @@ int unicast_server_adv_populate(struct bt_data *adv_buf, uint8_t adv_buf_vacant)
 		return ret;
 	}
 
+	uint32_t sirk = uicr_sirk_get();
+
+	//if (sirk == 0xFFFFFFFF) {
+		uint64_t test = oe_boot_state.device_id;
+
+		for (int i = 0; i < sizeof(uint64_t); i++) {
+			device_identifier[i] = test & 0xFFU;
+			test >>= 8;
+		}
+
+		ret = adv_buf_put(adv_buf, adv_buf_vacant, &adv_buf_cnt, BT_DATA_MANUFACTURER_DATA,
+				ARRAY_SIZE(device_identifier), &device_identifier[0]);
+		if (ret) {
+			return ret;
+		}
+	//}
+
 	return adv_buf_cnt;
 }
 
@@ -652,8 +676,25 @@ int unicast_server_enable(le_audio_receive_cb recv_cb)
 				"before production");
 		}
 
-		memcpy(csip_param.set_sirk, CONFIG_BT_SET_IDENTITY_RESOLVING_KEY,
+		uint8_t sirk_string[17];
+
+		uint32_t sirk = uicr_sirk_get();
+
+		memset(sirk_string, 0, sizeof(sirk_string));
+
+		if (sirk != 0xFFFFFFFF) {
+			snprintf(sirk_string, 16, "%08X", sirk); //"%016llX"
+		} else {
+			snprintf(sirk_string, 16, "%08X", oe_boot_state.device_id); //"%016llX"
+		}
+
+		LOG_INF("SIRK as String: %s", sirk_string);
+
+		memcpy(csip_param.set_sirk, sirk_string,
 		       BT_CSIP_SET_SIRK_SIZE);
+
+		//memcpy(csip_param.set_sirk, CONFIG_BT_SET_IDENTITY_RESOLVING_KEY,
+		//       BT_CSIP_SET_SIRK_SIZE);
 	}
 
 	for (int i = 0; i < ARRAY_SIZE(caps); i++) {
@@ -706,7 +747,6 @@ int unicast_server_enable(le_audio_receive_cb recv_cb)
 		}
 
 		ret = bt_pacs_set_supported_contexts(BT_AUDIO_DIR_SOURCE, AVAILABLE_SOURCE_CONTEXT);
-
 		if (ret) {
 			LOG_ERR("Supported context set failed. Err: %d", ret);
 			return ret;

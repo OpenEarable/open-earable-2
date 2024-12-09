@@ -1,7 +1,6 @@
 #include "battery_service.h"
 
-#include "../Battery/BQ27220.h"
-
+#include "../../Battery/BQ27220.h"
 #include "../../Battery/PowerManager.h"
 
 #include "macros_common.h"

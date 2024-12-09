@@ -11,6 +11,7 @@
 #include "../bluetooth/gatt_services/battery_service.h"
 
 #include "nrf5340_audio_common.h"
+#include "BootState.h"
 
 #define CHARGE_CONTROLLER_INTERVAL K_SECONDS(10)
 
@@ -24,6 +25,8 @@ public:
     //bool check_boot_condition();
 
     //static LoadSwitch v1_8_switch;
+
+    void reboot();
 
     void get_battery_status(battery_level_status &status);
     void get_energy_status(battery_energy_status &status);

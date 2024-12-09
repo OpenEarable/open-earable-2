@@ -12,6 +12,7 @@
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/sys/reboot.h>
 
 #include "macros_common.h"
 #include "nrf5340_audio_common.h"
@@ -20,6 +21,12 @@
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"
 
+#include "../../Battery/BootState.h"
+
+#include "uicr.h"
+
+#include "channel_assignment.h"
+
 #if defined(CONFIG_AUDIO_DFU_ENABLE)
 #include "bt_mgmt_dfu_internal.h"
 #endif
@@ -27,8 +34,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
 
-#define INTERVAL_MIN 16
-#define INTERVAL_MAX 16
+//#define INTERVAL_MIN 16
+//#define INTERVAL_MAX 16
 
 ZBUS_CHAN_DEFINE(bt_mgmt_chan, struct bt_mgmt_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
@@ -100,7 +107,7 @@ static void le_data_length_updated(struct bt_conn *conn,
 	       info->tx_max_time, info->rx_max_len, info->rx_max_time);
 }
 
-static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(INTERVAL_MIN, INTERVAL_MAX, 0, 400);
+static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_CONN_INTERVAL, 0, 400);
 
 //callback
 static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
@@ -312,14 +319,46 @@ static void bt_enabled_cb(int err)
 static int bonding_clear_check(void)
 {
 	int ret;
-	bool pressed;
+	/*bool pressed;
 
 	ret = button_pressed(BUTTON_EARABLE, &pressed); //BUTTON_5
 	if (ret) {
 		return ret;
-	}
+	}*/
 
-	if (pressed) {
+	if (oe_boot_state.timer_reset) {
+		LOG_INF("Device Count: %i", bonded_device_count);
+		/*if (bonded_device_count == 0) {
+			LOG_INF("Clearing SIRK");
+			enum audio_channel channel;
+
+			//backup channel
+			channel_assignment_get(&channel);
+			//int ret = nrfx_nvmc_page_erase((uint32_t)NRF_UICR); //
+			//int ret = nrfx_nvmc_uicr_erase();
+			nvmc_erase_mode_set();
+			nrf_nvmc_uicr_erase_start(NRF_NVMC);
+			while (!nrf_nvmc_ready_check(NRF_NVMC))
+			{}
+			nvmc_readonly_mode_set();
+			int ret = NRFX_SUCCESS;
+			if (ret != NRFX_SUCCESS) {
+				LOG_ERR("Failed to erase UICR: %i", ret);
+			}
+			channel_assignment_set(channel);
+			
+			// reboot?
+
+			// uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
+			//bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
+
+			//ret = bt_le_adv_stop();
+
+			//ret = bt_mgmt_stop_watchdog();
+			//ERR_CHK(ret);
+
+			if (!ret) sys_reboot(SYS_REBOOT_COLD);
+		}*/
 		ret = bt_mgmt_bonding_clear();
 		return ret;
 	}
@@ -459,6 +498,12 @@ int bt_mgmt_conn_disconnect(struct bt_conn *conn, uint8_t reason)
 	return 0;
 }
 
+int bonded_device_count = 0;
+
+void count_bonds(const struct bt_bond_info *info, void *user_data) {
+	bonded_device_count++;
+}
+
 int bt_mgmt_init(void)
 {
 	int ret;
@@ -494,15 +539,14 @@ int bt_mgmt_init(void)
 			return ret;
 		}
 
+		bonded_device_count = 0;
+
+		bt_foreach_bond(BT_ID_DEFAULT, count_bonds, NULL);
+
 		ret = bonding_clear_check();
 		if (ret) {
 			return ret;
 		}
-
-		/*ret = bt_mgmt_bonding_clear();
-		if (ret) {
-			return ret;
-		}*/
 
 		if (IS_ENABLED(CONFIG_TESTING_BLE_ADDRESS_RANDOM)) {
 			ret = bt_mgmt_bonding_clear();

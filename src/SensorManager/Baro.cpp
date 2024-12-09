@@ -26,7 +26,6 @@ void Baro::update_sensor(struct k_work *work) {
 
 	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
 	if (ret == -EAGAIN) {
-		//LOG_WRN("sensor msg queue full");
 		LOG_WRN("sensor msg queue full");
 	}
 }

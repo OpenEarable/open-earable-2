@@ -57,6 +57,8 @@ enum bt_mgmt_scan_type {
 	BT_MGMT_SCAN_TYPE_BROADCAST = 2,
 };
 
+extern int bonded_device_count;
+
 #define BRDCAST_ID_NOT_USED (BT_AUDIO_BROADCAST_ID_MAX + 1)
 
 /**

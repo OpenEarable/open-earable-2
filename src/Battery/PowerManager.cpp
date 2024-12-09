@@ -15,7 +15,7 @@
 #include "../buttons/Button.h"
 #include "../SensorManager/SensorManager.h"
 
-#include "../src/utils/StateIndicator.h"
+#include "../utils/StateIndicator.h"
 
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
@@ -100,7 +100,6 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 }
 
 int PowerManager::begin() {
-
     earable_state oe_state;
     oe_state.charging_state = DISCHARGING;
     oe_state.pairing_state = PAIRED;
@@ -108,6 +107,16 @@ int PowerManager::begin() {
     battery_controller.begin();
     fuel_gauge.begin();
     power_switch.begin();
+
+    battery_controller.exit_high_impedance();
+
+    uint16_t is_reset = (battery_controller.read_charging_state() >> 4) & 0x1;
+
+    battery_controller.enter_high_impedance();
+
+    oe_boot_state.timer_reset = is_reset == 1;
+
+    //LOG_INF("Device has been reset: %i", is_reset);
 
     battery_controller.setup();
 
@@ -315,6 +324,24 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
     if (info.state == BT_CONN_STATE_CONNECTED) {
         ret = bt_mgmt_conn_disconnect(conn, *((uint8_t*)data));
     }
+}
+
+void PowerManager::reboot() {
+    int ret;
+    // disconnect devices
+    uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
+    bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
+
+    ret = bt_le_adv_stop();
+
+    stop_sensor_manager();
+
+    ret = bt_mgmt_stop_watchdog();
+    ERR_CHK(ret);
+
+    dac.end();
+
+    sys_reboot(SYS_REBOOT_COLD);
 }
 
 int PowerManager::power_down(bool fault) {

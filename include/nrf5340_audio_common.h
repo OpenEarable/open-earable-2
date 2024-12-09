@@ -31,21 +31,15 @@ extern const struct device *const ls_1_8;
 extern const struct device *const ls_3_3;
 extern const struct device *const ls_sd;
 
-/*
-enum earable_state {
-	UNPAIRED,
-	PAIRING,
-	PAIRED,
-	CONNECTED,
-	CHARGING,
-	FULLY_CHARGED,
-	FAULT
-};*/
+struct boot_state {
+	bool timer_reset;
+	uint64_t device_id;
+};
 
 enum pairing_state {
-	UNPAIRED,
-	PAIRING,
-	PAIRED,
+	SET_PAIRING, //BINDING,
+	BONDING,
+	PAIRED, //DISONNECTED
 	CONNECTED,
 };
 
@@ -56,9 +50,15 @@ enum charging_state {
 	FAULT,
 };
 
+enum led_state {
+	STATE_INDICATION,
+	CUSTOM,
+};
+
 struct earable_state {
 	enum pairing_state pairing_state;
 	enum charging_state charging_state;
+	enum led_state led_state;
 };	 
 
 enum sensor_id {

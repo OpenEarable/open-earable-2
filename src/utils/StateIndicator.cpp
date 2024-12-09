@@ -6,6 +6,8 @@
 
 #include "nrf5340_audio_common.h"
 
+#include "channel_assignment.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(state_indicator, CONFIG_LOG_DEFAULT_LEVEL);
 
@@ -37,7 +39,7 @@ static void power_evt_handler(const struct zbus_channel *chan)
 
 	msg = (battery_data *) zbus_chan_const_msg(chan);
 
-    LOG_INF("Power Handler %i", (msg->charging_state >> 5) & 0x3);
+    // LOG_INF("Power Handler %i", (msg->charging_state >> 5) & 0x3);
 
     // int state = (msg->charging_state >> 5) & 0x3;
 
@@ -87,6 +89,11 @@ void StateIndicator::init(struct earable_state state) {
     set_state(state);
 }
 
+void StateIndicator::set_led_state(enum led_state state) {
+    _state.led_state = state;
+    set_state(_state);
+}
+
 void StateIndicator::set_charging_state(enum charging_state state) {
     _state.charging_state = state;
     set_state(_state);
@@ -99,6 +106,9 @@ void StateIndicator::set_pairing_state(enum pairing_state state) {
 
 void StateIndicator::set_state(struct earable_state state) {
     _state = state;
+
+    // do not update the state if set to custom color
+    if (_state.led_state == CUSTOM) return;
 
     RGBColor color = {0,0,0};
     switch (_state.charging_state) {
@@ -125,7 +135,22 @@ void StateIndicator::set_state(struct earable_state state) {
         break;
     default:
         switch (_state.pairing_state) {
-        case UNPAIRED:
+        case SET_PAIRING:
+            audio_channel channel;
+            channel_assignment_get(&channel);
+            if (channel == AUDIO_CH_L) {
+                color[0] = 0;   // Rot
+                color[1] = 0;   // Grün
+                color[2] = 16;  // Blau
+            } else  if (channel == AUDIO_CH_R) {
+                color[0] = 16;   // Rot
+                color[1] = 0;   // Grün
+                color[2] = 0;  // Blau
+            }
+
+            led_controller.blink(color, 100, 200);
+            break;
+        case BONDING:
             color[0] = 0;   // Rot
             color[1] = 0;   // Grün
             color[2] = 16;  // Blau
