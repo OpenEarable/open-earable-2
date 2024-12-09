@@ -7,6 +7,7 @@
 #include "streamctrl.h"
 
 #include <zephyr/zbus/zbus.h>
+#include <zephyr/sys/reboot.h>
 
 #include "nrf5340_audio_common.h"
 #include "nrf5340_audio_dk.h"
@@ -24,6 +25,10 @@
 #include "unicast_server.h"
 #include "le_audio.h"
 #include "le_audio_rx.h"
+
+#include "common/bt_str.h"
+
+#include "../src/Battery/BootState.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(streamctrl_unicast_server, CONFIG_STREAMCTRL_LOG_LEVEL);
@@ -499,6 +504,195 @@ void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
 	}
 }
 
+/*
+static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
+			 struct net_buf_simple *ad)
+{
+	uint8_t base_addr[6] = { 0xb2, 0xfc, 0x69, 0x22, 0x91, 0xb0 };
+	char addr_str[BT_ADDR_LE_STR_LEN] = {0};
+	//int err;
+
+	bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
+
+	if (!memcmp(&addr->a, base_addr, 6)) {
+		if (type == 0) {
+			LOG_INF("Device found: %s (RSSI %d), %s\n", addr_str, rssi, "ADV_INT");
+		} if (type == 4) {
+			LOG_INF("Device found: %s (RSSI %d), %s\n", addr_str, rssi, "SCAN_RSP");
+		}
+	}
+}*/
+
+bool device_paired = false;
+
+// #include "csip_crypto.h"
+
+#include <zephyr/bluetooth/audio/csip.h>
+
+#define BT_CSIP_CRYPTO_KEY_SIZE   16
+#define BT_CSIP_CRYPTO_SALT_SIZE  16
+#define BT_CSIP_CRYPTO_PRAND_SIZE 3
+#define BT_CSIP_CRYPTO_HASH_SIZE  3
+
+#define BT_CSIP_CRYPTO_PADDING_SIZE 13
+#define BT_CSIP_PADDED_RAND_SIZE    (BT_CSIP_CRYPTO_PADDING_SIZE + BT_CSIP_CRYPTO_PRAND_SIZE)
+#define BT_CSIP_R_MASK              BIT_MASK(24) /* r is 24 bit / 3 octet */
+
+// Callback-Funktion für gefundene Geräte
+static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, struct net_buf_simple *ad)
+{
+    char addr_str[BT_ADDR_LE_STR_LEN];
+    bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
+
+    int ret;
+	bool is_le_audio_device = false;
+	uint8_t csis_rsi[6];
+	uint8_t chip_id[8];
+
+    while (ad->len > 0) {
+        uint8_t len = net_buf_simple_pull_u8(ad);
+        if (len == 0 || len > ad->len) {
+            break; // Ungültige Länge
+        }
+
+        uint8_t type = net_buf_simple_pull_u8(ad);
+        const uint8_t *data = ad->data;
+        ad->data += len - 1;
+        ad->len -= len - 1;
+
+		//printk("test\n");
+
+        // Suchen nach 16-bit Service UUIDs (LE Audio Services)
+        if (type == BT_DATA_SVC_DATA16) { //BT_DATA_UUID16_SOME || type == BT_DATA_UUID16_ALL) {
+			//printk("LE Audio-Gerät gefunden! UUID\n");
+			//printk("type 0x%04X ", type);
+            for (size_t i = 0; i < len - 1; i += 2) {
+                uint16_t uuid = (data[i + 1] << 8) | data[i];
+				if (uuid == BT_UUID_CAS_VAL) {
+					is_le_audio_device = true;
+                    //printk("LE Audio-Gerät gefunden! UUID: 0x%04X\n", uuid);
+                }
+            }
+			//printk("\n");
+        }
+
+		if (is_le_audio_device && type == BT_DATA_MANUFACTURER_DATA) {
+			memset(chip_id, 0, sizeof(chip_id));
+			memcpy(chip_id, data, sizeof(chip_id));
+        }
+
+		if (type == BT_DATA_CSIS_RSI) {
+			memcpy(csis_rsi, data, sizeof(csis_rsi));
+		}
+
+		// channel
+		// device_id = 0
+		// if (channel == 0x1 - this.channel)
+		// setSIRK(device_id - 0)
+    }
+
+	if (is_le_audio_device) {
+		LOG_INF("LE Audio-Gerät gefunden! UUID\n");
+
+		// printk("MANUFACTURER DATA 0x%s\n", bt_hex(chip_id, sizeof(chip_id)));
+
+		// printk("CSIS DATA 0x%s\n", bt_hex(csis_rsi, sizeof(csis_rsi)));
+
+		uint32_t hash_ref = (csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
+		uint32_t hash;
+
+		if(!device_paired) {
+			uint32_t new_sirk = *((uint32_t *) chip_id) ^ oe_boot_state.device_id;
+
+			enum audio_channel channel;
+
+			//backup channel
+			channel_assignment_get(&channel);
+
+			if (channel == AUDIO_CH_L) {
+
+				LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
+				LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
+				LOG_INF("New Sirk: %016X", new_sirk);
+
+				//TODO: check if the device wants to pair (sirk == device_id)
+				//TODO: check channel
+
+				//ret = uicr_sirk_set(new_sirk);
+
+				bt_le_scan_stop();
+
+				ret = uicr_sirk_set(new_sirk);
+
+				device_paired = true;
+
+				if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
+				else LOG_ERR("UICR writing error: %i", ret);
+			} else if (channel == AUDIO_CH_R) {
+				uint8_t res[BT_CSIP_PADDED_RAND_SIZE];
+
+				uint8_t sirk[BT_CSIP_SET_SIRK_SIZE + 1];
+				uint8_t r[BT_CSIP_CRYPTO_PRAND_SIZE];
+				uint8_t out[BT_CSIP_CRYPTO_HASH_SIZE];
+
+				for (size_t i = 0; i < 3; i++) {
+					//hash[i] = csis_rsi[i];
+					r[i] = csis_rsi[i+3];
+				}
+
+				// memcpy(new_sirk, )
+
+				if ((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(7)) ||
+				((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(6)) == 0)) {
+					LOG_WRN("Invalid r %s", bt_hex(r, BT_CSIP_CRYPTO_PRAND_SIZE));
+				}
+
+				// r' = padding || r
+				(void)memset(res + BT_CSIP_CRYPTO_PRAND_SIZE, 0, BT_CSIP_CRYPTO_PADDING_SIZE);
+				memcpy(res, r, BT_CSIP_CRYPTO_PRAND_SIZE);
+
+				memset(sirk, 0, BT_CSIP_CRYPTO_KEY_SIZE + 1);
+				snprintf(sirk, BT_CSIP_SET_SIRK_SIZE, "%08X", new_sirk);
+
+				//LOG_INF("New Sirk: %016X", new_sirk);
+				LOG_INF("SIRK as String: %s", sirk);
+
+				//LOG_INF("sirk %s", bt_hex(sirk, BT_CSIP_SET_SIRK_SIZE));
+				//LOG_INF("r' %s", bt_hex(res, sizeof(res)));
+
+				int err = bt_encrypt_le(sirk, res, res);
+
+				memcpy(out, res, BT_CSIP_CRYPTO_HASH_SIZE);
+
+				// LOG_INF("prand: 0x%s", bt_hex(r, BT_CSIP_CRYPTO_PRAND_SIZE));
+				// LOG_INF("hash to match: 0x%s", bt_hex(&hash, BT_CSIP_CRYPTO_HASH_SIZE)); //[0] << 16 | hash[1] << 8 | hash[2]);
+				// LOG_INF("hash result: 0x%s", bt_hex(out, BT_CSIP_CRYPTO_HASH_SIZE));
+
+				hash = out[2] << 16 | out[1] << 8 | out[0];
+
+				// LOG_INF("h1 0x%08X h2 0x%08X", hash, hash2);
+
+				if (hash_ref == hash) {
+					// LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
+					// LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
+					// LOG_INF("New Sirk: %016X", new_sirk);
+
+					//uicr_sirk_set(new_sirk);
+
+					bt_le_scan_stop();
+
+					ret = uicr_sirk_set(new_sirk);
+
+					device_paired = true;
+
+					if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
+					else LOG_ERR("UICR writing error: %i", ret);
+				}
+			}
+		}
+	}
+}
+
 int streamctrl_start(void)
 {
 	int ret;
@@ -537,6 +731,16 @@ int streamctrl_start(void)
 
 	ret = bt_mgmt_adv_start(ext_adv_buf, ext_adv_buf_cnt, NULL, 0, true);
 	ERR_CHK(ret);
+
+	uint32_t sirk = uicr_sirk_get();
+
+	if (sirk == 0xFFFFFFFF) {
+		struct bt_le_scan_param  * scan_param = BT_LE_SCAN_PARAM(NRF5340_AUDIO_GATEWAY_SCAN_TYPE, BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
+		
+		int err = bt_le_scan_start(scan_param, device_found);
+		if (err) LOG_ERR("Scanning failed to start (err %d)", err);
+		else LOG_INF("Scanning successfully started");
+	}
 
 	return 0;
 }
