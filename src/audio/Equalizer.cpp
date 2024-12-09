@@ -2,6 +2,11 @@
 
 #include <utility>
 
+#include "math.h"
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(equalizer, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
+
 static const float a[EQ_ORDER][3] = {
     {1.000000000000000, -1.955030104871120, 0.955653879248517},
     {1.000000000000000, -1.232336077107481, 0.307322124851148},
@@ -36,6 +41,8 @@ void equalize(int16_t * data, int length) {
             eq_buffer[k][1] = b[k][2] * y[k] - a[k][2] * y[k+1];
         }
 
-        data[n] = (int16_t) CLAMP(0.85 * y[EQ_ORDER],-1*(1<<15),1*(1<<15)-1);
+        if (abs(0.4 * y[EQ_ORDER]) > 1*(1<<15)) LOG_WRN("Clip: %f", 0.4f * y[EQ_ORDER]);
+
+        data[n] = (int16_t) CLAMP(0.4 * y[EQ_ORDER],-1*(1<<15),1*(1<<15)-1);
     }
 }
