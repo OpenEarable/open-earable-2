@@ -160,8 +160,7 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
             bma5->bus_write = bma5_i2c_write;
             bma5->intf = BMA5_I2C_INTF;
 
-            //coines_config_i2c_bus(COINES_I2C_BUS_0, COINES_I2C_STANDARD_MODE);
-            dev_info.i2c_dev->begin(I2C_SPEED_FAST_PLUS);
+            dev_info.i2c_dev->begin(I2C_SPEED_FAST_PLUS); //I2C_SPEED_FAST_PLUS
         }
 
         /* Holds the I2C device addr or SPI chip selection */

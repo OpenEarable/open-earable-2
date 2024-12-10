@@ -25,19 +25,31 @@
 arduino::MbedI2C::MbedI2C(const struct device * _device) : master(_device), usedTxBuffer(0) {}
 
 void arduino::MbedI2C::begin(uint32_t speed) {
-	__ASSERT(master != NULL, "I2C_DEV_LABEL not found!");
+	int ret;
+
 	if (!device_is_ready(master)) {
-		int result = i2c_configure(master, I2C_SPEED_SET(speed));
-		__ASSERT(result == 0, "Failed to set I2C speed!");
+		LOG_ERR("Failed to setup Wire.");
+		return;
+	}
+
+	// -ERANGE
+	uint32_t current_conf;
+
+	ret = i2c_get_config(master, &current_conf);
+
+	if (ret == -ERANGE || (current_conf & I2C_SPEED_MASK) != I2C_SPEED_SET(speed)) {
+		//LOG_INF("Start Wire");
+		ret = i2c_configure(master, I2C_SPEED_SET(speed));
+		__ASSERT(ret == 0, "Failed to set I2C speed!");
 		k_mutex_init(&mutex);
 	}
 }
 
 void arduino::MbedI2C::end() {
-	if (master != NULL) {
+	/*if (master != NULL) {
 		delete master;
 		master = NULL;
-	}
+	}*/
 }
 
 void arduino::MbedI2C::setClock(uint32_t freq) {
