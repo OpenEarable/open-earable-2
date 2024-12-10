@@ -191,6 +191,11 @@ dmic_dev: &pdm0 {
 		compatible = "analog,ssm6515";
 		reg = <0x34>;
 	};
+
+	adau1860: adau1860@64 {
+		compatible = "analog,adau1860";
+		reg = <0x64>;
+	};
 };
 
 &i2c2 {
