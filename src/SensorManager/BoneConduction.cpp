@@ -10,8 +10,6 @@ LOG_MODULE_DECLARE(BMA580);
 
 BoneConduction BoneConduction::sensor;
 
-//BMA580 BoneConduction::bone_conduction(Wire1);
-
 static struct sensor_data msg_bc;
 
 bool BoneConduction::init(struct k_msgq * queue) {
@@ -40,25 +38,21 @@ void BoneConduction::reset() {
 }
 
 void BoneConduction::update_sensor(struct k_work *work) {
-    //int int_status;
-    //int status = bma5880.read(fifo_acc_data);
-    //if((status == 0) && (int_status & MAXM86161_INT_DATA_RDY)) {
-        int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
+    int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
 
-        for (int i = 0; i < num_samples; i++) {
-            msg_bc.id = ID_PPG;
-            msg_bc.size = 4 * sizeof(uint32_t);
-            msg_bc.time = millis();
-            msg_bc.data[0]=sensor.fifo_acc_data[i].x;
-            msg_bc.data[1]=sensor.fifo_acc_data[i].y;
-            msg_bc.data[2]=sensor.fifo_acc_data[i].z;
+    for (int i = 0; i < num_samples; i++) {
+        msg_bc.id = ID_PPG;
+        msg_bc.size = 4 * sizeof(uint32_t);
+        msg_bc.time = millis();
+        msg_bc.data[0]=sensor.fifo_acc_data[i].x;
+        msg_bc.data[1]=sensor.fifo_acc_data[i].y;
+        msg_bc.data[2]=sensor.fifo_acc_data[i].z;
 
-            int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
-            if (ret == -EAGAIN) {
-                LOG_WRN("sensor msg queue full");
-            }
+        int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
+        if (ret == -EAGAIN) {
+            LOG_WRN("sensor msg queue full");
         }
-    //}
+    }
 }
 
 /**
@@ -70,7 +64,7 @@ void BoneConduction::sensor_timer_handler(struct k_timer *dummy) {
 
 void BoneConduction::start(k_timeout_t t) {
     if (!_active) return;
-    //ppg.setup(0x64, 1, 2, 400, 215, 8192);
+    
     bma580.init();
     bma580.start();
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
@@ -81,8 +75,6 @@ void BoneConduction::stop() {
     _active = false;
 
 	k_timer_stop(&sensor.sensor_timer);
-
-    //ppg.stop();
 
     bma580.stop();
 

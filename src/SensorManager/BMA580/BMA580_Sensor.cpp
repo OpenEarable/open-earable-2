@@ -394,6 +394,8 @@ int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
     uint8_t n_status = 1;
     struct bma580_int_status_types int_status = { 0 };
 
+    fifoframe.fifo_avail_frames = 0;
+
     int_status.int_src = BMA580_INT_STATUS_INT2;
 
     /* Get fifo full interrupt 2 status */
