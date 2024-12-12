@@ -1,5 +1,5 @@
 #include "SSM6515.h"
-#include "LoadSwitchPM.h"
+#include "LoadSwitch.h"
 #include "nrf5340_audio_common.h"
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
@@ -23,7 +23,7 @@ int SSM6515::begin() {
         _pWire->beginTransmission(address);
         if (_pWire->endTransmission() == 0){
                 _pWire->release();
-                last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+                last_i2c = micros();
                 return 0;
         }
         _pWire->release();
@@ -99,7 +99,7 @@ int SSM6515::soft_reset(bool full_reset) {
 
 
 bool SSM6515::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         int delay = MIN(SSM6515_I2C_TIMEOUT_US - (int)(now - last_i2c), SSM6515_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
@@ -122,12 +122,12 @@ bool SSM6515::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         _pWire->release();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
         return (ret == 0);
 }
 
 void SSM6515::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         int delay = MIN(SSM6515_I2C_TIMEOUT_US - (int)(now - last_i2c), SSM6515_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
@@ -142,5 +142,5 @@ void SSM6515::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 
         _pWire->release();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
 }

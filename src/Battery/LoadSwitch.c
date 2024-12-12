@@ -8,7 +8,7 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-#include "LoadSwitchPM.h"
+#include "LoadSwitch.h"
 
 struct load_switch_data {
     struct gpio_dt_spec ctrl_pin;

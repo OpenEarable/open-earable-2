@@ -1,21 +1,18 @@
-#ifndef _LOAD_SWITCH_H
-#define _LOAD_SWITCH_H
-
-#include <zephyr/kernel.h>
-#include <zephyr/drivers/gpio.h>
+#ifndef _LOAD_SWITCH_PM_H
+#define _LOAD_SWITCH_PM_H
 
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-class LoadSwitch {
-public:
-    LoadSwitch(const gpio_dt_spec _pin);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-    int begin() const;
-    void set(bool on) const;
-    bool is_on() const;
-private:
-    const gpio_dt_spec ctrl_pin; // = GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios);
-};
+int dev_pm_init(const struct device *dev);
+int dev_pm_control(const struct device *dev, enum pm_device_action action);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

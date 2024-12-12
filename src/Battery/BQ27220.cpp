@@ -1,5 +1,7 @@
 #include "BQ27220.h"
 
+#include "nrf5340_audio_common.h"
+
 BQ27220 fuel_gauge(&Wire);
 
 BQ27220::BQ27220(TwoWire * wire) : _pWire(wire) {
@@ -29,7 +31,7 @@ int BQ27220::begin() {
 
         _pWire->begin();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
 
         return 0;
 }
@@ -53,7 +55,7 @@ int BQ27220::set_wakeup_int() {
 }
 
 bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
@@ -76,13 +78,13 @@ bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         _pWire->release();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
 
         return (ret == 0);
 }
 
 void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
@@ -97,7 +99,7 @@ void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 
         _pWire->release();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
 }
 
 bat_status BQ27220::battery_status() {

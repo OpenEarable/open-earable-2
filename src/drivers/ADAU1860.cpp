@@ -1,5 +1,5 @@
 #include "ADAU1860.h"
-#include "LoadSwitchPM.h"
+#include "LoadSwitch.h"
 #include "nrf5340_audio_common.h"
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
@@ -116,7 +116,7 @@ int ADAU1860::soft_reset(bool full_reset) {
 
 
 bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         int delay = MIN(SSM6515_I2C_TIMEOUT_US - (int)(now - last_i2c), SSM6515_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
@@ -139,12 +139,12 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
 
         _pWire->release();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
         return (ret == 0);
 }
 
 void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         int delay = MIN(SSM6515_I2C_TIMEOUT_US - (int)(now - last_i2c), SSM6515_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
@@ -159,5 +159,5 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
 
         _pWire->release();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
 }
