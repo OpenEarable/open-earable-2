@@ -119,7 +119,6 @@ int PowerManager::begin() {
 
     battery_controller.begin();
     fuel_gauge.begin();
-    //power_switch.begin();
     earable_btn.begin();
 
     battery_controller.exit_high_impedance();
@@ -136,12 +135,8 @@ int PowerManager::begin() {
 
     oe_boot_state.timer_reset = (battery_controller.read_charging_state() >> 4) & 0x1;
 
-    //LOG_INF("Device has been reset: %i", is_reset);
-
     battery_controller.setup();
     battery_controller.set_int_callback(battery_controller_callback);
-
-    //battery_controller.enter_high_impedance();
 
     // check setup
     op_state state = fuel_gauge.operation_state();

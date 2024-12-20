@@ -38,8 +38,7 @@ public:
     //void set_3_3(bool on);
 
     /*BQ27220 fuel_gauge;
-    BQ25120a battery_controller;
-    PowerSwitch power_switch;*/
+    BQ25120a battery_controller;*/
 
     static k_work_delayable power_down_work;
 private:
@@ -66,7 +65,6 @@ private:
     static void fuel_gauge_work_handler(struct k_work * work);
     static void battery_controller_work_handler(struct k_work * work);
 
-    //static void power_switch_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);

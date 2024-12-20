@@ -32,8 +32,6 @@ void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 
 	button->_temp_buttonState = static_cast<button_action>(gpio_pin_get_dt(&(button->button)));
 
-	if (earable_btn._temp_buttonState == BUTTON_PRESS) k_work_cancel_delayable(&power_manager.power_down_work);
-
 	if (button->_buttonState == button->_temp_buttonState) {
 		k_work_cancel_delayable(&(button->button_work));
 	} else {

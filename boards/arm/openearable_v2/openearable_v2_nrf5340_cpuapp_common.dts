@@ -18,12 +18,6 @@
 		zephyr,ieee802154 = &ieee802154;
 	};
 
-	power_switch: power_switch {
-		compatible = "power-switch";
-		/* using built-in LED pin for demonstration */
-		gpios = <&gpio0 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-	};
-
 	sd_state: sd_state {
 		compatible = "power-switch";
 		/* using built-in LED pin for demonstration */
