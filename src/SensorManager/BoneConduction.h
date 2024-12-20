@@ -1,5 +1,5 @@
-#ifndef _PPG_H
-#define _PPG_H
+#ifndef _BONE_H
+#define _BONE_H
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>

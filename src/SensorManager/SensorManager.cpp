@@ -5,6 +5,7 @@
 #include "Baro.h"
 #include "PPG.h"
 #include "Temp.h"
+#include "BoneConduction.h"
 
 extern struct k_msgq sensor_queue;
 extern k_tid_t sensor_publish;
@@ -24,6 +25,7 @@ void stop_sensor_manager() {
 	IMU::sensor.stop();
 	PPG::sensor.stop();
 	Temp::sensor.stop();
+	BoneConduction::sensor.stop();
 
 	k_thread_suspend(sensor_publish);
 }
@@ -45,6 +47,9 @@ void config_sensor(struct sensor_config * config) {
 		break;
 	case ID_OPTTEMP:
 		sensor = &(Temp::sensor);
+		break;
+	case ID_BONE_CONDUCTION:
+		sensor = &(BoneConduction::sensor);
 		break;
 	default:
 		return;

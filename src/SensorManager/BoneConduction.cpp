@@ -41,8 +41,8 @@ void BoneConduction::update_sensor(struct k_work *work) {
     int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
 
     for (int i = 0; i < num_samples; i++) {
-        msg_bc.id = ID_PPG;
-        msg_bc.size = 4 * sizeof(uint32_t);
+        msg_bc.id = ID_BONE_CONDUCTION;
+        msg_bc.size = 3 * sizeof(uint32_t);
         msg_bc.time = millis();
         msg_bc.data[0]=sensor.fifo_acc_data[i].x;
         msg_bc.data[1]=sensor.fifo_acc_data[i].y;
