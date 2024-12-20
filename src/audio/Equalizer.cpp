@@ -7,7 +7,6 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(equalizer, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
-
 /*
 static const float a[EQ_ORDER][3] = {
     {1.000000000000000, -1.955030104871120, 0.955653879248517},

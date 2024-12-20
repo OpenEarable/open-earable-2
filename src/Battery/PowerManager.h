@@ -5,7 +5,7 @@
 
 #include "BQ27220.h"
 #include "BQ25120a.h"
-#include "PowerSwitch.h"
+//#include "PowerSwitch.h"
 //#include "LoadSwitch.h"
 
 #include "../bluetooth/gatt_services/battery_service.h"
@@ -32,6 +32,8 @@ public:
     void get_energy_status(battery_energy_status &status);
     void get_health_status(battery_health_status &status);
 
+    // bool is_power_on();
+
     //void set_1_8(bool on);
     //void set_3_3(bool on);
 
@@ -41,7 +43,9 @@ public:
 
     static k_work_delayable power_down_work;
 private:
+    bool power_on = false;
     uint16_t last_charging_state = 0;
+
     void charge_task();
 
     void power_connected();
@@ -55,14 +59,17 @@ private:
     static k_work charge_ctrl_work;
     //static k_work power_down_work;
     static k_work fuel_gauge_work;
+    static k_work battery_controller_work;
 
     static void charge_ctrl_work_handler(struct k_work * work);
     static void power_down_work_handler(struct k_work * work);
     static void fuel_gauge_work_handler(struct k_work * work);
+    static void battery_controller_work_handler(struct k_work * work);
 
-    static void power_switch_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+    //static void power_switch_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+    static void battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
     static void charge_timer_handler(struct k_timer * timer);
 

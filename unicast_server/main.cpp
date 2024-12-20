@@ -222,7 +222,7 @@ int main(void) {
         oe_boot_state.device_id = (((uint64_t) device_id[1]) << 32) | device_id[0];
 
         // Ausgabe der 64-Bit-Geräte-ID
-        LOG_INF("Device ID: %016X", oe_boot_state.device_id);
+        // LOG_INF("Device ID: %016X", oe_boot_state.device_id);
 
         // ret = uicr_sirk_set(0xFFFFFFFFU);
 

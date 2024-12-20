@@ -45,6 +45,8 @@ void arduino::MbedI2C::begin(uint32_t speed) {
 		ret = i2c_configure(master, I2C_SPEED_SET(speed));
 		__ASSERT(ret == 0, "Failed to set I2C speed!");
 		k_mutex_init(&mutex);
+	} else {
+		LOG_WRN("Failed to configure I2C");
 	}
 }
 

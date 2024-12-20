@@ -41,6 +41,12 @@ int BQ25120a::begin() {
                 return ret;
         }
 
+        ret = gpio_pin_interrupt_configure_dt(&int_pin, GPIO_INT_EDGE_TO_ACTIVE);
+        if (ret != 0) {
+                printk("Failed to setup interrupt on INT: ERROR -%i.\n", ret);
+                return ret;
+        }
+
         _pWire->begin();
 
         uint64_t now = micros();
@@ -61,6 +67,12 @@ int BQ25120a::set_wakeup_int() {
         ret = gpio_pin_interrupt_configure_dt(&pg_pin, GPIO_INT_LEVEL_ACTIVE);
         if (ret != 0) {
                 printk("Failed to setup interrupt on PG.\n");
+                return ret;
+        }
+
+        ret = gpio_pin_interrupt_configure_dt(&int_pin, GPIO_INT_LEVEL_ACTIVE);
+        if (ret != 0) {
+                printk("Failed to setup interrupt on INT.\n");
                 return ret;
         }
 
@@ -128,7 +140,6 @@ void BQ25120a::setup() {
 
         exit_high_impedance();
 
-        //disable_ts();
         setup_ts_control();
         write_battery_voltage_control(4.3);
         write_charging_control(110);
@@ -165,15 +176,6 @@ uint8_t BQ25120a::read_ts_fault() {
 
         return status;
 }
-
-/*uint8_t read_charging_control() {
-        uint8_t status = 0;
-        uint8_t reg=bq25120a_regs[BQ25120A_REG_CHARGE_CTRL];
-        bool ret = readReg(address_bq25120a, reg, (uint8_t *) &status, sizeof(status));
-
-        if (ret) return status;
-        else return -1;
-}*/
 
 chrg_state BQ25120a::read_charging_control() {
         uint8_t status = 0;
@@ -342,12 +344,10 @@ uint16_t BQ25120a::write_termination_control(float mA) {
 }
 
 ilim_uvlo BQ25120a::read_uvlo_ilim() {
-        uint8_t status = 0;
-        bool ret = readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
-
         struct ilim_uvlo param;
+        uint8_t status = 0;
 
-        //printk("uvlo_ilim: %x\n", status);
+        bool ret = readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
 
         if (!ret) printk("failed to read\n");
 
@@ -372,13 +372,6 @@ uint16_t BQ25120a::write_uvlo_ilim(ilim_uvlo param) {
 }
 
 void BQ25120a::setup_ts_control() {
-        /*uint16_t ts_fault = read_ts_fault();
-
-        // disable TS
-        ts_fault &= ~(1 << 7);
-        // disable INT for charging indication
-        ts_fault &= ~(1 << 3);*/
-
         uint16_t ts_fault = 0;
 
         writeReg(registers::TS_FAULT, (uint8_t *) &ts_fault, sizeof(ts_fault));

@@ -607,18 +607,18 @@ int unicast_server_adv_populate(struct bt_data *adv_buf, uint8_t adv_buf_vacant)
 	uint32_t sirk = uicr_sirk_get();
 
 	//if (sirk == 0xFFFFFFFF) {
-		uint64_t test = oe_boot_state.device_id;
+	uint64_t test = oe_boot_state.device_id;
 
-		for (int i = 0; i < sizeof(uint64_t); i++) {
-			device_identifier[i] = test & 0xFFU;
-			test >>= 8;
-		}
+	for (int i = 0; i < sizeof(uint64_t); i++) {
+		device_identifier[i] = test & 0xFFU;
+		test >>= 8;
+	}
 
-		ret = adv_buf_put(adv_buf, adv_buf_vacant, &adv_buf_cnt, BT_DATA_MANUFACTURER_DATA,
-				ARRAY_SIZE(device_identifier), &device_identifier[0]);
-		if (ret) {
-			return ret;
-		}
+	ret = adv_buf_put(adv_buf, adv_buf_vacant, &adv_buf_cnt, BT_DATA_MANUFACTURER_DATA,
+			ARRAY_SIZE(device_identifier), &device_identifier[0]);
+	if (ret) {
+		return ret;
+	}
 	//}
 
 	return adv_buf_cnt;

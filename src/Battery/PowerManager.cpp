@@ -32,6 +32,7 @@ K_WORK_DELAYABLE_DEFINE(PowerManager::power_down_work, PowerManager::power_down_
 //K_WORK_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
 K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_handler);
 K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handler);
+K_WORK_DEFINE(PowerManager::battery_controller_work, PowerManager::battery_controller_work_handler);
 
 extern struct k_msgq battery_queue;
 
@@ -43,19 +44,12 @@ void PowerManager::charge_timer_handler(struct k_timer * timer) {
 	k_work_submit(&charge_ctrl_work);
 }
 
-void PowerManager::power_switch_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-	bool power_on = power_switch.is_on();
-
-    if (!power_on) {
-        k_work_reschedule(&power_manager.power_down_work, DEBOUNCE_POWER_MS);
-        //k_work_submit(&power_manager.power_down_work);
-    } else {
-        k_work_cancel_delayable(&power_manager.power_down_work);
-    }
-}
-
 void PowerManager::fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
     k_work_submit(&fuel_gauge_work);
+}
+
+void PowerManager::battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+    k_work_submit(&battery_controller_work);
 }
 
 void PowerManager::power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
@@ -65,12 +59,10 @@ void PowerManager::power_good_callback(const struct device *dev, struct gpio_cal
 
     if (power_good) {
         power_manager.last_charging_state = 0;
-        // start charge control timer
         k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
     } else {
         k_timer_stop(&charge_timer);
-        //if (!power_switch.is_on()) k_work_submit(&power_manager.power_down_work);
-        if (!power_switch.is_on()) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
+        if (!power_manager.power_on) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
     }
 }
 
@@ -80,6 +72,26 @@ void PowerManager::power_down_work_handler(struct k_work * work) {
 
 void PowerManager::charge_ctrl_work_handler(struct k_work * work) {
 	power_manager.charge_task();
+}
+
+void PowerManager::battery_controller_work_handler(struct k_work * work) {
+    button_state state;
+
+    //uint8_t val = gpio_pin_get_dt(&power_manager.error_led);
+
+    //gpio_pin_set_dt(&power_manager.error_led, 1 - val);
+
+    battery_controller.exit_high_impedance();
+    state = battery_controller.read_button_state();
+    battery_controller.enter_high_impedance();
+
+    if (state.wake_2 && (earable_btn.getState() == BUTTON_PRESS)) {
+        power_manager.power_on = !power_manager.power_on;
+        //LOG_INF("Power on: %i", power_manager.power_on);
+
+        if (!power_manager.power_on) power_manager.power_down();
+    }
+
 }
 
 void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
@@ -101,24 +113,35 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
 int PowerManager::begin() {
     earable_state oe_state;
+
     oe_state.charging_state = DISCHARGING;
     oe_state.pairing_state = PAIRED;
 
     battery_controller.begin();
     fuel_gauge.begin();
-    power_switch.begin();
+    //power_switch.begin();
+    earable_btn.begin();
 
     battery_controller.exit_high_impedance();
 
-    uint16_t is_reset = (battery_controller.read_charging_state() >> 4) & 0x1;
+    button_state btn = battery_controller.read_button_state();
 
-    battery_controller.enter_high_impedance();
+    if (btn.wake_2 && (earable_btn.getState() == BUTTON_PRESS)) {
+        power_on = true;
+    } else {
+        power_on = false;
+    }
 
-    oe_boot_state.timer_reset = is_reset == 1;
+    // LOG_INF("Power on: %i", power_on);
+
+    oe_boot_state.timer_reset = (battery_controller.read_charging_state() >> 4) & 0x1;
 
     //LOG_INF("Device has been reset: %i", is_reset);
 
     battery_controller.setup();
+    battery_controller.set_int_callback(battery_controller_callback);
+
+    //battery_controller.enter_high_impedance();
 
     // check setup
     op_state state = fuel_gauge.operation_state();
@@ -144,7 +167,7 @@ int PowerManager::begin() {
 
     if (charging) {
         power_manager.last_charging_state = 0;
-        //k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
+        
         k_timer_start(&charge_timer, power_manager.chrg_interval, power_manager.chrg_interval);
 
         int ret = pm_device_runtime_enable(ls_1_8);
@@ -170,22 +193,20 @@ int PowerManager::begin() {
 
         state_indicator.init(oe_state);
 
-        while(!power_switch.is_on() && battery_controller.power_connected()) {
+        while(!power_on && battery_controller.power_connected()) {
             __WFE();
         }
     } else {
         oe_state.charging_state = DISCHARGING;
     }
 
-    if (power_switch.is_on()) {
+    if (power_on) {
         //TODO: check power on condition
         // either not charging and edv1 or charging and edv0 and temperature
-
-        earable_btn.begin();
         
         battery_controller.set_power_connect_callback(power_good_callback);
         fuel_gauge.set_int_callback(fuel_gauge_callback);
-        power_switch.set_power_off_callback(power_switch_callback);
+        //battery_controller.set_int_callback(battery_controller_callback);
 
         //float voltage = battery_controller.read_ldo_voltage();
         //if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
@@ -209,13 +230,13 @@ int PowerManager::begin() {
 
         ret = device_is_ready(error_led.port); //bool
         if (!ret) {
-            printk("Error LED not ready.\n");
+            LOG_WRN("Error LED not ready.");
             return -1;
         }
 
         ret = gpio_pin_configure_dt(&error_led, GPIO_OUTPUT_INACTIVE);
         if (ret != 0) {
-            printk("Failed to set Error LED as output: ERROR -%i.\n", ret);
+            LOG_INF("Failed to set Error LED as output: ERROR -%i.", ret);
             return ret;
         }
 
@@ -366,12 +387,13 @@ int PowerManager::power_down(bool fault) {
     if (!charging) {
         ret = battery_controller.set_wakeup_int();
         if (ret != 0) return ret;
+
         ret = fuel_gauge.set_wakeup_int();
         if (ret != 0) return ret;
         
         // check battery good
-        if (!fault) ret = power_switch.set_wakeup_int();
-        if (ret != 0) return ret;
+        //if (!fault) ret = power_switch.set_wakeup_int();
+        //if (ret != 0) return ret;
 
         battery_controller.enter_high_impedance();
     }
@@ -408,8 +430,8 @@ int PowerManager::power_down(bool fault) {
 
     ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
-
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
+
     //ERR_CHK(ret);
 
     /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
