@@ -363,10 +363,11 @@ void BQ27220::write_RAM(uint16_t ram_address, uint16_t val) {
 }
 
 void BQ27220::setup(bool init) {
-        /*write_command(0x0414);
+        // unseal
+        write_command(0x0414);
         k_msleep(100);
         write_command(0x3672);
-        k_msleep(100);*/
+        k_msleep(100);
         
         full_access();
 

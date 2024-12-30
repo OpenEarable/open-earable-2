@@ -172,9 +172,9 @@ dmic_dev: &pdm0 {
 		gpout-gpios = <&gpio0 22 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
 	};
 
-	bq25120a: bq25120a@6A {
+	bq25120a: bq25120a@6a {
 		compatible = "ti,bq25120a";
-		reg = <0x6A>;
+		reg = <0x6a>;
 		int-gpios = <&gpio0 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		cd-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
 		pg-gpios = <&gpio0 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;

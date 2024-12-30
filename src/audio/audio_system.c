@@ -8,16 +8,16 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
+#include <data_fifo.h>
+#include <contin_array.h>
+#include <pcm_stream_channel_modifier.h>
+#include <tone.h>
 
 #include "macros_common.h"
 #include "sw_codec_select.h"
 #include "audio_datapath.h"
 #include "audio_i2s.h"
-#include "data_fifo.h"
 #include "hw_codec.h"
-#include "tone.h"
-#include "contin_array.h"
-#include "pcm_stream_channel_modifier.h"
 #include "audio_usb.h"
 #include "streamctrl.h"
 
@@ -70,6 +70,7 @@ static void audio_gateway_configure(void)
 	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
+	sw_codec_cfg.decoder.audio_ch = AUDIO_CHANNEL_DEFAULT;
 	sw_codec_cfg.decoder.num_ch = 1;
 	sw_codec_cfg.decoder.channel_mode = SW_CODEC_MONO;
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
@@ -93,9 +94,12 @@ static void audio_headset_configure(void)
 	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
+	sw_codec_cfg.decoder.audio_ch = AUDIO_CHANNEL_DEFAULT;
 	sw_codec_cfg.encoder.num_ch = 1;
 	sw_codec_cfg.encoder.channel_mode = SW_CODEC_MONO;
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
+
+	//channel_assignment_get(&sw_codec_cfg.decoder.audio_ch);
 
 	sw_codec_cfg.decoder.num_ch = 1;
 	sw_codec_cfg.decoder.channel_mode = SW_CODEC_MONO;
