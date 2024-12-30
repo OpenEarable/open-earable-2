@@ -69,7 +69,7 @@ void Button::begin() {
 
 	gpio_init_callback(&button_cb_data, button_isr, button_cb_data.pin_mask | BIT(button.pin));
 	gpio_add_callback(button.port, &button_cb_data);
-	LOG_INF("Set up button at %s pin %d", button.port->name, button.pin);
+	//LOG_INF("Set up button at %s pin %d", button.port->name, button.pin);
 
 	// initial state
 	bool reading = gpio_pin_get_dt(&button);

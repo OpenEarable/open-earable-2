@@ -85,7 +85,7 @@ void PowerManager::battery_controller_work_handler(struct k_work * work) {
     state = battery_controller.read_button_state();
     battery_controller.enter_high_impedance();
 
-    if (state.wake_2 && (earable_btn.getState() == BUTTON_PRESS)) {
+    if (state.wake_2) {
         power_manager.power_on = !power_manager.power_on;
         //LOG_INF("Power on: %i", power_manager.power_on);
 
@@ -123,17 +123,15 @@ int PowerManager::begin() {
 
     battery_controller.exit_high_impedance();
 
+    uint8_t bat_state = battery_controller.read_charging_state();
+
+    oe_boot_state.timer_reset = bat_state & (1 << 4);
+
     button_state btn = battery_controller.read_button_state();
 
-    if (btn.wake_2 && (earable_btn.getState() == BUTTON_PRESS)) {
-        power_on = true;
-    } else {
-        power_on = false;
-    }
+    power_on = btn.wake_2 || oe_boot_state.timer_reset;
 
     // LOG_INF("Power on: %i", power_on);
-
-    oe_boot_state.timer_reset = (battery_controller.read_charging_state() >> 4) & 0x1;
 
     battery_controller.setup();
     battery_controller.set_int_callback(battery_controller_callback);
@@ -195,52 +193,53 @@ int PowerManager::begin() {
         oe_state.charging_state = DISCHARGING;
     }
 
-    if (power_on) {
-        //TODO: check power on condition
-        // either not charging and edv1 or charging and edv0 and temperature
-        
-        battery_controller.set_power_connect_callback(power_good_callback);
-        fuel_gauge.set_int_callback(fuel_gauge_callback);
-        //battery_controller.set_int_callback(battery_controller_callback);
+    if (!power_on) return power_down();
 
-        //float voltage = battery_controller.read_ldo_voltage();
-        //if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
+    //TODO: check power on condition
+    // either not charging and edv1 or charging and edv0 and temperature
+    
+    battery_controller.set_power_connect_callback(power_good_callback);
+    fuel_gauge.set_int_callback(fuel_gauge_callback);
+    //battery_controller.set_int_callback(battery_controller_callback);
 
-        battery_controller.enter_high_impedance();
+    //float voltage = battery_controller.read_ldo_voltage();
+    //if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
 
-        int ret = pm_device_runtime_enable(ls_1_8);
-        if (ret != 0) {
-            LOG_WRN("Error setting up load switch 1.8V.");
-        }
+    battery_controller.enter_high_impedance();
 
-        ret = pm_device_runtime_enable(ls_3_3);
-        if (ret != 0) {
-            LOG_WRN("Error setting up load switch 3.3V.");
-        }
-
-        ret = pm_device_runtime_enable(ls_sd);
-        if (ret != 0) {
-            LOG_WRN("Error setting up load switch SD.");
-        }
-
-        ret = device_is_ready(error_led.port); //bool
-        if (!ret) {
-            LOG_WRN("Error LED not ready.");
-            return -1;
-        }
-
-        ret = gpio_pin_configure_dt(&error_led, GPIO_OUTPUT_INACTIVE);
-        if (ret != 0) {
-            LOG_INF("Failed to set Error LED as output: ERROR -%i.", ret);
-            return ret;
-        }
-
-        state_indicator.init(oe_state);
-
-        return 0;
+    int ret = pm_device_runtime_enable(ls_1_8);
+    if (ret != 0) {
+        LOG_WRN("Error setting up load switch 1.8V.");
     }
 
-    return power_down();
+    ret = pm_device_runtime_enable(ls_3_3);
+    if (ret != 0) {
+        LOG_WRN("Error setting up load switch 3.3V.");
+    }
+
+    ret = pm_device_runtime_enable(ls_sd);
+    if (ret != 0) {
+        LOG_WRN("Error setting up load switch SD.");
+    }
+
+    ret = device_is_ready(error_led.port); //bool
+    if (!ret) {
+        LOG_WRN("Error LED not ready.");
+        return -1;
+    }
+
+    ret = gpio_pin_configure_dt(&error_led, GPIO_OUTPUT_INACTIVE);
+    if (ret != 0) {
+        LOG_INF("Failed to set Error LED as output: ERROR -%i.", ret);
+        return ret;
+    }
+
+    //RGBColor white = {32, 32, 32};
+    //led_controller.setColor(white);
+
+    state_indicator.init(oe_state);
+
+    return 0;
 }
 
 bool PowerManager::check_battery() {

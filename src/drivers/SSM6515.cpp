@@ -33,7 +33,7 @@ int SSM6515::begin() {
 int SSM6515::end() {
         int ret;
 
-        ret = pm_device_runtime_put(DEVICE_DT_GET(DT_NODELABEL(load_switch)));
+        ret = pm_device_runtime_put(ls_1_8);
 
         return ret;
 }
@@ -43,7 +43,7 @@ int SSM6515::setup() {
         uint8_t dac_ctrl2 = 0x10;
         uint8_t spt_ctrl1 = 0x10; // 16 BCKL per slot, stereo
         uint8_t spt_ctrl2 = 0x00; // left channel
-        uint8_t dac_vol = 0x40; // left channel
+        uint8_t dac_vol = 0x40; // volume
         uint8_t clock_ctrl = 0x00; //0x00 for auto
 
         // reset all registers
