@@ -14,7 +14,12 @@
 //#define OUT_VOLUME_DEFAULT 0x40
 //#define MAX_VOLUME_REG_VAL 0x80
 
-#define SSM6515_I2C_TIMEOUT_US 66
+#define ADAU1860_I2C_TIMEOUT_US 66
+
+// https://wiki.analog.com/resources/tools-software/sigmastudio/usingsigmastudio/numericformats
+typedef uint32_t filterbank_double[5];
+
+const uint32_t bank0_addr = 0x4000A200;
 
 class ADAU1860 {
 public:
