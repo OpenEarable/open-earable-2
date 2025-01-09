@@ -246,13 +246,13 @@ uint16_t BQ25120a::write_LDO_voltage_control(float volt) {
 
         if (volt > 10) volt /= 1000;
 
-        volt = CLAMP(volt, 0.8, 3.3);
+        volt = CLAMP(volt, 0.8f, 3.3f);
 
         readReg(registers::LS_LDO_CTRL, &status, sizeof(status));
 
         //status |= (((uint16_t)((volt - 0.8) * 10)) & 0x1F) << 2;
         status &= 1 << 7;
-        status |= ((uint16_t)((volt - 0.8) * 10 + EPS)) << 2;
+        status |= ((uint16_t)((volt - 0.8f) * 10 + EPS)) << 2;
         //status |= 1 << 7;
 
         writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));
@@ -264,7 +264,7 @@ float BQ25120a::read_ldo_voltage() {
         uint8_t status = 0;
         bool ret = readReg(registers::LS_LDO_CTRL, (uint8_t *) &status, sizeof(status));
 
-        float voltage = 0.8 + ((status >> 2 & 0x1F)) * 0.1;
+        float voltage = 0.8f + ((status >> 2 & 0x1F)) * 0.1f;
 
         return voltage;
 }
@@ -273,7 +273,7 @@ float BQ25120a::read_battery_voltage_control() {
         uint8_t status = 0;
         bool ret = readReg(registers::BAT_VOL_CTRL, (uint8_t *) &status, sizeof(status));
 
-        float voltage = 3.6 + (status >> 1) * 0.01;
+        float voltage = 3.6f + (status >> 1) * 0.01f;
 
         return voltage;
 }
@@ -284,9 +284,9 @@ uint16_t BQ25120a::write_battery_voltage_control(float volt) {
 
         if (volt > 10) volt /= 1000;
 
-        volt = CLAMP(volt, 3.6, 4.65);
+        volt = CLAMP(volt, 3.6f, 4.65f);
 
-        status |= (((uint16_t)((volt - 3.6) * 100 + EPS)) & 0x7F) << 1;
+        status |= (((uint16_t)((volt - 3.6f) * 100 + EPS)) & 0x7F) << 1;
 
         writeReg(registers::BAT_VOL_CTRL, &status, sizeof(status));
 

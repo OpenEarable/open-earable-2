@@ -1066,7 +1066,9 @@ int audio_datapath_init(void)
 	memset(&ctrl_blk, 0, sizeof(ctrl_blk));
 	audio_i2s_blk_comp_cb_register(audio_datapath_i2s_blk_complete);
 	audio_i2s_init();
-	pdm_mic_init();
+	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+		pdm_mic_init();
+	}
 	ctrl_blk.datapath_initialized = true;
 	ctrl_blk.drift_comp.enabled = true;
 	ctrl_blk.pres_comp.enabled = true;

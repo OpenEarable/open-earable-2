@@ -3,7 +3,7 @@
 
 #include <zephyr/kernel.h>
 
-#define EQ_ORDER 2
+#define EQ_ORDER 8
 
 #ifdef __cplusplus
 extern "C" {

@@ -27,6 +27,7 @@ int SSM6515::begin() {
                 return 0;
         }
         _pWire->release();
+        last_i2c = micros();
         return -1;
 }
 
@@ -48,6 +49,8 @@ int SSM6515::setup() {
 
         // reset all registers
         soft_reset(true);
+
+        k_msleep(20);
 
         writeReg(registers::PWR_CTRL, &pwr_ctrl, sizeof(pwr_ctrl));
         writeReg(registers::CLK_CTRL, &clock_ctrl, sizeof(clock_ctrl));
