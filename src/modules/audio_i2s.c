@@ -158,11 +158,11 @@ void audio_i2s_init(void)
 	__ASSERT_NO_MSG(ret == NRFX_SUCCESS);
 
 	// start i2s
-	ret = nrfx_i2s_start(&i2s_initial_buffers, I2S_DATA_BLOCK_WORDS, 0);
+	/*ret = nrfx_i2s_start(&i2s_initial_buffers, I2S_DATA_BLOCK_WORDS, 0);
 	if (ret != NRFX_SUCCESS)
 	{
 		printf("I2S start error\n");
-	}
+	}*/
 
 	state = AUDIO_I2S_STATE_IDLE;
 }
