@@ -153,7 +153,7 @@
 
 dmic_dev: &pdm0 {
 	compatible = "nordic,nrf-pdm";
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&pdm0_default_alt>;
 	pinctrl-names = "default";
 	clock-source = "ACLK";
@@ -175,7 +175,7 @@ dmic_dev: &pdm0 {
 	bq25120a: bq25120a@6a {
 		compatible = "ti,bq25120a";
 		reg = <0x6a>;
-		int-gpios = <&gpio0 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		int-gpios = <&gpio0 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		cd-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
 		pg-gpios = <&gpio0 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		lsctrl-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
@@ -189,6 +189,7 @@ dmic_dev: &pdm0 {
 	adau1860: adau1860@64 {
 		compatible = "analog,adau1860";
 		reg = <0x64>;
+		enable-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -197,6 +198,14 @@ dmic_dev: &pdm0 {
 	status = "okay";
 	pinctrl-0 = <&i2c2_default>;
 	pinctrl-1 = <&i2c2_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&i2c3 {
+	compatible = "nordic,nrf-twim";
+	status = "okay";
+	pinctrl-0 = <&i2c3_default>;
+	pinctrl-1 = <&i2c3_sleep>;
 	pinctrl-names = "default", "sleep";
 };
 

@@ -95,12 +95,13 @@ private:
     gpio_callback power_connect_cb_data;
     gpio_callback int_cb_data;
 
-    //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
-    //const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), cd_gpios);
+    const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
+    const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), cd_gpios);
+    const struct gpio_dt_spec int_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), int_gpios);
 
-    const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), pg_gpios, {0});
+    /*const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), pg_gpios, {0});
     const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), cd_gpios, {0});
-    const struct gpio_dt_spec int_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), int_gpios, {0});
+    const struct gpio_dt_spec int_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), int_gpios, {0});*/
 };
 
 extern BQ25120a battery_controller;

@@ -6,15 +6,15 @@
 
 &pinctrl {
 	i2s0_default: i2s0_default {
-		/*group1 {
-			psels = <NRF_PSEL(I2S_MCK, 0, 12)>;
-			nordic,drive-mode = <NRF_DRIVE_H0H1>;
-		};*/
-		// group2
 		group1 {
+			psels = <NRF_PSEL(I2S_MCK, 1, 14)>;
+			nordic,drive-mode = <NRF_DRIVE_H0H1>;
+		};
+		group2 {
 			psels = <NRF_PSEL(I2S_SCK_M, 1, 10)>,
 			<NRF_PSEL(I2S_LRCK_M, 0, 30)>,
-			<NRF_PSEL(I2S_SDOUT, 0, 28)>;
+			<NRF_PSEL(I2S_SDOUT, 0, 28)>,
+			<NRF_PSEL(I2S_SDIN, 0, 31)>;
 		};
 	};
 
@@ -22,7 +22,8 @@
 		group1 {
 			psels = <NRF_PSEL(I2S_SCK_M, 1, 10)>,
 				<NRF_PSEL(I2S_LRCK_M, 0, 30)>,
-				<NRF_PSEL(I2S_SDOUT, 0, 28)>;
+				<NRF_PSEL(I2S_SDOUT, 0, 28)>,
+				<NRF_PSEL(I2S_SDIN, 0, 31)>;
 				// <NRF_PSEL(I2S_SDIN, 0, 15)>
 				// <NRF_PSEL(I2S_MCK, 0, 12)>
 			low-power-enable;
@@ -62,6 +63,21 @@
 		group1 {
 			psels = <NRF_PSEL(TWIM_SCL, 1, 0)>,
 				<NRF_PSEL(TWIM_SDA, 1, 15)>;
+			low-power-enable;
+		};
+	};
+
+	i2c3_default: i2c3_default {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SCL, 1, 2)>,
+				<NRF_PSEL(TWIM_SDA, 1, 3)>;
+		};
+	};
+
+	i2c3_sleep: i2c3_sleep {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SCL, 1, 2)>,
+				<NRF_PSEL(TWIM_SDA, 1, 3)>;
 			low-power-enable;
 		};
 	};

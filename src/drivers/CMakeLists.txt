@@ -5,7 +5,7 @@
 #
 
 target_sources(app PRIVATE
-	       ${CMAKE_CURRENT_SOURCE_DIR}/SSM6515.cpp
+	       ${CMAKE_CURRENT_SOURCE_DIR}/ADAU1860.cpp
 )
 
 add_subdirectory(LED_Controller)

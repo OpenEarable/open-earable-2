@@ -181,5 +181,5 @@ int arduino::MbedI2C::master_read(int address, const char * buf, const uint32_t 
 }
 
 arduino::MbedI2C Wire(DEVICE_DT_GET(DT_NODELABEL(i2c1)));
-
 arduino::MbedI2C Wire1(DEVICE_DT_GET(DT_NODELABEL(i2c2)));
+arduino::MbedI2C Wire2(DEVICE_DT_GET(DT_NODELABEL(i2c3)));

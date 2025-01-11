@@ -1,5 +1,5 @@
-#ifndef _SSM6515_H
-#define _SSM6515_H
+#ifndef _ADAU1860_H
+#define _ADAU1860_H
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
@@ -384,6 +384,8 @@ private:
     void writeReg(uint32_t reg, uint8_t * buffer, uint16_t len);
 
     const int address = DT_REG_ADDR(DT_NODELABEL(adau1860));
+
+    const struct gpio_dt_spec dac_enable_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(adau1860), enable_gpios);
 
     uint64_t last_i2c;
 

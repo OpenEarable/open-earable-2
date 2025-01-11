@@ -21,7 +21,7 @@
 #include "audio_usb.h"
 #include "streamctrl.h"
 
-#include "pdm_mic.h"
+//#include "pdm_mic.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
@@ -192,9 +192,9 @@ void audio_system_encoder_start(void)
 {
 	LOG_DBG("Encoder started");
 	k_poll_signal_raise(&encoder_sig, 0);
-	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		pdm_mic_start();
-	}
+	}*/
 }
 
 void audio_system_encoder_stop(void)
@@ -420,10 +420,10 @@ void audio_system_start(void)
 	ret = audio_datapath_start(&fifo_rx);
 	ERR_CHK(ret);
 
-	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		ret = pdm_datapath_start(&fifo_rx);
 		ERR_CHK(ret);
-	}
+	}*/
 
 #endif /* ((CONFIG_AUDIO_SOURCE_USB) && (CONFIG_AUDIO_DEV == GATEWAY))) */
 }
@@ -447,9 +447,9 @@ void audio_system_stop(void)
 
 	ret = audio_datapath_stop();
 	ERR_CHK(ret);
-	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		pdm_mic_stop();
-	}
+	}*/
 #endif /* ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB) */
 
 	ret = sw_codec_uninit(sw_codec_cfg);

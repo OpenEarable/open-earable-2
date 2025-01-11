@@ -18,13 +18,35 @@ int ADAU1860::begin() {
 
         // pull-up PD pin
 
+        ret = gpio_pin_configure_dt(&dac_enable_pin, GPIO_OUTPUT_ACTIVE);
+	if (ret != 0) {
+                LOG_ERR("Failed to set DAC enable as output.\n");
+                return ret;
+        }
+
         k_msleep(35); // see datasheet
 
         _pWire->begin();
 
+        last_i2c = micros();
+
+        // Power saving
+        /*uint8_t cm_startup_over = 1 << 2; // << 4 | 1 <<;
+        writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
+
+        k_msleep(35); // see datasheet*/
+
+        uint8_t startup_dlycnt_byp = 1;
+        writeReg(registers::PMU_CTRL2, &startup_dlycnt_byp, sizeof(startup_dlycnt_byp));
+
         // Power saving
         uint8_t cm_startup_over = 1 << 4;
         writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
+
+        uint8_t test;
+        readReg(registers::CHIP_PWR, &test, sizeof(test));
+
+        LOG_INF("CHIP_PWR: %x", test);
 
         // DSP_PWR - reset val
 
@@ -32,13 +54,26 @@ int ADAU1860::begin() {
         uint8_t pll_ctrl = 0x1; // XTAL_EN = 0, PLL_EN = 1 ?
         writeReg(registers::PLL_PGA_PWR, &pll_ctrl, sizeof(pll_ctrl));
 
-        //setup clock
-        uint8_t clk_ctrl1 = (0x3 << 6) | (1 << 4) | (1 << 3);
+        //setup clock (PLL integer, MCLK source)
+        uint8_t clk_ctrl1 = (0x3 << 6);
+        // | (1 << 4);// | (1 << 3);
         writeReg(registers::CLK_CTRL1, &clk_ctrl1, sizeof(clk_ctrl1));
+
+        //DAC PLL multiple of 24.576MHz (=2x12.288)
+        //CLK_CTRL2 Prescaler = 1
+        //CLK_CTRL3 CLK_CTRL4 R = 4
+
+        // PLL update CLK_CTRL9 ?
+        uint8_t clk_ctrl9 = 1;
+        writeReg(registers::CLK_CTRL9, &clk_ctrl9, sizeof(clk_ctrl9));
+
+        k_msleep(100);
 
         // verify power up complete
         uint8_t status2;
         readReg(registers::STATUS2, &status2, sizeof(status2));
+
+        LOG_INF("STATUS2: %x", status2);
 
         // power up complete and PLL lock (0 or 1)?
         if ((status2 & (1 << 7)) && (status2 & 1)) return 0;
@@ -49,6 +84,7 @@ int ADAU1860::end() {
         int ret;
 
         // pull-down PD pin
+        gpio_pin_set_dt(&dac_enable_pin, 0);
 
         ret = pm_device_runtime_put(ls_1_8);
 
@@ -64,7 +100,7 @@ int ADAU1860::setup() {
         // DAC_ROUTE0 - EQ 0 / serial port 0 channel 0
         uint8_t dac_route_eq = 75;
         uint8_t dac_route_i2s = 0;
-        writeReg(registers::DAC_ROUTE0, &dac_route_i2s, sizeof(dac_route));
+        writeReg(registers::DAC_ROUTE0, &dac_route_i2s, sizeof(dac_route_i2s));
 
         // HP_CTRL - reset val
         // HP_LVMODE_CTRL1
@@ -75,8 +111,8 @@ int ADAU1860::setup() {
         // SPT0_CTRL2 - reset val
 
         // SPT0_ROUTE0 - i2s output route
-        uint8_t spt0_route0 = 39; // DMIC Channel 0
-        writeReg(registers::SPT0_ROUTE0, &spt0_route0, sizeof(spt0_route0));
+        /*uint8_t spt0_route0 = 39; // DMIC Channel 0
+        writeReg(registers::SPT0_ROUTE0, &spt0_route0, sizeof(spt0_route0));*/
 
         // EQ_CFG - engine running
         // EQ_ROUTE - serial port 0 channel 0
@@ -95,7 +131,6 @@ int ADAU1860::setup() {
         }
 
         // write parameters
-        
 
         // activate eq
         eq_cfg = 0x01;
@@ -104,6 +139,10 @@ int ADAU1860::setup() {
         // PDM_VOL0
 
         // ASRCI_CTRL
+
+        //Headphone power on
+        uint8_t headphone_power = 1 << 4; // 1 << 4 (16 BCLKs)
+        writeReg(registers::ADC_DAC_HP_PWR, &headphone_power, sizeof(headphone_power));
 
         return 0;
 }
@@ -138,13 +177,14 @@ int ADAU1860::soft_reset(bool full_reset) {
         int ret = 0;
 
         uint8_t status = 0x1;
-        if (full_reset) status <<= 4;
-        writeReg(registers::RESET, &status, sizeof(status));
+        if (!full_reset) status <<= 4;
+        writeReg(registers::RESETS, &status, sizeof(status));
         return ret;
 }
 
 
 bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
+        int ret;
         uint64_t now = micros();
         int delay = MIN(ADAU1860_I2C_TIMEOUT_US - (int)(now - last_i2c), ADAU1860_I2C_TIMEOUT_US);
 
@@ -155,6 +195,7 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
         _pWire->beginTransmission(address);
         _pWire->write(reg);
         if (_pWire->endTransmission(false) != 0) {
+                if (ret != 0) LOG_WRN("I2C Error block read: End transmission");
                 _pWire->release();
                 return false;
         }
@@ -164,7 +205,7 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
             buffer[i] = _pWire->read();
         }
 
-        int ret = _pWire->endTransmission();
+        ret = _pWire->endTransmission();
 
         _pWire->release();
 
@@ -184,7 +225,9 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         _pWire->write(reg);
         for(uint16_t i = 0; i < len; i ++)
             _pWire->write(buffer[i]);
-        _pWire->endTransmission();
+        int ret = _pWire->endTransmission();
+
+        if (ret != 0) LOG_WRN("I2C Error block write: End transmission");
 
         _pWire->release();
 

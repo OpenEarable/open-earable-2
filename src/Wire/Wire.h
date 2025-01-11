@@ -82,7 +82,7 @@ private:
 }
 
 extern arduino::MbedI2C Wire;
-
 extern arduino::MbedI2C Wire1;
+extern arduino::MbedI2C Wire2;
 
 typedef arduino::MbedI2C TwoWire;
