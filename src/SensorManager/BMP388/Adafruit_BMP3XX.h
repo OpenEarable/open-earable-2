@@ -50,7 +50,7 @@ public:
   Adafruit_BMP3XX();
 
   bool begin_I2C(uint8_t addr = BMP3XX_DEFAULT_ADDRESS,
-                 TwoWire *theWire = &Wire1);
+                 TwoWire *theWire = &Wire2);
   //bool begin_SPI(uint8_t cs_pin, SPIClass *theSPI = &SPI);
   //bool begin_SPI(int8_t cs_pin, int8_t sck_pin, int8_t miso_pin,
   //               int8_t mosi_pin);

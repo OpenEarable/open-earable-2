@@ -160,7 +160,7 @@ public:
     int stop();
     int read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data);
 private:
-    TwoWire & _i2cPort = Wire1;
+    TwoWire & _i2cPort = Wire2;
 
     struct bma5_dev dev;
     struct bma5_fifo_conf fifo_conf;

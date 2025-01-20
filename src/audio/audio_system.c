@@ -414,10 +414,10 @@ void audio_system_start(void)
 	ret = audio_usb_start(&fifo_tx, &fifo_rx);
 	ERR_CHK(ret);
 #else
-	ret = hw_codec_default_conf_enable();
+	ret = audio_datapath_start(&fifo_rx);
 	ERR_CHK(ret);
 
-	ret = audio_datapath_start(&fifo_rx);
+	ret = hw_codec_default_conf_enable();
 	ERR_CHK(ret);
 
 	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {

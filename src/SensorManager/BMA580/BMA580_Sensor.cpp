@@ -52,7 +52,7 @@ struct BMA580_dev_inf {
 
 BMA580_dev_inf dev_info = {
     .addr = BMA5_I2C_ADDRESS,
-    .i2c_dev = &Wire1
+    .i2c_dev = &Wire2
 };
 
 /*!

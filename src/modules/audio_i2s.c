@@ -47,10 +47,10 @@ static nrfx_i2s_config_t cfg = {
 	.format = NRF_I2S_FORMAT_I2S,
 	.alignment = NRF_I2S_ALIGN_LEFT,
 	.ratio = CONFIG_AUDIO_RATIO,
-	//.mck_setup = 0x66666000,
+	.mck_setup = 0x66666000, //0x66666000,
 #if (CONFIG_AUDIO_BIT_DEPTH_16)
-	.sample_width = NRF_I2S_SWIDTH_16BIT,
-	//.sample_width = NRF_I2S_SWIDTH_16BIT_IN32BIT,
+	//.sample_width = NRF_I2S_SWIDTH_16BIT,
+	.sample_width = NRF_I2S_SWIDTH_16BIT_IN32BIT,
 #elif (CONFIG_AUDIO_BIT_DEPTH_32)
 	.sample_width = NRF_I2S_SWIDTH_32BIT,
 #else
@@ -58,7 +58,7 @@ static nrfx_i2s_config_t cfg = {
 #endif /* (CONFIG_AUDIO_BIT_DEPTH_16) */
 	.channels = NRF_I2S_CHANNELS_STEREO,
 	.clksrc = NRF_I2S_CLKSRC_ACLK,
-	.enable_bypass = true, // use ACLK as MCK
+	.enable_bypass = false, // use ACLK as MCK
 };
 
 static i2s_blk_comp_callback_t i2s_blk_comp_callback;
@@ -156,13 +156,6 @@ void audio_i2s_init(void)
 
 	ret = nrfx_i2s_init(&i2s_inst, &cfg, i2s_comp_handler);
 	__ASSERT_NO_MSG(ret == NRFX_SUCCESS);
-
-	// start i2s
-	/*ret = nrfx_i2s_start(&i2s_initial_buffers, I2S_DATA_BLOCK_WORDS, 0);
-	if (ret != NRFX_SUCCESS)
-	{
-		printf("I2S start error\n");
-	}*/
 
 	state = AUDIO_I2S_STATE_IDLE;
 }

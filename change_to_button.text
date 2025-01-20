@@ -1,0 +1,17 @@
+wake init only battery controller or also button?
+
+add BootManager split PowerManager
+
+v - get rid of debouncing
+
+v - error handler - power off
+
+################ Potential Problems ###############
+
+- reset of battery controller -> INT pulls low when charging
+
+- wakeup only after release
+
+- push button reset
+
+- prevent turning off on reset?

@@ -65,7 +65,7 @@ LOG_MODULE_REGISTER(MLX90632, 3);
 bool MLX90632::begin()
 {
   uint8_t deviceAddress = MLX90632_DEFAULT_ADDRESS;
-  TwoWire &wirePort = Wire1;
+  TwoWire &wirePort = Wire2;
   MLX90632::status returnError;
   if (begin(deviceAddress, wirePort, returnError) == true)
     return (true);
