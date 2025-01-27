@@ -7,6 +7,9 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(equalizer, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
+#define Q27_MULT(a, b) (((int64_t)(a) * (int64_t)(b)) >> 27)
+
+/*
 static const float a[EQ_ORDER][3] = {
     {1.000000000000000, -1.990844014663719, 0.990890061149213},
     {1.000000000000000, -1.962529035911005, 0.962907404996144},
@@ -27,9 +30,23 @@ static const float b[EQ_ORDER][3] = {
     {0.886665275659910, -1.050022035983737, 0.781836255383889},
     {0.784692627164086, -0.152825855141626, 0.677357520366571},
     {0.671454248995156, -0.072411623830529, 0.116584302413126}
+};*/
+
+static const int32_t c[EQ_ORDER][5] = {
+    {(int32_t) 0x0803212F, (int32_t) 0xF012C9C5, (int32_t) 0x07EA3FFA, (int32_t) 0xF012C060, (int32_t) 0x07ED57C5},
+    {(int32_t) 0x07F68012, (int32_t) 0xF04CBD94, (int32_t) 0x07BD88BA, (int32_t) 0xF04CBD94, (int32_t) 0x07B408CC},
+    {(int32_t) 0x08094BEA, (int32_t) 0xF0A0D2AC, (int32_t) 0x075E52F8, (int32_t) 0xF0A0D2AC, (int32_t) 0x07679EE3},
+    {(int32_t) 0x0768EE95, (int32_t) 0xF3A4F7B5, (int32_t) 0x067505B4, (int32_t) 0xF3A4F7B5, (int32_t) 0x05DDF449},
+    {(int32_t) 0x0738B712, (int32_t) 0xF707D78E, (int32_t) 0x04158757, (int32_t) 0xF707D78E, (int32_t) 0x034E3E69},
+    {(int32_t) 0x0717E3F7, (int32_t) 0xF7998E0C, (int32_t) 0x0641335E, (int32_t) 0xF7998E0C, (int32_t) 0x05591755},
+    {(int32_t) 0x06470CEE, (int32_t) 0xFEC7033D, (int32_t) 0x056B3A6B, (int32_t) 0xFEC7033D, (int32_t) 0x03B24759},
+    {(int32_t) 0x055F2368, (int32_t) 0xFF6BB374, (int32_t) 0x00EEC3C0, (int32_t) 0xFBFEC63F, (int32_t) 0x01BAD45E}
 };
 
-float eq_buffer[EQ_ORDER][2] = {0};
+//static const int32_t * c = filter_coeff;
+
+int64_t eq_buffer[EQ_ORDER][2] = {0};
+int64_t y[EQ_ORDER+1] = {0};
 
 void reset_eq() {
     #pragma unroll
@@ -40,19 +57,16 @@ void reset_eq() {
 }
 
 void equalize(int16_t * data, int length) {
-    float y[EQ_ORDER+1] = {0};
     for (int n = 0; n < length; n+=2) {
-        y[0] = data[n];
+        y[0] = (int64_t)(data[n]) << 16;
 
         #pragma unroll
         for (int k = 0; k < EQ_ORDER; k++) {
-            y[k+1] = b[k][0] * y[k] + eq_buffer[k][0];
-            eq_buffer[k][0] = b[k][1] * y[k] - a[k][1] * y[k+1] + eq_buffer[k][1];
-            eq_buffer[k][1] = b[k][2] * y[k] - a[k][2] * y[k+1];
+            y[k+1] = Q27_MULT(c[k][0], y[k]) + eq_buffer[k][0];
+            eq_buffer[k][0] = Q27_MULT(c[k][1], y[k]) - Q27_MULT(c[k][3], y[k+1]) + eq_buffer[k][1];
+            eq_buffer[k][1] = Q27_MULT(c[k][2], y[k]) - Q27_MULT(c[k][4], y[k+1]);
         }
 
-        //if (abs(0.4 * y[EQ_ORDER]) > 1*(1<<15)) LOG_WRN("Clip: %f", 0.4f * y[EQ_ORDER]);
-
-        data[n] = (int16_t) CLAMP(0.5 * y[EQ_ORDER],-1*(1<<15),1*(1<<15)-1); //-6dB
+        data[n] = (int16_t) CLAMP(y[EQ_ORDER] >> (16 + 1),-1*(1<<15),1*(1<<15)-1); //-6dB
     }
 }
