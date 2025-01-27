@@ -83,7 +83,7 @@ bool Adafruit_BMP3XX::begin_I2C(uint8_t addr, TwoWire *theWire) {
   dev_inf.addr = addr;
   dev_inf.i2c_dev = theWire;
 
-  dev_inf.i2c_dev->begin();
+  dev_inf.i2c_dev->begin(I2C_SPEED_FAST_PLUS);
 
   the_sensor.chip_id = addr;
   the_sensor.intf = BMP3_I2C_INTF;

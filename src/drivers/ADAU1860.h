@@ -378,6 +378,8 @@ public:
 
     int soft_reset(bool full_reset = false);
 
+    int write_dsp_filter_bank(uint32_t * bank[5], int size);
+
     uint8_t get_volume();
 private:
     bool readReg(uint32_t reg, uint8_t * buffer, uint16_t len);
