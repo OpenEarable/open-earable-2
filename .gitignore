@@ -1,3 +1,12 @@
-.vscode/
-build/
-build_1/
+# build
+/build*/
+/cmake-build-debug/**
+
+# IntelliJ
+/.idea/**
+
+# VS Code
+/.vscode/**
+
+# MacOS Finder settings
+**/.DS_Store
