@@ -1,10 +1,3 @@
 .vscode/
 build/
 build_1/
-boards/arm/openearable_v2 2.zip
-boards/arm/openearable_v2.zip
-boards/arm/nrf5340_audio_dk_nrf5340/
-Todo.text
-src/audio/pdm_mic_2.c
-src/audio/pdm_mic_copy.c
-src/audio/pdm_mic_no_copy.c

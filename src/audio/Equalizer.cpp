@@ -43,8 +43,6 @@ static const int32_t c[EQ_ORDER][5] = {
     {(int32_t) 0x055F2368, (int32_t) 0xFF6BB374, (int32_t) 0x00EEC3C0, (int32_t) 0xFBFEC63F, (int32_t) 0x01BAD45E}
 };
 
-//static const int32_t * c = filter_coeff;
-
 int64_t eq_buffer[EQ_ORDER][2] = {0};
 int64_t y[EQ_ORDER+1] = {0};
 
