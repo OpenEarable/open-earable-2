@@ -22,6 +22,9 @@
 
 #include "Wire.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(wire, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
+
 arduino::MbedI2C::MbedI2C(const struct device * _device) : master(_device), usedTxBuffer(0) {}
 
 void arduino::MbedI2C::begin(uint32_t speed) {
