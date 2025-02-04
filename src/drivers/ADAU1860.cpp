@@ -5,6 +5,21 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ADAU1860, 3);
 
+uint32_t eq_program[78] =
+{
+    0x00010000, 0x00025680, 0x0000C000, 0x00001024, 0x00015724, 0x0000C000, 0x00001024, 0x000157A4, 0x0000C000, 0x00001024, 0x000140A0, 0x0000C021, 0x0000C222, 0x0000C1A3, 0x0000C124, 0x0000A024, 0x00001022, 0x0001431C, 0x0000C29D, 0x0000C49E, 0x0000C41F, 0x0000C3A2, 0x0000A020, 0x0000101E, 0x00014598, 0x0000C519, 0x0000C71A, 0x0000C69B, 0x0000C61E, 0x0000A01C, 0x0000101A, 0x00014814, 0x0000C795, 0x0000C996, 0x0000C917, 0x0000C89A, 0x0000A018, 0x00001016, 0x00014A90, 0x0000CA11, 0x0000CC12, 0x0000CB93, 0x0000CB16, 0x0000A014, 0x00001012, 0x00014D0C, 0x0000CC8D, 0x0000CE8E, 0x0000CE0F, 0x0000CD92, 0x0000A010, 0x0000100E, 0x00014F88, 0x0000CF09, 0x0000D10A, 0x0000D08B, 0x0000D00E, 0x0000A00C, 0x0000100A, 0x00015204, 0x0000D185, 0x0000D386, 0x0000D307, 0x0000D28A, 0x0000A008, 0x00001006, 0x00015480, 0x0000D401, 0x0000D602, 0x0000D583, 0x0000D506, 0x0000A004, 0x00001002, 0x00028000, 0x00018000, 0x0003C000, 0x00000000, 0x00000000
+};
+
+uint32_t eq_param_bank0[50] =
+{
+    0x01F467D2, 0x0F0B773E, 0x00B43586, 0x0E9DB856, 0x00AE1F40, 0x01F8E668, 0x0F0700AD, 0x00FE40E5, 0x0E071998, 0x00FABE6E, 0x01EE1CBB, 0x0F105C21, 0x01035FE1, 0x0E11E345, 0x00EC43FE, 0x018D7F52, 0x0F41E0D8, 0x00EDC634, 0x0E7280AE, 0x00D058F4, 0x012C8DDB, 0x0F8528EA, 0x00EF5915, 0x0ED37225, 0x008B7E01, 0x014FBC55, 0x0F4172A7, 0x00E99FD1, 0x0EB043AB, 0x00D4ED87, 0x00A87458, 0x0F47CEA8, 0x00EE173F, 0x0F578BA8, 0x00CA1A18, 0x0FC7206C, 0x0F4C46BE, 0x00ECF9E8, 0x0038DF94, 0x00C6BF5A, 0x0096691A, 0x0FC4486D, 0x00C0CF50, 0x0FBF9996, 0x0024E593, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000
+};
+
+uint32_t eq_param_bank1[50] =
+{
+    0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000
+};
+
 ADAU1860 dac(&Wire1);
 
 ADAU1860::ADAU1860(TwoWire * wire) : _pWire(wire) {
@@ -52,6 +67,8 @@ int ADAU1860::end() {
 int ADAU1860::setup() {
         // reset all registers
         // soft_reset(true);
+        //soft_reset(false);
+
 
         //k_msleep(35);
 
@@ -68,6 +85,10 @@ int ADAU1860::setup() {
         uint8_t cm_startup_over = 1 << 4 | power_mode;
         writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
 
+
+        //uint8_t sai_clk_pwr = 0x01; // I2S_IN enable
+        //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
+
         // bypass PLL
         uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
         writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
@@ -76,7 +97,7 @@ int ADAU1860::setup() {
         // DSP_PWR - reset val
 
         //setup clock (PLL integer, MCLK source)
-        uint8_t clk_ctrl1 = (0x3 << 6); // | 0x4;
+        uint8_t clk_ctrl1 = (0x3 << 6) | 0x2; //BCLK
         writeReg(registers::CLK_CTRL1, &clk_ctrl1, sizeof(clk_ctrl1));
 
         // //uint8_t clk_ctrl2 = 0x0; // = reset val
@@ -87,12 +108,14 @@ int ADAU1860::setup() {
         // readReg(registers::CLK_CTRL3, &test, sizeof(test));
         // LOG_INF("CLK_CTRL3: 0x%x", test);
 
-        uint8_t clk_ctrl3 = 0x04; // R = 8 with mck setup (10?)
-        writeReg(registers::CLK_CTRL3, &clk_ctrl3, sizeof(clk_ctrl3));
-
         //DAC PLL multiple of 24.576MHz (=2x12.288)
         //CLK_CTRL2 Prescaler = 1
         //CLK_CTRL3 CLK_CTRL4 R = 4
+        uint8_t clk_ctrl3 = 0x20; // R = 8 with mck setup (10?)
+        uint8_t clk_ctrl4 = 0x00; // R = 1024
+
+        writeReg(registers::CLK_CTRL3, &clk_ctrl3, sizeof(clk_ctrl3));
+        writeReg(registers::CLK_CTRL4, &clk_ctrl4, sizeof(clk_ctrl4));
 
         // PLL update CLK_CTRL9 ?
         uint8_t clk_ctrl9 = 0x01;
@@ -141,11 +164,13 @@ int ADAU1860::setup() {
         // uint8_t cm_startup_over = 1 << 2 | 0x01; // Master block en | Hibernate 1 (SOC off, ADP on);
         // writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
 
+#if CONFIG_EQAULIZER_DSP
         // DAC_ROUTE0 - EQ 0 / serial port 0 channel 0
-        // uint8_t dac_route_eq = 75;
-        uint8_t dac_route_i2s = 0;
-        //uint8_t dac_route_mic = 71;
-        writeReg(registers::DAC_ROUTE0, &dac_route_i2s, sizeof(dac_route_i2s));
+        uint8_t dac_route = DAC_ROUTE_EQ;
+#else
+        uint8_t dac_route = DAC_ROUTE_I2S;
+#endif
+        writeReg(registers::DAC_ROUTE0, &dac_route, sizeof(dac_route));
 
         // SPT0_CTRL1 - reset val (32 BCLKs?)
         uint8_t spt0_ctrl1 = 0x10; // 1 << 4 (16 BCLKs)
@@ -180,13 +205,13 @@ int ADAU1860::setup() {
                 writeReg(registers::DMIC_CTRL2, &dmic_ctrl, sizeof(dmic_ctrl));
         }
 
+#if CONFIG_EQAULIZER_DSP
+
         // EQ_CFG - engine running
-        // EQ_ROUTE - serial port 0 channel 0
-
-        // set Eq params
-
         // stop eq and clear
-        /*uint8_t eq_cfg = 0x10; // eq clear
+        uint8_t eq_cfg = 0x00; // eq stop
+        writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
+        eq_cfg = 0x10; // eq clear
         writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
 
         // clear done check
@@ -196,11 +221,19 @@ int ADAU1860::setup() {
                 k_usleep(100);
         }
 
-        // write parameters
+        // EQ_ROUTE - serial port 0 channel 0
+        // uint8_t eq_cfg = 0x10; // Serial port 0 channel 0
+        // writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
+
+        // set Eq params
+        writeReg(EQ_PROG_MEM, (uint8_t*) eq_program, sizeof(eq_program));
+        writeReg(EQ_BANK_0, (uint8_t*) eq_param_bank0, sizeof(eq_param_bank0));
+        writeReg(EQ_BANK_1, (uint8_t*) eq_param_bank1, sizeof(eq_param_bank1));
 
         // activate eq
         eq_cfg = 0x01;
-        writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));*/
+        writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
+#endif
 
         // ASRCI_CTRL
 
@@ -224,6 +257,7 @@ int ADAU1860::setup() {
         writeReg(registers::HPLDO_CTRL, &hpldo_ctrl, sizeof(hpldo_ctrl));
 
         // high performance? PB_CTRL
+
 
         // unmute dac
         uint8_t dac_ctrl2 = 0x0;
@@ -302,7 +336,8 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
 }
 
 // Erstelle einen Puffer für Adresse + Daten
-uint8_t buf[4 + 8];
+//uint8_t buf[4 + 78 * 4];
+uint8_t buf[512];
 
 void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         //uint64_t now = micros();

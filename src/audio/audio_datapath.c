@@ -781,7 +781,9 @@ static void audio_datapath_i2s_start(void)
 		ERR_CHK_MSG(ret, "RX failed to get block");
 	}
 
+#if CONFIG_EQAULIZER_SOFTWARE
 	reset_eq();
+#endif
 
 	/* Start I2S */
 	audio_i2s_start(tx_buf_one, rx_buf_one);
@@ -1005,8 +1007,10 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 		//LOG_INF("out_blk_idx: %i", out_blk_idx);
 
 		//uint32_t start = k_cyc_to_us_floor32(k_cycle_get_32());
-
+		
+#if CONFIG_EQAULIZER_SOFTWARE
 		equalize(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS], BLK_STEREO_NUM_SAMPS);
+#endif
 
 		/*uint32_t end = k_cyc_to_us_floor32(k_cycle_get_32());
 

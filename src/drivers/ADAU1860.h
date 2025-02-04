@@ -6,8 +6,8 @@
 
 #include <Wire.h>
 
-#define OUT_VOLUME_DEFAULT 0x80
-#define MAX_VOLUME_REG_VAL 0xC0
+#define OUT_VOLUME_DEFAULT 0x60
+#define MAX_VOLUME_REG_VAL 0xB0
 #define MIN_VOLUME_REG_VAL 0x20
 #define MAX_VOLUME_DB 24
 
@@ -16,10 +16,12 @@
 
 #define ADAU1860_I2C_TIMEOUT_US 66
 
-// https://wiki.analog.com/resources/tools-software/sigmastudio/usingsigmastudio/numericformats
-typedef uint32_t filterbank_double[5];
+#define EQ_PROG_MEM 0x4000A000
+#define EQ_BANK_0   0x4000A200
+#define EQ_BANK_1   0x4000A400
 
-const uint32_t bank0_addr = 0x4000A200;
+#define DAC_ROUTE_EQ 75
+#define DAC_ROUTE_I2S 0
 
 class ADAU1860 {
 public:

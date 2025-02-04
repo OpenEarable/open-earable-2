@@ -252,11 +252,8 @@ int hw_codec_init(void)
 {
 	int ret;
 
-	LOG_INF("Init DAC!!!!!!!!!!!!!!!!!!!!!!!!!!");
-
 	ret = dac.begin();
-	LOG_INF("Init DAC ret %i", ret);
-	/*if (ret) {
+	if (ret) {
 		return ret;
 	}
 
@@ -272,8 +269,6 @@ int hw_codec_init(void)
 		NULL, NULL, K_PRIO_PREEMPT(CONFIG_VOLUME_MSG_SUB_THREAD_PRIO), 0, K_NO_WAIT);
 	ret = k_thread_name_set(volume_msg_sub_thread_id, "VOLUME_MSG_SUB");
 	ERR_CHK(ret);
-
-	LOG_INF("DAC initialized!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
 	return 0;
 }
