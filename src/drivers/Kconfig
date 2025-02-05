@@ -41,7 +41,7 @@ config EQUALIZER_SOFTWARE
 
 endchoice
 
-endmenu # Stack sizes
+endmenu # Equalizer config
 
 #----------------------------------------------------------------------------#
 menu "Log levels"

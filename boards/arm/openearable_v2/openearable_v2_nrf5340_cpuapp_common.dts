@@ -101,7 +101,7 @@
 		status = "okay";
 		uart {
 			//gpios = <&gpio1 1 0>, <&gpio1 0 0>, <&gpio0 11 0>, <&gpio0 10 0>;
-			gpios = <&gpio1 1 0>, <&gpio0 7 0>, <&gpio0 11 0>, <&gpio0 10 0>;
+			gpios = <&gpio1 6 0>, <&gpio0 7 0>, <&gpio0 11 0>, <&gpio0 10 0>;
 		};
 	};
 
