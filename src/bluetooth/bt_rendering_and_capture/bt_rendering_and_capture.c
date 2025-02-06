@@ -105,17 +105,17 @@ int bt_r_and_c_volume_mute(bool from_vcp)
 	return ret;
 }
 
-int bt_r_and_c_volume_unmute(void)
+int bt_r_and_c_volume_unmute(bool from_vcp)
 {
 	int ret;
 	struct volume_msg msg;
 
-	if (IS_ENABLED(CONFIG_BT_VCP_VOL_REND)) {
+	if (IS_ENABLED(CONFIG_BT_VCP_VOL_REND) && !from_vcp) {
 		ret = bt_vol_rend_unmute();
 		return ret;
 	}
 
-	if (IS_ENABLED(CONFIG_BT_VCP_VOL_CTLR)) {
+	if (IS_ENABLED(CONFIG_BT_VCP_VOL_CTLR) && !from_vcp) {
 		ret = bt_vol_ctlr_unmute();
 		return ret;
 	}
