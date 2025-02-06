@@ -10,7 +10,7 @@
 
 #include "../bluetooth/gatt_services/battery_service.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 #include "BootState.h"
 
 #define CHARGE_CONTROLLER_INTERVAL K_SECONDS(10)

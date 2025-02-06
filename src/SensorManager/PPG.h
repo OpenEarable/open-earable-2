@@ -8,7 +8,8 @@
 #include "MAXM86161/MAXM86161.h"
 #include "EdgeMLSensor.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
+#include "zbus_common.h"
 
 enum led_order {
     red, green, ir, ambient

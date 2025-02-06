@@ -1,7 +1,7 @@
 #ifndef _STATE_INDICATOR_H
 #define _STATE_INDICATOR_H
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 class StateIndicator {
 public:

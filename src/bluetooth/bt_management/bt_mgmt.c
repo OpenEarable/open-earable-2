@@ -12,30 +12,23 @@
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/sys/byteorder.h>
-#include <zephyr/sys/reboot.h>
+#include <nrfx.h>
 
 #include "macros_common.h"
-#include "nrf5340_audio_common.h"
+#include "zbus_common.h"
 //#include "button_handler.h"
-#include "button_assignments.h"
+//#include "button_manager.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"
-
-#include "../../Battery/BootState.h"
-
-#include "uicr.h"
-
-#include "channel_assignment.h"
-
-#if defined(CONFIG_AUDIO_DFU_ENABLE)
 #include "bt_mgmt_dfu_internal.h"
+#if CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP
+#include "button_assignments.h"
 #endif
+
+#include "BootState.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
-
-//#define INTERVAL_MIN 16
-//#define INTERVAL_MAX 16
 
 ZBUS_CHAN_DEFINE(bt_mgmt_chan, struct bt_mgmt_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
@@ -44,12 +37,6 @@ ZBUS_CHAN_DEFINE(bt_mgmt_chan, struct bt_mgmt_msg, NULL, NULL, ZBUS_OBSERVERS_EM
  * Buffer added as this will not add to bootup time
  */
 #define BT_ENABLE_TIMEOUT_MS 100
-
-#ifndef CONFIG_BT_MAX_CONN
-#define MAX_CONN_NUM 0
-#else
-#define MAX_CONN_NUM CONFIG_BT_MAX_CONN
-#endif
 
 K_SEM_DEFINE(sem_bt_enabled, 0, 1);
 
@@ -128,27 +115,24 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 {
 	int ret;
 	char addr[BT_ADDR_LE_STR_LEN] = {0};
-	uint8_t num_conn = 0;
 	struct bt_mgmt_msg msg;
 
 	if (err == BT_HCI_ERR_ADV_TIMEOUT && IS_ENABLED(CONFIG_BT_PERIPHERAL)) {
 		LOG_INF("Directed adv timed out with no connection, reverting to normal adv");
 
-		bt_mgmt_dir_adv_timed_out();
-
-		ret = bt_mgmt_adv_start(NULL, 0, NULL, 0, true);
-		if (ret) {
-			LOG_ERR("Failed to restart advertising: %d", ret);
-		}
-
+		bt_mgmt_dir_adv_timed_out(0);
 		return;
 	}
 
 	(void)bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
 	if (err) {
-		LOG_ERR("ACL connection to addr: %s, conn: %p, failed, error %d", addr,
-			(void *)conn, err);
+		if (err == BT_HCI_ERR_UNKNOWN_CONN_ID) {
+			LOG_WRN("ACL connection to addr: %s timed out, will try again", addr);
+		} else {
+			LOG_ERR("ACL connection to addr: %s, conn: %p, failed, error %d %s", addr,
+				(void *)conn, err, bt_hci_err_to_str(err));
+		}
 
 		bt_conn_unref(conn);
 
@@ -161,7 +145,7 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 		}
 
 		if (IS_ENABLED(CONFIG_BT_PERIPHERAL)) {
-			ret = bt_mgmt_adv_start(NULL, 0, NULL, 0, true);
+			ret = bt_mgmt_adv_start(0, NULL, 0, NULL, 0, true);
 			if (ret) {
 				LOG_ERR("Failed to restart advertising: %d", ret);
 			}
@@ -170,19 +154,9 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 		return;
 	}
 
-	bt_conn_foreach(BT_CONN_TYPE_LE, conn_state_connected_check, (void *)&num_conn);
-
 	/* ACL connection established */
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Connected: %s", addr);
-
-	if (IS_ENABLED(CONFIG_BT_CENTRAL) && (num_conn < MAX_CONN_NUM)) {
-		/* Room for more connections, start scanning again */
-		ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL, BRDCAST_ID_NOT_USED);
-		if (ret) {
-			LOG_ERR("Failed to resume scanning: %d", ret);
-		}
-	}
 
 	msg.event = BT_MGMT_CONNECTED;
 	msg.conn = conn;
@@ -238,7 +212,7 @@ static void disconnected_cb(struct bt_conn *conn, uint8_t reason)
 	(void)bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
 	/* NOTE: The string below is used by the Nordic CI system */
-	LOG_INF("Disconnected: %s (reason 0x%02x)", addr, reason);
+	LOG_INF("Disconnected: %s, reason 0x%02x %s", addr, reason, bt_hci_err_to_str(reason));
 
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		bt_conn_unref(conn);
@@ -252,7 +226,7 @@ static void disconnected_cb(struct bt_conn *conn, uint8_t reason)
 	ERR_CHK(ret);
 
 	if (IS_ENABLED(CONFIG_BT_PERIPHERAL)) {
-		ret = bt_mgmt_adv_start(NULL, 0, NULL, 0, true);
+		ret = bt_mgmt_adv_start(0, NULL, 0, NULL, 0, true);
 		ERR_CHK(ret);
 	}
 
@@ -277,7 +251,8 @@ static void security_changed_cb(struct bt_conn *conn, bt_security_t level, enum 
 	struct bt_mgmt_msg msg;
 
 	if (err) {
-		LOG_WRN("Security failed: level %d err %d", level, err);
+		LOG_WRN("Security failed: level %d err %d %s", level, err,
+			bt_security_err_to_str(err));
 		ret = bt_conn_disconnect(conn, BT_HCI_ERR_AUTH_FAIL);
 		if (ret) {
 			LOG_WRN("Failed to disconnect %d", ret);
@@ -446,6 +421,11 @@ static int local_identity_addr_print(void)
 	return 0;
 }
 
+void bt_mgmt_num_conn_get(uint8_t *num_conn)
+{
+	bt_conn_foreach(BT_CONN_TYPE_LE, conn_state_connected_check, (void *)num_conn);
+}
+
 int bt_mgmt_bonding_clear(void)
 {
 	int ret;
@@ -459,6 +439,7 @@ int bt_mgmt_bonding_clear(void)
 			return ret;
 		}
 	}
+
 	return 0;
 }
 
@@ -556,7 +537,7 @@ int bt_mgmt_init(void)
 		}
 	}
 
-#if defined(CONFIG_AUDIO_DFU_ENABLE)
+#if defined(CONFIG_AUDIO_BT_MGMT_DFU)
 	bool pressed;
 
 	ret = button_pressed(BUTTON_4, &pressed);
@@ -572,7 +553,8 @@ int bt_mgmt_init(void)
 		/* This call will not return */
 		bt_mgmt_dfu_start();
 	}
-#endif
+
+#endif /* CONFIG_AUDIO_BT_MGMT_DFU */
 
 	ret = bt_mgmt_ctlr_cfg_init(IS_ENABLED(CONFIG_WDT_CTLR));
 	if (ret) {

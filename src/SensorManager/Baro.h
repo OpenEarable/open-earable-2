@@ -3,7 +3,9 @@
 
 #include "EdgeMLSensor.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
+#include "zbus_common.h"
+
 #include "BMP388/Adafruit_BMP3XX.h"
 
 class Baro : public EdgeMlSensor {

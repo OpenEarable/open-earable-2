@@ -1,6 +1,6 @@
 //#include "PowerManager.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>

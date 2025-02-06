@@ -7,7 +7,8 @@
 #include <zephyr/drivers/gpio.h>
 
 #include "button_assignments.h"
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
+#include "zbus_common.h"
 
 #define BUTTON_DEBOUNCE K_MSEC(10)
 

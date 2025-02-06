@@ -4,7 +4,8 @@
 #define SENSOR_SERVICE_H
 
 #include <zephyr/bluetooth/gatt.h>
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
+#include "zbus_common.h"
 
 #define BT_UUID_SENSOR_VAL \
 	BT_UUID_128_ENCODE(0x34c2e3bb, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)

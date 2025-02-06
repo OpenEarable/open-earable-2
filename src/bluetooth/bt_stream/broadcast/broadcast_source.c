@@ -11,16 +11,14 @@
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/audio/audio.h>
 #include <zephyr/bluetooth/audio/cap.h>
-#include <../subsys/bluetooth/audio/bap_iso.h>
+#include <zephyr/bluetooth/audio/pbp.h>
 #include <zephyr/bluetooth/audio/bap_lc3_preset.h>
 
-/* TODO: Remove when a get_info function is implemented in host */
-#include <../subsys/bluetooth/audio/bap_endpoint.h>
-
+#include "bt_mgmt.h"
 #include "macros_common.h"
 #include "bt_le_audio_tx.h"
 #include "le_audio.h"
-#include "nrf5340_audio_common.h"
+#include "zbus_common.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(broadcast_source, CONFIG_BROADCAST_SOURCE_LOG_LEVEL);
@@ -28,48 +26,70 @@ LOG_MODULE_REGISTER(broadcast_source, CONFIG_BROADCAST_SOURCE_LOG_LEVEL);
 /* Length-type-value size for channel allocation */
 #define LTV_CHAN_ALLOC_SIZE 6
 
-BUILD_ASSERT(CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT <= 2,
-	     "A maximum of two audio streams are currently supported");
+#if (CONFIG_AURACAST)
+/* Index values into the PBA advertising data format.
+ *
+ * See Table 4.1 of the Public Broadcast Profile, Bluetooth® Profile Specification, v1.0.
+ */
+#define PBA_UUID_INDEX		 (0)
+#define PBA_FEATURES_INDEX	 (2)
+#define PBA_METADATA_SIZE_INDEX	 (3)
+#define PBA_METADATA_START_INDEX (4)
+#endif /* CONFIG_AURACAST */
 
 ZBUS_CHAN_DEFINE(le_audio_chan, struct le_audio_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
-static struct bt_cap_broadcast_source *broadcast_source;
-static struct bt_cap_stream cap_streams[CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT];
+static struct bt_cap_broadcast_source *broadcast_sources[CONFIG_BT_ISO_MAX_BIG];
+struct bt_cap_initiator_broadcast_create_param create_param[CONFIG_BT_ISO_MAX_BIG];
+/* Make sure we have statically allocated streams for all potential BISes */
+static struct bt_cap_stream cap_streams[CONFIG_BT_ISO_MAX_BIG]
+				       [CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT]
+				       [CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT];
+
 static struct bt_bap_lc3_preset lc3_preset = BT_BAP_LC3_BROADCAST_PRESET_NRF5340_AUDIO;
-static struct bt_le_ext_adv *adv;
+
 static bool initialized;
-static bool delete_broadcast_src;
+static bool delete_broadcast_src[CONFIG_BT_ISO_MAX_BIG];
 
-#if (CONFIG_AURACAST)
-/* Make sure pba_buf is large enough for a 16bit UUID and meta data
- * (any addition to pba_buf requires an increase of this value)
- */
-NET_BUF_SIMPLE_DEFINE(pba_buf, BT_UUID_SIZE_16 + 8);
-static struct bt_data ext_ad[5];
-#else
-static struct bt_data ext_ad[4];
-#endif /* (CONFIG_AURACAST) */
+static int metadata_u8_add(uint8_t buffer[], uint8_t *index, uint8_t type, uint8_t value)
+{
+	if (buffer == NULL || index == NULL) {
+		return -EINVAL;
+	}
 
-static struct bt_data per_ad[1];
+	/* Add length of type and value */
+	buffer[(*index)++] = (sizeof(type) + sizeof(uint8_t));
+	buffer[(*index)++] = type;
+	buffer[(*index)++] = value;
 
-static void le_audio_event_publish(enum le_audio_evt_type event)
+	return 0;
+}
+
+static void le_audio_event_publish(enum le_audio_evt_type event, const struct stream_index *idx)
 {
 	int ret;
 	struct le_audio_msg msg;
 
 	msg.event = event;
+	msg.idx = *idx;
 
 	ret = zbus_chan_pub(&le_audio_chan, &msg, LE_AUDIO_ZBUS_EVENT_WAIT_TIME);
 	ERR_CHK(ret);
 }
 
-static int get_stream_index(struct bt_bap_stream *stream, uint8_t *index)
+static int stream_index_get(struct bt_bap_stream *stream, struct stream_index *idx)
 {
-	for (int i = 0; i < ARRAY_SIZE(cap_streams); i++) {
-		if (&cap_streams[i].bap_stream == stream) {
-			*index = i;
-			return 0;
+	for (int i = 0; i < CONFIG_BT_ISO_MAX_BIG; i++) {
+		for (int j = 0; j < CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT; j++) {
+			for (int k = 0; k < ARRAY_SIZE(cap_streams[i][j]); k++) {
+				if (&cap_streams[i][j][k].bap_stream == stream) {
+					idx->lvl1 = i;
+					idx->lvl2 = j;
+					idx->lvl3 = k;
+					return 0;
+				}
+			}
 		}
 	}
 
@@ -80,20 +100,34 @@ static int get_stream_index(struct bt_bap_stream *stream, uint8_t *index)
 
 static void stream_sent_cb(struct bt_bap_stream *stream)
 {
-	uint8_t index = 0;
+	int ret;
+	struct stream_index idx;
 
-	get_stream_index(stream, &index);
-	ERR_CHK(bt_le_audio_tx_stream_sent(index));
+	ret = stream_index_get(stream, &idx);
+	if (ret) {
+		return;
+	}
+
+	if (IS_ENABLED(CONFIG_BT_AUDIO_BROADCAST_ZBUS_EVT_STREAM_SENT)) {
+		le_audio_event_publish(LE_AUDIO_EVT_STREAM_SENT, &idx);
+	}
+
+	ERR_CHK(bt_le_audio_tx_stream_sent(idx));
 }
 
 static void stream_started_cb(struct bt_bap_stream *stream)
 {
-	uint8_t index = 0;
+	int ret;
+	struct stream_index idx;
 
-	get_stream_index(stream, &index);
-	ERR_CHK(bt_le_audio_tx_stream_started(index));
+	ret = stream_index_get(stream, &idx);
+	if (ret) {
+		return;
+	}
 
-	le_audio_event_publish(LE_AUDIO_EVT_STREAMING);
+	ERR_CHK(bt_le_audio_tx_stream_started(idx));
+
+	le_audio_event_publish(LE_AUDIO_EVT_STREAMING, &idx);
 
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Broadcast source %p started", (void *)stream);
@@ -101,32 +135,56 @@ static void stream_started_cb(struct bt_bap_stream *stream)
 	le_audio_print_codec(stream->codec_cfg, BT_AUDIO_DIR_SOURCE);
 }
 
+/**
+ * @brief Check if there are any streaming streams in a broadcast source (BIG).
+ *
+ * @param big_index BIG index.
+ *
+ * @return true if there are streaming streams, false otherwise.
+ */
+static bool source_has_streaming_streams(uint8_t big_index)
+{
+	for (int i = 0; i < CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT; i++) {
+		for (int j = 0; j < CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT; j++) {
+			if (le_audio_ep_state_check(cap_streams[big_index][i][j].bap_stream.ep,
+						    BT_BAP_EP_STATE_STREAMING)) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 static void stream_stopped_cb(struct bt_bap_stream *stream, uint8_t reason)
 {
 	int ret;
-	uint8_t index = 0;
+	struct stream_index idx;
 
-	get_stream_index(stream, &index);
+	ret = stream_index_get(stream, &idx);
+	if (ret) {
+		return;
+	}
 
-	le_audio_event_publish(LE_AUDIO_EVT_NOT_STREAMING);
-
-	ERR_CHK(bt_le_audio_tx_stream_stopped(index));
+	le_audio_event_publish(LE_AUDIO_EVT_NOT_STREAMING, &idx);
 
 	LOG_INF("Broadcast source %p stopped. Reason: %d", (void *)stream, reason);
 
-	if (delete_broadcast_src && broadcast_source != NULL) {
-		ret = bt_cap_initiator_broadcast_audio_delete(broadcast_source);
+	if (delete_broadcast_src[idx.lvl1] && broadcast_sources[idx.lvl1] != NULL &&
+	    !source_has_streaming_streams(idx.lvl1)) {
+		ret = bt_cap_initiator_broadcast_audio_delete(broadcast_sources[idx.lvl1]);
 		if (ret) {
-			LOG_ERR("Unable to delete broadcast source %p", (void *)stream);
-			delete_broadcast_src = false;
+			LOG_ERR("Unable to delete broadcast source %p, ret: %d", (void *)stream,
+				ret);
+			delete_broadcast_src[idx.lvl1] = false;
 			return;
 		}
 
-		broadcast_source = NULL;
+		broadcast_sources[idx.lvl1] = NULL;
 
 		LOG_INF("Broadcast source %p deleted", (void *)stream);
 
-		delete_broadcast_src = false;
+		delete_broadcast_src[idx.lvl1] = false;
 	}
 }
 
@@ -137,130 +195,176 @@ static struct bt_bap_stream_ops stream_ops = {
 };
 
 #if (CONFIG_AURACAST)
-static void public_broadcast_features_set(uint8_t *features)
+static void public_broadcast_features_set(uint8_t *features, uint8_t big_index)
 {
-	int freq = bt_audio_codec_cfg_get_freq(&lc3_preset.codec_cfg);
-
 	if (features == NULL) {
 		LOG_ERR("No pointer to features");
 		return;
 	}
 
-	if (IS_ENABLED(CONFIG_BT_AUDIO_BROADCAST_ENCRYPTED)) {
-		*features |= 0x01;
+	if (big_index >= ARRAY_SIZE(create_param)) {
+		LOG_ERR("BIG index %d out of range", big_index);
+		return;
 	}
 
-	if (freq == BT_AUDIO_CODEC_CFG_FREQ_16KHZ || freq == BT_AUDIO_CODEC_CFG_FREQ_24KHZ) {
-		*features |= 0x02;
-	} else if (freq == BT_AUDIO_CODEC_CFG_FREQ_48KHZ) {
-		*features |= 0x04;
-	} else {
-		LOG_WRN("%dkHz is not compatible with Auracast, choose 16kHz, 24kHz or 48kHz",
-			freq);
+	if (create_param[big_index].encryption) {
+		*features |= BT_PBP_ANNOUNCEMENT_FEATURE_ENCRYPTION;
+	}
+
+	for (uint8_t i = 0; i < create_param->subgroup_count; i++) {
+		int freq = bt_audio_codec_cfg_get_freq(
+			create_param[big_index].subgroup_params[i].codec_cfg);
+
+		if (freq < 0) {
+			LOG_ERR("Unable to get frequency");
+			continue;
+		}
+
+		if (freq == BT_AUDIO_CODEC_CFG_FREQ_16KHZ ||
+		    freq == BT_AUDIO_CODEC_CFG_FREQ_24KHZ) {
+			*features |= BT_PBP_ANNOUNCEMENT_FEATURE_STANDARD_QUALITY;
+		} else if (freq == BT_AUDIO_CODEC_CFG_FREQ_48KHZ) {
+			*features |= BT_PBP_ANNOUNCEMENT_FEATURE_HIGH_QUALITY;
+		} else {
+			LOG_WRN("%dkHz is not compatible with Auracast, choose 16kHz, 24kHz or "
+				"48kHz",
+				freq);
+		}
 	}
 }
 #endif /* (CONFIG_AURACAST) */
 
-static int adv_create(void)
+int broadcast_source_ext_adv_populate(uint8_t big_index, bool fixed_id, uint32_t broadcast_id,
+				      struct broadcast_source_ext_adv_data *ext_adv_data,
+				      struct bt_data *ext_adv_buf, size_t ext_adv_buf_vacant)
 {
 	int ret;
-	uint32_t broadcast_id = 0;
+	uint32_t ext_adv_buf_cnt = 0;
 
-	/* Broadcast Audio Streaming Endpoint advertising data */
-	NET_BUF_SIMPLE_DEFINE_STATIC(brdcst_id_buf, BT_UUID_SIZE_16 + BT_AUDIO_BROADCAST_ID_SIZE);
-	/* Buffer for Appearance */
-	NET_BUF_SIMPLE_DEFINE_STATIC(brdcst_appearance_buf, BT_UUID_SIZE_16);
-	/* Buffer for manufacturer ID */
-	NET_BUF_SIMPLE_DEFINE_STATIC(manufacturer_id_buf, BT_UUID_SIZE_16);
-	/* Buffer for Public Broadcast Announcement */
-	NET_BUF_SIMPLE_DEFINE_STATIC(base_buf, 128);
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to populate ext adv for BIG %d out of %d", big_index,
+			CONFIG_BT_ISO_MAX_BIG);
+		return -EINVAL;
+	}
 
-	net_buf_simple_add_le16(&manufacturer_id_buf, CONFIG_BT_DEVICE_MANUFACTURER_ID);
+	if (ext_adv_data == NULL || ext_adv_buf == NULL || ext_adv_buf_vacant == 0) {
+		LOG_ERR("Advertising populate failed.");
+		return -EINVAL;
+	}
 
-	ext_ad[0].data_len = manufacturer_id_buf.len;
-	ext_ad[0].type = BT_DATA_UUID16_SOME;
-	ext_ad[0].data = manufacturer_id_buf.data;
+	size_t brdcast_name_size = strlen(ext_adv_data->brdcst_name_buf);
 
-	if (IS_ENABLED(CONFIG_BT_AUDIO_USE_BROADCAST_ID_RANDOM)) {
-		ret = bt_cap_initiator_broadcast_get_id(broadcast_source, &broadcast_id);
+	ret = bt_mgmt_adv_buffer_put(ext_adv_buf, &ext_adv_buf_cnt, ext_adv_buf_vacant,
+				     brdcast_name_size, BT_DATA_BROADCAST_NAME,
+				     (void *)ext_adv_data->brdcst_name_buf);
+	if (ret) {
+		return ret;
+	}
+
+	if (!fixed_id) {
+		/* Use a random broadcast ID */
+		ret = bt_cap_initiator_broadcast_get_id(broadcast_sources[big_index],
+							&broadcast_id);
 		if (ret) {
 			LOG_ERR("Unable to get broadcast ID: %d", ret);
 			return ret;
 		}
-	} else {
-		broadcast_id = CONFIG_BT_AUDIO_BROADCAST_ID_FIXED;
 	}
 
-	if (IS_ENABLED(CONFIG_BT_AUDIO_USE_BROADCAST_NAME_ALT)) {
-		ext_ad[1] = (struct bt_data)BT_DATA(BT_DATA_BROADCAST_NAME,
-						    CONFIG_BT_AUDIO_BROADCAST_NAME_ALT,
-						    sizeof(CONFIG_BT_AUDIO_BROADCAST_NAME_ALT) - 1);
-	} else {
-		ext_ad[1] = (struct bt_data)BT_DATA(BT_DATA_BROADCAST_NAME,
-						    CONFIG_BT_AUDIO_BROADCAST_NAME,
-						    sizeof(CONFIG_BT_AUDIO_BROADCAST_NAME) - 1);
+	sys_put_le16(BT_UUID_BROADCAST_AUDIO_VAL, ext_adv_data->brdcst_id_buf);
+
+	sys_put_le24(broadcast_id, &ext_adv_data->brdcst_id_buf[BROADCAST_SOURCE_ADV_ID_START]);
+
+	ret = bt_mgmt_adv_buffer_put(ext_adv_buf, &ext_adv_buf_cnt, ext_adv_buf_vacant,
+				     sizeof(ext_adv_data->brdcst_id_buf), BT_DATA_SVC_DATA16,
+				     (void *)ext_adv_data->brdcst_id_buf);
+	if (ret) {
+		return ret;
 	}
 
-	/* Setup extended advertising data */
-	net_buf_simple_add_le16(&brdcst_id_buf, BT_UUID_BROADCAST_AUDIO_VAL);
-	net_buf_simple_add_le24(&brdcst_id_buf, broadcast_id);
+	sys_put_le16(CONFIG_BT_DEVICE_APPEARANCE, ext_adv_data->brdcst_appearance_buf);
 
-	ext_ad[2].data_len = brdcst_id_buf.len;
-	ext_ad[2].type = BT_DATA_SVC_DATA16;
-	ext_ad[2].data = brdcst_id_buf.data;
-
-	net_buf_simple_add_le16(&brdcst_appearance_buf, CONFIG_BT_DEVICE_APPEARANCE);
-
-	ext_ad[3].data_len = brdcst_appearance_buf.len;
-	ext_ad[3].type = BT_DATA_GAP_APPEARANCE;
-	ext_ad[3].data = brdcst_appearance_buf.data;
+	ret = bt_mgmt_adv_buffer_put(ext_adv_buf, &ext_adv_buf_cnt, ext_adv_buf_vacant,
+				     sizeof(ext_adv_data->brdcst_appearance_buf),
+				     BT_DATA_GAP_APPEARANCE,
+				     (void *)ext_adv_data->brdcst_appearance_buf);
+	if (ret) {
+		return ret;
+	}
 
 #if (CONFIG_AURACAST)
-	uint8_t pba_features = 0;
-	public_broadcast_features_set(&pba_features);
+	uint8_t meta_data_buf_size = 0;
 
-	net_buf_simple_add_le16(&pba_buf, 0x1856);
-	net_buf_simple_add_u8(&pba_buf, pba_features);
+	sys_put_le16(BT_UUID_PBA_VAL, &ext_adv_data->pba_buf[PBA_UUID_INDEX]);
+	public_broadcast_features_set(&ext_adv_data->pba_buf[PBA_FEATURES_INDEX], big_index);
 
 	/* Metadata */
-	/* 3 bytes for parental_rating and 3 bytes for active_flag LTVs */
-	net_buf_simple_add_u8(&pba_buf, 0x06);
-
-	/* Parental rating*/
-	/* Length */
-	net_buf_simple_add_u8(&pba_buf, 0x02);
-	/* Type */
-	net_buf_simple_add_u8(&pba_buf, BT_AUDIO_METADATA_TYPE_PARENTAL_RATING);
-	/* Value */
-	net_buf_simple_add_u8(&pba_buf, CONFIG_BT_AUDIO_BROADCAST_PARENTAL_RATING);
+	/* Parental rating */
+	ret = metadata_u8_add(&ext_adv_data->pba_buf[PBA_METADATA_START_INDEX], &meta_data_buf_size,
+			      BT_AUDIO_METADATA_TYPE_PARENTAL_RATING,
+			      CONFIG_BT_AUDIO_BROADCAST_PARENTAL_RATING);
+	if (ret) {
+		return ret;
+	}
 
 	/* Active flag */
-	/* Length */
-	net_buf_simple_add_u8(&pba_buf, 0x02);
-	/* Type */
-	net_buf_simple_add_u8(&pba_buf, BT_AUDIO_METADATA_TYPE_AUDIO_STATE);
-	/* Value */
-	net_buf_simple_add_u8(&pba_buf, BT_AUDIO_ACTIVE_STATE_ENABLED);
+	ret = metadata_u8_add(&ext_adv_data->pba_buf[PBA_METADATA_START_INDEX], &meta_data_buf_size,
+			      BT_AUDIO_METADATA_TYPE_AUDIO_STATE, BT_AUDIO_ACTIVE_STATE_ENABLED);
+	if (ret) {
+		return ret;
+	}
 
-	/* If any additional data is to be added, remember to increase NET_BUF size */
+	/* Metadata size */
+	ext_adv_data->pba_buf[PBA_METADATA_SIZE_INDEX] = meta_data_buf_size;
 
-	ext_ad[4].data_len = pba_buf.len;
-	ext_ad[4].type = BT_DATA_SVC_DATA16;
-	ext_ad[4].data = pba_buf.data;
+	/* Add PBA buffer to extended advertising data */
+	ret = bt_mgmt_adv_buffer_put(ext_adv_buf, &ext_adv_buf_cnt, ext_adv_buf_vacant,
+				     BROADCAST_SOURCE_PBA_HEADER_SIZE +
+					     ext_adv_data->pba_buf[PBA_METADATA_SIZE_INDEX],
+				     BT_DATA_SVC_DATA16, (void *)ext_adv_data->pba_buf);
+	if (ret) {
+		return ret;
+	}
+
 #endif /* (CONFIG_AURACAST) */
 
+	return ext_adv_buf_cnt;
+}
+
+int broadcast_source_per_adv_populate(uint8_t big_index,
+				      struct broadcast_source_per_adv_data *per_adv_data,
+				      struct bt_data *per_adv_buf, size_t per_adv_buf_vacant)
+{
+	int ret;
+	size_t per_adv_buf_cnt = 0;
+
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to populate per adv for BIG %d out of %d", big_index,
+			CONFIG_BT_ISO_MAX_BIG);
+		return -EINVAL;
+	}
+
+	if (per_adv_data == NULL || per_adv_buf == NULL || per_adv_buf_vacant == 0) {
+		LOG_ERR("Periodic advertising populate failed.");
+		return -EINVAL;
+	}
+
 	/* Setup periodic advertising data */
-	ret = bt_cap_initiator_broadcast_get_base(broadcast_source, &base_buf);
+	ret = bt_cap_initiator_broadcast_get_base(broadcast_sources[big_index],
+						  per_adv_data->base_buf);
 	if (ret) {
 		LOG_ERR("Failed to get encoded BASE: %d", ret);
 		return ret;
 	}
 
-	per_ad[0].data_len = base_buf.len;
-	per_ad[0].type = BT_DATA_SVC_DATA16;
-	per_ad[0].data = base_buf.data;
+	ret = bt_mgmt_adv_buffer_put(per_adv_buf, &per_adv_buf_cnt, per_adv_buf_vacant,
+				     per_adv_data->base_buf->len, BT_DATA_SVC_DATA16,
+				     (void *)per_adv_data->base_buf->data);
+	if (ret) {
+		return ret;
+	}
 
-	return 0;
+	return per_adv_buf_cnt;
 }
 
 /**
@@ -278,25 +382,130 @@ static void bt_audio_codec_allocation_set(uint8_t *data, uint8_t data_len,
 	sys_put_le32((const uint32_t)loc, &data[2]);
 }
 
-void broadcast_source_adv_get(const struct bt_data **ext_adv, size_t *ext_adv_size,
-			      const struct bt_data **per_adv, size_t *per_adv_size)
-{
-	*ext_adv = ext_ad;
-	*ext_adv_size = ARRAY_SIZE(ext_ad);
-	*per_adv = per_ad;
-	*per_adv_size = ARRAY_SIZE(per_ad);
-}
-
-int broadcast_source_start(struct bt_le_ext_adv *ext_adv)
+static int create_param_produce(uint8_t big_index,
+				struct broadcast_source_big const *const ext_create_param,
+				struct bt_cap_initiator_broadcast_create_param *create_param)
 {
 	int ret;
 
-	if (ext_adv != NULL) {
-		adv = ext_adv;
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to create param for BIG %d out of %d", big_index,
+			CONFIG_BT_ISO_MAX_BIG);
+		return -EINVAL;
 	}
 
-	if (adv == NULL) {
+	if (ext_create_param->num_subgroups > CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT) {
+		LOG_ERR("Trying to create %d subgroups, but only allocated memory for %d",
+			ext_create_param->num_subgroups,
+			CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT);
+		return -EINVAL;
+	}
+
+	uint8_t total_num_bis = 0;
+
+	for (size_t i = 0U; i < ext_create_param->num_subgroups; i++) {
+		for (size_t j = 0; j < ext_create_param->subgroups[i].num_bises; j++) {
+			total_num_bis++;
+		}
+	}
+
+	if (total_num_bis > CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT) {
+		LOG_ERR("Trying to set up %d BISes in total, but only allocated memory for %d",
+			total_num_bis, CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT);
+		return -EINVAL;
+	}
+
+	static struct bt_cap_initiator_broadcast_stream_param
+		stream_params[CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT][2];
+	static uint8_t bis_codec_data[CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT][2]
+				     [LTV_CHAN_ALLOC_SIZE];
+	static struct bt_cap_initiator_broadcast_subgroup_param
+		subgroup_params[CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT];
+
+	(void)memset(cap_streams[big_index], 0, sizeof(cap_streams[big_index]));
+
+	for (size_t i = 0U; i < ext_create_param->num_subgroups; i++) {
+		enum bt_audio_location subgroup_loc = 0;
+
+		for (size_t j = 0; j < ext_create_param->subgroups[i].num_bises; j++) {
+			stream_params[i][j].stream = &cap_streams[big_index][i][j];
+
+			stream_params[i][j].data_len = ARRAY_SIZE(bis_codec_data[i][j]);
+			stream_params[i][j].data = bis_codec_data[i][j];
+
+			enum bt_audio_location loc = ext_create_param->subgroups[i].location[j];
+
+			subgroup_loc |= loc;
+			bt_audio_codec_allocation_set(stream_params[i][j].data,
+						      stream_params[i][j].data_len, loc);
+		}
+
+		subgroup_params[i].stream_count = ext_create_param->subgroups[i].num_bises;
+		subgroup_params[i].stream_params = stream_params[i];
+		subgroup_params[i].codec_cfg =
+			&ext_create_param->subgroups[i].group_lc3_preset.codec_cfg;
+		ret = bt_audio_codec_cfg_set_chan_allocation(subgroup_params[i].codec_cfg,
+							     subgroup_loc);
+		if (ret < 0) {
+			LOG_WRN("Failed to set location: %d", ret);
+			return -EINVAL;
+		}
+
+		ret = bt_audio_codec_cfg_meta_set_stream_context(
+			subgroup_params[i].codec_cfg, ext_create_param->subgroups[i].context);
+		if (ret < 0) {
+			LOG_WRN("Failed to set context: %d", ret);
+			return -EINVAL;
+		}
+	}
+
+	/* Create broadcast_source */
+	create_param->subgroup_count = ext_create_param->num_subgroups;
+	create_param->subgroup_params = subgroup_params;
+	/* All QoS within the BIG will be the same, so we get the one from the first subgroup */
+	create_param->qos = &ext_create_param->subgroups[0].group_lc3_preset.qos;
+
+	create_param->packing = ext_create_param->packing;
+
+	create_param->encryption = ext_create_param->encryption;
+	if (ext_create_param->encryption) {
+		memset(create_param->broadcast_code, 0, sizeof(create_param->broadcast_code));
+		memcpy(create_param->broadcast_code, ext_create_param->broadcast_code,
+		       sizeof(ext_create_param->broadcast_code));
+	}
+
+	return 0;
+}
+
+bool broadcast_source_is_streaming(uint8_t big_index)
+{
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to check BIG %d out of %d", big_index, CONFIG_BT_ISO_MAX_BIG);
+		return false;
+	}
+
+	if (broadcast_sources[big_index] == NULL) {
+		return false;
+	}
+
+	/* All streams in a broadcast source is in the same state,
+	 * so we can just check the first stream
+	 */
+	return le_audio_ep_state_check(cap_streams[big_index][0][0].bap_stream.ep,
+				       BT_BAP_EP_STATE_STREAMING);
+}
+
+int broadcast_source_start(uint8_t big_index, struct bt_le_ext_adv *ext_adv)
+{
+	int ret;
+
+	if (ext_adv == NULL) {
 		LOG_ERR("No advertising set available");
+		return -EINVAL;
+	}
+
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to start BIG %d out of %d", big_index, CONFIG_BT_ISO_MAX_BIG);
 		return -EINVAL;
 	}
 
@@ -305,17 +514,18 @@ int broadcast_source_start(struct bt_le_ext_adv *ext_adv)
 	/* All streams in a broadcast source is in the same state,
 	 * so we can just check the first stream
 	 */
-	if (cap_streams[0].bap_stream.ep == NULL) {
+	if (cap_streams[big_index][0][0].bap_stream.ep == NULL) {
 		LOG_ERR("stream->ep is NULL");
 		return -ECANCELED;
 	}
 
-	if (cap_streams[0].bap_stream.ep->status.state == BT_BAP_EP_STATE_STREAMING) {
+	if (le_audio_ep_state_check(cap_streams[big_index][0][0].bap_stream.ep,
+				    BT_BAP_EP_STATE_STREAMING)) {
 		LOG_WRN("Already streaming");
 		return -EALREADY;
 	}
 
-	ret = bt_cap_initiator_broadcast_audio_start(broadcast_source, adv);
+	ret = bt_cap_initiator_broadcast_audio_start(broadcast_sources[big_index], ext_adv);
 	if (ret) {
 		LOG_WRN("Failed to start broadcast, ret: %d", ret);
 		return ret;
@@ -324,20 +534,26 @@ int broadcast_source_start(struct bt_le_ext_adv *ext_adv)
 	return 0;
 }
 
-int broadcast_source_stop(void)
+int broadcast_source_stop(uint8_t big_index)
 {
 	int ret;
+
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to stop BIG %d out of %d", big_index, CONFIG_BT_ISO_MAX_BIG);
+		return -EINVAL;
+	}
 
 	/* All streams in a broadcast source is in the same state,
 	 * so we can just check the first stream
 	 */
-	if (cap_streams[0].bap_stream.ep == NULL) {
+	if (cap_streams[big_index][0][0].bap_stream.ep == NULL) {
 		LOG_ERR("stream->ep is NULL");
 		return -ECANCELED;
 	}
 
-	if (cap_streams[0].bap_stream.ep->status.state == BT_BAP_EP_STATE_STREAMING) {
-		ret = bt_cap_initiator_broadcast_audio_stop(broadcast_source);
+	if (le_audio_ep_state_check(cap_streams[big_index][0][0].bap_stream.ep,
+				    BT_BAP_EP_STATE_STREAMING)) {
+		ret = bt_cap_initiator_broadcast_audio_stop(broadcast_sources[big_index]);
 		if (ret) {
 			LOG_WRN("Failed to stop broadcast, ret: %d", ret);
 			return ret;
@@ -350,16 +566,109 @@ int broadcast_source_stop(void)
 	return 0;
 }
 
-int broadcast_source_send(struct le_audio_encoded_audio enc_audio)
+/* TODO: Use the function below once
+ * https://github.com/zephyrproject-rtos/zephyr/pull/72908 is merged
+ */
+#if CONFIG_CUSTOM_BROADCASTER
+static uint8_t audio_map_location_get(struct bt_bap_stream *bap_stream)
 {
 	int ret;
-	struct bt_bap_stream *bap_tx_streams[CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT];
+	enum bt_audio_location loc;
 
-	for (int i = 0; i < ARRAY_SIZE(cap_streams); i++) {
-		bap_tx_streams[i] = &cap_streams[i].bap_stream;
+	ret = bt_audio_codec_cfg_get_chan_allocation(bap_stream->codec_cfg, &loc, false);
+	if (ret) {
+		LOG_WRN("Unable to find location, defaulting to left");
+		return AUDIO_CH_L;
 	}
 
-	ret = bt_le_audio_tx_send(bap_tx_streams, enc_audio, ARRAY_SIZE(cap_streams));
+	/* For now, only front_left and front_right are supported,
+	 * left is default for everything else.
+	 */
+
+	if (loc == BT_AUDIO_LOCATION_FRONT_RIGHT) {
+		LOG_WRN("Setting right");
+		return AUDIO_CH_R;
+	}
+
+	return AUDIO_CH_L;
+}
+#endif
+
+int broadcast_source_id_get(uint8_t big_index, uint32_t *broadcast_id)
+{
+	int ret;
+
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Failed to get broadcast ID for BIG %d out of %d", big_index,
+			CONFIG_BT_ISO_MAX_BIG);
+		return -EINVAL;
+	}
+
+	if (broadcast_sources[big_index] == NULL) {
+		LOG_ERR("No broadcast source");
+		return -EINVAL;
+	}
+
+	if (broadcast_id == NULL) {
+		LOG_ERR("NULL pointer given for broadcast_id");
+		return -EINVAL;
+	}
+
+	ret = bt_cap_initiator_broadcast_get_id(broadcast_sources[big_index], broadcast_id);
+	if (ret) {
+		LOG_ERR("Unable to get broadcast ID: %d", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+int broadcast_source_send(uint8_t big_index, uint8_t subgroup_index,
+			  struct le_audio_encoded_audio enc_audio)
+{
+	int ret;
+	uint8_t num_active_streams = 0;
+
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to send to BIG %d out of %d", big_index, CONFIG_BT_ISO_MAX_BIG);
+		return -EINVAL;
+	}
+
+	struct le_audio_tx_info
+		tx[CONFIG_BT_ISO_MAX_CHAN * CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT];
+
+	for (int i = 0; i < ARRAY_SIZE(cap_streams[big_index][subgroup_index]); i++) {
+		if (!le_audio_ep_state_check(
+			    cap_streams[big_index][subgroup_index][i].bap_stream.ep,
+			    BT_BAP_EP_STATE_STREAMING)) {
+			/* Skip streams not in a streaming state */
+			continue;
+		}
+
+		/* Set cap stream pointer */
+		tx[num_active_streams].cap_stream = &cap_streams[big_index][subgroup_index][i];
+
+		/* Set index */
+		tx[num_active_streams].idx.lvl1 = big_index;
+		tx[num_active_streams].idx.lvl2 = subgroup_index;
+		tx[num_active_streams].idx.lvl3 = i;
+
+		/* Set channel location */
+		/* TODO: Use the function below once
+		 * https://github.com/zephyrproject-rtos/zephyr/pull/72908 is merged
+		 */
+		/* tx[num_active_streams].audio_channel = audio_map_location_get(stream);*/
+		tx[num_active_streams].audio_channel = i;
+
+		num_active_streams++;
+	}
+
+	if (num_active_streams == 0) {
+		LOG_WRN("No active streams");
+		return -ECANCELED;
+	}
+
+	ret = bt_le_audio_tx_send(tx, num_active_streams, enc_audio);
 	if (ret) {
 		return ret;
 	}
@@ -367,25 +676,36 @@ int broadcast_source_send(struct le_audio_encoded_audio enc_audio)
 	return 0;
 }
 
-int broadcast_source_disable(void)
+int broadcast_source_disable(uint8_t big_index)
 {
 	int ret;
 
-	if (cap_streams[0].bap_stream.ep->status.state == BT_BAP_EP_STATE_STREAMING) {
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to disable BIG %d out of %d", big_index, CONFIG_BT_ISO_MAX_BIG);
+		return -EINVAL;
+	}
+
+	/* All streams in a broadcast source is in the same state,
+	 * so we can just check the first stream
+	 */
+	if (le_audio_ep_state_check(cap_streams[big_index][0][0].bap_stream.ep,
+				    BT_BAP_EP_STATE_STREAMING)) {
 		/* Deleting broadcast source in stream_stopped_cb() */
-		delete_broadcast_src = true;
+		delete_broadcast_src[big_index] = true;
 
-		ret = bt_cap_initiator_broadcast_audio_stop(broadcast_source);
+		ret = bt_cap_initiator_broadcast_audio_stop(broadcast_sources[big_index]);
 		if (ret) {
+			LOG_WRN("Failed to stop broadcast source");
 			return ret;
 		}
-	} else if (broadcast_source != NULL) {
-		ret = bt_cap_initiator_broadcast_audio_delete(broadcast_source);
+	} else if (broadcast_sources[big_index] != NULL) {
+		ret = bt_cap_initiator_broadcast_audio_delete(broadcast_sources[big_index]);
 		if (ret) {
+			LOG_WRN("Failed to delete broadcast source");
 			return ret;
 		}
 
-		broadcast_source = NULL;
+		broadcast_sources[big_index] = NULL;
 	}
 
 	initialized = false;
@@ -395,90 +715,84 @@ int broadcast_source_disable(void)
 	return 0;
 }
 
-int broadcast_source_enable(void)
+/* Will set up one BIG, one subgroup and two BISes */
+void broadcast_source_default_create(struct broadcast_source_big *broadcast_param)
 {
-	int ret;
+	static enum bt_audio_location location[2] = {BT_AUDIO_LOCATION_FRONT_LEFT,
+						     BT_AUDIO_LOCATION_FRONT_RIGHT};
+	static struct subgroup_config subgroups;
 
-	struct bt_cap_initiator_broadcast_stream_param stream_params[ARRAY_SIZE(cap_streams)];
-	uint8_t bis_codec_data[ARRAY_SIZE(stream_params)][LTV_CHAN_ALLOC_SIZE];
-	struct bt_cap_initiator_broadcast_subgroup_param
-		subgroup_params[CONFIG_BT_BAP_BROADCAST_SRC_SUBGROUP_COUNT];
-	struct bt_cap_initiator_broadcast_create_param create_param;
+	subgroups.group_lc3_preset = lc3_preset;
 
-	if (initialized) {
-		LOG_WRN("Already initialized");
-		return -EALREADY;
-	}
+	subgroups.num_bises = 2;
+	subgroups.context = BT_AUDIO_CONTEXT_TYPE_MEDIA;
 
-	ret = bt_le_audio_tx_init();
-	if (ret) {
-		return ret;
-	}
+	subgroups.location = location;
 
-	LOG_INF("Enabling broadcast_source %s", CONFIG_BT_AUDIO_BROADCAST_NAME);
-
-	(void)memset(cap_streams, 0, sizeof(cap_streams));
-
-	/* Populate BISes */
-	for (size_t i = 0; i < ARRAY_SIZE(stream_params); i++) {
-		stream_params[i].stream = &cap_streams[i];
-
-		bt_cap_stream_ops_register(stream_params[i].stream, &stream_ops);
-		/* TODO: Remove this once the fixed call above has been upstreamed */
-		bt_bap_stream_cb_register(&stream_params[i].stream->bap_stream, &stream_ops);
-
-		stream_params[i].data_len = ARRAY_SIZE(bis_codec_data[i]);
-		stream_params[i].data = bis_codec_data[i];
-
-		/* The channel allocation is set incrementally */
-		bt_audio_codec_allocation_set(stream_params[i].data, stream_params[i].data_len,
-					      BIT(i));
-	}
-
-	/* Create BIGs */
-	for (size_t i = 0U; i < ARRAY_SIZE(subgroup_params); i++) {
-		subgroup_params[i].stream_count = ARRAY_SIZE(stream_params);
-		subgroup_params[i].stream_params = &stream_params[i];
-		subgroup_params[i].codec_cfg = &lc3_preset.codec_cfg;
-#if (CONFIG_BT_AUDIO_BROADCAST_IMMEDIATE_FLAG)
-		bt_audio_codec_cfg_meta_set_bcast_audio_immediate_rend_flag(
-			subgroup_params[i].codec_cfg);
-#endif /* (CONFIG_BT_AUDIO_BROADCAST_IMMEDIATE_FLAG) */
-	}
-
-	/* Create broadcast_source */
-	create_param.subgroup_count = ARRAY_SIZE(subgroup_params);
-	create_param.subgroup_params = subgroup_params;
-	create_param.qos = &lc3_preset.qos;
+	broadcast_param->subgroups = &subgroups;
+	broadcast_param->num_subgroups = 1;
 
 	if (IS_ENABLED(CONFIG_BT_AUDIO_PACKING_INTERLEAVED)) {
-		create_param.packing = BT_ISO_PACKING_INTERLEAVED;
+		broadcast_param->packing = BT_ISO_PACKING_INTERLEAVED;
 	} else {
-		create_param.packing = BT_ISO_PACKING_SEQUENTIAL;
+		broadcast_param->packing = BT_ISO_PACKING_SEQUENTIAL;
 	}
 
 	if (IS_ENABLED(CONFIG_BT_AUDIO_BROADCAST_ENCRYPTED)) {
-		create_param.encryption = true;
-		memset(create_param.broadcast_code, 0, sizeof(create_param.broadcast_code));
-		memcpy(create_param.broadcast_code, CONFIG_BT_AUDIO_BROADCAST_ENCRYPTION_KEY,
+		broadcast_param->encryption = true;
+		memset(broadcast_param->broadcast_code, 0, sizeof(broadcast_param->broadcast_code));
+		memcpy(broadcast_param->broadcast_code, CONFIG_BT_AUDIO_BROADCAST_ENCRYPTION_KEY,
 		       MIN(sizeof(CONFIG_BT_AUDIO_BROADCAST_ENCRYPTION_KEY),
-			   sizeof(create_param.broadcast_code)));
+			   sizeof(broadcast_param->broadcast_code)));
 	} else {
-		create_param.encryption = false;
+		broadcast_param->encryption = false;
 	}
 
-	LOG_DBG("Creating broadcast source");
+	if (IS_ENABLED(CONFIG_BT_AUDIO_BROADCAST_IMMEDIATE_FLAG)) {
+		bt_audio_codec_cfg_meta_set_bcast_audio_immediate_rend_flag(
+			&subgroups.group_lc3_preset.codec_cfg);
+	}
 
-	ret = bt_cap_initiator_broadcast_audio_create(&create_param, &broadcast_source);
+	bt_audio_codec_cfg_meta_set_lang(&subgroups.group_lc3_preset.codec_cfg, "eng");
+}
+
+int broadcast_source_enable(struct broadcast_source_big const *const broadcast_param,
+			    uint8_t big_index)
+{
+	int ret;
+
+	if (big_index >= CONFIG_BT_ISO_MAX_BIG) {
+		LOG_ERR("Trying to set up %d BIGS, but only allocated memory for %d", big_index,
+			CONFIG_BT_ISO_MAX_BIG);
+		return -EINVAL;
+	}
+
+	if (!initialized) {
+		bt_le_audio_tx_init();
+	}
+
+	LOG_INF("Enabling broadcast_source %d", big_index);
+
+	ret = create_param_produce(big_index, broadcast_param, &create_param[big_index]);
 	if (ret) {
-		LOG_ERR("Failed to create broadcast source, ret: %d", ret);
+		LOG_ERR("Failed to create the create_param: %d", ret);
 		return ret;
 	}
 
-	/* Create advertising set */
-	ret = adv_create();
+	/* Register callbacks per stream */
+	for (size_t j = 0U; j < create_param[big_index].subgroup_count; j++) {
+		for (size_t k = 0; k < create_param[big_index].subgroup_params[j].stream_count;
+		     k++) {
+			bt_cap_stream_ops_register(
+				create_param[big_index].subgroup_params[j].stream_params[k].stream,
+				&stream_ops);
+		}
+	}
+
+	ret = bt_cap_initiator_broadcast_audio_create(&create_param[big_index],
+						      &broadcast_sources[big_index]);
 	if (ret) {
-		LOG_ERR("Failed to create advertising set");
+		LOG_ERR("Failed to create broadcast source, ret: %d", ret);
 		return ret;
 	}
 

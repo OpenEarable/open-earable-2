@@ -49,6 +49,7 @@
  * @param	bad_frame	Indicating if the frame is a bad frame or not.
  * @param	sdu_ref		ISO timestamp.
  * @param	channel_index	Audio channel index.
+ * @param	desired_size	The expected data size.
  */
 typedef void (*le_audio_receive_cb)(const uint8_t *const data, size_t size, bool bad_frame,
 				    uint32_t sdu_ref, enum audio_channel channel_index,
@@ -65,6 +66,22 @@ struct le_audio_encoded_audio {
 	uint8_t num_ch;
 };
 
+struct stream_index {
+	uint8_t lvl1; /* BIG / CIG */
+	uint8_t lvl2; /* Subgroups (only applicable to Broadcast) */
+	uint8_t lvl3; /* BIS / CIS */
+};
+
+/**
+ * @brief	Get the current state of an endpoint.
+ *
+ * @param[in]	ep       The endpoint to check.
+ * @param[out]	state    The state of the endpoint.
+ *
+ * @return	0 for success, error otherwise.
+ */
+int le_audio_ep_state_get(struct bt_bap_ep *ep, uint8_t *state);
+
 /**
  * @brief	Check if an endpoint is in the given state.
  *		If the endpoint is NULL, it is not in the
@@ -77,6 +94,17 @@ struct le_audio_encoded_audio {
  * @retval	false	Otherwise.
  */
 bool le_audio_ep_state_check(struct bt_bap_ep *ep, enum bt_bap_ep_state state);
+
+/**
+ * @brief	Check if an endpoint has had the QoS configured.
+ *		If the endpoint is NULL, it is not in the state, and this function returns false.
+ *
+ * @param[in]	ep       The endpoint to check.
+ *
+ * @retval	true	The endpoint QoS is configured.
+ * @retval	false	Otherwise.
+ */
+bool le_audio_ep_qos_configured(struct bt_bap_ep const *const ep);
 
 /**
  * @brief	Decode the audio sampling frequency in the codec configuration.

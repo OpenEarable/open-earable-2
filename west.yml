@@ -5,5 +5,5 @@ manifest:
     - name: sdk-nrf
       path: nrf
       url: https://github.com/nrfconnect/sdk-nrf.git
-      revision: v2.6.99-cs1
+      revision: v2.9.0
       import: true

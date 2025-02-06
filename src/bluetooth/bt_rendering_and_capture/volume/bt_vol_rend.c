@@ -11,7 +11,6 @@
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/audio/vcp.h>
 
-#include "macros_common.h"
 #include "bt_rendering_and_capture.h"
 
 #include <zephyr/logging/log.h>
@@ -23,11 +22,9 @@ LOG_MODULE_REGISTER(bt_vol_rend, CONFIG_BT_VOL_LOG_LEVEL);
  * @note	This callback handler will be triggered if volume state has changed,
  *		or the playback was muted or unmuted from the volume_controller.
  */
-static void vcs_state_rend_cb_handler(int err, uint8_t volume, uint8_t mute)
+static void vcs_state_rend_cb_handler(struct bt_conn *conn, int err, uint8_t volume, uint8_t mute)
 {
 	int ret;
-
-	static uint8_t prev_mute = 0;
 
 	if (err) {
 		LOG_ERR("VCS state callback error: %d", err);
@@ -41,22 +38,12 @@ static void vcs_state_rend_cb_handler(int err, uint8_t volume, uint8_t mute)
 		LOG_WRN("Failed to set volume");
 	}
 
-	if (prev_mute != mute) {
-		if (mute) {
-			ret = bt_r_and_c_volume_mute(true);
-			if (ret) {
-				LOG_WRN("Error muting volume");
-			}
-		} else {
-			ret = bt_r_and_c_volume_unmute(true);
-			if (ret) {
-				LOG_WRN("Error muting volume");
-			}
+	if (mute) {
+		ret = bt_r_and_c_volume_mute(true);
+		if (ret) {
+			LOG_WRN("Error muting volume");
 		}
-
-		prev_mute = mute;
 	}
-	
 }
 
 /**
@@ -64,7 +51,7 @@ static void vcs_state_rend_cb_handler(int err, uint8_t volume, uint8_t mute)
  *
  * @note	This callback handler will be triggered if the VCS flags has changed.
  */
-static void vcs_flags_rend_cb_handler(int err, uint8_t flags)
+static void vcs_flags_rend_cb_handler(struct bt_conn *conn, int err, uint8_t flags)
 {
 	if (err) {
 		LOG_ERR("VCS flag callback error: %d", err);

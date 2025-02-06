@@ -3,8 +3,6 @@
 #include "math.h"
 #include "stdlib.h"
 
-#include "nrf5340_audio_common.h"
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(MAXM86161);
 

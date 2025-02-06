@@ -70,7 +70,6 @@ static void audio_gateway_configure(void)
 	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
-	//sw_codec_cfg.decoder.audio_ch = AUDIO_CHANNEL_DEFAULT;
 	sw_codec_cfg.decoder.num_ch = 1;
 	sw_codec_cfg.decoder.channel_mode = SW_CODEC_MONO;
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
@@ -94,12 +93,9 @@ static void audio_headset_configure(void)
 	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
-	//sw_codec_cfg.decoder.audio_ch = AUDIO_CHANNEL_DEFAULT;
 	sw_codec_cfg.encoder.num_ch = 1;
 	sw_codec_cfg.encoder.channel_mode = SW_CODEC_MONO;
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
-
-	//channel_assignment_get(&sw_codec_cfg.decoder.audio_ch);
 
 	sw_codec_cfg.decoder.num_ch = 1;
 	sw_codec_cfg.decoder.channel_mode = SW_CODEC_MONO;
@@ -200,7 +196,6 @@ void audio_system_encoder_start(void)
 void audio_system_encoder_stop(void)
 {
 	k_poll_signal_reset(&encoder_sig);
-	LOG_DBG("Encoder stopped");
 }
 
 int audio_system_encode_test_tone_set(uint32_t freq)
@@ -414,9 +409,10 @@ void audio_system_start(void)
 	ret = audio_usb_start(&fifo_tx, &fifo_rx);
 	ERR_CHK(ret);
 #else
+
 	ret = audio_datapath_start(&fifo_rx);
 	ERR_CHK(ret);
-
+	
 	ret = hw_codec_default_conf_enable();
 	ERR_CHK(ret);
 

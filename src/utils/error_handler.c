@@ -10,8 +10,6 @@
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/drivers/gpio.h>
 
-//#include <../Battery/PowerSwitch.h>
-
 /* Print everything from the error handler */
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(error_handler, CONFIG_ERROR_HANDLER_LOG_LEVEL);
@@ -23,7 +21,7 @@ static const struct gpio_dt_spec center_led_g = GPIO_DT_SPEC_GET(DT_NODELABEL(rg
 static const struct gpio_dt_spec center_led_b = GPIO_DT_SPEC_GET(DT_NODELABEL(rgb1_blue), gpios);
 #endif /* (defined(CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP) && (CONFIG_DEBUG)) */
 
-void error_handler(unsigned int reason, const z_arch_esf_t *esf)
+void error_handler(unsigned int reason, const struct arch_esf *esf)
 {
 #if (CONFIG_DEBUG)
 	LOG_ERR("Caught system error -- reason %d. Entering infinite loop", reason);
@@ -32,7 +30,13 @@ void error_handler(unsigned int reason, const z_arch_esf_t *esf)
 	(void)gpio_pin_configure_dt(&center_led_r, GPIO_OUTPUT_ACTIVE);
 	(void)gpio_pin_configure_dt(&center_led_g, GPIO_OUTPUT_INACTIVE);
 	(void)gpio_pin_configure_dt(&center_led_b, GPIO_OUTPUT_INACTIVE);
+
+	irq_lock();
+	while (1) {
+		__asm__ volatile("nop");
+	}
 #endif /* defined(CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP) */
+#if CONFIG_BOARD_OPENEARABLE_V2_NRF5340_CPUAPP
 	irq_lock();
 	const struct gpio_dt_spec button_pin = GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios);
 	const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(led_error), gpios, {0});
@@ -48,6 +52,7 @@ void error_handler(unsigned int reason, const z_arch_esf_t *esf)
 		k_busy_wait(10000);
 		//__asm__ volatile("nop");
 	}
+#endif
 #else
 	LOG_ERR("Caught system error -- reason %d. Cold rebooting.", reason);
 #if (CONFIG_LOG)
@@ -64,7 +69,7 @@ void bt_ctlr_assert_handle(char *c, int code)
 	error_handler(code, NULL);
 }
 
-void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t *esf)
+void k_sys_fatal_error_handler(unsigned int reason, const struct arch_esf *esf)
 {
 	error_handler(reason, esf);
 }
