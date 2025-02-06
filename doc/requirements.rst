@@ -40,7 +40,7 @@ nRF5340 Audio development kit
 *****************************
 
 The nRF5340 Audio development kit is a hardware development platform that demonstrates the nRF5340 Audio applications.
-Read the `nRF5340 Audio DK Hardware`_ documentation on Nordic Semiconductor Infocenter for more information about this development kit.
+Read the `nRF5340 Audio DK Hardware`_ documentation for more information about this development kit.
 
 You can :ref:`test the DK out of the box <nrf53_audio_app_dk_testing_out_of_the_box>` before you program it.
 
@@ -60,6 +60,8 @@ For each application, only one of the following :file:`.conf` files is included 
   No debug features are enabled in the release application version.
   When building using the command line, you must explicitly specify if :file:`prj_release.conf` is going to be included instead of :file:`prj.conf`.
   See :ref:`nrf53_audio_app_building` for details.
-
-In addition, the application features the :file:`child_image` directory with :file:`hci_ipc.conf`.
-This file contains the necessary configurations for nRF5340 Audio applications to run the :ref:`bluetooth-hci-ipc-sample` sample with :ref:`SoftDevice Controller for LE Isochronous Channels <nrfxlib:softdevice_controller_iso>` support.
+* :file:`prj_fota.conf` is the optional configuration file used for FOTA DFU.
+  When used, the build system builds the debug version of the application (:file:`prj.conf`), but with the features needed to perform DFU over Bluetooth LE.
+  It also includes bootloaders so that the applications on both the application core and network core can be updated.
+  When building using the command line, you must explicitly specify if :file:`prj_fota.conf` is going to be included instead of :file:`prj.conf`.
+  See :ref:`nrf53_audio_app_fota` for more information.

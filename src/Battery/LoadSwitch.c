@@ -1,7 +1,7 @@
 //#include "LoadSwitch.h"
 //#include "PowerManager.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 #include <zephyr/drivers/gpio.h>
 

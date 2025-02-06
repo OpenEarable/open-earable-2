@@ -8,7 +8,8 @@
 #include "BMA580/BMA580_Sensor.h"
 #include "EdgeMLSensor.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
+#include "zbus_common.h"
 
 #define ACCEL_FRAME_LEN                   UINT8_C(255)
 

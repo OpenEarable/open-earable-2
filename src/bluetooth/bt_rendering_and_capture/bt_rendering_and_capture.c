@@ -12,7 +12,7 @@
 
 #include "bt_vol_rend_internal.h"
 #include "bt_vol_ctlr_internal.h"
-#include "nrf5340_audio_common.h"
+#include "zbus_common.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_r_c, CONFIG_BT_RENDERING_AND_CAPTURE_LOG_LEVEL);
@@ -105,17 +105,17 @@ int bt_r_and_c_volume_mute(bool from_vcp)
 	return ret;
 }
 
-int bt_r_and_c_volume_unmute(bool from_vcp)
+int bt_r_and_c_volume_unmute(void)
 {
 	int ret;
 	struct volume_msg msg;
 
-	if (IS_ENABLED(CONFIG_BT_VCP_VOL_REND) && !from_vcp) {
+	if (IS_ENABLED(CONFIG_BT_VCP_VOL_REND)) {
 		ret = bt_vol_rend_unmute();
 		return ret;
 	}
 
-	if (IS_ENABLED(CONFIG_BT_VCP_VOL_CTLR) && !from_vcp) {
+	if (IS_ENABLED(CONFIG_BT_VCP_VOL_CTLR)) {
 		ret = bt_vol_ctlr_unmute();
 		return ret;
 	}

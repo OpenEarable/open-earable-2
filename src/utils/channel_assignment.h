@@ -44,11 +44,6 @@ void channel_assignment_get(enum audio_channel *channel);
 void channel_assignment_set(enum audio_channel channel);
 #endif /* AUDIO_HEADSET_CHANNEL_RUNTIME */
 
-/**
- * @brief Initialize the channel assignment
- */
-void channel_assignment_init(void);
-
 #ifdef __cplusplus
 }
 #endif

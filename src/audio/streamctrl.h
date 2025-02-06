@@ -10,15 +10,15 @@
 #include <stddef.h>
 #include <zephyr/kernel.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* State machine states for peer or stream. */
 enum stream_state {
 	STATE_STREAMING,
 	STATE_PAUSED,
 };
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief Get the current streaming state.
@@ -35,6 +35,8 @@ uint8_t stream_state_get(void);
  * @param num_ch	Number of audio channels.
  */
 void streamctrl_send(void const *const data, size_t size, uint8_t num_ch);
+
+int streamctrl_start();
 
 #ifdef __cplusplus
 }

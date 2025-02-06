@@ -1,7 +1,7 @@
 #ifndef _BOOT_STATE_H
 #define _BOOT_STATE_H
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 #ifdef __cplusplus
 extern "C" {

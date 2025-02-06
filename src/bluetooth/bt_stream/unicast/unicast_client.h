@@ -20,32 +20,38 @@ enum unicast_discover_dir {
 
 #if CONFIG_BT_BAP_UNICAST_CONFIGURABLE
 #define BT_BAP_LC3_UNICAST_PRESET_NRF5340_AUDIO_SINK                                               \
-	BT_BAP_LC3_PRESET_CONFIGURABLE(BT_AUDIO_LOCATION_FRONT_LEFT, BT_AUDIO_CONTEXT_TYPE_MEDIA,  \
+	BT_BAP_LC3_PRESET_CONFIGURABLE(BT_AUDIO_LOCATION_FRONT_LEFT,                               \
+				       BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED,                          \
 				       CONFIG_BT_AUDIO_BITRATE_UNICAST_SINK)
 
 #define BT_BAP_LC3_UNICAST_PRESET_NRF5340_AUDIO_SOURCE                                             \
-	BT_BAP_LC3_PRESET_CONFIGURABLE(BT_AUDIO_LOCATION_FRONT_LEFT, BT_AUDIO_CONTEXT_TYPE_MEDIA,  \
+	BT_BAP_LC3_PRESET_CONFIGURABLE(BT_AUDIO_LOCATION_FRONT_LEFT,                               \
+				       BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED,                          \
 				       CONFIG_BT_AUDIO_BITRATE_UNICAST_SRC)
 
 #elif CONFIG_BT_BAP_UNICAST_16_2_1
 #define BT_BAP_LC3_UNICAST_PRESET_NRF5340_AUDIO_SINK                                               \
-	BT_BAP_LC3_UNICAST_PRESET_16_2_1(BT_AUDIO_LOCATION_FRONT_LEFT, BT_AUDIO_CONTEXT_TYPE_MEDIA)
+	BT_BAP_LC3_UNICAST_PRESET_16_2_1(BT_AUDIO_LOCATION_FRONT_LEFT,                             \
+					 BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED)
 
 #define BT_BAP_LC3_UNICAST_PRESET_NRF5340_AUDIO_SOURCE                                             \
-	BT_BAP_LC3_UNICAST_PRESET_16_2_1(BT_AUDIO_LOCATION_FRONT_LEFT, BT_AUDIO_CONTEXT_TYPE_MEDIA)
+	BT_BAP_LC3_UNICAST_PRESET_16_2_1(BT_AUDIO_LOCATION_FRONT_LEFT,                             \
+					 BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED)
 
 #elif CONFIG_BT_BAP_UNICAST_24_2_1
 #define BT_BAP_LC3_UNICAST_PRESET_NRF5340_AUDIO_SINK                                               \
-	BT_BAP_LC3_UNICAST_PRESET_24_2_1(BT_AUDIO_LOCATION_FRONT_LEFT, BT_AUDIO_CONTEXT_TYPE_MEDIA)
+	BT_BAP_LC3_UNICAST_PRESET_24_2_1(BT_AUDIO_LOCATION_FRONT_LEFT,                             \
+					 BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED)
 
 #define BT_BAP_LC3_UNICAST_PRESET_NRF5340_AUDIO_SOURCE                                             \
-	BT_BAP_LC3_UNICAST_PRESET_24_2_1(BT_AUDIO_LOCATION_FRONT_LEFT, BT_AUDIO_CONTEXT_TYPE_MEDIA)
+	BT_BAP_LC3_UNICAST_PRESET_24_2_1(BT_AUDIO_LOCATION_FRONT_LEFT,                             \
+					 BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED)
 #elif CONFIG_BT_BAP_UNICAST_48_4_1
 #define BT_BAP_LC3_UNICAST_PRESET_NRF5340_AUDIO_SINK                                               \
-	BT_BAP_LC3_UNICAST_PRESET_48_4_1(BT_AUDIO_LOCATION_ANY, BT_AUDIO_CONTEXT_TYPE_MEDIA)
+	BT_BAP_LC3_UNICAST_PRESET_48_4_1(BT_AUDIO_LOCATION_ANY, BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED)
 
 #define BT_BAP_LC3_UNICAST_PRESET_NRF5340_AUDIO_SOURCE                                             \
-	BT_BAP_LC3_UNICAST_PRESET_48_4_1(BT_AUDIO_LOCATION_ANY, BT_AUDIO_CONTEXT_TYPE_MEDIA)
+	BT_BAP_LC3_UNICAST_PRESET_48_4_1(BT_AUDIO_LOCATION_ANY, BT_AUDIO_CONTEXT_TYPE_UNSPECIFIED)
 #else
 #error Unsupported LC3 codec preset for unicast
 #endif /* CONFIG_BT_BAP_UNICAST_CONFIGURABLE */
@@ -69,7 +75,9 @@ int unicast_client_config_get(struct bt_conn *conn, enum bt_audio_dir dir, uint3
  * @param[in]	conn	Pointer to the connection.
  * @param[in]	dir	Direction of the stream.
  *
- * @return 0 for success, error otherwise.
+ * @retval	-EALREADY	Device has already been discovered.
+ * @retval	-ENOSPC		No more room in headset list.
+ * @retval	0		Success.
  */
 int unicast_client_discover(struct bt_conn *conn, enum unicast_discover_dir dir);
 
@@ -83,40 +91,52 @@ void unicast_client_conn_disconnected(struct bt_conn *conn);
 /**
  * @brief	Start the Bluetooth LE Audio unicast (CIS) client.
  *
+ * @note	Will start both sink and source if present.
+ *
+ * @param[in]	cig_index	Index of the Connected Isochronous Group (CIG) to start.
+ *
  * @return	0 for success, error otherwise.
  */
-int unicast_client_start(void);
+int unicast_client_start(uint8_t cig_index);
 
 /**
  * @brief	Stop the Bluetooth LE Audio unicast (CIS) client.
  *
+ * @note	Will stop both sink and source if present.
+ *
+  @param[in]	cig_index	Index of the Connected Isochronous Group (CIG) to stop.
+ *
  * @return	0 for success, error otherwise.
  */
-int unicast_client_stop(void);
+int unicast_client_stop(uint8_t cig_index);
 
 /**
  * @brief	Send encoded audio using the Bluetooth LE Audio unicast.
  *
+ * @param[in]	cig_index	Index of the Connected Isochronous Group (CIG) to send to.
  * @param[in]	enc_audio	Encoded audio struct.
  *
  * @return	0 for success, error otherwise.
  */
-int unicast_client_send(struct le_audio_encoded_audio enc_audio);
+int unicast_client_send(uint8_t cig_index, struct le_audio_encoded_audio enc_audio);
 
 /**
  * @brief       Disable the Bluetooth LE Audio unicast (CIS) client.
  *
+ * @param[in]	cig_index	Index of the Connected Isochronous Group (CIG) to disable.
+ *
  * @return      0 for success, error otherwise.
  */
-int unicast_client_disable(void);
+int unicast_client_disable(uint8_t cig_index);
 
 /**
  * @brief	Enable the Bluetooth LE Audio unicast (CIS) client.
  *
- * @param[in]   recv_cb	Callback for handling received data.
+ * @param[in]	cig_index	Index of the Connected Isochronous Group (CIG) to enable.
+ * @param[in]   recv_cb		Callback for handling received data.
  *
  * @return	0 for success, error otherwise.
  */
-int unicast_client_enable(le_audio_receive_cb recv_cb);
+int unicast_client_enable(uint8_t cig_index, le_audio_receive_cb recv_cb);
 
 #endif /* _UNICAST_CLIENT_H_ */

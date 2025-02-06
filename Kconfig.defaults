@@ -30,20 +30,8 @@ config RESET_ON_FATAL_ERROR
 	default n
 
 # Default Config for Debug and Release build
-config HW_CODEC_CIRRUS_LOGIC
-	default y
-
 config BT
 	default y
-
-# config BOARD_ENABLE_DCDC_APP
-# 	default y
-
-# config BOARD_ENABLE_DCDC_NET
-# 	default y
-
-# config BOARD_ENABLE_CPUNET
-# 	default y
 
 config ZBUS
 	default y
@@ -135,10 +123,6 @@ endchoice
 # exFAT enabled to support longer file names and higher transfer speed
 config FS_FATFS_EXFAT
 	default y
-
-# Set the maximum file name length to 255
-config FS_FATFS_MAX_LFN
-	default 255
 
 config WATCHDOG
 	default y
