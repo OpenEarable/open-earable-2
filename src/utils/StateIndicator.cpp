@@ -4,7 +4,8 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
+#include "zbus_common.h"
 
 #include "channel_assignment.h"
 

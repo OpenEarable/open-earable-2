@@ -39,7 +39,7 @@ if os.getenv("AUDIO_KIT_SERIAL_NUMBERS_JSON") is None:
 else:
     AUDIO_KIT_SERIAL_NUMBERS_JSON = Path(
         os.getenv("AUDIO_KIT_SERIAL_NUMBERS_JSON"))
-TARGET_BOARD_NRF5340_AUDIO_DK_APP_NAME = "nrf5340_audio_dk_nrf5340_cpuapp"
+TARGET_BOARD_NRF5340_AUDIO_DK_APP_NAME = "nrf5340_audio_dk/nrf5340/cpuapp"
 
 TARGET_CORE_APP_FOLDER = NRF5340_AUDIO_FOLDER
 TARGET_DEV_HEADSET_FOLDER = NRF5340_AUDIO_FOLDER / "build/dev_headset"
@@ -88,7 +88,8 @@ def __build_cmd_get(core: Core, device: AudioDevice, build: BuildType,
                     pristine, child_image, options):
     if core == Core.app:
         build_cmd = (f"west build {TARGET_CORE_APP_FOLDER} "
-                     f"-b {TARGET_BOARD_NRF5340_AUDIO_DK_APP_NAME}")
+                     f"-b {TARGET_BOARD_NRF5340_AUDIO_DK_APP_NAME} "
+                     f"--sysbuild")
         if device == AudioDevice.headset:
             device_flag = "-DCONFIG_AUDIO_DEV=1"
             dest_folder = TARGET_DEV_HEADSET_FOLDER
@@ -102,7 +103,7 @@ def __build_cmd_get(core: Core, device: AudioDevice, build: BuildType,
             release_flag = ""
             dest_folder /= TARGET_DEBUG_FOLDER
         elif build == BuildType.release:
-            release_flag = " -DCONF_FILE=prj_release.conf"
+            release_flag = " -DFILE_SUFFIX=release"
             dest_folder /= TARGET_RELEASE_FOLDER
         else:
             raise Exception("Invalid build type!")
@@ -111,8 +112,8 @@ def __build_cmd_get(core: Core, device: AudioDevice, build: BuildType,
             device_flag += " -DCONFIG_NCS_INCLUDE_RPMSG_CHILD_IMAGE=n"
 
         if options.nrf21540:
-            device_flag += " -DSHIELD=nrf21540ek_fwd"
-            device_flag += " -Dhci_ipc_SHIELD=nrf21540ek"
+            device_flag += " -Dnrf5340_audio_SHIELD=nrf21540ek"
+            device_flag += " -Dipc_radio_SHIELD=nrf21540ek"
 
         if options.custom_bt_name is not None and options.user_bt_name:
             raise Exception(
@@ -196,8 +197,8 @@ def __populate_hex_paths(dev, options, child_image):
         Core.app, dev.nrf5340_audio_dk_dev, options.build, options.pristine, child_image, options
     )
 
-    dev.hex_path_app = temp_dest_folder / "zephyr/zephyr.hex"
-    dev.hex_path_net = temp_dest_folder / "hci_ipc/zephyr/zephyr.hex"
+    dev.hex_path_app = temp_dest_folder / "merged.hex"
+    dev.hex_path_net = temp_dest_folder / "merged_CPUNET.hex"
 
 
 def __finish(device_list):

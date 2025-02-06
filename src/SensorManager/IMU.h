@@ -3,7 +3,7 @@
 
 #include "EdgeMlSensor.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 #include "BMX160/DFRobot_BMX160.h"
 
 class IMU : public EdgeMlSensor {

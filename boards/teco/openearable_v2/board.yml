@@ -1,0 +1,8 @@
+board:
+  name: openearable_v2
+  vendor: teco
+  socs:
+  - name: nrf5340
+    variants:
+    - name: ns
+      cpucluster: cpuapp

@@ -3,7 +3,7 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(LED, CONFIG_MAIN_LOG_LEVEL);

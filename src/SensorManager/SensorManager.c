@@ -1,6 +1,6 @@
 //#include "SensorManager.h"
 #include "macros_common.h"
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>

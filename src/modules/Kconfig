@@ -18,7 +18,12 @@ config AUDIO_SYNC_TIMER_USES_RTC
 	select NRFX_RTC0
 
 #----------------------------------------------------------------------------#
-menu "Power measurement"
+menuconfig NRF5340_AUDIO_POWER_MEASUREMENT
+	bool "Power measurement"
+	help
+	  Include the power measurement driver for the nRF5340 Audio DK
+
+if NRF5340_AUDIO_POWER_MEASUREMENT
 
 config POWER_MEAS_INTERVAL_MS
 	int "Power measurement interval in milliseconds"
@@ -36,7 +41,7 @@ config POWER_MEAS_START_ON_BOOT
 	  the voltage, current consumption, and power usage for the
 	  following rails: VBAT, VDD1_CODEC, VDD2_CODEC, and VDD2_NRF
 
-endmenu # Power measurement
+endif # NRF5340_AUDIO_POWER_MEASUREMENT
 
 #----------------------------------------------------------------------------#
 menu "I2S"
@@ -79,14 +84,6 @@ source "subsys/logging/Kconfig.template.log_config"
 
 module = MODULE_POWER
 module-str = module-power
-source "subsys/logging/Kconfig.template.log_config"
-
-module = MODULE_SD_CARD
-module-str = module-sd-card
-source "subsys/logging/Kconfig.template.log_config"
-
-module = MODULE_SD_CARD_PLAYBACK
-module-str = module-sd-card-playback
 source "subsys/logging/Kconfig.template.log_config"
 
 module = MODULE_NRF5340_AUDIO_DK
@@ -147,8 +144,37 @@ config VOLUME_MSG_SUB_QUEUE_SIZE
 endmenu # Zbus
 
 #----------------------------------------------------------------------------#
+config NRF5340_AUDIO_SD_CARD_MODULE
+	bool "Audio SD Card Module"
+	help
+	  Include the audio SD card module to support streaming audio files from an SD card.
+
+if NRF5340_AUDIO_SD_CARD_MODULE
+
+module = MODULE_SD_CARD
+module-str = module-sd-card
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # NRF5340_AUDIO_SD_CARD_MODULE
+
+config NRF5340_AUDIO_SD_CARD_LC3_FILE
+	bool "SD card LC3 file support"
+	depends on NRF5340_AUDIO_SD_CARD_MODULE
+	default n
+	help
+	  Include support for reading and parsing LC3 files from an SD card.
+
+if NRF5340_AUDIO_SD_CARD_LC3_FILE
+
+module = MODULE_SD_CARD_LC3_FILE
+module-str = module-sd-card-lc3-file
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # NRF5340_AUDIO_SD_CARD_LC3_FILE
+
 menuconfig SD_CARD_PLAYBACK
 	bool "Enable playback from SD card"
+	depends on NRF5340_AUDIO_SD_CARD_MODULE
 	select EXPERIMENTAL
 	default n
 	select RING_BUFFER
@@ -163,10 +189,45 @@ config SD_CARD_PLAYBACK_RING_BUF_SIZE
 	int "Size of the ring buffer for the SD card playback module"
 	default 960
 
-config SD_CARD_PLAYBACK_THREAD_PRIORITY
+config SD_CARD_PLAYBACK_THREAD_PRIO
 	int "Priority for the SD card playback thread"
 	default 7
 
+
+module = MODULE_SD_CARD_PLAYBACK
+module-str = module-sd-card-playback
+source "subsys/logging/Kconfig.template.log_config"
+
 endif # SD_CARD_PLAYBACK
+
+menuconfig NRF5340_AUDIO_SD_CARD_LC3_STREAMER
+	bool "Audio SD Card LC3 Streamer"
+	depends on NRF5340_AUDIO_SD_CARD_LC3_FILE
+	select EXPERIMENTAL
+
+if NRF5340_AUDIO_SD_CARD_LC3_STREAMER
+
+config SD_CARD_LC3_STREAMER_STACK_SIZE
+	int "Stack size for the SD card LC3 streamer thread"
+	default 1500
+
+config SD_CARD_LC3_STREAMER_THREAD_PRIO
+	int "Priority for the SD card LC3 streamer thread"
+	default 4
+
+config SD_CARD_LC3_STREAMER_MAX_NUM_STREAMS
+	int "Maximum number of concurrent LC3 streams"
+	default 5
+	range 0 255
+
+config SD_CARD_LC3_STREAMER_MAX_FRAME_SIZE
+	int "Maximum frame size for LC3 streams"
+	default 251
+
+module = MODULE_SD_CARD_LC3_STREAMER
+module-str = module-sd-card-lc3-streamer
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # NRF5340_AUDIO_SD_CARD_LC3_STREAMER
 
 endmenu # Modules

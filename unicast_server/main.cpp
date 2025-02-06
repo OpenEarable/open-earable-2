@@ -13,14 +13,14 @@
 #include <hal/nrf_power.h>
 #include <hal/nrf_ficr.h>
 
-#include "../src/modules/sd_card.h"
+//#include "../src/modules/sd_card.h"
 
 #include <zephyr/settings/settings.h>
 
 #include <zephyr/zbus/zbus.h>
 
 #include "macros_common.h"
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 #include "streamctrl.h"
 
 #include "../src/Battery/PowerManager.h"
@@ -57,7 +57,6 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
-
 BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 	     "Console device is not ACM CDC UART device");
 

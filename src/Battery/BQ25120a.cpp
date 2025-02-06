@@ -1,6 +1,6 @@
 #include "BQ25120a.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 BQ25120a battery_controller(&Wire);
 

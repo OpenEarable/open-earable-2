@@ -49,7 +49,7 @@ int bt_r_and_c_volume_mute(bool from_vcp);
  *
  * @return	0 if success, error otherwise.
  */
-int bt_r_and_c_volume_unmute(bool from_vcp);
+int bt_r_and_c_volume_unmute(void);
 
 /**
  * @brief	Discover the rendering services.

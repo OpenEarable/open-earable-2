@@ -12,13 +12,52 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(le_audio, CONFIG_BLE_LOG_LEVEL);
 
-/*TODO: Create helper function in host to perform this action. */
-bool le_audio_ep_state_check(struct bt_bap_ep *ep, enum bt_bap_ep_state state)
+int le_audio_ep_state_get(struct bt_bap_ep *ep, uint8_t *state)
 {
 	int ret;
 	struct bt_bap_ep_info ep_info;
 
 	if (ep == NULL) {
+		/* If an endpoint is NULL it is not in any of the states */
+		return -EINVAL;
+	}
+
+	ret = bt_bap_ep_get_info(ep, &ep_info);
+	if (ret) {
+		LOG_WRN("Unable to get info for ep");
+		return ret;
+	}
+
+	*state = ep_info.state;
+
+	return 0;
+}
+
+/*TODO: Create helper function in host to perform this action. */
+bool le_audio_ep_state_check(struct bt_bap_ep *ep, enum bt_bap_ep_state state)
+{
+	int ret;
+	uint8_t ep_state;
+
+	ret = le_audio_ep_state_get(ep, &ep_state);
+	if (ret) {
+		return false;
+	}
+
+	if (ep_state == state) {
+		return true;
+	}
+
+	return false;
+}
+
+bool le_audio_ep_qos_configured(struct bt_bap_ep const *const ep)
+{
+	int ret;
+	struct bt_bap_ep_info ep_info;
+
+	if (ep == NULL) {
+		LOG_DBG("EP is NULL");
 		/* If an endpoint is NULL it is not in any of the states */
 		return false;
 	}
@@ -29,7 +68,10 @@ bool le_audio_ep_state_check(struct bt_bap_ep *ep, enum bt_bap_ep_state state)
 		return false;
 	}
 
-	if (ep_info.state == state) {
+	if (ep_info.state == BT_BAP_EP_STATE_QOS_CONFIGURED ||
+	    ep_info.state == BT_BAP_EP_STATE_ENABLING ||
+	    ep_info.state == BT_BAP_EP_STATE_STREAMING ||
+	    ep_info.state == BT_BAP_EP_STATE_DISABLING) {
 		return true;
 	}
 
@@ -242,7 +284,7 @@ void le_audio_print_codec(const struct bt_audio_codec_cfg *codec, enum bt_audio_
 			return;
 		}
 
-		ret = bt_audio_codec_cfg_get_chan_allocation(codec, &chan_allocation);
+		ret = bt_audio_codec_cfg_get_chan_allocation(codec, &chan_allocation, false);
 		if (ret == -ENODATA) {
 			/* Codec channel allocation not set, defaulting to 0 */
 			chan_allocation = 0;
