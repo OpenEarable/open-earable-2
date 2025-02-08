@@ -1,5 +1,4 @@
 #include "ADAU1860.h"
-#include "LoadSwitch.h"
 #include "zbus_common.h"
 #include "openearable_common.h"
 #include <zephyr/logging/log_ctrl.h>

@@ -7,8 +7,6 @@
 #include <math.h>
 #include <Wire.h>
 
-#include "LoadSwitch.h"
-
 #define BQ25120a_I2C_TIMEOUT_US 66
 #define BQ25120a_HIGH_Z_TIMEOUT_US 1000
 
@@ -45,8 +43,6 @@ public:
     };
 
     BQ25120a(TwoWire * wire);
-
-    //const LoadSwitch load_switch;
 
     int begin();
     int set_wakeup_int();

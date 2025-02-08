@@ -1,17 +1,31 @@
-//#include "LoadSwitch.h"
-//#include "PowerManager.h"
+#include <zephyr/init.h>
+#include <zephyr/kernel.h>
+#include <zephyr/device.h>
+#include <zephyr/pm/device.h>  // ✅ Correct Power Management API
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(board_init, LOG_LEVEL_DBG);
 
-#include "openearable_common.h"
+//#include "nrf5340_audio_common.h"
 
 #include <zephyr/drivers/gpio.h>
 
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-#include "LoadSwitch.h"
+//#include "LoadSwitch.h"
+
+#define load_switch_sd_id DT_NODELABEL(load_switch_sd)
+#define load_switch_1_8_id DT_NODELABEL(load_switch)
+#define load_switch_3_3_id DT_NODELABEL(bq25120a)
+
+const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+const struct device *const ls_1_8 = DEVICE_DT_GET(load_switch_1_8_id);
+const struct device *const ls_3_3 = DEVICE_DT_GET(load_switch_3_3_id);
+const struct device *const ls_sd = DEVICE_DT_GET(load_switch_sd_id);
 
 struct load_switch_data {
     struct gpio_dt_spec ctrl_pin;
+    bool default_on;
 };
 
 int generic_pm_control(const struct device *dev, enum pm_device_action action)
@@ -26,7 +40,7 @@ int generic_pm_control(const struct device *dev, enum pm_device_action action)
     case PM_DEVICE_ACTION_RESUME:
         /* resume the device */
         gpio_pin_set_dt(&data->ctrl_pin, 1);
-        k_msleep(1); //LS: t_on = 250µs, LDO: 500µs
+        k_usleep(1000); //LS: t_on = 250µs, LDO: 500µs
         break;
     default:
         return -ENOTSUP;
@@ -46,7 +60,7 @@ int init_pm_device(const struct device *dev)
         return -1;
     }
 
-    ret = gpio_pin_configure_dt(&data->ctrl_pin, GPIO_OUTPUT_INACTIVE);
+    ret = gpio_pin_configure_dt(&data->ctrl_pin, data->default_on ? GPIO_OUTPUT_ACTIVE : GPIO_OUTPUT_INACTIVE);
     if (ret != 0) {
         printk("Failed to setup Load Switch.\n");
         return ret;
@@ -55,27 +69,19 @@ int init_pm_device(const struct device *dev)
     return 0;
 }
 
-/*#define PM_DEVICE_DEFINE(node_id, pm_data)                           \
-    static struct load_switch_data pm_data = {                         \
-        .ctrl_pin = GPIO_DT_SPEC_GET(node_id, gpios),                \
-    };                                                               \
-    PM_DEVICE_DT_DEFINE(node_id, generic_pm_control);                \
-    DEVICE_DT_DEFINE(node_id, init_pm_device, PM_DEVICE_DT_GET(node_id), \
-                     &pm_data, NULL, POST_KERNEL, 80, NULL);
-
-PM_DEVICE_DEFINE(DT_NODELABEL(load_switch), load_switch1_data);*/
-//PM_DEVICE_DEFINE(DT_NODELABEL(load_switch2), load_switch2_data);
-
 static struct load_switch_data load_switch_1_8 = {
-    .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_1_8_id, gpios),
+    .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_1_8_id, enable_gpios),
+    .default_on = DT_NODE_HAS_PROP(load_switch_1_8_id, default_on),
 };
 
 static struct load_switch_data load_switch_3_3 = {
     .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_3_3_id, lsctrl_gpios),
+    .default_on = DT_NODE_HAS_PROP(load_switch_3_3_id, default_on)
 };
 
 static struct load_switch_data load_switch_sd_d = {
-    .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_sd_id, gpios),
+    .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_sd_id, enable_gpios),
+    .default_on = DT_NODE_HAS_PROP(load_switch_sd_d, default_on),
 };
 
 PM_DEVICE_DT_DEFINE(load_switch_sd_id, generic_pm_control);

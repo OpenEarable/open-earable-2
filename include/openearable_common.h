@@ -7,8 +7,6 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-#include "LoadSwitch.h"
-
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
 

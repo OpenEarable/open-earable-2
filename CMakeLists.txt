@@ -23,7 +23,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
 
 # Target sources below are specific to the nRF5340 Audio DK HW
 target_sources(app PRIVATE
-    src/openearable_common.c
+#    src/openearable_common.c
     ${CMAKE_BINARY_DIR}/fw_info_app.c
     )
 
