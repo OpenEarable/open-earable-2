@@ -5,8 +5,6 @@
 
 #include "BQ27220.h"
 #include "BQ25120a.h"
-//#include "PowerSwitch.h"
-//#include "LoadSwitch.h"
 
 #include "../bluetooth/gatt_services/battery_service.h"
 

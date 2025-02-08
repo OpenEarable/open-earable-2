@@ -540,7 +540,7 @@ int bt_mgmt_init(void)
 #if defined(CONFIG_AUDIO_BT_MGMT_DFU)
 	bool pressed;
 
-	ret = button_pressed(BUTTON_4, &pressed);
+	ret = button_pressed(BUTTON_6, &pressed);
 	if (ret) {
 		return ret;
 	}
