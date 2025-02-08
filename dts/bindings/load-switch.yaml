@@ -8,8 +8,12 @@ description: GPIO pin to switch a power output on or off
 compatible: "load-switch"
 
 properties:
-  gpios:
+  enable-gpios:
     type: phandle-array
     required: true
     description: |
       The GPIO connected to the gate driver for the MOSFET.
+  default-on:
+    type: boolean
+    description: |
+      If present, the load switch will be enabled by default at boot.

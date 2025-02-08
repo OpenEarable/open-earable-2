@@ -20,20 +20,19 @@
 
 	sd_state: sd_state {
 		compatible = "power-switch";
-		/* using built-in LED pin for demonstration */
 		gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
 	};
 
 	load_switch: load_switch {
 		compatible = "load-switch";
-		gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
 		status = "okay";
-		//zephyr,pm-device-runtime-auto;
+		default-on;
 	};
 
 	load_switch_sd: load_switch_sd {
 		compatible = "load-switch";
-		gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
@@ -262,7 +261,7 @@ dmic_dev: &pdm0 {
 &spi4 {
 	compatible = "nordic,nrf-spim";
 	status = "okay";
-	cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
+	cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>,<&gpio1 1 GPIO_ACTIVE_LOW>;
 
 	pinctrl-0 = <&spi4_default>;
 	pinctrl-1 = <&spi4_sleep>;
