@@ -16,6 +16,7 @@
 
 #include "macros_common.h"
 #include "zbus_common.h"
+#include "button_assignments.h"
 //#include "button_handler.h"
 //#include "button_manager.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
@@ -540,7 +541,7 @@ int bt_mgmt_init(void)
 #if defined(CONFIG_AUDIO_BT_MGMT_DFU)
 	bool pressed;
 
-	ret = button_pressed(BUTTON_6, &pressed);
+	ret = button_pressed(BUTTON_4, &pressed);
 	if (ret) {
 		return ret;
 	}
