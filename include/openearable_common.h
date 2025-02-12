@@ -24,6 +24,8 @@ extern const struct device *const ls_1_8;
 extern const struct device *const ls_3_3;
 extern const struct device *const ls_sd;
 
+typedef uint8_t RGBColor[3];
+
 struct boot_state {
 	bool timer_reset;
 	uint64_t device_id;
@@ -43,7 +45,7 @@ enum charging_state {
 	FAULT,
 };
 
-enum led_state {
+enum led_mode {
 	STATE_INDICATION,
 	CUSTOM,
 };
@@ -51,7 +53,7 @@ enum led_state {
 struct earable_state {
 	enum pairing_state pairing_state;
 	enum charging_state charging_state;
-	enum led_state led_state;
+	enum led_mode led_mode;
 };	 
 
 enum sensor_id {
