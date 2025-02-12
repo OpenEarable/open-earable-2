@@ -5,7 +5,7 @@
 #include <math.h>
 #include <Wire.h>
 
-typedef uint8_t RGBColor[3];
+#include "openearable_common.h"
 
 class KTD2026 {
 public:
