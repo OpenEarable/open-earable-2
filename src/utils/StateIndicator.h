@@ -11,10 +11,12 @@ public:
 
     void set_charging_state(enum charging_state state);
     void set_pairing_state(enum pairing_state state);
-    void set_led_state(enum led_state state);
+    void set_indication_mode(enum led_mode state);
+    void set_custom_color(RGBColor color);
 
 private:
     earable_state _state;
+    RGBColor color;
 };
 
 extern StateIndicator state_indicator;
