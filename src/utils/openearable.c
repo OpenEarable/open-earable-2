@@ -13,6 +13,7 @@
 #include "sd_card.h"
 #include "board_version.h"
 #include "channel_assignment.h"
+#include <custom_timer.h>
 
 #include "sd_card_playback.h"
 
@@ -64,6 +65,8 @@ int openearable_init(void)
 	if (ret) {
 		return ret;
 	}
+
+	// custom_timer_start();
 
 	return 0;
 }

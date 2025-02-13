@@ -12,8 +12,9 @@
 
 #define SENSOR_DATA_FIXED_LENGTH 9
 
-#define millis() k_cyc_to_ms_floor32(k_cycle_get_32())
-#define micros() k_cyc_to_us_floor64(k_cycle_get_32())
+
+#define millis() k_cyc_to_ms_floor32(k_cycle_get_32());
+#define micros() k_cyc_to_us_floor64(k_cycle_get_32());
 
 #define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)

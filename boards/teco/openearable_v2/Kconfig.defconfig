@@ -61,3 +61,10 @@ config BT_CTLR
 	default y if BT
 
 endif # BOARD_OPENEARABLE_V2_NRF5340_CPUNET
+
+config TIMER_HAS_64BIT_CYCLE_COUNTER
+    bool
+	default y
+    help
+      When this option is true, the k_cycle_get_64() call is
+      available to provide values from a 64-bit cycle counter.
