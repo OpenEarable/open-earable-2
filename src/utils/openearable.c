@@ -66,7 +66,7 @@ int openearable_init(void)
 		return ret;
 	}
 
-	// custom_timer_start();
+	custom_timer_start();
 
 	return 0;
 }

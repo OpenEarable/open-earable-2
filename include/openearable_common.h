@@ -6,6 +6,7 @@
 
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
+#include <custom_timer.h>
 
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
@@ -13,8 +14,8 @@
 #define SENSOR_DATA_FIXED_LENGTH 9
 
 
-#define millis() k_cyc_to_ms_floor32(k_cycle_get_32());
-#define micros() k_cyc_to_us_floor64(k_cycle_get_32());
+#define millis() custom_millis();
+#define micros() custom_micros();
 
 #define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
