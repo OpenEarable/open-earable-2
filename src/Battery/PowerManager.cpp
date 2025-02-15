@@ -510,17 +510,14 @@ void PowerManager::oc_check_task() {
     LOG_INF("OC Check: Current = %.2f mA", current_mA);
 
     if (current_mA > OVERCURRENT_MAX_CURRENT) {  // Compare with overcurrent threshold
-        LOG_WRN("Overcurrent detected! Current: %.2f mA, Threshold: %.2f mA", current_mA, OVERCURRENT_MAX_CURRENT);
+        LOG_WRN("OC Check: Overcurrent detected! Current: %.2f mA, Threshold: %.2f mA", current_mA, OVERCURRENT_MAX_CURRENT);
         
-        // Take safety measures
         battery_controller.disable_charge();
         battery_controller.enter_high_impedance();
         
-        // Turn on red LED to show error state
-        gpio_pin_set_dt(&error_led, 1);
+        gpio_pin_set_dt(&error_led, 1); // turn on error LED
         
-        // Log the event
-        LOG_ERR("System in overcurrent condition! Charging disabled, entered high impedance mode.");
+        LOG_ERR("OC Check: System in overcurrent condition! Charging disabled, entered high impedance mode.");
     }
 }
 
