@@ -81,6 +81,10 @@ void PowerManager::charge_ctrl_work_handler(struct k_work * work) {
 	power_manager.charge_task();
 }
 
+void PowerManager::oc_check_work_handler(struct k_work * work) {
+	power_manager.charge_task();
+}
+
 void PowerManager::battery_controller_work_handler(struct k_work * work) {
     button_state state;
 
@@ -166,7 +170,7 @@ int PowerManager::begin() {
         }
     }
 
-    // if ready, start oc timer
+    // if battery ready, start oc timer
     k_timer_start(&oc_check_timer, power_manager.oc_check_interval, power_manager.oc_check_interval);
 
     if (charging) {
@@ -498,6 +502,10 @@ void PowerManager::charge_task() {
     }
 
     last_charging_state = charging_state;
+}
+
+void PowerManager::oc_check_task() {
+    // TODO: implement OC check logic here
 }
 
 PowerManager power_manager;
