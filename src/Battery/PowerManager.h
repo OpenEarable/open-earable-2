@@ -13,6 +13,9 @@
 
 #define CHARGE_CONTROLLER_INTERVAL K_SECONDS(10)
 
+#define OVERCURRENT_PROTECTION_CHECK_INTERVAL K_SECONDS(1)
+#define OVERCURRENT_PROTECTION_MAX_CURRENT 1000  // mA
+
 #define DEBOUNCE_POWER_MS K_MSEC(1000)
 
 class PowerManager {
@@ -50,6 +53,7 @@ private:
     bool check_battery();
 
     k_timeout_t chrg_interval = CHARGE_CONTROLLER_INTERVAL;
+    k_timeout_t overcurrent_protection_interval = OVERCURRENT_PROTECTION_CHECK_INTERVAL;
 
     static k_timer charge_timer;
 
