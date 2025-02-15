@@ -151,6 +151,7 @@ int PowerManager::begin() {
     }
 
     k_timer_init(&charge_timer, charge_timer_handler, NULL);
+    k_timer_init(&oc_check_timer, oc_check_timer_handler, NULL);
 
     bool battery_condition = check_battery();
 
@@ -164,6 +165,9 @@ int PowerManager::begin() {
             return power_down(false);
         }
     }
+
+    // if ready, start oc timer
+    k_timer_start(&oc_check_timer, power_manager.oc_check_interval, power_manager.oc_check_interval);
 
     if (charging) {
         power_manager.last_charging_state = 0;
