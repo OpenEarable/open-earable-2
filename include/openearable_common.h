@@ -9,13 +9,10 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-
-
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
 
 #define SENSOR_DATA_FIXED_LENGTH 9
-
 
 #define millis() k_ticks_to_ms_near64(k_uptime_ticks())
 #define micros() k_ticks_to_us_near64(k_uptime_ticks())
