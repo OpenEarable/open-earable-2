@@ -1,12 +1,15 @@
 #ifndef _OPEN_EARABLE_COMMON_H_
 #define _OPEN_EARABLE_COMMON_H_
 
+#include <kernel.h>
+
 //#include <zephyr/bluetooth/audio/audio.h>
 #include <zephyr/drivers/gpio.h>
 
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
-#include <custom_timer.h>
+
+
 
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
@@ -14,8 +17,8 @@
 #define SENSOR_DATA_FIXED_LENGTH 9
 
 
-#define millis() custom_millis();
-#define micros() custom_micros();
+#define millis() k_ticks_to_ms_near64(k_uptime_ticks())
+#define micros() k_ticks_to_us_near64(k_uptime_ticks())
 
 #define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
