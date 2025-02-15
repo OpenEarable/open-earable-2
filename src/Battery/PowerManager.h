@@ -14,7 +14,7 @@
 #define CHARGE_CONTROLLER_INTERVAL K_SECONDS(10)
 
 #define OVERCURRENT_CHECK_INTERVAL K_SECONDS(1)
-#define OVERCURRENT_MAX_CURRENT 330  // 3C, battery should only be discharged at 3C for short periods of time to avoid damage
+#define OVERCURRENT_MAX_CURRENT 400  // arbitrary value in mA
 
 #define DEBOUNCE_POWER_MS K_MSEC(1000)
 
