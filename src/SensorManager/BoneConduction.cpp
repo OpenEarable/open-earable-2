@@ -68,6 +68,25 @@ void BoneConduction::update_sensor(struct k_work *work) {
             LOG_WRN("sensor msg queue full");
         }
     }
+
+    // Call the clock resynchronization method after reading all frames
+    sync_fifo_time();
+}
+
+void BoneConduction::sync_fifo_time() {
+    // Set the reference timestamp
+    system_time_us_ref = micros(); // Get system time in microseconds
+
+    uint8_t sensor_time_raw[3];
+    bma580.read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3);
+
+    // Convert FIFO 24-bit timestamp to uint64_t (safe for multiplication)
+    uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
+                          ((uint64_t)sensor_time_raw[1] << 8)  | 
+                          (uint64_t)sensor_time_raw[0];
+
+    // Multiply safely using uint64_t
+    fifo_time_us_ref = fifo_time * 312.5;
 }
 
 /**
@@ -84,19 +103,8 @@ void BoneConduction::start(k_timeout_t t) {
     bma580.start();
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 
-    // set the refrence timestamp
-    system_time_us_ref = micros();  // Get system time in microseconds
-
-    uint8_t sensor_time_raw[3];
-    bma580.read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3);
-
-    // Convert FIFO 24-bit timestamp to uint64_t (safe for multiplication)
-    uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
-                     ((uint64_t)sensor_time_raw[1] << 8)  | 
-                     (uint64_t)sensor_time_raw[0];
-
-    // Multiply safely using uint64_t
-    uint64_t fifo_time_us = fifo_time * 312.5; // Safe multiplication
+    // Initial clock synchronization
+    sync_fifo_time();
 }
 
 void BoneConduction::stop() {
