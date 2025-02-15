@@ -13,8 +13,8 @@
 
 #define CHARGE_CONTROLLER_INTERVAL K_SECONDS(10)
 
-#define OVERCURRENT_PROTECTION_CHECK_INTERVAL K_SECONDS(1)
-#define OVERCURRENT_PROTECTION_MAX_CURRENT 1000  // mA
+#define OVERCURRENT_CHECK_INTERVAL K_SECONDS(1)
+#define OVERCURRENT_MAX_CURRENT 1000  // mA
 
 #define DEBOUNCE_POWER_MS K_MSEC(1000)
 
@@ -53,7 +53,7 @@ private:
     bool check_battery();
 
     k_timeout_t chrg_interval = CHARGE_CONTROLLER_INTERVAL;
-    k_timeout_t overcurrent_protection_interval = OVERCURRENT_PROTECTION_CHECK_INTERVAL;
+    k_timeout_t oc_check_interval = OVERCURRENT_CHECK_INTERVAL;
 
     static k_timer charge_timer;
 
@@ -66,12 +66,14 @@ private:
     static void power_down_work_handler(struct k_work * work);
     static void fuel_gauge_work_handler(struct k_work * work);
     static void battery_controller_work_handler(struct k_work * work);
+    static void oc_check_handler(struct k_work * work);
 
     static void power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
     static void charge_timer_handler(struct k_timer * timer);
+    static void oc_check_timer_handler(struct k_timer * timer);
 
     static battery_data msg;
 
