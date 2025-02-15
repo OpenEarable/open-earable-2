@@ -14,18 +14,37 @@ DFRobot_BMX160 IMU::imu(&Wire1);
 
 IMU IMU::sensor;
 
+uint64_t IMU::system_time_us_ref = 0;
+uint64_t IMU::fifo_time_us_ref = 0;
+uint64_t IMU::last_fifo_time_us = 0;
+
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
 
 	msg_imu.id = ID_IMU;
 	msg_imu.size = 9 * sizeof(float);
-	msg_imu.time = millis();
+
 
 	sBmx160SensorData_t magno_data;
 	sBmx160SensorData_t gyro_data;
 	sBmx160SensorData_t accel_data;
 
 	imu.getAllData(&magno_data, &gyro_data, &accel_data);
+
+	uint64_t fifo_time_us = (uint64_t) accel_data.sensor_time * 39;
+
+	// Handle FIFO rollover (24-bit counter overflow)
+	if (fifo_time_us < last_fifo_time_us) {  
+		fifo_time_us += (uint64_t)(1 << 24) * 39; // TODO: this only works for one rollover, maybe sync time here?
+	}
+
+	// Compute synchronized timestamp
+	uint64_t timestamp = system_time_us_ref + (fifo_time_us - fifo_time_us_ref);
+
+	// Store and update last known timestamp
+	last_fifo_time_us = fifo_time_us;
+	
+	msg_imu.time = timestamp();
 
 	msg_imu.data[0] = accel_data.x;
 	msg_imu.data[1] = accel_data.y;
@@ -46,6 +65,27 @@ void IMU::update_sensor(struct k_work *work) {
 		//LOG_WRN("sensor msg queue full");
 		printk("sensor msg queue full");
 	}
+
+	sync_fifo_time();
+}
+
+void IMU::sync_fifo_time() {
+	uint64_t current_time = micros();  // Get the current system time
+
+    // Only sync if at least 5 seconds (5,000,000 µs = 5 s) have passed
+    if (current_time < system_time_us_ref + 5000000) {
+        return;  // Skip synchronization if the time condition is not met
+    }
+
+    system_time_us_ref = micros(); // Get system time in microseconds, fetch again for max accuracy
+    uint8_t sensor_time_raw[3];
+    imu.readReg(BMX160_SENSOR_TIME_ADDR, sensor_time_raw, 3); // TODO: there is a tiny risk that we read the time during overflow ...
+
+    uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
+                          ((uint64_t)sensor_time_raw[1] << 8)  | 
+                          (uint64_t)sensor_time_raw[0];
+
+    fifo_time_us_ref = fifo_time * 39; // BMX160 time conversion factor
 }
 
 /**
@@ -82,6 +122,7 @@ bool IMU::init(struct k_msgq * queue) {
 void IMU::start(k_timeout_t t) {
 	if (!_active) return;
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
+	sync_fifo_time(); // Initial synchronization
 }
 
 void IMU::stop() {

@@ -47,7 +47,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
 
         // Handle FIFO rollover (24-bit counter overflow)
         if (fifo_time_us < last_fifo_time_us) {  
-            fifo_time_us += (uint64_t)(1 << 24) * 312.5;  // Correct for rollover
+            fifo_time_us += (uint64_t)(1 << 24) * 312.5; // TODO: this only works for one rollover, maybe sync time here?
         }
 
         // Compute synchronized timestamp
@@ -74,11 +74,18 @@ void BoneConduction::update_sensor(struct k_work *work) {
 }
 
 void BoneConduction::sync_fifo_time() {
-    // Set the reference timestamp
-    system_time_us_ref = micros(); // Get system time in microseconds
+    uint64_t current_time = micros();  // Get the current system time
+
+    // Only sync if at least 5 seconds (5,000,000 µs = 5 s) have passed
+    if (current_time < system_time_us_ref + 5000000) {
+        return;  // Skip synchronization if the time condition is not met
+    }
+
+    // Update the reference timestamp
+    system_time_us_ref = micros(); // fetch again for max accuracy
 
     uint8_t sensor_time_raw[3];
-    bma580.read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3);
+    bma580.read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3); // TODO: there is a tiny risk that we read the time during overflow ...
 
     // Convert FIFO 24-bit timestamp to uint64_t (safe for multiplication)
     uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
