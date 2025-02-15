@@ -10,6 +10,10 @@ BoneConduction BoneConduction::sensor;
 
 static struct sensor_data msg_bc;
 
+uint64_t BoneConduction::system_time_us_ref = 0;
+uint64_t BoneConduction::fifo_time_us_ref = 0;
+uint64_t BoneConduction::last_fifo_time_us = 0;
+
 bool BoneConduction::init(struct k_msgq * queue) {
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
@@ -39,9 +43,22 @@ void BoneConduction::update_sensor(struct k_work *work) {
     int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
 
     for (int i = 0; i < num_samples; i++) {
+        uint64_t fifo_time_us = (uint64_t)sensor.fifo_acc_data[i].sensor_time * 312.5;
+
+        // Handle FIFO rollover (24-bit counter overflow)
+        if (fifo_time_us < last_fifo_time_us) {  
+            fifo_time_us += (uint64_t)(1 << 24) * 312.5;  // Correct for rollover
+        }
+
+        // Compute synchronized timestamp
+        uint64_t timestamp = system_time_us_ref + (fifo_time_us - fifo_time_us_ref);
+
+        // Store and update last known timestamp
+        last_fifo_time_us = fifo_time_us;
+
         msg_bc.id = ID_BONE_CONDUCTION;
         msg_bc.size = 3 * sizeof(uint32_t);
-        msg_bc.time = millis();
+        msg_bc.time = timestamp;
         msg_bc.data[0]=sensor.fifo_acc_data[i].x;
         msg_bc.data[1]=sensor.fifo_acc_data[i].y;
         msg_bc.data[2]=sensor.fifo_acc_data[i].z;
@@ -66,6 +83,20 @@ void BoneConduction::start(k_timeout_t t) {
     bma580.init();
     bma580.start();
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
+
+    // set the refrence timestamp
+    system_time_us_ref = micros();  // Get system time in microseconds
+
+    uint8_t sensor_time_raw[3];
+    bma580.read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3);
+
+    // Convert FIFO 24-bit timestamp to uint64_t (safe for multiplication)
+    uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
+                     ((uint64_t)sensor_time_raw[1] << 8)  | 
+                     (uint64_t)sensor_time_raw[0];
+
+    // Multiply safely using uint64_t
+    uint64_t fifo_time_us = fifo_time * 312.5; // Safe multiplication
 }
 
 void BoneConduction::stop() {
