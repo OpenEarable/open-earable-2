@@ -27,6 +27,7 @@
 LOG_MODULE_REGISTER(power_manager, CONFIG_MAIN_LOG_LEVEL);
 
 K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
+K_TIMER_DEFINE(PowerManager::oc_check_timer, PowerManager::oc_check_timer_handler, NULL);
 
 K_WORK_DELAYABLE_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
 
@@ -34,6 +35,7 @@ K_WORK_DELAYABLE_DEFINE(PowerManager::power_down_work, PowerManager::power_down_
 K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_handler);
 K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handler);
 K_WORK_DEFINE(PowerManager::battery_controller_work, PowerManager::battery_controller_work_handler);
+K_WORK_DEFINE(PowerManager::oc_check_work, PowerManager::oc_check_work_handler);
 
 extern struct k_msgq battery_queue;
 
@@ -43,6 +45,10 @@ battery_data PowerManager::msg;
 
 void PowerManager::charge_timer_handler(struct k_timer * timer) {
 	k_work_submit(&charge_ctrl_work);
+}
+
+void PowerManager::oc_check_timer_handler(struct k_timer * timer) {
+	k_work_submit(&oc_check_work);
 }
 
 void PowerManager::fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {

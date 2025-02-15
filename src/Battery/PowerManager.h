@@ -56,17 +56,19 @@ private:
     k_timeout_t oc_check_interval = OVERCURRENT_CHECK_INTERVAL;
 
     static k_timer charge_timer;
+    static k_timer oc_check_timer;
 
     static k_work charge_ctrl_work;
     //static k_work power_down_work;
     static k_work fuel_gauge_work;
     static k_work battery_controller_work;
+    static k_work oc_check_work;
 
     static void charge_ctrl_work_handler(struct k_work * work);
     static void power_down_work_handler(struct k_work * work);
     static void fuel_gauge_work_handler(struct k_work * work);
     static void battery_controller_work_handler(struct k_work * work);
-    static void oc_check_handler(struct k_work * work);
+    static void oc_check_work_handler(struct k_work * work);
 
     static void power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
