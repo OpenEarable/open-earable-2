@@ -171,7 +171,7 @@ int PowerManager::begin() {
     }
 
     // if battery ready, start oc timer
-    k_timer_start(&oc_check_timer, power_manager.oc_check_interval, power_manager.oc_check_interval);
+    k_timer_start(&oc_check_timer, K_NO_WAIT, power_manager.oc_check_interval); // check immediatley, then every second
 
     if (charging) {
         power_manager.last_charging_state = 0;
@@ -505,7 +505,23 @@ void PowerManager::charge_task() {
 }
 
 void PowerManager::oc_check_task() {
-    // TODO: implement OC check logic here
+    float current_mA = fuel_gauge.current(); // Get the current consumption in mA
+    
+    LOG_INF("OC Check: Current = %.2f mA", current_mA);
+
+    if (current_mA > OVERCURRENT_MAX_CURRENT) {  // Compare with overcurrent threshold
+        LOG_WRN("Overcurrent detected! Current: %.2f mA, Threshold: %.2f mA", current_mA, OVERCURRENT_MAX_CURRENT);
+        
+        // Take safety measures
+        battery_controller.disable_charge();
+        battery_controller.enter_high_impedance();
+        
+        // Turn on red LED to show error state
+        gpio_pin_set_dt(&error_led, 1);
+        
+        // Log the event
+        LOG_ERR("System in overcurrent condition! Charging disabled, entered high impedance mode.");
+    }
 }
 
 PowerManager power_manager;
