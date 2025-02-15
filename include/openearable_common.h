@@ -5,9 +5,9 @@
 
 //#include <zephyr/bluetooth/audio/audio.h>
 #include <zephyr/drivers/gpio.h>
-
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
+#include <zephyr/sys/time_units.h>
 
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
