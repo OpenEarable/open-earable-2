@@ -45,13 +45,11 @@ void BoneConduction::update_sensor(struct k_work *work) {
     for (int i = 0; i < num_samples; i++) {
         uint64_t fifo_time_us = (uint64_t)sensor.fifo_acc_data[i].sensor_time * 312.5;
 
-        // Handle FIFO rollover (24-bit counter overflow)
         if (fifo_time_us < last_fifo_time_us) {  
-            fifo_time_us += (uint64_t)(1 << 24) * 312.5; // TODO: this only works for one rollover, maybe sync time here?
+            sync_fifo_time(true); // resync timer if rollover happened, happens approx. after 1.5h
         }
-
         // Compute synchronized timestamp
-        uint64_t timestamp = system_time_us_ref + (fifo_time_us - fifo_time_us_ref);
+        uint64_t timestamp = system_time_us_ref + (fifo_time_us - fifo_time_us_ref); // TODO: what to do with quantization error?
 
         // Store and update last known timestamp
         last_fifo_time_us = fifo_time_us;
@@ -73,27 +71,32 @@ void BoneConduction::update_sensor(struct k_work *work) {
     sync_fifo_time();
 }
 
-void BoneConduction::sync_fifo_time() {
+void BoneConduction::sync_fifo_time(bool force) {
     uint64_t current_time = micros();  // Get the current system time
 
-    // Only sync if at least 5 seconds (5,000,000 µs = 5 s) have passed
-    if (current_time < system_time_us_ref + 5000000) {
+    // Only sync if at least 5 seconds (1,000,000 µs = 1 s) have passed
+    if (!force && current_time < system_time_us_ref + 1000000) {  // TODO: define constant somewhere
         return;  // Skip synchronization if the time condition is not met
     }
 
     // Update the reference timestamp
     system_time_us_ref = micros(); // fetch again for max accuracy
 
+    uint8_t msb_before, msb_after;
     uint8_t sensor_time_raw[3];
-    bma580.read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3); // TODO: there is a tiny risk that we read the time during overflow ...
+
+    do { // ensures that no rollover happend mid read of the sensor timestamp by comparing MSB
+        bma580.read(BMA5_REG_SENSOR_TIME_2, &msb_before, 1);
+        bma580.read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3);
+        bma580.read(BMA5_REG_SENSOR_TIME_2, &msb_after, 1);
+    } while (msb_before != msb_after);
 
     // Convert FIFO 24-bit timestamp to uint64_t (safe for multiplication)
     uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
                           ((uint64_t)sensor_time_raw[1] << 8)  | 
                           (uint64_t)sensor_time_raw[0];
 
-    // Multiply safely using uint64_t
-    fifo_time_us_ref = fifo_time * 312.5;
+    fifo_time_us_ref = fifo_time * 312.5ULL; // TODO: define constant somewhere
 }
 
 /**
