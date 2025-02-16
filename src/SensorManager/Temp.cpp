@@ -45,7 +45,7 @@ void Temp::update_sensor(struct k_work *work) {
     float temperature = temp.getObjectTemp();
     msg_temp.id = ID_OPTTEMP;
     msg_temp.size = sizeof(float);
-    msg_temp.time = millis();
+    msg_temp.time = micros();
     msg_temp.data[0]=temperature;
 
     int ret = k_msgq_put(sensor_queue, &msg_temp, K_NO_WAIT);
