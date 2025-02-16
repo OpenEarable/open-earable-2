@@ -31,7 +31,7 @@ void IMU::update_sensor(struct k_work *work) {
 
 	imu.getAllData(&magno_data, &gyro_data, &accel_data);
 
-	uint64_t fifo_time_us = (uint64_t) accel_data.sensor_time * 39;
+	uint64_t fifo_time_us = (uint64_t) accel_data.sensor_time * 39; // TODO: do we need seperate timers for accel, gyro and mag?, get rid of magic number
 
 	if (fifo_time_us < last_fifo_time_us) {  
 		sync_fifo_time(true); // resync timer if rollover happened, happens approx. after 15hours
@@ -84,7 +84,7 @@ void IMU::sync_fifo_time(bool force) {
                           ((uint64_t)sensor_time_raw[1] << 8)  | 
                           (uint64_t)sensor_time_raw[0];
 
-    fifo_time_us_ref = fifo_time * 39; // BMX160 time conversion factor
+    fifo_time_us_ref = fifo_time * 39; // TODO: get rid of magic number
 }
 
 /**
