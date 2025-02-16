@@ -26,7 +26,9 @@ private:
     static void sensor_timer_handler(struct k_timer *dummy);
 
     static void update_sensor(struct k_work *work);
-    //static void sensor_timer_handler(struct k_timer *dummy);
+    
+    void sync_fifo_time(bool force = false);
+
     bool _active = false;
 };
 

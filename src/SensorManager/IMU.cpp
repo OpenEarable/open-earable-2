@@ -33,9 +33,8 @@ void IMU::update_sensor(struct k_work *work) {
 
 	uint64_t fifo_time_us = (uint64_t) accel_data.sensor_time * 39;
 
-	// Handle FIFO rollover (24-bit counter overflow)
 	if (fifo_time_us < last_fifo_time_us) {  
-		fifo_time_us += (uint64_t)(1 << 24) * 39; // TODO: this only works for one rollover, maybe sync time here?
+		sync_fifo_time(true); // resync timer if rollover happened, happens approx. after 15hours
 	}
 
 	// Compute synchronized timestamp
@@ -69,15 +68,15 @@ void IMU::update_sensor(struct k_work *work) {
 	sync_fifo_time();
 }
 
-void IMU::sync_fifo_time() {
+void IMU::sync_fifo_time(bool force) {
 	uint64_t current_time = micros();  // Get the current system time
 
-    // Only sync if at least 5 seconds (5,000,000 µs = 5 s) have passed
-    if (current_time < system_time_us_ref + 5000000) {
+    if (!force && current_time < system_time_us_ref + 1000000) {  // TODO: define constant somewhere
         return;  // Skip synchronization if the time condition is not met
     }
 
     system_time_us_ref = micros(); // Get system time in microseconds, fetch again for max accuracy
+
     uint8_t sensor_time_raw[3];
     imu.readReg(BMX160_SENSOR_TIME_ADDR, sensor_time_raw, 3); // TODO: there is a tiny risk that we read the time during overflow ...
 
