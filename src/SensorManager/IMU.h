@@ -1,7 +1,7 @@
 #ifndef IMU_H
 #define IMU_H
 
-#include "EdgeMlSensor.h"
+#include "EdgeMLSensor.h"
 
 #include "nrf5340_audio_common.h"
 #include "BMX160/DFRobot_BMX160.h"
