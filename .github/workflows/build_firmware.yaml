@@ -59,7 +59,16 @@ jobs:
       - name: Register Custom Boards
         # Registers our custom boards in the Zephyr build system
         run: |
-          cp -R $(pwd)/zephyr-workspace/nrfconnect-ci-app/boards/* $(pwd)/zephyr-workspace/zephyr/boards
+          mkdir -p $(pwd)/workflow-board-temp
+          cp -R $(pwd)/zephyr-workspace/nrfconnect-ci-app/boards $(pwd)/workflow-board-temp/boards
+          
+          # Merge teco dir to arm dir (assuming the boards are for arm)
+          mkdir -p $(pwd)/workflow-board-temp/boards/arm # Create arm dir if not exist
+          cp -R -f $(pwd)/workflow-board-temp/boards/teco/* $(pwd)/workflow-board-temp/boards/arm/
+          rm -f -R $(pwd)/workflow-board-temp/boards/teco
+          
+          # Copy merged dir
+          cp -R -f $(pwd)/workflow-board-temp/boards/* $(pwd)/zephyr-workspace/zephyr/boards
 
       - name: Cache ~/.cache/ccache
         uses: actions/cache@v3
@@ -74,28 +83,30 @@ jobs:
           cd zephyr-workspace
           # zero ccache statistics
           ccache -z
+          # `openearable_v2/nrf5340/cpuapp` is what we see in the terminal when building
+          # using VSCode + Nordic Plugins
           west build \
-            --board openearable_v2_nrf5340_cpuapp \
+            --board openearable_v2/nrf5340/cpuapp \
             --pristine=always nrfconnect-ci-app
           # print detailed ccache statistics
           ccache -sv
 
       - name: Check Build Output
         run: |
-          ls $(pwd)/zephyr-workspace/build/zephyr/zephyr.elf
+          ls $(pwd)/zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         id: artifact-upload-step
         with:
           name: zephyr-elf
-          path: zephyr-workspace/build/zephyr/zephyr.elf
+          path: zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf
 
       - name: PR Comment with File
         if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          file-path: zephyr-workspace/build/zephyr/zephyr.elf
+          file-path: zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf
           message: |
             Build output available:
             [zephyr-elf.zip](${{ steps.artifact-upload-step.outputs.artifact-url }})
