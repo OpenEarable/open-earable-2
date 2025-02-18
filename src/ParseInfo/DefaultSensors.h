@@ -31,9 +31,9 @@ SensorComponent magComponents[IMU_MAG_COUNT] = {
 
 #define IMU_GROUP_COUNT 3
 SensorComponentGroup imuGroups[IMU_GROUP_COUNT] = {
-    { .name = "ACC", .componentCount = IMU_ACC_COUNT, .components = accComponents },
-    { .name = "GYRO", .componentCount = IMU_GYRO_COUNT, .components = gyroComponents },
-    { .name = "MAG", .componentCount = IMU_MAG_COUNT, .components = magComponents },
+    { .name = "ACCELEROMETER", .componentCount = IMU_ACC_COUNT, .components = accComponents },
+    { .name = "GYROSCOPE", .componentCount = IMU_GYRO_COUNT, .components = gyroComponents },
+    { .name = "MAGNETOMETER", .componentCount = IMU_MAG_COUNT, .components = magComponents },
 };
 
 // ============= BoneConductionIMU =============
@@ -47,7 +47,7 @@ SensorComponent boneConductionIMUComponents[BONE_CONDUCTION_ACC_COUNT] = {
 
 #define BONE_CONDUCTION_IMU_GROUP_COUNT 1
 SensorComponentGroup boneConductionIMUGroups[BONE_CONDUCTION_IMU_GROUP_COUNT] = {
-    { .name = "ACC", .componentCount = BONE_CONDUCTION_ACC_COUNT, .components = boneConductionIMUComponents },
+    { .name = "ACCELEROMETER", .componentCount = BONE_CONDUCTION_ACC_COUNT, .components = boneConductionIMUComponents },
 };
 
 // ============= PPG =============
@@ -62,7 +62,7 @@ SensorComponent ppgAdcComponents[PPG_ADC_COUNT] = {
 
 #define PPG_GROUP_COUNT 1
 SensorComponentGroup ppgGroups[PPG_GROUP_COUNT] = {
-    { .name = "PPG", .componentCount = PPG_ADC_COUNT, .components = ppgAdcComponents },
+    { .name = "PHOTOPLETHYSMOGRAPHY", .componentCount = PPG_ADC_COUNT, .components = ppgAdcComponents },
 };
 
 // ============= OpticTemperature =============
@@ -74,7 +74,7 @@ SensorComponent opticTemperatureComponents[OPTIC_TEMP_COUNT] = {
 
 #define OPTIC_TEMP_GROUP_COUNT 1
 SensorComponentGroup opticTemperatureGroups[OPTIC_TEMP_GROUP_COUNT] = {
-    { .name = "TEMP", .componentCount = OPTIC_TEMP_COUNT, .components = opticTemperatureComponents },
+    { .name = "OPTICAL_TEMPERATURE_SENSOR", .componentCount = OPTIC_TEMP_COUNT, .components = opticTemperatureComponents },
 };
 
 // ============= Baro =============
@@ -85,25 +85,25 @@ SensorComponent baroTempComponents[BARO_TEMP_COUNT] = {
 };
 
 #define BARO_PRESSURE_COUNT 1
-SensorComponent baroPressureCompoents[BARO_PRESSURE_COUNT] = {
+SensorComponent baroPressureComponents[BARO_PRESSURE_COUNT] = {
     { .name = "Pressure", .unit = "kPa", .parseType = PARSE_TYPE_FLOAT },
 };
 
 #define BARO_GROUP_COUNT 2
 SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
-    { .name = "TEMP", .componentCount = BARO_TEMP_COUNT, .components = baroTempComponents },
-    { .name = "PRESSURE", .componentCount = BARO_PRESSURE_COUNT, .components = baroPressureCompoents },
+    { .name = "TEMPERATURE_SENSOR", .componentCount = BARO_TEMP_COUNT, .components = baroTempComponents },
+    { .name = "BAROMETER", .componentCount = BARO_PRESSURE_COUNT, .components = baroPressureComponents },
 };
 
 // ============= Sensors =============
 
 #define SENSOR_COUNT 5
 SensorScheme sensors[SENSOR_COUNT] = {
-    { .name = "IMU", .id = ID_IMU, .groupCount = IMU_GROUP_COUNT, .groups = imuGroups },
-    { .name = "PPG", .id = ID_PPG, .groupCount = PPG_GROUP_COUNT, .groups = ppgGroups },
-    { .name = "OPTTEMP", .id = ID_OPTTEMP, .groupCount = OPTIC_TEMP_GROUP_COUNT, .groups = opticTemperatureGroups },
-    { .name = "BARO", .id = ID_TEMP_BARO, .groupCount = BARO_GROUP_COUNT, .groups = baroGroups },
-    { .name = "BONEIMU", .id = ID_BONE_CONDUCTION, .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT, .groups = boneConductionIMUGroups },
+    { .name = "BMX160", .id = ID_IMU, .groupCount = IMU_GROUP_COUNT, .groups = imuGroups },
+    { .name = "ANALOG_DEVICES_MAXM86161EFD+", .id = ID_PPG, .groupCount = PPG_GROUP_COUNT, .groups = ppgGroups },
+    { .name = "MELEXIS_MLX90632", .id = ID_OPTTEMP, .groupCount = OPTIC_TEMP_GROUP_COUNT, .groups = opticTemperatureGroups },
+    { .name = "BOSCH_BMP388", .id = ID_TEMP_BARO, .groupCount = BARO_GROUP_COUNT, .groups = baroGroups },
+    { .name = "BOSCH_BMA580", .id = ID_BONE_CONDUCTION, .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT, .groups = boneConductionIMUGroups },
 };
 
 ParseInfoScheme defaultSensors = {
