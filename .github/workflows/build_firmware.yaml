@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   pull_request:
     branches: ["main"]
+  push:
+    branches: ["main"]
 
 permissions:
   pull-requests: write
@@ -91,22 +93,23 @@ jobs:
           # print detailed ccache statistics
           ccache -sv
 
-      - name: Check Build Output
+      - name: Check And Prepare Build Output
         run: |
-          ls $(pwd)/zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf
+          mkdir -p $(pwd)/workflow-board-temp/build-output
+          cp $(pwd)/zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf $(pwd)/workflow-board-temp/build-output/openearable_v2_firmware.elf
+          ls $(pwd)/workflow-board-temp/build-output/openearable_v2_firmware.elf
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         id: artifact-upload-step
         with:
-          name: zephyr-elf
-          path: zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf
+          name: openearable_v2_firmware.elf
+          path: workflow-board-temp/build-output/openearable_v2_firmware.elf
 
       - name: PR Comment with File
         if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          file-path: zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf
           message: |
             Build output available:
-            [zephyr-elf.zip](${{ steps.artifact-upload-step.outputs.artifact-url }})
+            [openearable_v2_firmware.elf.zip](${{ steps.artifact-upload-step.outputs.artifact-url }})
