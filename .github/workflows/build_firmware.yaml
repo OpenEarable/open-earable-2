@@ -63,12 +63,12 @@ jobs:
         run: |
           mkdir -p $(pwd)/workflow-board-temp
           cp -R $(pwd)/zephyr-workspace/nrfconnect-ci-app/boards $(pwd)/workflow-board-temp/boards
-          
-          # Merge teco dir to arm dir (assuming the boards are for arm)
+
+          # Merge teco dir (if it exists) to arm dir (assuming the boards are for arm)
           mkdir -p $(pwd)/workflow-board-temp/boards/arm # Create arm dir if not exist
-          cp -R -f $(pwd)/workflow-board-temp/boards/teco/* $(pwd)/workflow-board-temp/boards/arm/
+          cp -R -f $(pwd)/workflow-board-temp/boards/teco/* $(pwd)/workflow-board-temp/boards/arm/ || true
           rm -f -R $(pwd)/workflow-board-temp/boards/teco
-          
+
           # Copy merged dir
           cp -R -f $(pwd)/workflow-board-temp/boards/* $(pwd)/zephyr-workspace/zephyr/boards
 
