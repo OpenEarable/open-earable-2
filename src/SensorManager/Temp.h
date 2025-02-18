@@ -5,7 +5,7 @@
 #include <zephyr/drivers/gpio.h>
 
 #include "MLX90632/MLX90632.h"
-#include "EdgeMlSensor.h"
+#include "EdgeMLSensor.h"
 
 #include "nrf5340_audio_common.h"
 

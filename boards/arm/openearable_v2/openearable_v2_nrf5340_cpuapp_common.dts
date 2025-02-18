@@ -9,19 +9,13 @@
 / {
 	chosen {
 		zephyr,console = &cdc_acm_uart0;
-		zephyr,shell-uart = &uart0;
+		zephyr,shell-uart = &cdc_acm_uart0;
 		zephyr,uart-mcumgr = &uart0;
 		zephyr,bt-mon-uart = &uart0;
 		zephyr,bt-c2h-uart = &uart0;
 		zephyr,bt-hci-ipc = &ipc0;
 		nordic,802154-spinel-ipc = &ipc0;
 		zephyr,ieee802154 = &ieee802154;
-	};
-
-	power_switch: power_switch {
-		compatible = "power-switch";
-		/* using built-in LED pin for demonstration */
-		gpios = <&gpio0 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 	};
 
 	sd_state: sd_state {
@@ -107,7 +101,7 @@
 		status = "okay";
 		uart {
 			//gpios = <&gpio1 1 0>, <&gpio1 0 0>, <&gpio0 11 0>, <&gpio0 10 0>;
-			gpios = <&gpio1 1 0>, <&gpio1 2 0>, <&gpio0 11 0>, <&gpio0 10 0>;
+			gpios = <&gpio1 6 0>, <&gpio0 7 0>, <&gpio0 11 0>, <&gpio0 10 0>;
 		};
 	};
 
@@ -159,7 +153,7 @@
 
 dmic_dev: &pdm0 {
 	compatible = "nordic,nrf-pdm";
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&pdm0_default_alt>;
 	pinctrl-names = "default";
 	clock-source = "ACLK";
@@ -178,10 +172,10 @@ dmic_dev: &pdm0 {
 		gpout-gpios = <&gpio0 22 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
 	};
 
-	bq25120a: bq25120a@6A {
+	bq25120a: bq25120a@6a {
 		compatible = "ti,bq25120a";
-		reg = <0x6A>;
-		int-gpios = <&gpio0 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		reg = <0x6a>;
+		int-gpios = <&gpio0 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		cd-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
 		pg-gpios = <&gpio0 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		lsctrl-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
@@ -191,6 +185,12 @@ dmic_dev: &pdm0 {
 		compatible = "analog,ssm6515";
 		reg = <0x34>;
 	};
+
+	adau1860: adau1860@64 {
+		compatible = "analog,adau1860";
+		reg = <0x64>;
+		enable-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &i2c2 {
@@ -198,6 +198,14 @@ dmic_dev: &pdm0 {
 	status = "okay";
 	pinctrl-0 = <&i2c2_default>;
 	pinctrl-1 = <&i2c2_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
+&i2c3 {
+	compatible = "nordic,nrf-twim";
+	status = "okay";
+	pinctrl-0 = <&i2c3_default>;
+	pinctrl-1 = <&i2c3_sleep>;
 	pinctrl-names = "default", "sleep";
 };
 

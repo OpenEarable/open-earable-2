@@ -13,6 +13,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
 #include <nrfx_clock.h>
+#include <contin_array.h>
+#include <tone.h>
+#include <pcm_mix.h>
 
 #include "nrf5340_audio_common.h"
 #include "macros_common.h"
@@ -20,11 +23,7 @@
 #include "audio_i2s.h"
 #include "sw_codec_select.h"
 #include "audio_system.h"
-#include "tone.h"
-#include "contin_array.h"
-#include "pcm_mix.h"
 #include "streamctrl.h"
-#include "audio_sync_timer.h"
 #include "sd_card_playback.h"
 
 #include "Equalizer.h"
@@ -72,9 +71,9 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 #define PRES_COMP_NUM_DATA_PTS (DRIFT_MEAS_PERIOD_US / CONFIG_AUDIO_FRAME_DURATION_US)
 
 /* Audio clock - nRF5340 Analog Phase-Locked Loop (APLL) */
-#define APLL_FREQ_CENTER 39854
-#define APLL_FREQ_MIN	 36834
-#define APLL_FREQ_MAX	 42874
+#define APLL_FREQ_MIN	 HFCLKAUDIO_12_165_MHZ
+#define APLL_FREQ_CENTER HFCLKAUDIO_12_288_MHZ
+#define APLL_FREQ_MAX	 HFCLKAUDIO_12_411_MHZ
 /* Use nanoseconds to reduce rounding errors */
 /* clang-format off */
 #define APLL_FREQ_ADJ(t) (-((t)*1000) / 331)
@@ -163,6 +162,20 @@ static struct {
 		bool enabled;
 	} pres_comp;
 } ctrl_blk;
+
+/**
+ * @brief	Get the current number of blocks in the output buffer.
+ */
+static int filled_blocks_get(void)
+{
+	if (ctrl_blk.out.cons_blk_idx < ctrl_blk.out.prod_blk_idx) {
+		return ctrl_blk.out.prod_blk_idx - ctrl_blk.out.cons_blk_idx;
+	} else if (ctrl_blk.out.cons_blk_idx > ctrl_blk.out.prod_blk_idx) {
+		return (FIFO_NUM_BLKS - ctrl_blk.out.cons_blk_idx) + ctrl_blk.out.prod_blk_idx;
+	} else {
+		return 0;
+	}
+}
 
 static bool tone_active;
 /* Buffer which can hold max 1 period test tone at 100 Hz */
@@ -436,6 +449,7 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 		return;
 	}
 
+	/* Operation to obtain nearest whole number in subsequent operations */
 	if (pres_adj_us >= 0) {
 		pres_adj_us += (BLK_PERIOD_US / 2);
 	} else {
@@ -646,6 +660,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 
 				tx_buf = (uint8_t *)&ctrl_blk.out
 						 .fifo[next_out_blk_idx * BLK_STEREO_NUM_SAMPS];
+
 			} else {
 				if (stream_state_get() == STATE_STREAMING) {
 					underrun_condition = true;
@@ -766,7 +781,9 @@ static void audio_datapath_i2s_start(void)
 		ERR_CHK_MSG(ret, "RX failed to get block");
 	}
 
+#if CONFIG_EQAULIZER_SOFTWARE
 	reset_eq();
+#endif
 
 	/* Start I2S */
 	audio_i2s_start(tx_buf_one, rx_buf_one);
@@ -870,7 +887,8 @@ ZBUS_LISTENER_DEFINE(sdu_ref_msg_listen, audio_datapath_sdu_ref_update);
 int audio_datapath_pres_delay_us_set(uint32_t delay_us)
 {
 	if (!IN_RANGE(delay_us, CONFIG_AUDIO_MIN_PRES_DLY_US, CONFIG_AUDIO_MAX_PRES_DLY_US)) {
-		LOG_WRN("Presentation delay not supported: %d", delay_us);
+		LOG_WRN("Presentation delay not supported: %d us", delay_us);
+		LOG_WRN("Keeping current value: %d us", ctrl_blk.pres_comp.pres_delay_us);
 		return -EINVAL;
 	}
 
@@ -964,8 +982,7 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 	}
 
 	/*** Add audio data to FIFO buffer ***/
-
-	int32_t num_blks_in_fifo = ctrl_blk.out.prod_blk_idx - ctrl_blk.out.cons_blk_idx;
+	uint32_t num_blks_in_fifo = filled_blocks_get();
 
 	if ((num_blks_in_fifo + NUM_BLKS_IN_FRAME) > FIFO_NUM_BLKS) {
 		LOG_WRN("Output audio stream overrun - Discarding audio frame");
@@ -990,8 +1007,10 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 		//LOG_INF("out_blk_idx: %i", out_blk_idx);
 
 		//uint32_t start = k_cyc_to_us_floor32(k_cycle_get_32());
-
+		
+#if CONFIG_EQAULIZER_SOFTWARE
 		equalize(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS], BLK_STEREO_NUM_SAMPS);
+#endif
 
 		/*uint32_t end = k_cyc_to_us_floor32(k_cycle_get_32());
 
@@ -1051,10 +1070,22 @@ int audio_datapath_init(void)
 	memset(&ctrl_blk, 0, sizeof(ctrl_blk));
 	audio_i2s_blk_comp_cb_register(audio_datapath_i2s_blk_complete);
 	audio_i2s_init();
-	pdm_mic_init();
+	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+		pdm_mic_init();
+	}*/
 	ctrl_blk.datapath_initialized = true;
 	ctrl_blk.drift_comp.enabled = true;
 	ctrl_blk.pres_comp.enabled = true;
+
+	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
+		/* Disable presentation compensation feature for microphone return on gateway,
+		 * since there's only one stream output from gateway for now, so no need to
+		 * qhave presentation compensation.
+		 */
+		ctrl_blk.pres_comp.enabled = false;
+	} else {
+		ctrl_blk.pres_comp.enabled = true;
+	}
 
 	ctrl_blk.pres_comp.pres_delay_us = CONFIG_BT_AUDIO_PRESENTATION_DELAY_US;
 

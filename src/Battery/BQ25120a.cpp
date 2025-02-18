@@ -1,8 +1,10 @@
 #include "BQ25120a.h"
 
+#include "nrf5340_audio_common.h"
+
 BQ25120a battery_controller(&Wire);
 
-BQ25120a::BQ25120a(TwoWire * wire) : _pWire(wire) , load_switch(LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), lsctrl_gpios))) {
+BQ25120a::BQ25120a(TwoWire * wire) : _pWire(wire) { //, load_switch(LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), lsctrl_gpios))) {
 
 }
 
@@ -39,15 +41,15 @@ int BQ25120a::begin() {
                 return ret;
         }
 
-        ret = load_switch.begin();
+        ret = gpio_pin_interrupt_configure_dt(&int_pin, GPIO_INT_EDGE_TO_ACTIVE);
         if (ret != 0) {
-                printk("Failed to setup load switch.\n");
+                printk("Failed to setup interrupt on INT: ERROR -%i.\n", ret);
                 return ret;
         }
 
         _pWire->begin();
 
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         last_i2c = last_high_z = now;
 
         return 0;
@@ -68,11 +70,17 @@ int BQ25120a::set_wakeup_int() {
                 return ret;
         }
 
+        ret = gpio_pin_interrupt_configure_dt(&int_pin, GPIO_INT_LEVEL_ACTIVE);
+        if (ret != 0) {
+                printk("Failed to setup interrupt on INT.\n");
+                return ret;
+        }
+
         return 0;
 }
 
 bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         int delay = MIN(BQ25120a_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ25120a_I2C_TIMEOUT_US);
         int delay_hz = MIN(BQ25120a_HIGH_Z_TIMEOUT_US - (int)(now - last_high_z), BQ25120a_HIGH_Z_TIMEOUT_US);
 
@@ -91,20 +99,20 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
         _pWire->requestFrom(address, len);
 
         for (uint16_t i = 0; i < len; i++) {
-            buffer[i] = _pWire->read();
+                buffer[i] = _pWire->read();
         }
 
         int ret = _pWire->endTransmission();
 
         _pWire->release();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
 
         return (ret == 0);
 }
 
 void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
-        uint64_t now = k_cyc_to_us_floor64(k_cycle_get_32());
+        uint64_t now = micros();
         int delay = MIN(BQ25120a_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ25120a_I2C_TIMEOUT_US);
         int delay_hz = MIN(BQ25120a_HIGH_Z_TIMEOUT_US - (int)(now - last_high_z), BQ25120a_HIGH_Z_TIMEOUT_US);
 
@@ -122,7 +130,7 @@ void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 
         _pWire->release();
 
-        last_i2c = k_cyc_to_us_floor64(k_cycle_get_32());
+        last_i2c = micros();
 }
 
 void BQ25120a::setup() {
@@ -132,7 +140,7 @@ void BQ25120a::setup() {
 
         exit_high_impedance();
 
-        disable_ts();
+        setup_ts_control();
         write_battery_voltage_control(4.3);
         write_charging_control(110);
         write_termination_control(2.5);
@@ -169,15 +177,6 @@ uint8_t BQ25120a::read_ts_fault() {
         return status;
 }
 
-/*uint8_t read_charging_control() {
-        uint8_t status = 0;
-        uint8_t reg=bq25120a_regs[BQ25120A_REG_CHARGE_CTRL];
-        bool ret = readReg(address_bq25120a, reg, (uint8_t *) &status, sizeof(status));
-
-        if (ret) return status;
-        else return -1;
-}*/
-
 chrg_state BQ25120a::read_charging_control() {
         uint8_t status = 0;
         bool ret = readReg(registers::CHARGE_CTRL, (uint8_t *) &status, sizeof(status));
@@ -211,8 +210,6 @@ uint16_t BQ25120a::write_charging_control(float mA) {
         bool ret = readReg(registers::CHARGE_CTRL, &status, sizeof(status));
 
         status &= 0x3;
-
-        //float mAh = (status & 0x7F) >> 2;
 
         if (mA >= 40) {
                 if (mA > 300) mA = 300;
@@ -249,13 +246,13 @@ uint16_t BQ25120a::write_LDO_voltage_control(float volt) {
 
         if (volt > 10) volt /= 1000;
 
-        volt = CLAMP(volt, 0.8, 3.3);
+        volt = CLAMP(volt, 0.8f, 3.3f);
 
         readReg(registers::LS_LDO_CTRL, &status, sizeof(status));
 
         //status |= (((uint16_t)((volt - 0.8) * 10)) & 0x1F) << 2;
         status &= 1 << 7;
-        status |= ((uint16_t)((volt - 0.8) * 10 + EPS)) << 2;
+        status |= ((uint16_t)((volt - 0.8f) * 10 + EPS)) << 2;
         //status |= 1 << 7;
 
         writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));
@@ -267,7 +264,7 @@ float BQ25120a::read_ldo_voltage() {
         uint8_t status = 0;
         bool ret = readReg(registers::LS_LDO_CTRL, (uint8_t *) &status, sizeof(status));
 
-        float voltage = 0.8 + ((status >> 2 & 0x1F)) * 0.1;
+        float voltage = 0.8f + ((status >> 2 & 0x1F)) * 0.1f;
 
         return voltage;
 }
@@ -276,7 +273,7 @@ float BQ25120a::read_battery_voltage_control() {
         uint8_t status = 0;
         bool ret = readReg(registers::BAT_VOL_CTRL, (uint8_t *) &status, sizeof(status));
 
-        float voltage = 3.6 + (status >> 1) * 0.01;
+        float voltage = 3.6f + (status >> 1) * 0.01f;
 
         return voltage;
 }
@@ -287,9 +284,9 @@ uint16_t BQ25120a::write_battery_voltage_control(float volt) {
 
         if (volt > 10) volt /= 1000;
 
-        volt = CLAMP(volt, 3.6, 4.65);
+        volt = CLAMP(volt, 3.6f, 4.65f);
 
-        status |= (((uint16_t)((volt - 3.6) * 100 + EPS)) & 0x7F) << 1;
+        status |= (((uint16_t)((volt - 3.6f) * 100 + EPS)) & 0x7F) << 1;
 
         writeReg(registers::BAT_VOL_CTRL, &status, sizeof(status));
 
@@ -347,12 +344,10 @@ uint16_t BQ25120a::write_termination_control(float mA) {
 }
 
 ilim_uvlo BQ25120a::read_uvlo_ilim() {
-        uint8_t status = 0;
-        bool ret = readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
-
         struct ilim_uvlo param;
+        uint8_t status = 0;
 
-        //printk("uvlo_ilim: %x\n", status);
+        bool ret = readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
 
         if (!ret) printk("failed to read\n");
 
@@ -376,8 +371,15 @@ uint16_t BQ25120a::write_uvlo_ilim(ilim_uvlo param) {
         return status;
 }
 
+void BQ25120a::setup_ts_control() {
+        uint16_t ts_fault = 0;
+
+        writeReg(registers::TS_FAULT, (uint8_t *) &ts_fault, sizeof(ts_fault));
+}
+
 void BQ25120a::disable_ts() {
         uint16_t ts_fault = read_ts_fault();
+
         ts_fault &= ~(1 << 7);
 
         writeReg(registers::TS_FAULT, (uint8_t *) &ts_fault, sizeof(ts_fault));
@@ -395,7 +397,7 @@ void BQ25120a::enter_high_impedance() {
 void BQ25120a::exit_high_impedance() {
         if (!power_connected()) {
                 gpio_pin_set_dt(&cd_pin, 1);
-                last_high_z = k_cyc_to_us_floor64(k_cycle_get_32());
+                last_high_z = micros();
         }
 }
 
@@ -407,7 +409,27 @@ void BQ25120a::enable_charge() {
         if (power_connected()) gpio_pin_set_dt(&cd_pin, 0);
 }
 
+
+button_state BQ25120a::read_button_state() {
+        struct button_state btn;
+
+        uint8_t status = 0;
+        bool ret = readReg(registers::BTN_CTRL, (uint8_t *) &status, sizeof(status));
+
+        if (!ret) printk("failed to read\n");
+
+        btn.wake_1 = status & 0x2;
+        btn.wake_2 = status & 0x1;
+
+        return btn;
+}
+
 int BQ25120a::set_power_connect_callback(gpio_callback_handler_t handler) {
     gpio_init_callback(&power_connect_cb_data, handler, power_connect_cb_data.pin_mask | BIT(pg_pin.pin));
     return gpio_add_callback(pg_pin.port, &power_connect_cb_data);
+}
+
+int BQ25120a::set_int_callback(gpio_callback_handler_t handler) {
+    gpio_init_callback(&int_cb_data, handler, int_cb_data.pin_mask | BIT(int_pin.pin));
+    return gpio_add_callback(int_pin.port, &int_cb_data);
 }

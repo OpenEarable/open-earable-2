@@ -504,27 +504,6 @@ void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
 	}
 }
 
-/*
-static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
-			 struct net_buf_simple *ad)
-{
-	uint8_t base_addr[6] = { 0xb2, 0xfc, 0x69, 0x22, 0x91, 0xb0 };
-	char addr_str[BT_ADDR_LE_STR_LEN] = {0};
-	//int err;
-
-	bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
-
-	if (!memcmp(&addr->a, base_addr, 6)) {
-		if (type == 0) {
-			LOG_INF("Device found: %s (RSSI %d), %s\n", addr_str, rssi, "ADV_INT");
-		} if (type == 4) {
-			LOG_INF("Device found: %s (RSSI %d), %s\n", addr_str, rssi, "SCAN_RSP");
-		}
-	}
-}*/
-
-bool device_paired = false;
-
 // #include "csip_crypto.h"
 
 #include <zephyr/bluetooth/audio/csip.h>
@@ -537,6 +516,16 @@ bool device_paired = false;
 #define BT_CSIP_CRYPTO_PADDING_SIZE 13
 #define BT_CSIP_PADDED_RAND_SIZE    (BT_CSIP_CRYPTO_PADDING_SIZE + BT_CSIP_CRYPTO_PRAND_SIZE)
 #define BT_CSIP_R_MASK              BIT_MASK(24) /* r is 24 bit / 3 octet */
+
+static void write_sirk(uint32_t sirk) {
+	int ret;
+	bt_le_scan_stop();
+
+	ret = uicr_sirk_set(sirk);
+
+	if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
+	else LOG_ERR("UICR writing error: %i", ret);
+}
 
 // Callback-Funktion für gefundene Geräte
 static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, struct net_buf_simple *ad)
@@ -601,93 +590,50 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 		uint32_t hash_ref = (csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
 		uint32_t hash;
 
-		if(!device_paired) {
-			uint32_t new_sirk = *((uint32_t *) chip_id) ^ oe_boot_state.device_id;
+		uint32_t new_sirk = *((uint32_t *) chip_id) ^ oe_boot_state.device_id;
 
-			enum audio_channel channel;
+		enum audio_channel channel;
 
-			//backup channel
-			channel_assignment_get(&channel);
+		//backup channel
+		channel_assignment_get(&channel);
 
-			if (channel == AUDIO_CH_L) {
+		if (channel == AUDIO_CH_L) {
 
-				LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
-				LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
-				LOG_INF("New Sirk: %016X", new_sirk);
+			LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
+			LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
+			LOG_INF("New Sirk: %016X", new_sirk);
 
-				//TODO: check if the device wants to pair (sirk == device_id)
-				//TODO: check channel
+			//TODO: check if the device wants to pair (sirk == device_id)
+			//TODO: check channel
 
-				//ret = uicr_sirk_set(new_sirk);
+			write_sirk(new_sirk);
+		} else if (channel == AUDIO_CH_R) {
+			uint8_t res[BT_CSIP_PADDED_RAND_SIZE];
 
-				bt_le_scan_stop();
+			uint8_t sirk[BT_CSIP_SET_SIRK_SIZE + 1];
+			uint8_t * r = &csis_rsi[3]; //[BT_CSIP_CRYPTO_PRAND_SIZE];
+			uint8_t out[BT_CSIP_CRYPTO_HASH_SIZE];
 
-				ret = uicr_sirk_set(new_sirk);
+			if ((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(7)) ||
+			((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(6)) == 0)) {
+				LOG_WRN("Invalid r %s", bt_hex(r, BT_CSIP_CRYPTO_PRAND_SIZE));
+			}
 
-				device_paired = true;
+			// r' = padding || r
+			(void)memset(res + BT_CSIP_CRYPTO_PRAND_SIZE, 0, BT_CSIP_CRYPTO_PADDING_SIZE);
+			memcpy(res, r, BT_CSIP_CRYPTO_PRAND_SIZE);
 
-				if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
-				else LOG_ERR("UICR writing error: %i", ret);
-			} else if (channel == AUDIO_CH_R) {
-				uint8_t res[BT_CSIP_PADDED_RAND_SIZE];
+			memset(sirk, 0, BT_CSIP_CRYPTO_KEY_SIZE + 1);
+			snprintf(sirk, BT_CSIP_SET_SIRK_SIZE, "%08X", new_sirk);
 
-				uint8_t sirk[BT_CSIP_SET_SIRK_SIZE + 1];
-				uint8_t r[BT_CSIP_CRYPTO_PRAND_SIZE];
-				uint8_t out[BT_CSIP_CRYPTO_HASH_SIZE];
+			int err = bt_encrypt_le(sirk, res, res);
 
-				for (size_t i = 0; i < 3; i++) {
-					//hash[i] = csis_rsi[i];
-					r[i] = csis_rsi[i+3];
-				}
+			memcpy(out, res, BT_CSIP_CRYPTO_HASH_SIZE);
 
-				// memcpy(new_sirk, )
+			hash = out[2] << 16 | out[1] << 8 | out[0];
 
-				if ((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(7)) ||
-				((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(6)) == 0)) {
-					LOG_WRN("Invalid r %s", bt_hex(r, BT_CSIP_CRYPTO_PRAND_SIZE));
-				}
-
-				// r' = padding || r
-				(void)memset(res + BT_CSIP_CRYPTO_PRAND_SIZE, 0, BT_CSIP_CRYPTO_PADDING_SIZE);
-				memcpy(res, r, BT_CSIP_CRYPTO_PRAND_SIZE);
-
-				memset(sirk, 0, BT_CSIP_CRYPTO_KEY_SIZE + 1);
-				snprintf(sirk, BT_CSIP_SET_SIRK_SIZE, "%08X", new_sirk);
-
-				//LOG_INF("New Sirk: %016X", new_sirk);
-				LOG_INF("SIRK as String: %s", sirk);
-
-				//LOG_INF("sirk %s", bt_hex(sirk, BT_CSIP_SET_SIRK_SIZE));
-				//LOG_INF("r' %s", bt_hex(res, sizeof(res)));
-
-				int err = bt_encrypt_le(sirk, res, res);
-
-				memcpy(out, res, BT_CSIP_CRYPTO_HASH_SIZE);
-
-				// LOG_INF("prand: 0x%s", bt_hex(r, BT_CSIP_CRYPTO_PRAND_SIZE));
-				// LOG_INF("hash to match: 0x%s", bt_hex(&hash, BT_CSIP_CRYPTO_HASH_SIZE)); //[0] << 16 | hash[1] << 8 | hash[2]);
-				// LOG_INF("hash result: 0x%s", bt_hex(out, BT_CSIP_CRYPTO_HASH_SIZE));
-
-				hash = out[2] << 16 | out[1] << 8 | out[0];
-
-				// LOG_INF("h1 0x%08X h2 0x%08X", hash, hash2);
-
-				if (hash_ref == hash) {
-					// LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
-					// LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
-					// LOG_INF("New Sirk: %016X", new_sirk);
-
-					//uicr_sirk_set(new_sirk);
-
-					bt_le_scan_stop();
-
-					ret = uicr_sirk_set(new_sirk);
-
-					device_paired = true;
-
-					if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
-					else LOG_ERR("UICR writing error: %i", ret);
-				}
+			if (hash_ref == hash) {
+				write_sirk(new_sirk);
 			}
 		}
 	}

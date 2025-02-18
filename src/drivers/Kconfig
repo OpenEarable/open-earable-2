@@ -27,6 +27,23 @@ config CS47L63_STACK_SIZE
 endmenu # Stack sizes
 
 #----------------------------------------------------------------------------#
+menu "Equalizer config"
+
+choice EQUALIZER
+	prompt "Choose BIS or CIS for ISO transport"
+	default EQAULIZER_DSP
+
+config EQAULIZER_DSP
+	bool "Use CIS (Connected Isochronous Stream)"
+	
+config EQUALIZER_SOFTWARE
+	bool "Use BIS (Broadcast Isochronous Stream)"
+
+endchoice
+
+endmenu # Equalizer config
+
+#----------------------------------------------------------------------------#
 menu "Log levels"
 
 module = CS47L63

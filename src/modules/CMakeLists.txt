@@ -9,7 +9,7 @@
 
 set(SRCS
   ${CMAKE_CURRENT_SOURCE_DIR}/audio_i2s.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/hw_codec_ssm6515.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/hw_codec_adau1860.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/sd_card.c
 )
 

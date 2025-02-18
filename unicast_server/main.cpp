@@ -222,7 +222,7 @@ int main(void) {
         oe_boot_state.device_id = (((uint64_t) device_id[1]) << 32) | device_id[0];
 
         // Ausgabe der 64-Bit-Geräte-ID
-        LOG_INF("Device ID: %016X", oe_boot_state.device_id);
+        // LOG_INF("Device ID: %016X", oe_boot_state.device_id);
 
         // ret = uicr_sirk_set(0xFFFFFFFFU);
 
@@ -264,7 +264,7 @@ int main(void) {
 
 	if (sirk == 0xFFFFFFFFU) {
                 state_indicator.set_pairing_state(SET_PAIRING);
-        } else if (bonded_device_count > 0) {
+        } else if (bonded_device_count > 0 && !oe_boot_state.timer_reset) {
                 state_indicator.set_pairing_state(PAIRED);
 	} else {
                 state_indicator.set_pairing_state(BONDING);
@@ -282,6 +282,7 @@ int main(void) {
 	//sensor_config imu = {ID_IMU, 80, 0};
 	//sensor_config imu = {ID_PPG, 400, 0};
 	//sensor_config temp = {ID_OPTTEMP, 10, 0};
+        // sensor_config temp = {ID_BONE_CONDUCTION, 100, 0};
 
 	//config_sensor(&temp);
 

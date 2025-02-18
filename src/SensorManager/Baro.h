@@ -1,7 +1,7 @@
 #ifndef BARO_H
 #define BARO_H
 
-#include "EdgeMlSensor.h"
+#include "EdgeMLSensor.h"
 
 #include "nrf5340_audio_common.h"
 #include "BMP388/Adafruit_BMP3XX.h"

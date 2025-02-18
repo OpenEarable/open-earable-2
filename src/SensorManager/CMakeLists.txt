@@ -1,7 +1,6 @@
 
 add_subdirectory(BMP388)
 add_subdirectory(BMX160)
-add_subdirectory(MAX30102)
 add_subdirectory(MLX90632)
 add_subdirectory(MAXM86161)
 add_subdirectory(BMA580)

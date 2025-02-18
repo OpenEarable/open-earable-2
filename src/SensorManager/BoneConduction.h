@@ -1,12 +1,12 @@
-#ifndef _PPG_H
-#define _PPG_H
+#ifndef _BONE_H
+#define _BONE_H
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 
 //#include "MAX30102/MAX30102.h"
 #include "BMA580/BMA580_Sensor.h"
-#include "EdgeMlSensor.h"
+#include "EdgeMLSensor.h"
 
 #include "nrf5340_audio_common.h"
 

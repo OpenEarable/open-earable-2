@@ -51,6 +51,7 @@ bool Baro::init(struct k_msgq * queue) {
     if (!bmp.begin_I2C()) {   // hardware I2C mode, can pass in address & alt Wire
 		LOG_WRN("Could not find a valid BMP388 sensor, check wiring!");
 		pm_device_runtime_put(ls_1_8);
+		_active = false;
 		return false;
     }
 

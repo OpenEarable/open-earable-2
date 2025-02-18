@@ -1,0 +1,14 @@
+#
+# Copyright 2021 Grinn
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+include: [sensor-device.yaml, i2c-device.yaml]
+
+compatible: "analog,adau1860"
+
+properties:
+  enable-gpios:
+    type: phandle-array
+    description: DSP enable

@@ -52,13 +52,8 @@ struct BMA580_dev_inf {
 
 BMA580_dev_inf dev_info = {
     .addr = BMA5_I2C_ADDRESS,
-    .i2c_dev = &Wire1
+    .i2c_dev = &Wire2
 };
-
-/*
-static uint8_t dev_addr;
-
-TwoWire *_pWire = &Wire1;*/
 
 /*!
  * @brief I2C read function map to COINES platform
@@ -218,7 +213,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
 
     /* Set accel configurations */
     //acc_cfg.acc_odr = BMA5_ACC_ODR_HZ_6K4;
-	acc_cfg.acc_odr = BMA5_ACC_ODR_HZ_3K2;
+	acc_cfg.acc_odr = BMA5_ACC_ODR_HZ_100;
     acc_cfg.acc_bwp = BMA5_ACC_BWP_OSR4_AVG1;
     acc_cfg.power_mode = BMA5_POWER_MODE_HPM;
 
@@ -287,27 +282,9 @@ int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_conf, struct bma5
     rslt = bma5_set_fifo_conf(fifo_conf, dev);
     bma5_check_rslt("bma5_set_fifo_conf", rslt);
 
-    /*LOG_INF("\nFIFO conf");
-    LOG_INF("fifo en %s\t", enum_to_string(BMA5_FIFO_CFG_ENABLE));
-    LOG_INF("fifo_x_en %s\t", enum_to_string(BMA5_FIFO_ACC_X_ENABLE));
-    LOG_INF("fifo_y_en %s\t", enum_to_string(BMA5_FIFO_ACC_Y_ENABLE));
-    LOG_INF("fifo_z_en %s\t", enum_to_string(BMA5_FIFO_ACC_Z_ENABLE));
-    LOG_INF("fifo_compression_en %s\t", enum_to_string(BMA5_FIFO_COMPRESSION_ACC_8BIT));
-    LOG_INF("fifo_sensor_time %s\t", enum_to_string(BMA5_FIFO_SENSOR_TIME_EACH_FRAME));
-    LOG_INF("fifo_size %s\t", enum_to_string(BMA5_FIFO_SIZE_MAX_512_BYTES));*/
-
     /* Get FIFO configuration register */
     rslt = bma5_get_fifo_conf(&read_fifo_conf, dev);
     bma5_check_rslt("bma5_get_fifo_conf", rslt);
-
-    /*LOG_INF("\nGet FIFO conf");
-    LOG_INF("fifo en %d", read_fifo_conf.fifo_cfg);
-    LOG_INF("fifo_x_en %d", read_fifo_conf.fifo_acc_x);
-    LOG_INF("fifo_y_en %d", read_fifo_conf.fifo_acc_y);
-    LOG_INF("fifo_z_en %d", read_fifo_conf.fifo_acc_z);
-    LOG_INF("fifo_compression_en %d", read_fifo_conf.fifo_compression);
-    LOG_INF("fifo_sensor_time %d", read_fifo_conf.fifo_sensor_time);
-    LOG_INF("fifo_size %d", read_fifo_conf.fifo_size);*/
 
     return rslt;
 }
@@ -379,13 +356,13 @@ int BMA580::init() {
 
 int BMA580::start() {
     uint8_t on = 0;
-    int8_t ret = bma5_get_cmd_suspend(&on, &dev);
+    int8_t ret = bma5_set_cmd_suspend(on, &dev);
     return ret;
 }
 
 int BMA580::stop() {
     uint8_t off = 1;
-    int8_t ret = bma5_get_cmd_suspend(&off, &dev);
+    int8_t ret = bma5_set_cmd_suspend(off, &dev);
     return ret;
 }
 
@@ -393,6 +370,8 @@ int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
     int8_t rslt = BMA5_OK;
     uint8_t n_status = 1;
     struct bma580_int_status_types int_status = { 0 };
+
+    fifoframe.fifo_avail_frames = 0;
 
     int_status.int_src = BMA580_INT_STATUS_INT2;
 

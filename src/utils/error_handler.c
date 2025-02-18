@@ -34,7 +34,7 @@ void error_handler(unsigned int reason, const z_arch_esf_t *esf)
 	(void)gpio_pin_configure_dt(&center_led_b, GPIO_OUTPUT_INACTIVE);
 #endif /* defined(CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP) */
 	irq_lock();
-	const struct gpio_dt_spec power_switch_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(power_switch), gpios);
+	const struct gpio_dt_spec button_pin = GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios);
 	const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(led_error), gpios, {0});
 
 	// turn on error led
@@ -42,8 +42,8 @@ void error_handler(unsigned int reason, const z_arch_esf_t *esf)
 
 	// wait for turning of power switch
 	while (1) {
-		int power_on = gpio_pin_get_dt(&power_switch_pin);
-		if (power_on == 0) sys_reboot(SYS_REBOOT_COLD);
+		int button_press = gpio_pin_get_dt(&button_pin);
+		if (button_press == 1) sys_reboot(SYS_REBOOT_COLD);
 
 		k_busy_wait(10000);
 		//__asm__ volatile("nop");

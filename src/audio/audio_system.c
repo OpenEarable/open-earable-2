@@ -8,20 +8,20 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
+#include <data_fifo.h>
+#include <contin_array.h>
+#include <pcm_stream_channel_modifier.h>
+#include <tone.h>
 
 #include "macros_common.h"
 #include "sw_codec_select.h"
 #include "audio_datapath.h"
 #include "audio_i2s.h"
-#include "data_fifo.h"
 #include "hw_codec.h"
-#include "tone.h"
-#include "contin_array.h"
-#include "pcm_stream_channel_modifier.h"
 #include "audio_usb.h"
 #include "streamctrl.h"
 
-#include "pdm_mic.h"
+//#include "pdm_mic.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
@@ -70,6 +70,7 @@ static void audio_gateway_configure(void)
 	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
+	//sw_codec_cfg.decoder.audio_ch = AUDIO_CHANNEL_DEFAULT;
 	sw_codec_cfg.decoder.num_ch = 1;
 	sw_codec_cfg.decoder.channel_mode = SW_CODEC_MONO;
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
@@ -93,9 +94,12 @@ static void audio_headset_configure(void)
 	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
+	//sw_codec_cfg.decoder.audio_ch = AUDIO_CHANNEL_DEFAULT;
 	sw_codec_cfg.encoder.num_ch = 1;
 	sw_codec_cfg.encoder.channel_mode = SW_CODEC_MONO;
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
+
+	//channel_assignment_get(&sw_codec_cfg.decoder.audio_ch);
 
 	sw_codec_cfg.decoder.num_ch = 1;
 	sw_codec_cfg.decoder.channel_mode = SW_CODEC_MONO;
@@ -188,9 +192,9 @@ void audio_system_encoder_start(void)
 {
 	LOG_DBG("Encoder started");
 	k_poll_signal_raise(&encoder_sig, 0);
-	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		pdm_mic_start();
-	}
+	}*/
 }
 
 void audio_system_encoder_stop(void)
@@ -410,16 +414,16 @@ void audio_system_start(void)
 	ret = audio_usb_start(&fifo_tx, &fifo_rx);
 	ERR_CHK(ret);
 #else
-	ret = hw_codec_default_conf_enable();
-	ERR_CHK(ret);
-
 	ret = audio_datapath_start(&fifo_rx);
 	ERR_CHK(ret);
 
-	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+	ret = hw_codec_default_conf_enable();
+	ERR_CHK(ret);
+
+	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		ret = pdm_datapath_start(&fifo_rx);
 		ERR_CHK(ret);
-	}
+	}*/
 
 #endif /* ((CONFIG_AUDIO_SOURCE_USB) && (CONFIG_AUDIO_DEV == GATEWAY))) */
 }
@@ -443,9 +447,9 @@ void audio_system_stop(void)
 
 	ret = audio_datapath_stop();
 	ERR_CHK(ret);
-	if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
+	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		pdm_mic_stop();
-	}
+	}*/
 #endif /* ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB) */
 
 	ret = sw_codec_uninit(sw_codec_cfg);

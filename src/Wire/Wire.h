@@ -59,9 +59,9 @@ class MbedI2C //: public HardwareI2C
     void aquire();
     void release();
 
-private:
     const struct device * master = NULL;
 
+private:
     struct k_mutex mutex;
 
     int master_read(int address, const char * buf, const uint32_t len, bool no_stop);
@@ -82,7 +82,7 @@ private:
 }
 
 extern arduino::MbedI2C Wire;
-
 extern arduino::MbedI2C Wire1;
+extern arduino::MbedI2C Wire2;
 
 typedef arduino::MbedI2C TwoWire;

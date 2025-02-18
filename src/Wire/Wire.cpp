@@ -40,11 +40,15 @@ void arduino::MbedI2C::begin(uint32_t speed) {
 
 	ret = i2c_get_config(master, &current_conf);
 
-	if (ret == -ERANGE || (current_conf & I2C_SPEED_MASK) != I2C_SPEED_SET(speed)) {
+	if (ret || (current_conf & I2C_SPEED_MASK) != I2C_SPEED_SET(speed)) {
 		//LOG_INF("Start Wire");
 		ret = i2c_configure(master, I2C_SPEED_SET(speed));
 		__ASSERT(ret == 0, "Failed to set I2C speed!");
 		k_mutex_init(&mutex);
+	}
+
+	if (ret) {
+		LOG_WRN("Failed to configure I2C: %i", ret);
 	}
 }
 
@@ -56,7 +60,21 @@ void arduino::MbedI2C::end() {
 }
 
 void arduino::MbedI2C::setClock(uint32_t freq) {
+	int ret;
+	uint32_t current_conf;
+
+	ret = i2c_get_config(master, &current_conf);
+
+	if (ret || (current_conf & I2C_SPEED_MASK) != I2C_SPEED_SET(freq)) {
+		//LOG_INF("Start Wire");
+		ret = i2c_configure(master, I2C_SPEED_SET(freq));
+		__ASSERT(ret == 0, "Failed to set I2C speed!");
+		k_mutex_init(&mutex);
+	}
 	
+	if (ret) {
+		LOG_WRN("Failed to configure I2C: %i", ret);
+	}
 }
 
 void arduino::MbedI2C::beginTransmission(uint8_t address) {
@@ -163,5 +181,5 @@ int arduino::MbedI2C::master_read(int address, const char * buf, const uint32_t 
 }
 
 arduino::MbedI2C Wire(DEVICE_DT_GET(DT_NODELABEL(i2c1)));
-
 arduino::MbedI2C Wire1(DEVICE_DT_GET(DT_NODELABEL(i2c2)));
+arduino::MbedI2C Wire2(DEVICE_DT_GET(DT_NODELABEL(i2c3)));

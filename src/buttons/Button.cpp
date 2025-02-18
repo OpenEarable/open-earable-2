@@ -32,8 +32,6 @@ void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 
 	button->_temp_buttonState = static_cast<button_action>(gpio_pin_get_dt(&(button->button)));
 
-	if (earable_btn._temp_buttonState == BUTTON_PRESS) k_work_cancel_delayable(&power_manager.power_down_work);
-
 	if (button->_buttonState == button->_temp_buttonState) {
 		k_work_cancel_delayable(&(button->button_work));
 	} else {
@@ -71,7 +69,7 @@ void Button::begin() {
 
 	gpio_init_callback(&button_cb_data, button_isr, button_cb_data.pin_mask | BIT(button.pin));
 	gpio_add_callback(button.port, &button_cb_data);
-	LOG_INF("Set up button at %s pin %d", button.port->name, button.pin);
+	//LOG_INF("Set up button at %s pin %d", button.port->name, button.pin);
 
 	// initial state
 	bool reading = gpio_pin_get_dt(&button);
