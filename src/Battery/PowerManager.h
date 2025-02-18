@@ -14,7 +14,7 @@
 #define CHARGE_CONTROLLER_INTERVAL K_SECONDS(10)
 
 #define OVERCURRENT_CHECK_INTERVAL K_SECONDS(1)
-#define OVERCURRENT_MAX_CURRENT 400  // arbitrary value in mA
+#define OVERCURRENT_MAX_CURRENT 220  // 2C which is max discharge allowed for battery
 
 #define DEBOUNCE_POWER_MS K_MSEC(1000)
 

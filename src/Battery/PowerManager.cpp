@@ -510,15 +510,11 @@ void PowerManager::oc_check_task() {
     LOG_INF("OC Check: Current = %.2f mA", current_mA);
 
     if (current_mA > -OVERCURRENT_MAX_CURRENT) {  // Compare with overcurrent threshold, current_mA negative during discharge
-        LOG_WRN("OC Check: Overcurrent detected! Current: %.2f mA, Threshold: %.2f mA", current_mA, OVERCURRENT_MAX_CURRENT);
+        LOG_WRN("OC Check: Overcurrent detected! Turning off all load switches. Current: %.2f mA, Threshold: %.2f mA", current_mA, OVERCURRENT_MAX_CURRENT);
         
         pm_device_runtime_disable(ls_1_8);
         pm_device_runtime_enable(ls_3_3);
         pm_device_runtime_enable(ls_sd);
-        
-        gpio_pin_set_dt(&error_led, 1); // turn on error LED
-        
-        LOG_ERR("OC Check: System in overcurrent condition! Charging disabled, entered high impedance mode.");
     }
 }
 
