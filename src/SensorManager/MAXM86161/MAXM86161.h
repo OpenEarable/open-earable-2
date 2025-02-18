@@ -57,6 +57,10 @@ class MAXM86161 {
     /** @brief Stop the interrupt from triggering with new values in FIFO */ 
     int new_value_read_off(void);
 
+
+    int get_fifo_count(int &fifo_count);
+    int get_sample_rate();
+
     // void read_fifo(int* red, int* green, int* ir);
     // char read_package_temp();
 

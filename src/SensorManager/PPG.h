@@ -11,6 +11,8 @@
 #include "openearable_common.h"
 #include "zbus_common.h"
 
+#define SYNC_INTERVAL 500  // Sync every 500 samples
+
 enum led_order {
     red, green, ir, ambient
 };
@@ -21,6 +23,7 @@ public:
 
     static PPG sensor;
 
+
     bool init(struct k_msgq * queue) override;
     void start(k_timeout_t t) override;
     void stop() override;
@@ -28,6 +31,9 @@ public:
     void reset();
 private:
     static MAXM86161 ppg;
+
+    static uint64_t last_sample_time;
+    static uint64_t sample_counter;
 
     static void sensor_timer_handler(struct k_timer *dummy);
 

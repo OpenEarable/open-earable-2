@@ -457,9 +457,65 @@ int MAXM86161::_clear_interrupt(void)
     return status;
 }
 
+int MAXM86161::get_fifo_count(int &fifo_count) {
+    return _read_from_reg(REG_FIFO_DATA_COUNTER, fifo_count);
+}
+
 int MAXM86161::read_interrupt_state(int &value)
 {
     int status;
     status = _read_from_reg(REG_IRQ_STATUS1, value);
     return status;
 }
+
+int MAXM86161::get_sample_rate() {
+    int existing_reg_values;
+    _read_from_reg(REG_PPG_CONFIG2, existing_reg_values);
+
+    // Extract sample rate (bits POS_PPG_SR)
+    int sample_rate_code = (existing_reg_values >> POS_PPG_SR) & 0b11111;
+
+    // Extract sample averaging factor (bits POS_SMP_AVG)
+    int averaging_code = (existing_reg_values >> POS_SMP_AVG) & 0b111;
+
+    // Convert the sample rate register value to actual frequency (see datasheet)
+    int base_sample_rate;
+    switch(sample_rate_code) {
+        case 0x00: base_sample_rate = 25; break;    // 24.995 Hz
+        case 0x01: base_sample_rate = 50; break;    // 50.027 Hz
+        case 0x02: base_sample_rate = 84; break;    // 84.021 Hz
+        case 0x03: base_sample_rate = 100; break;   // 99.902 Hz
+        case 0x04: base_sample_rate = 200; break;   // 199.805 Hz
+        case 0x05: base_sample_rate = 400; break;   // 399.610 Hz
+        case 0x0A: base_sample_rate = 8; break;     // 8 Hz
+        case 0x0B: base_sample_rate = 16; break;    // 16 Hz
+        case 0x0C: base_sample_rate = 32; break;    // 32 Hz
+        case 0x0D: base_sample_rate = 64; break;    // 64 Hz
+        case 0x0E: base_sample_rate = 128; break;   // 128 Hz
+        case 0x0F: base_sample_rate = 256; break;   // 256 Hz
+        case 0x10: base_sample_rate = 512; break;   // 512 Hz
+        case 0x11: base_sample_rate = 1024; break;  // 1024 Hz
+        case 0x12: base_sample_rate = 2048; break;  // 2048 Hz
+        case 0x13: base_sample_rate = 4096; break;  // 4096 Hz
+        default: return -1;  // Error case
+    }
+
+    // Convert the averaging code to the number of averaged samples
+    int averaging_factor;
+    switch(averaging_code) {
+        case 0b000: averaging_factor = 1; break;
+        case 0b001: averaging_factor = 2; break;
+        case 0b010: averaging_factor = 4; break;
+        case 0b011: averaging_factor = 8; break;
+        case 0b100: averaging_factor = 16; break;
+        case 0b101: averaging_factor = 32; break;
+        case 0b110: averaging_factor = 64; break;
+        case 0b111: averaging_factor = 128; break;
+        default: return -1; // Should never happen
+    }
+
+    // Compute the actual effective sample rate
+    int effective_sample_rate = base_sample_rate / averaging_factor;
+    return effective_sample_rate;
+}
+

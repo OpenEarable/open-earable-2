@@ -12,6 +12,9 @@ MAXM86161 PPG::ppg(Wire1);
 
 static struct sensor_data msg_ppg;
 
+static uint64_t last_sample_time = 0;
+static uint64_t sample_counter = 0;
+
 bool PPG::init(struct k_msgq * queue) {
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
@@ -57,8 +60,24 @@ void PPG::reset() {
 void PPG::update_sensor(struct k_work *work) {
     int int_status;
     int status = ppg.read_interrupt_state(int_status);
+
     if((status == 0) && (int_status & MAXM86161_INT_DATA_RDY)) {
+        int fifo_count;
+        ppg.get_fifo_count(fifo_count); // How many samples are unread
+
         int num_samples = ppg.read(sensor.data_buffer);
+        if (num_samples <= 0) return; // No valid data
+
+        uint32_t sample_rate_hz = ppg.get_sample_rate(); // TODO: maybe does not make sense to compute every time?
+        uint32_t sample_interval_us = 1000000 / sample_rate_hz;
+        uint32_t current_time = micros();  // Get current real time
+
+        // If first time running, initialize timestamp
+        if (last_sample_time == 0) {
+            last_sample_time = current_time;
+        }
+
+        uint32_t first_sample_time = last_sample_time - ((fifo_count - 1) * sample_interval_us);
 
         for (int i = 0; i < num_samples; i++) {
             msg_ppg.id = ID_PPG;
@@ -73,6 +92,21 @@ void PPG::update_sensor(struct k_work *work) {
             if (ret == -EAGAIN) {
                 //LOG_WRN("sensor msg queue full");
                 LOG_WRN("sensor msg queue full");
+            }
+        }
+
+        last_sample_time = first_sample_time + (num_samples - 1) * sample_interval_us;
+        sample_counter += num_samples;
+
+        // Periodic drift correction
+        if (sample_counter >= SYNC_INTERVAL) {
+            sample_counter = 0;
+
+            // Compare predicted vs actual time
+            uint64_t drift = micros() - last_sample_time;
+            if (drift > sample_interval_us) {  // Ignore minor drift
+                LOG_WRN("PPG ime drift detected: %d us, applying correction.", drift);
+                last_sample_time += drift / 2;  // Apply a smooth correction
             }
         }
     }
