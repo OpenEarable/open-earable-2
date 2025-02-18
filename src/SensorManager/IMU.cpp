@@ -77,9 +77,7 @@ void IMU::sync_fifo_time(bool force) {
 
     system_time_us_ref = micros(); // Get system time in microseconds, fetch again for max accuracy
 
-    uint64_t fifo_time = imu.read_time();
-
-    fifo_time_us_ref = fifo_time * 39; // TODO: get rid of magic number
+    fifo_time_us_ref =  imu.read_time(); // TODO: get rid of magic number
 }
 
 /**
