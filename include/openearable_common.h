@@ -1,8 +1,6 @@
 #ifndef _OPEN_EARABLE_COMMON_H_
 #define _OPEN_EARABLE_COMMON_H_
 
-#include <kernel.h>
-
 //#include <zephyr/bluetooth/audio/audio.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/pm/device.h>
