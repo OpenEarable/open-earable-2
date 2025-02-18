@@ -46,7 +46,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
         uint64_t fifo_time_us = (uint64_t)sensor.fifo_acc_data[i].sensor_time * 312.5;
 
         if (fifo_time_us < last_fifo_time_us) {  
-            sync_fifo_time(true); // resync timer if rollover happened, happens approx. after 1.5h
+            BoneConduction::sync_fifo_time(true); // resync timer if rollover happened, happens approx. after 1.5h
         }
         // Compute synchronized timestamp
         uint64_t timestamp = system_time_us_ref + (fifo_time_us - fifo_time_us_ref); // TODO: what to do with quantization error?
@@ -68,7 +68,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
     }
 
     // Call the clock resynchronization method after reading all frames
-    sync_fifo_time();
+    BoneConduction::sync_fifo_time(false);
 }
 
 void BoneConduction::sync_fifo_time(bool force) {
@@ -81,22 +81,9 @@ void BoneConduction::sync_fifo_time(bool force) {
 
     // Update the reference timestamp
     system_time_us_ref = micros(); // fetch again for max accuracy
+    uint64_t fifo_time = sensor.bma580.read_time();
 
-    uint8_t msb_before, msb_after;
-    uint8_t sensor_time_raw[3];
-
-    do { // ensures that no rollover happend mid read of the sensor timestamp by comparing MSB
-        bma580.read(BMA5_REG_SENSOR_TIME_2, &msb_before, 1);
-        bma580.read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3);
-        bma580.read(BMA5_REG_SENSOR_TIME_2, &msb_after, 1);
-    } while (msb_before != msb_after);
-
-    // Convert FIFO 24-bit timestamp to uint64_t (safe for multiplication)
-    uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
-                          ((uint64_t)sensor_time_raw[1] << 8)  | 
-                          (uint64_t)sensor_time_raw[0];
-
-    fifo_time_us_ref = fifo_time * 312.5ULL; // TODO: define constant somewhere
+    fifo_time_us_ref = fifo_time * 312.5; // TODO: define constant somewhere
 }
 
 /**
@@ -114,7 +101,7 @@ void BoneConduction::start(k_timeout_t t) {
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 
     // Initial clock synchronization
-    sync_fifo_time();
+    sync_fifo_time(false);
 }
 
 void BoneConduction::stop() {

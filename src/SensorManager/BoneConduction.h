@@ -41,7 +41,7 @@ private:
 
     static void update_sensor(struct k_work *work);
 
-    void sync_fifo_time(bool force = false);
+    static void sync_fifo_time(bool force);
 
     bool _active = false;
 };

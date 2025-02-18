@@ -31,10 +31,10 @@ void IMU::update_sensor(struct k_work *work) {
 
 	imu.getAllData(&magno_data, &gyro_data, &accel_data);
 
-	uint64_t fifo_time_us = (uint64_t) accel_data.sensor_time * 39; // TODO: do we need seperate timers for accel, gyro and mag?, get rid of magic number
+	uint64_t fifo_time_us = (uint64_t) accel_data.sensortime * 39.0625; // 1 LSB = 39.0625us
 
 	if (fifo_time_us < last_fifo_time_us) {  
-		sync_fifo_time(true); // resync timer if rollover happened, happens approx. after 15hours
+		sync_fifo_time(true); // resync timer if rollover happened, happens approx. after 1.5 seconds
 	}
 
 	// Compute synchronized timestamp
@@ -43,7 +43,7 @@ void IMU::update_sensor(struct k_work *work) {
 	// Store and update last known timestamp
 	last_fifo_time_us = fifo_time_us;
 	
-	msg_imu.time = timestamp();
+	msg_imu.time = timestamp;
 
 	msg_imu.data[0] = accel_data.x;
 	msg_imu.data[1] = accel_data.y;
@@ -77,12 +77,7 @@ void IMU::sync_fifo_time(bool force) {
 
     system_time_us_ref = micros(); // Get system time in microseconds, fetch again for max accuracy
 
-    uint8_t sensor_time_raw[3];
-    imu.readReg(BMX160_SENSOR_TIME_ADDR, sensor_time_raw, 3); // TODO: there is a tiny risk that we read the time during overflow ...
-
-    uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
-                          ((uint64_t)sensor_time_raw[1] << 8)  | 
-                          (uint64_t)sensor_time_raw[0];
+    uint64_t fifo_time = imu.read_time();
 
     fifo_time_us_ref = fifo_time * 39; // TODO: get rid of magic number
 }

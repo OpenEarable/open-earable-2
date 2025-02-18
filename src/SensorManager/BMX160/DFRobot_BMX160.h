@@ -431,7 +431,7 @@
 
 
 /** FIFO sensor time length definitions */
-#define BMX160_SENSOR_TIME_LENGTH         3)
+#define BMX160_SENSOR_TIME_LENGTH         3
 
 
 /** FIFO DOWN selection */
@@ -528,6 +528,10 @@
 #define BMX160_FIFO_WTM_INT_PIN1_MSK   0x40
 #define BMX160_FIFO_WTM_INT_PIN2_POS   2
 #define BMX160_FIFO_WTM_INT_PIN2_MSK   0x04
+
+#define BMX160_SENSOR_TIME_ADDR_0 0x18
+#define BMX160_SENSOR_TIME_ADDR_1 0x19
+#define BMX160_SENSOR_TIME_ADDR_2 0x1A
 
 #define BMX160_MANUAL_MODE_EN_POS  7
 #define BMX160_MANUAL_MODE_EN_MSK  0x80
@@ -1039,6 +1043,8 @@ class DFRobot_BMX160{
      */
     void wakeUp();
     
+    uint64_t read_time();
+
   private:
 
     /**

@@ -398,3 +398,21 @@ int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
 
     return fifoframe.fifo_avail_frames;
 }
+
+uint64_t BMA580::read_time() {
+    uint8_t msb_before, msb_after;
+    uint8_t sensor_time_raw[3];
+
+    do { // ensures that no rollover happend mid read of the sensor timestamp by comparing MSB
+        bma5_i2c_read(BMA5_REG_SENSOR_TIME_2, &msb_before, 1, &dev);
+        bma5_i2c_read(BMA5_REG_SENSOR_TIME_0, sensor_time_raw, 3, &dev);
+        bma5_i2c_read(BMA5_REG_SENSOR_TIME_2, &msb_after, 1, &dev);
+    } while (msb_before != msb_after);
+
+    // Convert FIFO 24-bit timestamp to uint64_t (safe for multiplication)
+    uint64_t fifo_time = ((uint64_t)sensor_time_raw[2] << 16) | 
+                          ((uint64_t)sensor_time_raw[1] << 8)  | 
+                          (uint64_t)sensor_time_raw[0];
+    
+    return fifo_time;
+}
