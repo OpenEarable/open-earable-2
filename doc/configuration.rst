@@ -9,12 +9,24 @@ Configuring the nRF5340 Audio applications
 
 |config|
 
+By default, if you have not made any changes to :file:`.conf` files at :file:`applications/nrf5340_audio/`, the nRF5340 :ref:`build script <nrf53_audio_app_building>` builds the :ref:`unicast server (CIS) <nrf53_audio_unicast_server_app>` application in the CIS unidirectional mode as a headset (with :kconfig:option:`CONFIG_TRANSPORT_CIS` set to ``y`` and :kconfig:option:`CONFIG_AUDIO_DEV` set to ``1``).
+
+.. _nrf53_audio_app_configuration_select_build:
+
+Selecting gateway or headset build
+**********************************
+
+Given the nRF5340 Audio :ref:`application architecture <nrf53_audio_app_overview>`, the nRF5340 Audio applications can be built for :ref:`either the gateway or the headset role <nrf53_audio_app_overview_gateway_headsets>`:
+
+* The headset build is identified with :kconfig:option:`CONFIG_AUDIO_DEV` Kconfig option set to ``1``.
+  This is the default configuration.
+* The gateway build can be selected by adding :kconfig:option:`CONFIG_AUDIO_DEV` Kconfig option set to ``2`` to the :file:`prj.conf` file.
+
 .. _nrf53_audio_app_configuration_select_bidirectional:
 
 Selecting the CIS bidirectional communication
 *********************************************
 
-By default, if you have not made any changes to :file:`.conf` files at :file:`applications/nrf5340_audio/`, the nRF5340 build script tries to build the CIS applications in the CIS unidirectional mode.
 To switch to the bidirectional mode, set the ``CONFIG_STREAM_BIDIRECTIONAL`` Kconfig option to ``y``  in the :file:`applications/nrf5340_audio/prj.conf` file (for the debug version) or in the :file:`applications/nrf5340_audio/prj_release.conf` file (for the release version).
 
 .. _nrf53_audio_app_configuration_enable_walkie_talkie:
@@ -25,6 +37,11 @@ Enabling the walkie-talkie demo
 The walkie-talkie demo uses one or two bidirectional streams from the gateway to one or two headsets.
 The PDM microphone is used as input on both the gateway and headset device.
 To switch to using the walkie-talkie, set the ``CONFIG_WALKIE_TALKIE_DEMO`` Kconfig option to ``y``  in the :file:`applications/nrf5340_audio/prj.conf` file (for the debug version) or in the :file:`applications/nrf5340_audio/prj_release.conf` file (for the release version).
+
+Enabling the Auracast™ (broadcast) mode
+=======================================
+
+If you want to work with `Auracast™`_ (broadcast) sources and sinks, set the :kconfig:option:`CONFIG_TRANSPORT_BIS` Kconfig option to ``y`` in the :file:`applications/nrf5340_audio/prj.conf` file.
 
 .. _nrf53_audio_app_configuration_select_bis_two_gateways:
 
@@ -71,13 +88,13 @@ Adding FEM support happens when :ref:`nrf53_audio_app_building`.
 You can use one of the following options, depending on how you decide to build the application:
 
 * If you opt for :ref:`nrf53_audio_app_building_script`, add the ``--nrf21540`` to the script's building command.
-* If you opt for :ref:`nrf53_audio_app_building_standard`, add the ``-DSHIELD=nrf21540ek_fwd`` to the ``west build`` command.
+* If you opt for :ref:`nrf53_audio_app_building_standard`, add the ``-Dnrf5340_audio_SHIELD=nrf21540ek -Dipc_radio_SHIELD=nrf21540ek`` to the ``west build`` command.
   For example:
 
   .. code-block:: console
 
-     west build -b nrf5340_audio_dk_nrf5340_cpuapp --pristine -- -DCONFIG_AUDIO_DEV=1 -DSHIELD=nrf21540ek_fwd -DFILE_SUFFIX=release
+     west build -b nrf5340_audio_dk/nrf5340/cpuapp --pristine -- -DCONFIG_AUDIO_DEV=1 -Dnrf5340_audio_SHIELD=nrf21540ek -Dipc_radio_SHIELD=nrf21540ek
 
-To set the TX power output, use the ``CONFIG_NRF_21540_MAIN_TX_POWER`` and ``CONFIG_NRF_21540_PRI_ADV_TX_POWER`` Kconfig options.
+To set the TX power output, use the ``CONFIG_BT_CTLR_TX_PWR_ANTENNA`` and ``CONFIG_MPSL_FEM_NRF21540_TX_GAIN_DB`` Kconfig options in :file:`applications/nrf5340_audio/sysbuild/ipc_radio/prj.conf`.
 
 See :ref:`ug_radio_fem` for more information about FEM in the |NCS|.

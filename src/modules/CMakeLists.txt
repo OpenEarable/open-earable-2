@@ -4,29 +4,19 @@
 # SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
 #
 
-# ${CMAKE_CURRENT_SOURCE_DIR}/button_handler.c
+target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/audio_i2s.c)
+# target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/audio_usb.c)
+target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/audio_sync_timer.c)
 
-
-set(SRCS
-  ${CMAKE_CURRENT_SOURCE_DIR}/audio_i2s.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/hw_codec_adau1860.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/sd_card.c
-)
-
-# DT_NODE_EXISTS(DT_PATH(leds))
-
-if (CONFIG_USE_LEDS)
-  list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/led.c)
-endif()
-
-# ${CMAKE_CURRENT_SOURCE_DIR}/led.c
-# ${CMAKE_CURRENT_SOURCE_DIR}/power_meas.c
-# ${CMAKE_CURRENT_SOURCE_DIR}/audio_usb.c
-
-list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/audio_sync_timer_rtc.c)
-
-if (CONFIG_SD_CARD_PLAYBACK)
-  list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/sd_card_playback.c)
-endif()
-
-target_sources(app PRIVATE ${SRCS})
+target_sources_ifdef(CONFIG_NRF5340_AUDIO_CS47L63_DRIVER app PRIVATE
+                     ${CMAKE_CURRENT_SOURCE_DIR}/hw_codec_adau1860.cpp)
+target_sources_ifdef(CONFIG_NRF5340_AUDIO_POWER_MEASUREMENT app PRIVATE
+                     ${CMAKE_CURRENT_SOURCE_DIR}/power_meas.c)
+target_sources_ifdef(CONFIG_NRF5340_AUDIO_SD_CARD_MODULE app PRIVATE
+                     ${CMAKE_CURRENT_SOURCE_DIR}/sd_card.c)
+target_sources_ifdef(CONFIG_NRF5340_AUDIO_SD_CARD_LC3_FILE app PRIVATE
+                     ${CMAKE_CURRENT_SOURCE_DIR}/lc3_file.c)
+target_sources_ifdef(CONFIG_SD_CARD_PLAYBACK app PRIVATE
+                     ${CMAKE_CURRENT_SOURCE_DIR}/sd_card_playback.c)
+target_sources_ifdef(CONFIG_NRF5340_AUDIO_SD_CARD_LC3_STREAMER app PRIVATE
+                     ${CMAKE_CURRENT_SOURCE_DIR}/lc3_streamer.c)

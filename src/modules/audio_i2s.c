@@ -26,24 +26,12 @@ static enum audio_i2s_state state = AUDIO_I2S_STATE_UNINIT;
 
 PINCTRL_DT_DEFINE(I2S_NL);
 
-/*
 #if CONFIG_AUDIO_SAMPLE_RATE_16000_HZ
 #define CONFIG_AUDIO_RATIO NRF_I2S_RATIO_384X
 #elif CONFIG_AUDIO_SAMPLE_RATE_24000_HZ
 #define CONFIG_AUDIO_RATIO NRF_I2S_RATIO_256X
 #elif CONFIG_AUDIO_SAMPLE_RATE_48000_HZ
 #define CONFIG_AUDIO_RATIO NRF_I2S_RATIO_128X
-#else
-#error "Current AUDIO_SAMPLE_RATE_HZ setting not supported"
-#endif
-*/
-
-#if CONFIG_AUDIO_SAMPLE_RATE_16000_HZ
-#define "Current AUDIO_SAMPLE_RATE_HZ setting not supported"
-#elif CONFIG_AUDIO_SAMPLE_RATE_24000_HZ
-#define CONFIG_AUDIO_RATIO NRF_I2S_RATIO_512X
-#elif CONFIG_AUDIO_SAMPLE_RATE_48000_HZ
-#define CONFIG_AUDIO_RATIO NRF_I2S_RATIO_256X
 #else
 #error "Current AUDIO_SAMPLE_RATE_HZ setting not supported"
 #endif
@@ -58,11 +46,11 @@ static nrfx_i2s_config_t cfg = {
 	.mode = NRF_I2S_MODE_MASTER,
 	.format = NRF_I2S_FORMAT_I2S,
 	.alignment = NRF_I2S_ALIGN_LEFT,
-	.ratio = NRF_I2S_RATIO_256X,
-	.mck_setup = 0x66666000, //0x66666000,
+	.ratio = CONFIG_AUDIO_RATIO,
+	.mck_setup = 0x66666000,
 #if (CONFIG_AUDIO_BIT_DEPTH_16)
-	.sample_width = NRF_I2S_SWIDTH_16BIT,
-	//.sample_width = NRF_I2S_SWIDTH_16BIT_IN32BIT,
+	//.sample_width = NRF_I2S_SWIDTH_16BIT,
+	.sample_width = NRF_I2S_SWIDTH_16BIT_IN32BIT,
 #elif (CONFIG_AUDIO_BIT_DEPTH_32)
 	.sample_width = NRF_I2S_SWIDTH_32BIT,
 #else
@@ -70,7 +58,7 @@ static nrfx_i2s_config_t cfg = {
 #endif /* (CONFIG_AUDIO_BIT_DEPTH_16) */
 	.channels = NRF_I2S_CHANNELS_STEREO,
 	.clksrc = NRF_I2S_CLKSRC_ACLK,
-	.enable_bypass = true, // use ACLK as MCK
+	.enable_bypass = false,
 };
 
 static i2s_blk_comp_callback_t i2s_blk_comp_callback;

@@ -1,6 +1,6 @@
 #include "BQ27220.h"
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 BQ27220 fuel_gauge(&Wire);
 

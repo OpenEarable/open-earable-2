@@ -17,9 +17,9 @@
 #include <tone.h>
 #include <pcm_mix.h>
 
-#include "nrf5340_audio_common.h"
+#include "zbus_common.h"
 #include "macros_common.h"
-//#include "led.h"
+#include "led.h"
 #include "audio_i2s.h"
 #include "sw_codec_select.h"
 #include "audio_system.h"
@@ -355,12 +355,15 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
 	ctrl_blk.pres_comp.state = new_state;
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Pres comp state: %s", pres_comp_state_names[new_state]);
-	/*if (new_state == PRES_STATE_LOCKED) {
+
+#if CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP
+	if (new_state == PRES_STATE_LOCKED) {
 		ret = led_on(LED_APP_2_GREEN);
 	} else {
 		ret = led_off(LED_APP_2_GREEN);
 	}
-	ERR_CHK(ret);*/
+	ERR_CHK(ret);
+#endif
 }
 
 /**
@@ -1077,15 +1080,15 @@ int audio_datapath_init(void)
 	ctrl_blk.drift_comp.enabled = true;
 	ctrl_blk.pres_comp.enabled = true;
 
-	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
+	//if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
 		/* Disable presentation compensation feature for microphone return on gateway,
 		 * since there's only one stream output from gateway for now, so no need to
 		 * qhave presentation compensation.
 		 */
-		ctrl_blk.pres_comp.enabled = false;
-	} else {
-		ctrl_blk.pres_comp.enabled = true;
-	}
+	//	ctrl_blk.pres_comp.enabled = false;
+	//} else {
+	//	ctrl_blk.pres_comp.enabled = true;
+	//}
 
 	ctrl_blk.pres_comp.pres_delay_us = CONFIG_BT_AUDIO_PRESENTATION_DELAY_US;
 

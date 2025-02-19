@@ -70,7 +70,7 @@ menu "QoS"
 config BT_AUDIO_PRESENTATION_DELAY_US
 	int "Presentation delay"
 	range AUDIO_MIN_PRES_DLY_US AUDIO_MAX_PRES_DLY_US
-	default 3000
+	default AUDIO_MIN_PRES_DLY_US
 	help
 	  The audio source/client defined presentation delay if within
 	  AUDIO_MIN_PRES_DLY_US and AUDIO_MAX_PRES_DLY_US range. This will
@@ -105,6 +105,10 @@ menu "Log levels"
 
 module = BLE
 module-str = ble
+source "subsys/logging/Kconfig.template.log_config"
+
+module = BT_LE_AUDIO_TX
+module-str = bt_le_audio_tx
 source "subsys/logging/Kconfig.template.log_config"
 
 endmenu # Log levels

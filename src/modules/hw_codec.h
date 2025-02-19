@@ -8,10 +8,13 @@
 #define _HW_CODEC_H_
 
 #include <stdint.h>
+#include <zephyr/zbus/zbus.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+ZBUS_OBS_DECLARE(volume_evt_sub);
 
 /**
  * @brief  Set volume on HW_CODEC

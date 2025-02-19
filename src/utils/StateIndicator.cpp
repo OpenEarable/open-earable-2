@@ -4,7 +4,8 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
+#include "zbus_common.h"
 
 #include "channel_assignment.h"
 
@@ -89,8 +90,13 @@ void StateIndicator::init(struct earable_state state) {
     set_state(state);
 }
 
-void StateIndicator::set_led_state(enum led_state state) {
-    _state.led_state = state;
+void StateIndicator::set_custom_color(RGBColor color) {
+    memcpy(&this->color, color, sizeof(RGBColor));
+    if (_state.led_mode == CUSTOM) led_controller.setColor(color);
+}
+
+void StateIndicator::set_indication_mode(enum led_mode state) {
+    _state.led_mode = state;
     set_state(_state);
 }
 
@@ -108,7 +114,10 @@ void StateIndicator::set_state(struct earable_state state) {
     _state = state;
 
     // do not update the state if set to custom color
-    if (_state.led_state == CUSTOM) return;
+    if (_state.led_mode == CUSTOM) {
+        led_controller.setColor(color);
+        return;
+    }
 
     RGBColor color = {0,0,0};
     switch (_state.charging_state) {

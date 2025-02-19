@@ -24,7 +24,9 @@ static ssize_t write_led(struct bt_conn *conn,
 	}
 
     //earable_led.set_color((uint8_t*)buf);
-	led_controller.setColor((uint8_t*)buf);
+	//led_controller.setColor((uint8_t*)buf);
+
+	state_indicator.set_custom_color((uint8_t *) buf);
 
 	return len;
 }
@@ -47,7 +49,7 @@ static ssize_t write_state(struct bt_conn *conn,
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
 
-	state_indicator.set_led_state((led_state) *((uint8_t*)buf));
+	state_indicator.set_indication_mode((led_mode) *((uint8_t*)buf));
 
 	return len;
 }

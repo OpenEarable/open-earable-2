@@ -1,6 +1,6 @@
 #include "ADAU1860.h"
-#include "LoadSwitch.h"
-#include "nrf5340_audio_common.h"
+#include "zbus_common.h"
+#include "openearable_common.h"
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ADAU1860, 3);

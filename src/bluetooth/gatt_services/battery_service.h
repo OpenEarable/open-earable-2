@@ -4,7 +4,7 @@
 #define BATTERY_SERVICE_H
 
 #include <zephyr/bluetooth/gatt.h>
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 #include <sfloat.h>
 

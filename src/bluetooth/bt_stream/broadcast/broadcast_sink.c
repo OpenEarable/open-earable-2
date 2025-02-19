@@ -10,13 +10,16 @@
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/audio/audio.h>
 #include <zephyr/bluetooth/audio/pacs.h>
+#include <zephyr/bluetooth/audio/csip.h>
+#include <zephyr/bluetooth/audio/cap.h>
 #include <zephyr/sys/byteorder.h>
 
 /* TODO: Remove when a get_info function is implemented in host */
 #include <../subsys/bluetooth/audio/bap_endpoint.h>
 
+#include "bt_mgmt.h"
 #include "macros_common.h"
-#include "nrf5340_audio_common.h"
+#include "zbus_common.h"
 #include "channel_assignment.h"
 
 #include <zephyr/logging/log.h>
@@ -28,6 +31,8 @@ BUILD_ASSERT(CONFIG_BT_BAP_BROADCAST_SNK_STREAM_COUNT <= 2,
 ZBUS_CHAN_DEFINE(le_audio_chan, struct le_audio_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
+static uint8_t bis_encryption_key[BT_ISO_BROADCAST_CODE_SIZE] = {0};
+static bool broadcast_code_received;
 struct audio_codec_info {
 	uint8_t id;
 	uint16_t cid;
@@ -39,7 +44,6 @@ struct audio_codec_info {
 	int bitrate;
 	int blocks_per_sdu;
 };
-
 struct active_audio_stream {
 	struct bt_bap_stream *stream;
 	struct audio_codec_info *codec;
@@ -50,9 +54,7 @@ static struct bt_bap_broadcast_sink *broadcast_sink;
 static struct bt_bap_stream audio_streams[CONFIG_BT_BAP_BROADCAST_SNK_STREAM_COUNT];
 static struct audio_codec_info audio_codec_info[CONFIG_BT_BAP_BROADCAST_SNK_STREAM_COUNT];
 static uint32_t bis_index_bitfields[CONFIG_BT_BAP_BROADCAST_SNK_STREAM_COUNT];
-
 static struct bt_le_per_adv_sync *pa_sync_stored;
-
 static struct active_audio_stream active_stream;
 
 /* The values of sync_stream_cnt and active_stream_index must never become larger
@@ -71,10 +73,110 @@ static struct bt_pacs_cap capabilities = {
 	.codec_cap = &codec_cap,
 };
 
+#define AVAILABLE_SINK_CONTEXT (BT_AUDIO_CONTEXT_TYPE_ANY)
+
 static le_audio_receive_cb receive_cb;
 
 static bool init_routine_completed;
 static bool paused;
+
+static struct bt_csip_set_member_svc_inst *csip;
+
+static uint8_t flags_adv_data;
+static uint8_t bass_service_uuid[BT_UUID_SIZE_16];
+static uint8_t gap_appear_adv_data[BT_UUID_SIZE_16];
+static uint8_t csip_rsi_adv_data[BT_CSIP_RSI_SIZE];
+
+#define CSIP_SET_SIZE 2
+enum csip_set_rank {
+	CSIP_HL_RANK = 1,
+	CSIP_HR_RANK = 2
+};
+
+/* Callback for locking state change from server side */
+static void csip_lock_changed_cb(struct bt_conn *conn, struct bt_csip_set_member_svc_inst *csip,
+				 bool locked)
+{
+	LOG_DBG("Client %p %s the lock", (void *)conn, locked ? "locked" : "released");
+}
+
+/* Callback for SIRK read request from peer side */
+static uint8_t sirk_read_req_cb(struct bt_conn *conn, struct bt_csip_set_member_svc_inst *csip)
+{
+	/* Accept the request to read the SIRK, but return encrypted SIRK instead of plaintext */
+	return BT_CSIP_READ_SIRK_REQ_RSP_ACCEPT_ENC;
+}
+
+static struct bt_csip_set_member_cb csip_callbacks = {
+	.lock_changed = csip_lock_changed_cb,
+	.sirk_read_req = sirk_read_req_cb,
+};
+
+struct bt_csip_set_member_register_param csip_param = {
+	.set_size = CSIP_SET_SIZE,
+	.lockable = true,
+	.cb = &csip_callbacks,
+};
+
+int broadcast_sink_uuid_populate(struct net_buf_simple *uuid_buf)
+{
+	if (net_buf_simple_tailroom(uuid_buf) >= (BT_UUID_SIZE_16 * 3)) {
+		net_buf_simple_add_le16(uuid_buf, BT_UUID_BASS_VAL);
+		net_buf_simple_add_le16(uuid_buf, BT_UUID_PACS_VAL);
+	} else {
+		LOG_ERR("Not enough space for UUIDS");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+int broadcast_sink_adv_populate(struct bt_data *adv_buf, uint8_t adv_buf_vacant)
+{
+	int ret;
+	uint32_t adv_buf_cnt = 0;
+
+	if (IS_ENABLED(CONFIG_BT_CSIP_SET_MEMBER)) {
+		ret = bt_mgmt_adv_buffer_put(adv_buf, &adv_buf_cnt, adv_buf_vacant,
+					     sizeof(csip_rsi_adv_data), BT_DATA_CSIS_RSI,
+					     (void *)csip_rsi_adv_data);
+		if (ret) {
+			return ret;
+		}
+	}
+
+	/*
+	 * AD format required for broadcast sink with scan delegator.
+	 * Details can be found in Basic Audio Profile Section 3.9.2.
+	 */
+	sys_put_le16(BT_UUID_BASS_VAL, &bass_service_uuid[0]);
+
+	ret = bt_mgmt_adv_buffer_put(adv_buf, &adv_buf_cnt, adv_buf_vacant,
+				     sizeof(bass_service_uuid), BT_DATA_SVC_DATA16,
+				     (void *)bass_service_uuid);
+	if (ret) {
+		return ret;
+	}
+
+	sys_put_le16(CONFIG_BT_DEVICE_APPEARANCE, &gap_appear_adv_data[0]);
+
+	ret = bt_mgmt_adv_buffer_put(adv_buf, &adv_buf_cnt, adv_buf_vacant,
+				     sizeof(gap_appear_adv_data), BT_DATA_GAP_APPEARANCE,
+				     (void *)gap_appear_adv_data);
+	if (ret) {
+		return ret;
+	}
+
+	flags_adv_data = BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR;
+
+	ret = bt_mgmt_adv_buffer_put(adv_buf, &adv_buf_cnt, adv_buf_vacant, sizeof(uint8_t),
+				     BT_DATA_FLAGS, (void *)&flags_adv_data);
+	if (ret) {
+		return ret;
+	}
+
+	return adv_buf_cnt;
+}
 
 static int broadcast_sink_cleanup(void)
 {
@@ -153,7 +255,7 @@ static void get_codec_info(const struct bt_audio_codec_cfg *codec,
 		LOG_DBG("Failed retrieving frame duration: %d", ret);
 	}
 
-	ret = bt_audio_codec_cfg_get_chan_allocation(codec, &codec_info->chan_allocation);
+	ret = bt_audio_codec_cfg_get_chan_allocation(codec, &codec_info->chan_allocation, false);
 	if (ret == -ENODATA) {
 		/* Codec channel allocation not set, defaulting to 0 */
 		codec_info->chan_allocation = 0;
@@ -274,7 +376,7 @@ static bool base_subgroup_bis_cb(const struct bt_bap_base_subgroup_bis *bis, voi
 	bool single_bit = (chan_bitfield & (chan_bitfield - 1)) == 0;
 
 	if (single_bit) {
-		bis_index_bitfields[bis->index - 1] = BIT(bis->index);
+		bis_index_bitfields[bis->index - 1] = BIT(bis->index - 1);
 	} else {
 		LOG_WRN("More than one bit set in channel location, we only support 1 channel per "
 			"BIS");
@@ -358,7 +460,15 @@ static void base_recv_cb(struct bt_bap_broadcast_sink *sink, const struct bt_bap
 
 	if (suitable_stream_found) {
 		/* Set the initial active stream based on the defined channel of the device */
-		channel_assignment_get((enum audio_channel *)&active_stream_index);
+		enum audio_channel audio_channel_temp;
+
+		channel_assignment_get(&audio_channel_temp);
+		if (audio_channel_temp > AUDIO_CH_NUM) {
+			LOG_ERR("Invalid channel assignment");
+			return;
+		}
+
+		active_stream_index = (uint8_t)audio_channel_temp;
 
 		/** If the stream matching channel is not present, revert back to first BIS, e.g.
 		 *  mono stream but channel assignment is RIGHT
@@ -389,19 +499,13 @@ static void base_recv_cb(struct bt_bap_broadcast_sink *sink, const struct bt_bap
 	}
 }
 
-static void syncable_cb(struct bt_bap_broadcast_sink *sink, bool encrypted)
+static void syncable_cb(struct bt_bap_broadcast_sink *sink, const struct bt_iso_biginfo *biginfo)
 {
 	int ret;
-	static uint8_t bis_encryption_key[BT_ISO_BROADCAST_CODE_SIZE] = {0};
 	struct bt_bap_stream *audio_streams_p[] = {&audio_streams[active_stream_index]};
+	static uint32_t prev_broadcast_id;
 
 	LOG_DBG("Broadcast sink is syncable");
-
-	if (IS_ENABLED(CONFIG_BT_AUDIO_BROADCAST_ENCRYPTED)) {
-		memcpy(bis_encryption_key, CONFIG_BT_AUDIO_BROADCAST_ENCRYPTION_KEY,
-		       MIN(strlen(CONFIG_BT_AUDIO_BROADCAST_ENCRYPTION_KEY),
-			   ARRAY_SIZE(bis_encryption_key)));
-	}
 
 	if (active_stream.stream != NULL && active_stream.stream->ep != NULL) {
 		if (active_stream.stream->ep->status.state == BT_BAP_EP_STATE_STREAMING) {
@@ -427,6 +531,24 @@ static void syncable_cb(struct bt_bap_broadcast_sink *sink, bool encrypted)
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Syncing to broadcast stream index %d", active_stream_index);
 
+	if (IS_ENABLED(CONFIG_BT_AUDIO_BROADCAST_ENCRYPTED)) {
+		memcpy(bis_encryption_key, CONFIG_BT_AUDIO_BROADCAST_ENCRYPTION_KEY,
+		       MIN(strlen(CONFIG_BT_AUDIO_BROADCAST_ENCRYPTION_KEY),
+			   ARRAY_SIZE(bis_encryption_key)));
+	} else {
+		/* If the biginfo shows the stream is encrypted, then wait until broadcast code is
+		 * received then start to sync. If headset is out of sync but still looking for same
+		 * broadcaster, then the same broadcast code can be used.
+		 */
+		if (!broadcast_code_received && biginfo->encryption == true &&
+		    sink->broadcast_id != prev_broadcast_id) {
+			LOG_WRN("Stream is encrypted, but haven not received broadcast code");
+			return;
+		}
+
+		broadcast_code_received = false;
+	}
+
 	ret = bt_bap_broadcast_sink_sync(broadcast_sink, bis_index_bitfields[active_stream_index],
 					 audio_streams_p, bis_encryption_key);
 
@@ -434,6 +556,8 @@ static void syncable_cb(struct bt_bap_broadcast_sink *sink, bool encrypted)
 		LOG_WRN("Unable to sync to broadcast source, ret: %d", ret);
 		return;
 	}
+
+	prev_broadcast_id = sink->broadcast_id;
 
 	/* Only a single stream used for now */
 	active_stream.stream = &audio_streams[active_stream_index];
@@ -548,6 +672,19 @@ int broadcast_sink_pa_sync_set(struct bt_le_per_adv_sync *pa_sync, uint32_t broa
 	return 0;
 }
 
+int broadcast_sink_broadcast_code_set(uint8_t *broadcast_code)
+{
+	if (broadcast_code == NULL) {
+		LOG_ERR("Invalid broadcast code received");
+		return -EINVAL;
+	}
+
+	memcpy(bis_encryption_key, broadcast_code, BT_ISO_BROADCAST_CODE_SIZE);
+	broadcast_code_received = true;
+
+	return 0;
+}
+
 int broadcast_sink_start(void)
 {
 	if (!paused) {
@@ -642,8 +779,10 @@ int broadcast_sink_enable(le_audio_receive_cb recv_cb)
 
 	if (channel == AUDIO_CH_L) {
 		ret = bt_pacs_set_location(BT_AUDIO_DIR_SINK, BT_AUDIO_LOCATION_FRONT_LEFT);
+		csip_param.rank = CSIP_HL_RANK;
 	} else {
 		ret = bt_pacs_set_location(BT_AUDIO_DIR_SINK, BT_AUDIO_LOCATION_FRONT_RIGHT);
+		csip_param.rank = CSIP_HR_RANK;
 	}
 
 	if (ret) {
@@ -651,10 +790,49 @@ int broadcast_sink_enable(le_audio_receive_cb recv_cb)
 		return ret;
 	}
 
+	ret = bt_pacs_set_supported_contexts(BT_AUDIO_DIR_SINK, AVAILABLE_SINK_CONTEXT);
+	if (ret) {
+		LOG_ERR("Supported context set failed. Err: %d", ret);
+		return ret;
+	}
+
+	ret = bt_pacs_set_available_contexts(BT_AUDIO_DIR_SINK, AVAILABLE_SINK_CONTEXT);
+	if (ret) {
+		LOG_ERR("Available context set failed. Err: %d", ret);
+		return ret;
+	}
+
 	ret = bt_pacs_cap_register(BT_AUDIO_DIR_SINK, &capabilities);
 	if (ret) {
 		LOG_ERR("Capability register failed (ret %d)", ret);
 		return ret;
+	}
+
+	if (IS_ENABLED(CONFIG_BT_AUDIO_SCAN_DELEGATOR)) {
+		if (IS_ENABLED(CONFIG_BT_CSIP_SET_MEMBER_TEST_SAMPLE_DATA)) {
+			LOG_WRN("CSIP test sample data is used, must be changed "
+				"before production");
+		} else {
+			if (strcmp(CONFIG_BT_SET_IDENTITY_RESOLVING_KEY_DEFAULT,
+				   CONFIG_BT_SET_IDENTITY_RESOLVING_KEY) == 0) {
+				LOG_WRN("CSIP using the default SIRK, must be changed "
+					"before production");
+			}
+			memcpy(csip_param.sirk, CONFIG_BT_SET_IDENTITY_RESOLVING_KEY,
+			       BT_CSIP_SIRK_SIZE);
+		}
+
+		ret = bt_cap_acceptor_register(&csip_param, &csip);
+		if (ret) {
+			LOG_ERR("Failed to register CAP acceptor. Err: %d", ret);
+			return ret;
+		}
+
+		ret = bt_csip_set_member_generate_rsi(csip, csip_rsi_adv_data);
+		if (ret) {
+			LOG_ERR("Failed to generate RSI. Err: %d", ret);
+			return ret;
+		}
 	}
 
 	bt_bap_broadcast_sink_register_cb(&broadcast_sink_cbs);

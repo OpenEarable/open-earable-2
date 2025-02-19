@@ -1,7 +1,7 @@
 #ifndef _SENSOR_MANAGER_H
 #define _SENSOR_MANAGER_H
 
-#include "nrf5340_audio_common.h"
+#include "openearable_common.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>

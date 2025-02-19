@@ -10,11 +10,11 @@
 #include <math.h>
 #include <zephyr/sys/ring_buffer.h>
 #include <zephyr/shell/shell.h>
+#include <pcm_mix.h>
 
 #include "sd_card.h"
 #include "sw_codec_lc3.h"
 #include "sw_codec_select.h"
-#include "pcm_mix.h"
 #include "audio_system.h"
 
 #include <zephyr/logging/log.h>
@@ -472,7 +472,7 @@ int sd_card_playback_init(void)
 	sd_card_playback_thread_id = k_thread_create(
 		&sd_card_playback_thread_data, sd_card_playback_thread_stack,
 		CONFIG_SD_CARD_PLAYBACK_STACK_SIZE, (k_thread_entry_t)sd_card_playback_thread, NULL,
-		NULL, NULL, K_PRIO_PREEMPT(CONFIG_SD_CARD_PLAYBACK_THREAD_PRIORITY), 0, K_NO_WAIT);
+		NULL, NULL, K_PRIO_PREEMPT(CONFIG_SD_CARD_PLAYBACK_THREAD_PRIO), 0, K_NO_WAIT);
 	ret = k_thread_name_set(sd_card_playback_thread_id, "sd_card_playback");
 	if (ret) {
 		return ret;
@@ -564,7 +564,7 @@ static int cmd_list_files(const struct shell *shell, size_t argc, char **argv)
 	char buf[LIST_FILES_BUF_SIZE];
 	size_t buf_size = LIST_FILES_BUF_SIZE;
 
-	ret = sd_card_list_files(playback_file_path, buf, &buf_size);
+	ret = sd_card_list_files(playback_file_path, buf, &buf_size, true);
 	if (ret) {
 		shell_error(shell, "List files err: %d", ret);
 		return ret;

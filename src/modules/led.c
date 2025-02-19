@@ -26,9 +26,6 @@ LOG_MODULE_REGISTER(led, CONFIG_MODULE_LED_LOG_LEVEL);
 #define DT_LABEL_AND_COMMA(node_id)	    DT_PROP(node_id, label),
 #define GPIO_DT_SPEC_GET_AND_COMMA(node_id) GPIO_DT_SPEC_GET(node_id, gpios),
 
-//#if DT_NODE_EXISTS(DT_PATH(leds))
-//#endif
-
 /* The following arrays are populated compile time from the .dts*/
 static const char *const led_labels[] = {DT_FOREACH_CHILD(DT_PATH(leds), DT_LABEL_AND_COMMA)};
 
