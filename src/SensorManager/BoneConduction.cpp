@@ -43,11 +43,9 @@ void BoneConduction::update_sensor(struct k_work *work) {
 	    msg_bc.stream = sensor._ble_stream;
 
         msg_bc.data.id = ID_BONE_CONDUCTION;
-        msg_bc.data.size = 3 * sizeof(uint32_t);
+        msg_bc.data.size = 3 * sizeof(int16_t);
         msg_bc.data.time = millis();
-        msg_bc.data.data[0]=sensor.fifo_acc_data[i].x;
-        msg_bc.data.data[1]=sensor.fifo_acc_data[i].y;
-        msg_bc.data.data[2]=sensor.fifo_acc_data[i].z;
+        memcpy(msg_bc.data.data, &sensor.fifo_acc_data[i], 3 * sizeof(int16_t));
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
         if (ret == -EAGAIN) {

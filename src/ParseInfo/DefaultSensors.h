@@ -40,9 +40,9 @@ SensorComponentGroup imuGroups[IMU_GROUP_COUNT] = {
 
 #define BONE_CONDUCTION_ACC_COUNT 3
 SensorComponent boneConductionIMUComponents[BONE_CONDUCTION_ACC_COUNT] = {
-    { .name = "X", .unit = "g", .parseType = PARSE_TYPE_FLOAT },
-    { .name = "Y", .unit = "g", .parseType = PARSE_TYPE_FLOAT },
-    { .name = "Z", .unit = "g", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "X", .unit = "g", .parseType = PARSE_TYPE_INT16 },
+    { .name = "Y", .unit = "g", .parseType = PARSE_TYPE_INT16 },
+    { .name = "Z", .unit = "g", .parseType = PARSE_TYPE_INT16 },
 };
 
 #define BONE_CONDUCTION_IMU_GROUP_COUNT 1
