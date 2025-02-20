@@ -78,9 +78,17 @@ struct sensor_data {
     //uint8_t * data;
 } __attribute__((packed));
 
+struct sensor_msg {
+	bool sd;
+	bool stream;
+	struct sensor_data data;
+};
+
 struct sensor_config {
     uint8_t sensorId;
     float sampleRate;
+	//bool sd;
+	//bool stream;
     uint32_t latency;
 } __attribute__((packed));
 

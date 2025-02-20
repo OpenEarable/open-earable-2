@@ -6,7 +6,7 @@
 
 //extern struct k_msgq sensor_queue;
 
-static struct sensor_data msg_imu;
+static struct sensor_msg msg_imu;
 
 /*k_work IMU::sensor_work;
 k_msgq * IMU::sensor_queue;*/
@@ -17,9 +17,12 @@ IMU IMU::sensor;
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
 
-	msg_imu.id = ID_IMU;
-	msg_imu.size = 9 * sizeof(float);
-	msg_imu.time = millis();
+	msg_imu.sd = sensor._sd_logging;
+	msg_imu.stream = sensor._ble_stream;
+
+	msg_imu.data.id = ID_IMU;
+	msg_imu.data.size = 9 * sizeof(float);
+	msg_imu.data.time = millis();
 
 	sBmx160SensorData_t magno_data;
 	sBmx160SensorData_t gyro_data;
@@ -27,17 +30,17 @@ void IMU::update_sensor(struct k_work *work) {
 
 	imu.getAllData(&magno_data, &gyro_data, &accel_data);
 
-	msg_imu.data[0] = accel_data.x;
-	msg_imu.data[1] = accel_data.y;
-	msg_imu.data[2] = accel_data.z;
+	msg_imu.data.data[0] = accel_data.x;
+	msg_imu.data.data[1] = accel_data.y;
+	msg_imu.data.data[2] = accel_data.z;
 
-	msg_imu.data[3] = gyro_data.x;
-	msg_imu.data[4] = gyro_data.y;
-	msg_imu.data[5] = gyro_data.z;
+	msg_imu.data.data[3] = gyro_data.x;
+	msg_imu.data.data[4] = gyro_data.y;
+	msg_imu.data.data[5] = gyro_data.z;
 
-	msg_imu.data[6] = magno_data.x;
-	msg_imu.data[7] = magno_data.y;
-	msg_imu.data[8] = magno_data.z;
+	msg_imu.data.data[6] = magno_data.x;
+	msg_imu.data.data[7] = magno_data.y;
+	msg_imu.data.data[8] = magno_data.z;
 
 	//imu.getAllData((sBmx160SensorData_t*) &msg_imu.data[6], (sBmx160SensorData_t*) &msg_imu.data[3], (sBmx160SensorData_t*) &msg_imu);
 

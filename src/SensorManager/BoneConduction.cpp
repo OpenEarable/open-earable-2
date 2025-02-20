@@ -8,7 +8,7 @@ LOG_MODULE_DECLARE(BMA580);
 
 BoneConduction BoneConduction::sensor;
 
-static struct sensor_data msg_bc;
+static struct sensor_msg msg_bc;
 
 bool BoneConduction::init(struct k_msgq * queue) {
     if (!_active) {
@@ -39,12 +39,15 @@ void BoneConduction::update_sensor(struct k_work *work) {
     int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
 
     for (int i = 0; i < num_samples; i++) {
-        msg_bc.id = ID_BONE_CONDUCTION;
-        msg_bc.size = 3 * sizeof(uint32_t);
-        msg_bc.time = millis();
-        msg_bc.data[0]=sensor.fifo_acc_data[i].x;
-        msg_bc.data[1]=sensor.fifo_acc_data[i].y;
-        msg_bc.data[2]=sensor.fifo_acc_data[i].z;
+        msg_bc.sd = sensor._sd_logging;
+	    msg_bc.stream = sensor._ble_stream;
+
+        msg_bc.data.id = ID_BONE_CONDUCTION;
+        msg_bc.data.size = 3 * sizeof(uint32_t);
+        msg_bc.data.time = millis();
+        msg_bc.data.data[0]=sensor.fifo_acc_data[i].x;
+        msg_bc.data.data[1]=sensor.fifo_acc_data[i].y;
+        msg_bc.data.data[2]=sensor.fifo_acc_data[i].z;
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
         if (ret == -EAGAIN) {
