@@ -489,6 +489,7 @@ void count_bonds(const struct bt_bond_info *info, void *user_data) {
 int bt_mgmt_init(void)
 {
 	int ret;
+	static char name[CONFIG_BT_DEVICE_NAME_MAX];
 
 	if (!IS_ENABLED(CONFIG_BT_PRIVACY)) {
 		ret = ficr_static_addr_set();
@@ -501,6 +502,14 @@ int bt_mgmt_init(void)
 	if (ret) {
 		return ret;
 	}
+
+	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%03X", CONFIG_BT_DEVICE_NAME, (oe_boot_state.device_id & 0xFFF));
+
+	ret = bt_set_name(name);
+    if (ret) {
+        LOG_ERR("bt_enable timed out");
+		return ret;
+    }
 
 	ret = k_sem_take(&sem_bt_enabled, K_MSEC(BT_ENABLE_TIMEOUT_MS));
 	if (ret) {

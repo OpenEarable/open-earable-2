@@ -12,8 +12,6 @@ LOG_MODULE_REGISTER(board_init, LOG_LEVEL_DBG);
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-//#include "LoadSwitch.h"
-
 #define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
 #define load_switch_3_3_id DT_NODELABEL(bq25120a)
