@@ -39,10 +39,6 @@
 
 #include "uicr.h"
 
-//#include "unicast_server.h"
-
-// #include "nrf.h"
-
 #include "streamctrl.h"
 
 #include <zephyr/pm/device.h>
@@ -57,8 +53,8 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
-BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
-	     "Console device is not ACM CDC UART device");
+//BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
+//	     "Console device is not ACM CDC UART device");
 
 /*#define BUFFER_SIZE (16 * 1024)
 
