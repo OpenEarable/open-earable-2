@@ -19,10 +19,16 @@ private:
 
     static DFRobot_BMX160 imu;
 
+    static uint64_t system_time_us_ref;  // System micros() reference
+    static uint64_t fifo_time_us_ref;    // FIFO timestamp reference
+    static uint64_t last_fifo_time_us;   // Last known FIFO timestamp
+
     static void sensor_timer_handler(struct k_timer *dummy);
 
     static void update_sensor(struct k_work *work);
-    //static void sensor_timer_handler(struct k_timer *dummy);
+    
+    static void sync_fifo_time(bool force = false);
+
     bool _active = false;
 };
 

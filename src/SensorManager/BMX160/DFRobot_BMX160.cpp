@@ -279,3 +279,27 @@ bool DFRobot_BMX160::scan()
    _pWire->release();
    return (ret == 0);
 }
+
+uint64_t DFRobot_BMX160::read_time() {
+    uint8_t sensor_time_raw[3];
+    uint8_t msb_before, msb_after;
+
+    do {
+        readReg(BMX160_SENSOR_TIME_ADDR_2, &msb_before, 1);
+
+        readReg(BMX160_SENSOR_TIME_ADDR_0, sensor_time_raw, 3);
+
+        readReg(BMX160_SENSOR_TIME_ADDR_2, &msb_after, 1);
+
+        // If MSB changed, re-read (avoids overflow issues)
+    } while (msb_before != msb_after);
+
+    // Combine into a 24-bit value
+    uint64_t sensor_time = ((uint64_t)sensor_time_raw[2] << 16) |
+                           ((uint64_t)sensor_time_raw[1] << 8)  |
+                           (uint64_t)sensor_time_raw[0];
+
+    // Convert to microseconds
+    return sensor_time * 39.0625; // datasheet say 39 uS but chatgpt suggests 39.0625 in most implementations
+}
+

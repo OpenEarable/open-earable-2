@@ -29,6 +29,10 @@ private:
     /*! Number of accel frames to be extracted from FIFO */
     uint8_t fifo_accel_frame_length = ACCEL_FRAME_LEN;
 
+    static uint64_t system_time_us_ref;  // System micros() reference
+    static uint64_t fifo_time_us_ref;    // FIFO timestamp reference
+    static uint64_t last_fifo_time_us;   // Last known FIFO timestamp
+
     /*! Array of accelerometer and sensortime frames
     * Array size same as fifo_accel_frame_length */
     bma5_sens_fifo_axes_data_16_bit fifo_acc_data[ACCEL_FRAME_LEN];
@@ -36,6 +40,8 @@ private:
     static void sensor_timer_handler(struct k_timer *dummy);
 
     static void update_sensor(struct k_work *work);
+
+    static void sync_fifo_time(bool force);
 
     bool _active = false;
 };

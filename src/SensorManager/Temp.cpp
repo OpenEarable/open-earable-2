@@ -49,7 +49,7 @@ void Temp::update_sensor(struct k_work *work) {
 
     msg_temp.data.id = ID_OPTTEMP;
     msg_temp.data.size = sizeof(float);
-    msg_temp.data.time = millis();
+    msg_temp.data.time = micros();
     msg_temp.data.data[0] = temperature;
 
     int ret = k_msgq_put(sensor_queue, &msg_temp, K_NO_WAIT);

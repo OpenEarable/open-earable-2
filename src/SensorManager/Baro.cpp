@@ -23,7 +23,7 @@ void Baro::update_sensor(struct k_work *work) {
 
 	msg_baro.data.id = ID_TEMP_BARO;
 	msg_baro.data.size = 2 * sizeof(float);
-	msg_baro.data.time = millis();
+	msg_baro.data.time = micros(); // not using fifo because reading on request
 	msg_baro.data.data[0] = bmp.temperature;
 	msg_baro.data.data[1] = bmp.pressure;
 

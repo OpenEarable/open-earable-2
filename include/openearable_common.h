@@ -73,7 +73,7 @@ struct battery_data {
 struct sensor_data {
     uint8_t id;
     uint8_t size;
-    uint32_t time;
+    uint64_t time;
     float data[SENSOR_DATA_FIXED_LENGTH];
     //uint8_t * data;
 } __attribute__((packed));

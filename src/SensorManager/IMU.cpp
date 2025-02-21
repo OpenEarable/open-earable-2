@@ -14,21 +14,39 @@ DFRobot_BMX160 IMU::imu(&Wire1);
 
 IMU IMU::sensor;
 
+uint64_t IMU::system_time_us_ref = 0;
+uint64_t IMU::fifo_time_us_ref = 0;
+uint64_t IMU::last_fifo_time_us = 0;
+
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
 
 	msg_imu.sd = sensor._sd_logging;
-	msg_imu.stream = sensor._ble_stream;
-
+	msg_imu.stream = sensor._ble_stream;	
+	
 	msg_imu.data.id = ID_IMU;
 	msg_imu.data.size = 9 * sizeof(float);
-	msg_imu.data.time = millis();
+
 
 	sBmx160SensorData_t magno_data;
 	sBmx160SensorData_t gyro_data;
 	sBmx160SensorData_t accel_data;
 
 	imu.getAllData(&magno_data, &gyro_data, &accel_data);
+
+	uint64_t fifo_time_us = (uint64_t) accel_data.sensortime * 39.0625; // 1 LSB = 39.0625us
+
+	if (fifo_time_us < last_fifo_time_us) {  
+		sync_fifo_time(true); // resync timer if rollover happened, happens approx. after 1.5 seconds
+	}
+
+	// Compute synchronized timestamp
+	uint64_t timestamp = system_time_us_ref + (fifo_time_us - fifo_time_us_ref);
+
+	// Store and update last known timestamp
+	last_fifo_time_us = fifo_time_us;
+	
+	msg_imu.data.time = timestamp;
 
 	msg_imu.data.data[0] = accel_data.x;
 	msg_imu.data.data[1] = accel_data.y;
@@ -49,6 +67,20 @@ void IMU::update_sensor(struct k_work *work) {
 		//LOG_WRN("sensor msg queue full");
 		printk("sensor msg queue full");
 	}
+
+	sync_fifo_time();
+}
+
+void IMU::sync_fifo_time(bool force) {
+	uint64_t current_time = micros();  // Get the current system time
+
+    if (!force && current_time < system_time_us_ref + 1000000) {  // TODO: define constant somewhere
+        return;  // Skip synchronization if the time condition is not met
+    }
+
+    system_time_us_ref = micros(); // Get system time in microseconds, fetch again for max accuracy
+
+    fifo_time_us_ref =  imu.read_time(); // TODO: get rid of magic number
 }
 
 /**
@@ -85,6 +117,7 @@ bool IMU::init(struct k_msgq * queue) {
 void IMU::start(k_timeout_t t) {
 	if (!_active) return;
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
+	sync_fifo_time(); // Initial synchronization
 }
 
 void IMU::stop() {

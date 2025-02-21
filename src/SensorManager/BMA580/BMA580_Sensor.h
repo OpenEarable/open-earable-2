@@ -159,6 +159,8 @@ public:
     int start();
     int stop();
     int read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data);
+    uint64_t read_time();
+    
 private:
     TwoWire & _i2cPort = Wire2;
 
