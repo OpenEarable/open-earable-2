@@ -175,21 +175,6 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
     return rslt;
 }
 
-void bma5_coines_deinit(void)
-{
-    /*fflush(stdout);
-
-    coines_set_shuttleboard_vdd_vddio_config(0, 0);
-
-    k_usleep(2000);
-
-    coines_soft_reset();
-
-    k_usleep(100);
-
-    coines_close_comm_intf(COINES_COMM_INTF_USB, NULL);*/
-}
-
 
 /*!
  * @brief This internal API is used to enable accel and interrupt configuration settings.

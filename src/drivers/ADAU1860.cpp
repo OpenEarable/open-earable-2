@@ -208,10 +208,12 @@ int ADAU1860::setup() {
 #if CONFIG_EQAULIZER_DSP
 
         // EQ_CFG - engine running
-        // stop eq and clear
-        uint8_t eq_cfg = 0x00; // eq stop
+        // stop EQ
+        uint8_t eq_cfg = 0x00;
         writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
-        eq_cfg = 0x10; // eq clear
+
+        // clear EQ
+        eq_cfg = 0x10;
         writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
 
         // clear done check

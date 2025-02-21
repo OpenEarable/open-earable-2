@@ -24,7 +24,7 @@ MAXM86161::~MAXM86161(void)
 // Initialize the sensor
 // Sets the PPG sensor to starting condition, then puts it in SHDN mode ready to
 // take data
-int MAXM86161::init(void)
+int MAXM86161::init(enum sample_rate sample_rate)
 {
     int read_value;
     // Use function to do software reset
@@ -50,7 +50,7 @@ int MAXM86161::init(void)
     // cmd[0] = 0x12; cmd[1] = 0x50;  // 8Hz with no averaging
     // cmd[1] = 0x08; 50 Hz with no averaging
     //_write_to_reg(REG_PPG_CONFIG2, 0x08);
-    _write_to_reg(REG_PPG_CONFIG2, 0x05 << 3);
+    _write_to_reg(REG_PPG_CONFIG2, sample_rate << 3);
 
     // Set LED settling, digital filter, burst rate, burst enable
     //  No Burst mode with default settling

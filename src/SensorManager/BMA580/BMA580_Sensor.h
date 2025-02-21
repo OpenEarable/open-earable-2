@@ -145,14 +145,6 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
  */
 bool bma5_check_rslt(const char api_name[], int8_t rslt);
 
-/*!
- * @brief This function deinitializes coines platform
- *
- *  @return void.
- *
- */
-void bma5_coines_deinit(void);
-
 class BMA580 {
 public:
     int init();

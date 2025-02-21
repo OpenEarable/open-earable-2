@@ -7,6 +7,30 @@
 #include <Wire.h>
 #include <stdint.h>
 
+
+/*******************************************************************************
+ ************************** Maxm86161 Value Enum *******************************
+ ******************************************************************************/
+
+ enum sample_rate {
+    SR_24_995_SPS = 0x00, 
+    SR_50_027_SPS = 0x01, 
+    SR_84_021_SPS = 0x02, 
+    SR_99_902_SPS = 0x03, 
+    SR_199_805_SPS = 0x04, 
+    SR_399_610_SPS = 0x05, 
+    SR_8_0_SPS = 0x0A, 
+    SR_16_0_SPS = 0x0B, 
+    SR_32_0_SPS = 0x0C, 
+    SR_64_0_SPS = 0x0D, 
+    SR_128_0_SPS = 0x0E, 
+    SR_256_0_SPS = 0x0F, 
+    SR_512_0_SPS = 0x10, 
+    SR_1024_0_SPS = 0x11, 
+    SR_2048_0_SPS = 0x12, 
+    SR_4096_0_SPS = 0x13
+};
+
 typedef uint32_t ppg_sample[6];
 
 class MAXM86161 {
@@ -19,7 +43,7 @@ class MAXM86161 {
     /** @brief Destructor */
     ~MAXM86161(void);
     /** @brief Initialization of the object */
-    int init(void);
+    int init(enum sample_rate sample_rate = SR_399_610_SPS);
     /** @brief Start collecting data samples */
     int start(void);
     /** @brief Stop collecting data samples */
@@ -111,8 +135,6 @@ private:
 #define MAXM86161_INT_FULL                            0x80
 #define MAXM86161_INT_DATA_RDY                        0x40
 
-
-
 /*******************************************************************************/
 // Bit masks.
 #define MASK_SMP_AVE 0b00000111  //Register 0x12
@@ -199,18 +221,6 @@ private:
 #define REG_FIFO_DATA_MASK  0x07FFFF
 #define REG_FIFO_RES        19
 #define REG_FIFO_TAG_MASK   0x1F
-
-
-/*******************************************************************************
- ************************** Maxm86161 Value Enum *******************************
- ******************************************************************************/
-
-// enum sample_rates {
-//     24.995 = 0, 50.027 = 1, 84.021 = 2, 99.902 = 3, 199.805 = 4, 399.610 = 5,
-//                     8.0 = 0x0A, 16.0 = 0x0B, 32.0 = 0x0C, 64.0 = 0x0D, 128.0 = 0x0E,
-//                     256.0 = 0x0F, 512.0 = 0x10, 1024.0 = 0x11, 2048.0 = 0x12, 4096.0 = 0x13,
-//                     8 = 0x0A, 16 = 0x0B, 32 = 0x0C, 64 = 0x0D, 128 = 0x0E,
-//                     256 = 0x0F, 512 = 0x10, 1024 = 0x11, 2048 = 0x12, 4096 = 0x13};
 
 
 #endif /* __MAXM86161_H_*/

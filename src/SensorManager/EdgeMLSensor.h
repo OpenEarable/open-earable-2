@@ -16,13 +16,9 @@ public:
         _sd_logging = enable;
     }
 
-    /**
-    * @brief Submit a k_work on timer expiry.
-    */
-    /*void sensor_timer_handler(struct k_timer *dummy)
-    {
-        k_work_submit(&sensor_work);
-    };*/
+    void ble_stream(bool enable) {
+        _ble_stream = enable;
+    }
 
 protected:
     k_work sensor_work;
