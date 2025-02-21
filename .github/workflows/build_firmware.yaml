@@ -1,0 +1,115 @@
+name: Build OpenEarable v2 Firmware
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Clone the repo to a subdirectory, so we can initialize the Zephyr
+          # workspace in the parent directory.
+          path: zephyr-workspace/nrfconnect-ci-app
+
+      - name: Cache/Install APT Packages
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ccache git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+          version: 1.0
+          execute_install_scripts: true
+
+      - name: Cache PIP Packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install West
+        run: |
+          pip3 install west
+
+      - name: Install Zephyr SDK
+        run: |
+          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.4/zephyr-sdk-0.16.4_linux-x86_64_minimal.tar.xz
+          tar xf zephyr-sdk-0.16.4_linux-x86_64_minimal.tar.xz -C ~/
+          ~/zephyr-sdk-0.16.4/setup.sh -c -t arm-zephyr-eabi
+
+      - name: Initialize Zephyr Workspace
+        # Set up the Zephyr workspace and install the Python dependencies
+        run: |
+          cd zephyr-workspace
+          west init -l nrfconnect-ci-app
+          west update --narrow -o=--depth=1
+          pip3 install -r zephyr/scripts/requirements.txt
+
+      - name: Register Custom Boards
+        # Registers our custom boards in the Zephyr build system
+        run: |
+          mkdir -p $(pwd)/workflow-board-temp
+          cp -R $(pwd)/zephyr-workspace/nrfconnect-ci-app/boards $(pwd)/workflow-board-temp/boards
+
+          # Merge teco dir (if it exists) to arm dir (assuming the boards are for arm)
+          mkdir -p $(pwd)/workflow-board-temp/boards/arm # Create arm dir if not exist
+          cp -R -f $(pwd)/workflow-board-temp/boards/teco/* $(pwd)/workflow-board-temp/boards/arm/ || true
+          rm -f -R $(pwd)/workflow-board-temp/boards/teco
+
+          # Copy merged dir
+          cp -R -f $(pwd)/workflow-board-temp/boards/* $(pwd)/zephyr-workspace/zephyr/boards
+
+      - name: Cache ~/.cache/ccache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ccache
+          key: ccache-v1-${{ runner.os }}-${{ hashFiles('zephyr-workspace/nrfconnect-ci-app/west.yml') }}
+          restore-keys: |
+            ccache-v1-${{ runner.os }}-
+
+      - name: Build Project
+        run: |
+          cd zephyr-workspace
+          # zero ccache statistics
+          ccache -z
+          # `openearable_v2/nrf5340/cpuapp` is what we see in the terminal when building
+          # using VSCode + Nordic Plugins
+          west build \
+            --board openearable_v2/nrf5340/cpuapp \
+            --pristine=always nrfconnect-ci-app
+          # print detailed ccache statistics
+          ccache -sv
+
+      - name: Check And Prepare Build Output
+        run: |
+          mkdir -p $(pwd)/workflow-board-temp/build-output
+          cp $(pwd)/zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf $(pwd)/workflow-board-temp/build-output/openearable_v2_firmware.elf
+          ls $(pwd)/workflow-board-temp/build-output/openearable_v2_firmware.elf
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        id: artifact-upload-step
+        with:
+          name: openearable_v2_firmware.elf
+          path: workflow-board-temp/build-output/openearable_v2_firmware.elf
+
+      - name: PR Comment with File
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: |
+            Build output available:
+            [openearable_v2_firmware.elf.zip](${{ steps.artifact-upload-step.outputs.artifact-url }})

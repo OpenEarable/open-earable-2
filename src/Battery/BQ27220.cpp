@@ -431,6 +431,12 @@ void BQ27220::setup(bool init) {
         // charge voltage
         write_RAM(0x91FD, 4300);
 
+        // 0x9240 
+        write_RAM(0x9240, 3050);
+
+        // sysDown set Volate
+        write_RAM(0x9243, 3150);
+
         // FC Voltage
         write_RAM(0x9288, 4290);
 
