@@ -42,6 +42,14 @@ public:
         _ble_stream = enable;
     }
 
+    /**
+    * @brief Submit a k_work on timer expiry.
+    */
+    /*void sensor_timer_handler(struct k_timer *dummy)
+    {
+        k_work_submit(&sensor_work);
+    };*/
+
 protected:
     k_work sensor_work;
     k_timer sensor_timer;
