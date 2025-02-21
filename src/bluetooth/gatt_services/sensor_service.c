@@ -21,13 +21,10 @@ static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4)
 
 //extern const k_tid_t sensor_publish;
 
-#define N_COLLECT 1
-
 //static struct sensor_data data;
-static struct sensor_data data_buf[N_COLLECT];
+static struct sensor_msg msg;
+static struct sensor_data * const data_buf = &(msg.data);
 static struct sensor_config config;
-
-static int idx_data = 0;
 
 static bool notify_enabled = false;
 
@@ -73,9 +70,9 @@ static ssize_t read_sensor_value(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	const uint16_t size = sizeof(data_buf[idx_data].id) + sizeof(data_buf[idx_data].size) + sizeof(data_buf[idx_data].time) + data_buf[idx_data].size;
+	const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size;
 
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, &data_buf[idx_data], size);
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, data_buf, size);
 }
 
 static ssize_t write_config(struct bt_conn *conn,
@@ -99,8 +96,6 @@ static ssize_t write_config(struct bt_conn *conn,
 
 	//stop_sensor_manager();
 	config_sensor((struct sensor_config *) buf);
-	//struct sensor_config ppg_config = {ID_PPG, 400, 0};
-	//config_sensor(&ppg_config);
 
 	return len;
 }
@@ -134,11 +129,9 @@ int send_sensor_data() {
 		return -EACCES;
 	}
 
-	//const uint16_t size = sizeof(_data->id) + sizeof(_data->size) + sizeof(_data->time) + _data->size;
-	//const uint16_t size = 42 * N_COLLECT; 
-	const uint16_t size = sizeof(data_buf[idx_data].id) + sizeof(data_buf[idx_data].size) + sizeof(data_buf[idx_data].time) + data_buf[idx_data].size; //sizeof(float)*6;
+	const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
 
-	return bt_gatt_notify(NULL, &sensor_service.attrs[4], &(data_buf[idx_data]), size);
+	return bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
 }
 
 static void sensor_gatt_task(void)
@@ -159,10 +152,12 @@ static void sensor_gatt_task(void)
 		ret = zbus_sub_wait(&sensor_gatt_sub, &chan, K_FOREVER);
 		ERR_CHK(ret);
 
-		ret = zbus_chan_read(chan, &data_buf[idx_data], ZBUS_READ_TIMEOUT_MS);
+		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
 
-		//printk("temp: %.3f°C\n", data_buf[idx_data].data[0]);
+		//data_buf = &(msg.data);
+
+		//printk("temp: %.3f°C\n", data_buf->data[0]);
 
 		//ret = zbus_sub_wait_msg(&sensor_gatt_sub, &chan, &data, K_FOREVER);
 		//ERR_CHK(ret);
@@ -186,22 +181,22 @@ static void sensor_gatt_task(void)
 			break;
 		}*/
 
-		switch (data_buf[idx_data].id)
+		switch (data_buf->id)
 		{
 		case ID_TEMP_BARO:
-			t_baro = (data_buf[idx_data].time - time_last_baro) * alpha + t_baro * (1 - alpha);
-			time_last_baro = data_buf[idx_data].time;
+			t_baro = (data_buf->time - time_last_baro) * alpha + t_baro * (1 - alpha);
+			time_last_baro = data_buf->time;
 			break;
 
 		case ID_IMU:
-			t_imu = (data_buf[idx_data].time - time_last_imu) * alpha + t_imu * (1 - alpha);
-			time_last_imu = data_buf[idx_data].time;
+			t_imu = (data_buf->time - time_last_imu) * alpha + t_imu * (1 - alpha);
+			time_last_imu = data_buf->time;
 			break;
 
 		/*case ID_PPG:
-			//t_imu = (data_buf[idx_data].time - time_last_imu) * alpha + t_imu * (1 - alpha);
-			//time_last_imu = data_buf[idx_data].time;
-			printk("%f, %f\n", data_buf[idx_data].data[0], data_buf[idx_data].data[1]);
+			//t_imu = (data_buf->time - time_last_imu) * alpha + t_imu * (1 - alpha);
+			//time_last_imu = data_buf->time;
+			printk("%f, %f\n", data_buf->data[0], data_buf->data[1]);
 
 			break;*/
 		

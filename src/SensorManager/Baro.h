@@ -1,7 +1,7 @@
 #ifndef BARO_H
 #define BARO_H
 
-#include "EdgeMlSensor.h"
+#include "EdgeMLSensor.h"
 
 #include "openearable_common.h"
 #include "zbus_common.h"

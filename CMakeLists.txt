@@ -31,14 +31,6 @@ if (CONFIG_BT_BAP_BROADCAST_SINK)
 	add_subdirectory(broadcast_sink)
 endif()
 
-if (CONFIG_BT_BAP_BROADCAST_SOURCE)
-	add_subdirectory(broadcast_source)
-endif()
-
-if (CONFIG_BT_BAP_UNICAST_CLIENT)
-	add_subdirectory(unicast_client)
-endif()
-
 if (CONFIG_BT_BAP_UNICAST_SERVER)
 	add_subdirectory(unicast_server)
 endif()
@@ -56,10 +48,11 @@ zephyr_library_include_directories(
     src/utils
     src/utils/macros
     src/ParseInfo
+    src/SDLogger
 )
 
 zephyr_library_include_directories(app PRIVATE
-    ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340)
+    ${ZEPHYR_NRF_MODULE_DIR}/boards/teco/openearable_v2_nrf5340)
 
 # Application sources
 add_subdirectory(src/audio)
@@ -72,6 +65,7 @@ add_subdirectory(src/modules)
 add_subdirectory(src/utils)
 add_subdirectory(src/ParseInfo)
 add_subdirectory(src/SensorManager)
+add_subdirectory(src/SDLogger)
 
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)

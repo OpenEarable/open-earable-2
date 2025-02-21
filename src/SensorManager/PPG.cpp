@@ -10,7 +10,7 @@ PPG PPG::sensor;
 
 MAXM86161 PPG::ppg(Wire1);
 
-static struct sensor_data msg_ppg;
+static struct sensor_msg msg_ppg;
 
 bool PPG::init(struct k_msgq * queue) {
     if (!_active) {
@@ -61,13 +61,16 @@ void PPG::update_sensor(struct k_work *work) {
         int num_samples = ppg.read(sensor.data_buffer);
 
         for (int i = 0; i < num_samples; i++) {
-            msg_ppg.id = ID_PPG;
-            msg_ppg.size = 4 * sizeof(uint32_t);
-            msg_ppg.time = millis();
-            msg_ppg.data[0]=sensor.data_buffer[i][red];
-            msg_ppg.data[1]=sensor.data_buffer[i][green];
-            msg_ppg.data[2]=sensor.data_buffer[i][ir];
-            msg_ppg.data[3]=sensor.data_buffer[i][ambient];
+            msg_ppg.sd = sensor._sd_logging;
+	        msg_ppg.stream = sensor._ble_stream;
+            
+            msg_ppg.data.id = ID_PPG;
+            msg_ppg.data.size = 4 * sizeof(uint32_t);
+            msg_ppg.data.time = millis();
+            msg_ppg.data.data[0]=sensor.data_buffer[i][red];
+            msg_ppg.data.data[1]=sensor.data_buffer[i][green];
+            msg_ppg.data.data[2]=sensor.data_buffer[i][ir];
+            msg_ppg.data.data[3]=sensor.data_buffer[i][ambient];
 
             int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
             if (ret == -EAGAIN) {
