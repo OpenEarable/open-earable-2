@@ -53,7 +53,9 @@ static void sensor_sd_task(void)
 		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
 
-		k_work_submit(&sd_sensor_work);
+		if (msg.sd) {
+			k_work_submit(&sd_sensor_work);
+		}
 
 		STACK_USAGE_PRINT("sensor_msg_thread", &thread_data);
 	}
