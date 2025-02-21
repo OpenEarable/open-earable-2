@@ -99,7 +99,7 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 
 #define SENSOR_COUNT 5
 SensorScheme sensors[SENSOR_COUNT] = {
-    { .name = "BMX160", .id = ID_IMU, .groupCount = IMU_GROUP_COUNT, .groups = imuGroups },
+    { .name = "BOSCH_BMX160", .id = ID_IMU, .groupCount = IMU_GROUP_COUNT, .groups = imuGroups },
     { .name = "ANALOG_DEVICES_MAXM86161EFD+", .id = ID_PPG, .groupCount = PPG_GROUP_COUNT, .groups = ppgGroups },
     { .name = "MELEXIS_MLX90632", .id = ID_OPTTEMP, .groupCount = OPTIC_TEMP_GROUP_COUNT, .groups = opticTemperatureGroups },
     { .name = "BOSCH_BMP388", .id = ID_TEMP_BARO, .groupCount = BARO_GROUP_COUNT, .groups = baroGroups },
