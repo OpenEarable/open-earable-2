@@ -12,8 +12,6 @@ LOG_MODULE_REGISTER(board_init, LOG_LEVEL_DBG);
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-//#include "LoadSwitch.h"
-
 #define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
 #define load_switch_3_3_id DT_NODELABEL(bq25120a)
@@ -81,7 +79,7 @@ static struct load_switch_data load_switch_3_3 = {
 
 static struct load_switch_data load_switch_sd_d = {
     .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_sd_id, enable_gpios),
-    .default_on = DT_NODE_HAS_PROP(load_switch_sd_d, default_on),
+    .default_on = DT_NODE_HAS_PROP(load_switch_sd_id, default_on),
 };
 
 PM_DEVICE_DT_DEFINE(load_switch_sd_id, generic_pm_control);

@@ -10,7 +10,7 @@ Temp Temp::sensor;
 
 MLX90632 Temp::temp;
 
-static struct sensor_data msg_temp;
+static struct sensor_msg msg_temp;
 
 bool Temp::init(struct k_msgq * queue) {
     if (!_active) {
@@ -23,7 +23,7 @@ bool Temp::init(struct k_msgq * queue) {
         pm_device_runtime_put(ls_1_8);
         pm_device_runtime_put(ls_3_3);
 
-		printk("Could not find a valid Optical Temperature sensor, check wiring!");
+		LOG_WRN("Could not find a valid Optical Temperature sensor, check wiring!");
 		return false;
     }
 
@@ -43,10 +43,14 @@ void Temp::reset() {
 
 void Temp::update_sensor(struct k_work *work) {
     float temperature = temp.getObjectTemp();
-    msg_temp.id = ID_OPTTEMP;
-    msg_temp.size = sizeof(float);
-    msg_temp.time = micros();
-    msg_temp.data[0]=temperature;
+
+    msg_temp.sd = sensor._sd_logging;
+    msg_temp.stream = sensor._ble_stream;
+
+    msg_temp.data.id = ID_OPTTEMP;
+    msg_temp.data.size = sizeof(float);
+    msg_temp.data.time = micros();
+    msg_temp.data.data[0] = temperature;
 
     int ret = k_msgq_put(sensor_queue, &msg_temp, K_NO_WAIT);
     if (ret == -EAGAIN) {

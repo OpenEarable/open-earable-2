@@ -6,7 +6,7 @@
 
 //#include "MAX30102/MAX30102.h"
 #include "MAXM86161/MAXM86161.h"
-#include "EdgeMlSensor.h"
+#include "EdgeMLSensor.h"
 
 #include "openearable_common.h"
 #include "zbus_common.h"

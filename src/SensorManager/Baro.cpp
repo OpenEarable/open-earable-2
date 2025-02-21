@@ -7,7 +7,7 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(BMP388);
 
-static struct sensor_data msg_baro;
+static struct sensor_msg msg_baro;
 
 Adafruit_BMP3XX Baro::bmp;
 
@@ -18,21 +18,20 @@ void Baro::update_sensor(struct k_work *work) {
 
 	bmp.performReading();
 
-	msg_baro.id = ID_TEMP_BARO;
-	msg_baro.size = 2 * sizeof(float);
-	msg_baro.time = micros(); // not using fifo because reading on request
-	msg_baro.data[0] = bmp.temperature;
-	msg_baro.data[1] = bmp.pressure;
+	msg_baro.sd = sensor._sd_logging;
+	msg_baro.stream = sensor._ble_stream;
+
+	msg_baro.data.id = ID_TEMP_BARO;
+	msg_baro.data.size = 2 * sizeof(float);
+	msg_baro.data.time = micros(); // not using fifo because reading on request
+	msg_baro.data.data[0] = bmp.temperature;
+	msg_baro.data.data[1] = bmp.pressure;
 
 	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
 	if (ret == -EAGAIN) {
 		LOG_WRN("sensor msg queue full");
 	}
 }
-
-/*void test(Baro * b, k_timer * t) {
-	b->sensor_timer_handler(t);
-}*/
 
 /**
 * @brief Submit a k_work on timer expiry.

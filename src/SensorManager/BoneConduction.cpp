@@ -8,7 +8,7 @@ LOG_MODULE_DECLARE(BMA580);
 
 BoneConduction BoneConduction::sensor;
 
-static struct sensor_data msg_bc;
+static struct sensor_msg msg_bc;
 
 uint64_t BoneConduction::system_time_us_ref = 0;
 uint64_t BoneConduction::fifo_time_us_ref = 0;
@@ -54,12 +54,14 @@ void BoneConduction::update_sensor(struct k_work *work) {
         // Store and update last known timestamp
         last_fifo_time_us = fifo_time_us;
 
-        msg_bc.id = ID_BONE_CONDUCTION;
-        msg_bc.size = 3 * sizeof(uint32_t);
-        msg_bc.time = timestamp;
-        msg_bc.data[0]=sensor.fifo_acc_data[i].x;
-        msg_bc.data[1]=sensor.fifo_acc_data[i].y;
-        msg_bc.data[2]=sensor.fifo_acc_data[i].z;
+        msg_bc.sd = sensor._sd_logging;
+	    msg_bc.stream = sensor._ble_stream;
+
+        msg_bc.data.id = ID_BONE_CONDUCTION;
+        msg_bc.data.size = 3 * sizeof(int16_t);
+        msg_bc.data.time = timestamp;
+        memcpy(msg_bc.data.data, &sensor.fifo_acc_data[i], 3 * sizeof(int16_t));
+
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
         if (ret == -EAGAIN) {

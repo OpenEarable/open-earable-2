@@ -12,6 +12,10 @@ public:
     //virtual void end() = 0;
     //virtual void update_sensor(struct k_work * work) = 0;
 
+    void sd_logging(bool enable) {
+        _sd_logging = enable;
+    }
+
     /**
     * @brief Submit a k_work on timer expiry.
     */
@@ -24,6 +28,9 @@ protected:
     k_work sensor_work;
     k_timer sensor_timer;
     static k_msgq * sensor_queue;
+
+    bool _sd_logging = false;
+    bool _ble_stream = true;
 };
 
 #endif

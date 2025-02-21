@@ -8,12 +8,12 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sensor_pub, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
-K_MSGQ_DEFINE(sensor_queue, sizeof(struct sensor_data), 16, 4);
+K_MSGQ_DEFINE(sensor_queue, sizeof(struct sensor_msg), 16, 4);
 
-ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
+ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
-struct sensor_data msg;
+struct sensor_msg msg;
 
 void sensor_chan_update() {
     int ret;
