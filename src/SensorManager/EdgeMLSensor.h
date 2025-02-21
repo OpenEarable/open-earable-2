@@ -16,6 +16,10 @@ public:
         _sd_logging = enable;
     }
 
+    void ble_stream(bool enable) {
+        _ble_stream = enable;
+    }
+
     /**
     * @brief Submit a k_work on timer expiry.
     */

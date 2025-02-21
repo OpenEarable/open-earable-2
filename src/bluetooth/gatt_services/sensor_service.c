@@ -116,7 +116,7 @@ BT_GATT_CCC(sensor_ccc_cfg_changed,
 
 static void gatt_work_handler(struct k_work * work) {
 	//send_sensor_data();
-	if (connection_complete && notify_enabled) {
+	if (connection_complete && notify_enabled && msg.stream) {
 		int ret = send_sensor_data();
 		//if (ret == 0) printk("data send\n");
 		if (ret != 0) printk("Failed to send data.\n");
@@ -139,15 +139,6 @@ static void sensor_gatt_task(void)
 	int ret;
 	const struct zbus_channel *chan;
 
-	float t_imu = 1000/80;
-	float t_baro = 1000/20;
-	int count = 0;
-
-	const float alpha = 0.01;
-
-	uint32_t time_last_imu = millis();
-	uint32_t time_last_baro = time_last_imu;
-
 	while (1) {
 		ret = zbus_sub_wait(&sensor_gatt_sub, &chan, K_FOREVER);
 		ERR_CHK(ret);
@@ -155,79 +146,9 @@ static void sensor_gatt_task(void)
 		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
 
-		//data_buf = &(msg.data);
-
-		//printk("temp: %.3f°C\n", data_buf->data[0]);
-
-		//ret = zbus_sub_wait_msg(&sensor_gatt_sub, &chan, &data, K_FOREVER);
-		//ERR_CHK(ret);
-
-		//printk("rec: %i\n", msg.id);
-
-		/*switch (data.id)
-		{
-		case ID_TEMP_BARO:
-			printk("temperature: %.3fC, ", data.data[0]);
-			printk("pressure: %.3fhPa\n", data.data[1]/100);
-			break;
-
-		case ID_IMU:
-			printk("acc: %.3f, %.3f, %.3f", data.data[0], data.data[1], data.data[2]);
-			printk(" | gyro: %.3f, %.3f, %.3f", data.data[3], data.data[4], data.data[5]);
-			printk(" | mag: %.3f, %.3f, %.3f\n", data.data[6], data.data[7], data.data[8]);
-			break;
-		
-		default:
-			break;
-		}*/
-
-		switch (data_buf->id)
-		{
-		case ID_TEMP_BARO:
-			t_baro = (data_buf->time - time_last_baro) * alpha + t_baro * (1 - alpha);
-			time_last_baro = data_buf->time;
-			break;
-
-		case ID_IMU:
-			t_imu = (data_buf->time - time_last_imu) * alpha + t_imu * (1 - alpha);
-			time_last_imu = data_buf->time;
-			break;
-
-		/*case ID_PPG:
-			//t_imu = (data_buf->time - time_last_imu) * alpha + t_imu * (1 - alpha);
-			//time_last_imu = data_buf->time;
-			printk("%f, %f\n", data_buf->data[0], data_buf->data[1]);
-
-			break;*/
-		
-		default:
-			break;
+		if (msg.stream) {
+			k_work_submit(&gatt_sensor_work);
 		}
-
-		count ++;
-
-		if (count >= 100) {
-			count = 0;
-			printk("imu: %.3f, baro: %.3f, enabled: %i\n", 1000 / t_imu, 1000 / t_baro, notify_enabled);
-		}
-
-		//if (notify_sensor_enabled) ret = send_sensor_data();
-		//ERR_CHK(ret);
-
-		/*idx_data++;
-
-		if (idx_data == N_COLLECT) {
-			idx_data = 0;
-
-			//k_work_submit(&gatt_sensor_work);
-			if (notify_sensor_enabled) ret = send_sensor_data();
-		}*/
-
-		k_work_submit(&gatt_sensor_work);
-
-		//if (notify_sensor_enabled) ret = send_sensor_data();
-		
-		//send_sensor_data();
 
 		STACK_USAGE_PRINT("sensor_msg_thread", &thread_data);
 	}
