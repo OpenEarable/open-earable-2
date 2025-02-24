@@ -164,6 +164,7 @@ dmic_dev: &pdm0 {
 	pinctrl-0 = <&i2c1_default>;
 	pinctrl-1 = <&i2c1_sleep>;
 	pinctrl-names = "default", "sleep";
+	clock-frequency = <I2C_BITRATE_FAST>;  // 400 kHz
 
 	bq27220: bq27220@55 {
 		compatible = "ti,bq27220";
@@ -198,6 +199,7 @@ dmic_dev: &pdm0 {
 	pinctrl-0 = <&i2c2_default>;
 	pinctrl-1 = <&i2c2_sleep>;
 	pinctrl-names = "default", "sleep";
+	clock-frequency = <I2C_BITRATE_FAST>;  // 400 kHz
 };
 
 &i2c3 {
@@ -206,6 +208,7 @@ dmic_dev: &pdm0 {
 	pinctrl-0 = <&i2c3_default>;
 	pinctrl-1 = <&i2c3_sleep>;
 	pinctrl-names = "default", "sleep";
+	clock-frequency = <I2C_BITRATE_FAST_PLUS>;  // 1000 kHz
 };
 
 &uart0 {
