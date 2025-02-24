@@ -2,9 +2,12 @@
 
 #include "openearable_common.h"
 
-BQ27220 fuel_gauge(&Wire);
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(bq27220, LOG_LEVEL_DBG);
 
-BQ27220::BQ27220(TwoWire * wire) : _pWire(wire) {
+BQ27220 fuel_gauge(&I2C1);
+
+BQ27220::BQ27220(TWIM * i2c) : _i2c(i2c) {
         
 }
 
@@ -29,7 +32,7 @@ int BQ27220::begin() {
                 return ret;
         }
 
-        _pWire->begin();
+        _i2c->begin();
 
         last_i2c = micros();
 
@@ -55,28 +58,18 @@ int BQ27220::set_wakeup_int() {
 }
 
 bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
+        int ret;
         uint64_t now = micros();
         int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
 
-        _pWire->aquire();
+        _i2c->aquire();
 
-        _pWire->beginTransmission(address);
-        _pWire->write(reg);
-        if (_pWire->endTransmission() != 0) {
-                _pWire->release();
-                return false;
-        }
-        _pWire->requestFrom(address, len);
+        ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
+        if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
-        for (uint16_t i = 0; i < len; i++) {
-            buffer[i] = _pWire->read();
-        }
-
-        int ret = _pWire->endTransmission();
-
-        _pWire->release();
+        _i2c->release();
 
         last_i2c = micros();
 
@@ -84,20 +77,18 @@ bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 }
 
 void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
+        int ret;
         uint64_t now = micros();
         int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
 
-        _pWire->aquire();
+        _i2c->aquire();
 
-        _pWire->beginTransmission(address);
-        _pWire->write(reg);
-        for(uint16_t i = 0; i < len; i ++)
-            _pWire->write(buffer[i]);
-        _pWire->endTransmission();
+        ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
+        if (ret) LOG_WRN("I2C write failed: %d\n", ret);
 
-        _pWire->release();
+        _i2c->release();
 
         last_i2c = micros();
 }
