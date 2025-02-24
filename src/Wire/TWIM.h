@@ -27,7 +27,7 @@ class TWIM
 {
   public:
     TWIM(const struct device * master);
-    virtual void begin(uint32_t speed = I2C_SPEED_FAST);
+    virtual void begin();
     virtual void end();
 
     virtual void setClock(uint32_t speed = I2C_SPEED_FAST);
@@ -41,6 +41,6 @@ class TWIM
     struct k_mutex mutex;
 };
 
-extern TWIM I2C;
 extern TWIM I2C1;
 extern TWIM I2C2;
+extern TWIM I2C3;
