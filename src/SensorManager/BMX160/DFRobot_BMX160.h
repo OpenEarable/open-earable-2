@@ -9,7 +9,8 @@
  * @date  2021-10-20
  * @url https://github.com/DFRobot/DFRobot_BMX160
  */
-#include <Wire.h>
+//#include <Wire.h>
+#include <TWIM.h>
 
 #define LITTLE_ENDIAN 1
 
@@ -975,7 +976,7 @@ typedef enum{
 
 class DFRobot_BMX160{
   public:
-    DFRobot_BMX160(TwoWire *pWire=&Wire);
+    DFRobot_BMX160(TWIM *i2c=&I2C2);
     
     /**
      * @fn begin
@@ -1102,12 +1103,12 @@ class DFRobot_BMX160{
 
     float accelRange = BMX160_ACCEL_MG_LSB_2G * 9.8;
     float gyroRange = BMX160_GYRO_SENSITIVITY_250DPS;
-    uint8_t _addr = 0x68;
+    uint8_t _addr = DT_REG_ADDR(DT_NODELABEL(bmx160));
     
     sBmx160Dev_t* Obmx160;
 
     sBmx160SensorData_t* Omagn;
     sBmx160SensorData_t* Oaccel;
     sBmx160SensorData_t* Ogyro; 
-    TwoWire *_pWire;
+    TWIM *_i2c;
 };
