@@ -68,6 +68,7 @@ void Temp::sensor_timer_handler(struct k_timer *dummy) {
 void Temp::start(k_timeout_t t) {
     if (!_active) return;
 
+    temp.setSampleRate(32);
     temp.continuousMode();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
