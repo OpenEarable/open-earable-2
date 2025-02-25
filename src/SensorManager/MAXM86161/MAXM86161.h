@@ -4,7 +4,8 @@
 #ifndef __MAXM86161_H_
 #define __MAXM86161_H_
 
-#include <Wire.h>
+//#include <Wire.h>
+#include <TWIM.h>
 #include <stdint.h>
 
 
@@ -38,12 +39,12 @@ class MAXM86161 {
     /** @brief Constructor
      * @param i2c Pointer for bus for communication via I2C
     */
-    MAXM86161(TwoWire &i2c);
+    MAXM86161(TWIM * i2c);
 
     /** @brief Destructor */
     ~MAXM86161(void);
     /** @brief Initialization of the object */
-    int init(enum sample_rate sample_rate = SR_399_610_SPS);
+    int init(enum sample_rate sample_rate = SR_199_805_SPS);
     /** @brief Start collecting data samples */
     int start(void);
     /** @brief Stop collecting data samples */
@@ -90,7 +91,9 @@ class MAXM86161 {
     int read_interrupt_state(int &value);
 
 private:
-    TwoWire & _i2cPort = Wire1;
+    TWIM * _i2c = &I2C2;
+
+    uint8_t _addr = DT_REG_ADDR(DT_NODELABEL(maxm86161));
 
     // void _set_led_sequence(char sequence);
 

@@ -37,7 +37,8 @@
 
 #include <stdio.h>
 #include "bma5.h"
-#include "Wire.h"
+//#include "Wire.h"
+#include <TWIM.h>
 
 /******************************************************************************/
 /*!                Macro definition                                           */
@@ -152,7 +153,7 @@ public:
     int stop();
     int read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data);
 private:
-    TwoWire & _i2cPort = Wire2;
+    //TWIM & _i2cPort = I2C3;
 
     struct bma5_dev dev;
     struct bma5_fifo_conf fifo_conf;

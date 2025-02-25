@@ -20,9 +20,9 @@ uint32_t eq_param_bank1[50] =
     0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000
 };
 
-ADAU1860 dac(&Wire1);
+ADAU1860 dac(&I2C2);
 
-ADAU1860::ADAU1860(TwoWire * wire) : _pWire(wire) {
+ADAU1860::ADAU1860(TWIM * i2c) : _i2c(i2c) {
 
 }
 
@@ -38,7 +38,7 @@ int ADAU1860::begin() {
                 return ret;
         }
 
-        _pWire->begin();
+        _i2c->begin();
 
         //k_msleep(1);
 
@@ -308,12 +308,8 @@ int ADAU1860::soft_reset(bool full_reset) {
 
 bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
         int ret;
-        //uint64_t now = micros();
-        //int delay = MIN(ADAU1860_I2C_TIMEOUT_US - (int)(now - last_i2c), ADAU1860_I2C_TIMEOUT_US);
-
-        //if (delay > 0) k_usleep(delay);
-
-        _pWire->aquire();
+        
+        _i2c->aquire();
 
         // 32-Bit-Adresse in ein Byte-Array umwandeln (Big-Endian)
         uint8_t addr_buf[4] = {
@@ -324,16 +320,14 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
         };
 
         // Adresse senden und Daten lesen
-        ret = i2c_write_read(_pWire->master, address, addr_buf, sizeof(addr_buf), buffer, len);
+        ret = i2c_write_read(_i2c->master, address, addr_buf, sizeof(addr_buf), buffer, len);
         if (ret) {
                 LOG_WRN("I2C read failed: %d\n", ret);
-                _pWire->release();
-                return ret;
         }
-        _pWire->release();
+        _i2c->release();
         //last_i2c = micros();
 
-        return true;  // Erfolg
+        return (ret == 0);  // Erfolg
 
 }
 
@@ -347,7 +341,7 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
 
         //if (delay > 0) k_usleep(delay);
 
-        _pWire->aquire();
+        _i2c->aquire();
 
         // 32-Bit-Adresse in ein Byte-Array umwandeln (Big-Endian)
         buf[0] = (uint8_t)((reg >> 24) & 0xFF);
@@ -355,19 +349,13 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         buf[2] = (uint8_t)((reg >> 8) & 0xFF);
         buf[3] = (uint8_t)(reg & 0xFF);
 
-        // Daten anhängen
+        // TODO: replace with burst write
         memcpy(&buf[4], buffer, len);
 
-        // Schreibe Adresse und Daten an das I2C-Gerät
-        int ret = i2c_write(_pWire->master, buf, len + sizeof(uint32_t), address);
+        int ret = i2c_write(_i2c->master, buf, len + sizeof(uint32_t), address);
         if (ret) {
                 LOG_WRN("I2C write failed: %d\n", ret);
-                return; // ret;
         }
 
-        _pWire->release();
-
-        //last_i2c = micros();
-
-        //return 0;  // Erfolg
+        _i2c->release();
 }

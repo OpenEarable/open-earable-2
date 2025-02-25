@@ -10,7 +10,7 @@ char databuffer[32*BYTES_PER_CH*LED_NUM];
 // Constructor
 /*****************************************************************************/
 /*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*/
-MAXM86161::MAXM86161(TwoWire &i2c):_i2cPort(i2c)
+MAXM86161::MAXM86161(TWIM * i2c):_i2c(i2c)
 {
     // Empty block
 }
@@ -360,42 +360,30 @@ int MAXM86161::new_value_read_off(void)
 // Function to read from a registry
 int MAXM86161::_read_from_reg(int address, int &data) {
     int ret;
-    _i2cPort.aquire();
 
-    _i2cPort.beginTransmission(PPG_ADDR);
-    _i2cPort.write(address);
-    ret = _i2cPort.endTransmission(false); //false
+    _i2c->aquire();
 
-    if (ret != 0)  LOG_WRN("I2C Error read: End transmission");
+    uint8_t buffer;
+    ret = i2c_burst_read(_i2c->master, _addr, address, &buffer, sizeof(buffer));
+    if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
-    _i2cPort.requestFrom(PPG_ADDR, 1); // Request 1 byte
-    if (_i2cPort.available()) {
-        data = _i2cPort.read();
-        _i2cPort.release();
-        return 0;
-    }
+    data = buffer;
 
-    data = 0;
-
-    _i2cPort.release();
-    return -1; //Fail
+    _i2c->release();
+    return ret; //Fail
 }
 
 // Function to write to a registry
 // TODO Check about mfio -> might not need it.
 int MAXM86161::_write_to_reg(int address, int value) {
-    _i2cPort.aquire();
-    int ret;
 
-    _i2cPort.beginTransmission(PPG_ADDR);
-    _i2cPort.write(address);
-    _i2cPort.write(value);
-    ret = _i2cPort.endTransmission();
+    _i2c->aquire();
 
-    if (ret != 0) LOG_WRN("I2C Error write: End transmission");
+    uint8_t buffer = value;
+    int ret = i2c_burst_write(_i2c->master, _addr, address, &buffer, sizeof(buffer));
+    if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
-    _i2cPort.release();
-    //k_usleep(1000);
+    _i2c->release();
 
     return 0;
 }
@@ -405,30 +393,14 @@ int MAXM86161::_read_block(int address, int length, uint8_t *data)
 {
     int ret;
 
-    _i2cPort.aquire();
+    _i2c->aquire();
 
-    _i2cPort.beginTransmission(PPG_ADDR);
-    _i2cPort.write(address);
-    ret = _i2cPort.endTransmission(false); // false
+    ret = i2c_burst_read(_i2c->master, _addr, address, data, length);
+    if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
-    if (ret != 0) LOG_WRN("I2C Error block read: End transmission");
+    _i2c->release();
 
-    _i2cPort.requestFrom(PPG_ADDR, length);
-
-    for (int i = 0; i < length; i++) {
-        if (_i2cPort.available()) data[i] = _i2cPort.read();
-        else {
-            // _i2cPort.endTransmission();
-            _i2cPort.release();
-            LOG_WRN("I2C Error block read: Not enough data (%i/%i)", i , length);
-            return -1;
-        }
-    }
-
-    // _i2cPort.endTransmission();
-    _i2cPort.release();
-
-    return 0;
+    return ret;
 }
 
 int MAXM86161::_set_one_bit(int current_bits, int position)

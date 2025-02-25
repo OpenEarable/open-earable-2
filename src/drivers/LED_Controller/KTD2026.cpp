@@ -9,7 +9,7 @@
 LOG_MODULE_REGISTER(LED, CONFIG_MAIN_LOG_LEVEL);
 
 bool KTD2026::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
-        _pWire->aquire();
+        /*_pWire->aquire();
         _pWire->beginTransmission(address);
         _pWire->write(reg);
         if (_pWire->endTransmission(false) != 0) {
@@ -24,19 +24,33 @@ bool KTD2026::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         int ret = _pWire->endTransmission();
 
-        _pWire->release();
+        _pWire->release();*/
+
+        _i2c->aquire();
+
+        int ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
+        if (ret) LOG_WRN("I2C read failed: %d\n", ret);
+
+        _i2c->release();
 
         return (ret == 0);
 }
 
 void KTD2026::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
-        _pWire->aquire();
+        /*_pWire->aquire();
         _pWire->beginTransmission(address);
         _pWire->write(reg);
         for(uint16_t i = 0; i < len; i ++)
             _pWire->write(buffer[i]);
         _pWire->endTransmission();
-        _pWire->release();
+        _pWire->release();*/
+
+        _i2c->aquire();
+
+        int ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
+        if (ret) LOG_WRN("I2C write failed: %d\n", ret);
+
+        _i2c->release();
 }
 
 void KTD2026::begin() {
@@ -45,7 +59,7 @@ void KTD2026::begin() {
         ret = pm_device_runtime_get(ls_1_8);
         ret = pm_device_runtime_get(ls_3_3);
 
-        _pWire->begin();
+        _i2c->begin();
 
         reset();
 }

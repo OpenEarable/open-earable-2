@@ -4,7 +4,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 
-#include <Wire.h>
+//#include <Wire.h>
+#include <TWIM.h>
 
 #define OUT_VOLUME_DEFAULT 0x60
 #define MAX_VOLUME_REG_VAL 0xB0
@@ -370,7 +371,7 @@ public:
         DAC_NOISE_CTRL1 = 0x4000CC12     // DAC Noise Control1
     };
 
-    ADAU1860(TwoWire * wire);
+    ADAU1860(TWIM * i2c);
 
     int begin();
     int end();
@@ -393,7 +394,7 @@ private:
 
     uint64_t last_i2c;
 
-    TwoWire *_pWire;
+    TWIM *_i2c;
 
     //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
 };

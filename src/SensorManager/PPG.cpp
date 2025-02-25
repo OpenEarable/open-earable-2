@@ -8,7 +8,7 @@ LOG_MODULE_DECLARE(MAXM86161);
 
 PPG PPG::sensor;
 
-MAXM86161 PPG::ppg(Wire1);
+MAXM86161 PPG::ppg(&I2C2);
 
 static struct sensor_msg msg_ppg;
 

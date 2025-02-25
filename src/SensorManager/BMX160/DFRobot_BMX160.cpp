@@ -266,13 +266,12 @@ void DFRobot_BMX160::readReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 
 bool DFRobot_BMX160::scan()
 {
-   /*_pWire->aquire();
-   _pWire->beginTransmission(_addr);
-   int ret = _pWire->endTransmission();
-   _pWire->release();
-   return (ret == 0);*/
+   _i2c->aquire();
 
    uint8_t dummy = 0;
    int ret = i2c_write(_i2c->master, &dummy, 0, _addr);
+
+    _i2c->release();
+    
    return (ret == 0);
 }

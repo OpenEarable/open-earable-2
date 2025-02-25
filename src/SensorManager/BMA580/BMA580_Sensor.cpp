@@ -47,12 +47,12 @@ LOG_MODULE_REGISTER(BMA580, 3);
 
 struct BMA580_dev_inf {
     uint8_t addr;
-    TwoWire * i2c_dev;
+    TWIM * i2c_dev;
 };
 
 BMA580_dev_inf dev_info = {
     .addr = BMA5_I2C_ADDRESS,
-    .i2c_dev = &Wire2
+    .i2c_dev = &I2C3
 };
 
 /*!
@@ -65,24 +65,8 @@ BMA5_INTF_RET_TYPE bma5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t l
 
     dev_info->i2c_dev->aquire();
 
-    dev_info->i2c_dev->beginTransmission(dev_info->addr);
-    dev_info->i2c_dev->write(reg_addr);
-    ret = dev_info->i2c_dev->endTransmission(false); // false
-
-    if (ret != 0) LOG_WRN("I2C Error block read: End transmission");
-
-    dev_info->i2c_dev->requestFrom(dev_info->addr, len);
-
-    for (int i = 0; i < len; i++) {
-        if (dev_info->i2c_dev->available()) reg_data[i] = dev_info->i2c_dev->read();
-        else {
-            dev_info->i2c_dev->release();
-            LOG_WRN("I2C Error block read: Not enough data (%i/%i)", i , len);
-            return -1;
-        }
-    }
-
-    if (dev_info->i2c_dev->available()) LOG_WRN("Buffer not empty: %i  items", dev_info->i2c_dev->available());
+    ret = i2c_burst_read(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
+    if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
     dev_info->i2c_dev->release();
     return 0;
@@ -96,11 +80,10 @@ BMA5_INTF_RET_TYPE bma5_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uin
     BMA580_dev_inf * dev_info = (BMA580_dev_inf *) intf_ptr; 
 
     dev_info->i2c_dev->aquire();
-    dev_info->i2c_dev->beginTransmission(dev_info->addr);
-    dev_info->i2c_dev->write(reg_addr);
-    for(uint16_t i = 0; i < len; i ++)
-        dev_info->i2c_dev->write(reg_data[i]);
-    dev_info->i2c_dev->endTransmission();
+    
+    int ret = i2c_burst_write(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
+    if (ret) LOG_WRN("I2C write failed: %d\n", ret);
+
     dev_info->i2c_dev->release();
 
     return 0;
@@ -150,12 +133,12 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
         {
             printf("I2C Interface \n");
 
-            dev_info.addr = BMA5_I2C_ADDRESS;
+            dev_info.addr = DT_REG_ADDR(DT_NODELABEL(bma580)); //BMA5_I2C_ADDRESS;
             bma5->bus_read = bma5_i2c_read;
             bma5->bus_write = bma5_i2c_write;
             bma5->intf = BMA5_I2C_INTF;
 
-            dev_info.i2c_dev->begin(I2C_SPEED_FAST_PLUS); //I2C_SPEED_FAST_PLUS
+            dev_info.i2c_dev->begin(); //I2C_SPEED_FAST_PLUS
         }
 
         /* Holds the I2C device addr or SPI chip selection */

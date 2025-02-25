@@ -118,9 +118,7 @@ static void gatt_work_handler(struct k_work * work) {
 	//send_sensor_data();
 	if (connection_complete && notify_enabled) {
 		int ret = send_sensor_data();
-		//if (ret == 0) printk("data send\n");
-		if (ret != 0) printk("Failed to send data.\n");
-		//ERR_CHK(ret);
+		if (ret != 0) LOG_WRN("Failed to send data.\n");
 	}
 }
 
