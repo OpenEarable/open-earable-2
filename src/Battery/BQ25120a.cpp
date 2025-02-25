@@ -102,7 +102,7 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         last_i2c = micros();
 
-        return ret;
+        return ret == 0;
 }
 
 void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
@@ -146,7 +146,7 @@ uint8_t BQ25120a::read_charging_state() {
         uint8_t status = 0;
         bool ret = readReg(registers::CTRL, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        //if (!ret) printk("failed to read\n");
 
         return status;
 }
@@ -155,7 +155,7 @@ uint8_t BQ25120a::read_fault() {
         uint8_t status = 0;
         bool ret = readReg(registers::FAULT, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        //if (!ret) printk("failed to read\n");
 
         return status;
 }
@@ -164,7 +164,7 @@ uint8_t BQ25120a::read_ts_fault() {
         uint8_t status = 0;
         bool ret = readReg(registers::TS_FAULT, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        //if (!ret) printk("failed to read\n");
 
         return status;
 }
@@ -175,7 +175,7 @@ chrg_state BQ25120a::read_charging_control() {
 
         chrg_state chrg;
 
-        if (!ret) printk("failed to read\n");
+        //if (!ret) printk("failed to read\n");
 
         chrg.enabled = !(status & 0x2);
         chrg.high_impedance = status & 0x1;
@@ -291,7 +291,7 @@ chrg_state BQ25120a::read_termination_control() {
 
         struct chrg_state chrg;
 
-        if (!ret) printk("failed to read\n");
+        // if (!ret) printk("failed to read\n");
 
         chrg.enabled = status & 0x2;
         //chrg.high_impedance = status & 0x1;
@@ -341,7 +341,7 @@ ilim_uvlo BQ25120a::read_uvlo_ilim() {
 
         bool ret = readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        // if (!ret) printk("failed to read\n");
 
         param.uvlo_v = CLAMP(3.0f- 0.2f * ((status & 0x7) - 2), 2.2, 3.0);
         param.lim_mA = 50.f + 50.f * ((status >> 3) & 0x7);
@@ -408,7 +408,7 @@ button_state BQ25120a::read_button_state() {
         uint8_t status = 0;
         bool ret = readReg(registers::BTN_CTRL, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        // if (!ret) printk("failed to read\n");
 
         btn.wake_1 = status & 0x2;
         btn.wake_2 = status & 0x1;
