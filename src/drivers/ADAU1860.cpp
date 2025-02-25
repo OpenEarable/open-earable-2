@@ -360,7 +360,6 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         int ret = i2c_write(_pWire->master, buf, len + sizeof(uint32_t), address);
         if (ret) {
                 LOG_WRN("I2C write failed: %d\n", ret);
-                return; // ret;
         }
 
         _pWire->release();
