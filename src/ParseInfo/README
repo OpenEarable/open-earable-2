@@ -124,9 +124,17 @@ enum ParseType {
 | uint8  | Frequency Packet |
 
 - `Available Options`: Bitmask of available options for the sensor
-    - `0x01`: Available Frequencies defined
-    - `0x02`: Streaming
-    - `0x04`: Store on device
+    - `0x01`: Streaming
+    - `0x02`: Store on device
+    - `0x10`: Available Frequencies defined
+
+```c++
+enum SensorConfigOptions {
+    SENSOR_CONFIG_STREAMING = 0x01,
+    SENSOR_CONFIG_STORAGE = 0x02,
+    SENSOR_CONFIG_FREQ = 0x10
+};
+```
 
 #### Frequency Packet:
 
