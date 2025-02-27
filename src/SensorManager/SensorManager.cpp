@@ -15,13 +15,16 @@
 #include <SensorScheme.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(sensor_manager);
+#include "../SD_Card/SDLogger/SDLogger.hpp"
+#include <string>
 
 extern struct k_msgq sensor_queue;
 // extern k_tid_t sensor_publish;
 
 EdgeMlSensor * get_sensor(enum sensor_id id);
 
-//SensorManager SensorManager::manager = SensorManager();
+// Track number of active sensors
+static int active_sensor_count = 0;
 
 static sensor_manager_state _state;
 
@@ -85,6 +88,10 @@ void start_sensor_manager() {
 	}
 
 	_state = RUNNING;
+
+	// Start SDLogger with timestamp-based filename
+	std::string filename = "sensor_log_" + std::to_string(k_uptime_get());
+	//SDLogger::get_instance().begin(filename);
 }
 
 void stop_sensor_manager() {
@@ -96,9 +103,14 @@ void stop_sensor_manager() {
 	Temp::sensor.stop();
 	BoneConduction::sensor.stop();
 
+	active_sensor_count = 0;
+
 	k_thread_suspend(sensor_pub_id);
 
 	_state = SUSPENDED;
+
+	// End SDLogger and close current log file
+	//SDLogger::get_instance().end();
 }
 
 EdgeMlSensor * get_sensor(enum sensor_id id) {
