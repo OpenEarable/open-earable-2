@@ -99,11 +99,81 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 
 #define SENSOR_COUNT 5
 SensorScheme sensors[SENSOR_COUNT] = {
-    { .name = "BOSCH_BMX160", .id = ID_IMU, .groupCount = IMU_GROUP_COUNT, .groups = imuGroups },
-    { .name = "ANALOG_DEVICES_MAXM86161EFD+", .id = ID_PPG, .groupCount = PPG_GROUP_COUNT, .groups = ppgGroups },
-    { .name = "MELEXIS_MLX90632", .id = ID_OPTTEMP, .groupCount = OPTIC_TEMP_GROUP_COUNT, .groups = opticTemperatureGroups },
-    { .name = "BOSCH_BMP388", .id = ID_TEMP_BARO, .groupCount = BARO_GROUP_COUNT, .groups = baroGroups },
-    { .name = "BOSCH_BMA580", .id = ID_BONE_CONDUCTION, .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT, .groups = boneConductionIMUGroups },
+    {
+        .name = "BOSCH_BMX160",
+        .id = ID_IMU,
+        .groupCount = IMU_GROUP_COUNT,
+        .groups = imuGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = 7,
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 3,
+                .frequencies = (float[]) { 12.5, 25.0, 50, 100, 200, 400, 800 },
+            },
+        },
+    },
+    {
+        .name = "ANALOG_DEVICES_MAXM86161EFD+",
+        .id = ID_PPG,
+        .groupCount = PPG_GROUP_COUNT,
+        .groups = ppgGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = 16,
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 12,
+                .frequencies = (float[]) { 25, 50, 84, 100, 200, 400, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096 },
+            },
+        },
+    },
+    {
+        .name = "MELEXIS_MLX90632",
+        .id = ID_OPTTEMP,
+        .groupCount = OPTIC_TEMP_GROUP_COUNT,
+        .groups = opticTemperatureGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = 8,
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 7,
+                .frequencies = (float[]) { 0.5, 1, 2, 4, 8, 16, 32, 64 },
+            },
+        },
+    },
+    {
+        .name = "BOSCH_BMP388",
+        .id = ID_TEMP_BARO,
+        .groupCount = BARO_GROUP_COUNT,
+        .groups = baroGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = 8,
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 7,
+                .frequencies = (float[]) { 0.5, 1, 2, 4, 8, 16, 32, 64 },
+            },
+        },
+    },
+    {
+        .name = "BOSCH_BMA580",
+        .id = ID_BONE_CONDUCTION,
+        .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT,
+        .groups = boneConductionIMUGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = 10,
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 6,
+                .frequencies = (float[]) { 12.5, 25, 50, 100, 200, 400, 800, 1600, 3200, 6400 },
+            },
+        }, 
+    },
 };
 
 ParseInfoScheme defaultSensors = {

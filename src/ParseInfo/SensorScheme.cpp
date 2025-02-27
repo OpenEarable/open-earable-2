@@ -30,6 +30,73 @@ BT_GATT_SERVICE_DEFINE(parseInfo_service,
                 read_parse_info, NULL, parseInfoScheme)
 );
 
+size_t getFrequencyOptionsSchemeSize(FrequencyOptions* options) {
+    size_t size = 0;
+    size += 3; // frequencyCount, defaultFrequencyIndex, maxBleFrequencyIndex
+    size += options->frequencyCount * sizeof(float); // frequencies
+
+    return size;
+}
+
+ssize_t serializeFrequencyOptions(FrequencyOptions* options, char* buffer, size_t bufferSize) {
+    size_t size = getFrequencyOptionsSchemeSize(options);
+    if (size > bufferSize) {
+        return -1;
+    }
+
+    // frequencyCount
+    char* bufferStart = buffer;
+    *buffer = options->frequencyCount;
+    buffer++;
+
+    // defaultFrequencyIndex
+    *buffer = options->defaultFrequencyIndex;
+    buffer++;
+
+    // maxBleFrequencyIndex
+    *buffer = options->maxBleFrequencyIndex;
+    buffer++;
+
+    // frequencies
+    memcpy(buffer, options->frequencies, options->frequencyCount * sizeof(float));
+    buffer += options->frequencyCount * sizeof(float);
+
+    return buffer - bufferStart;
+}
+
+size_t getSensorOptionsSchemeSize(SensorConfigOptions* options) {
+    size_t size = 0;
+    size += 1; // availableOptions
+    if (options->availableOptions & FREQUENCIES_DEFINED) {
+        size += getFrequencyOptionsSchemeSize(&options->frequencyOptions);
+    }
+
+    return size;
+}
+
+ssize_t serializeSensorOptionsScheme(SensorConfigOptions* options, char* buffer, size_t bufferSize) {
+    size_t size = getSensorOptionsSchemeSize(options);
+    if (size > bufferSize) {
+        return -1;
+    }
+
+    // availableOptions
+    char* bufferStart = buffer;
+    *buffer = options->availableOptions;
+    buffer++;
+
+    // frequencyOptions
+    if (options->availableOptions & FREQUENCIES_DEFINED) {
+        ssize_t frequencySize = serializeFrequencyOptions(&options->frequencyOptions, buffer, bufferSize - (buffer - bufferStart));
+        if (frequencySize < 0) {
+            return -1;
+        }
+        buffer += frequencySize;
+    }
+
+    return buffer - bufferStart;
+}
+
 size_t getSensorSchemeSize(SensorScheme* scheme) {
     size_t size = 0;
     size += 1; // id
@@ -38,6 +105,7 @@ size_t getSensorSchemeSize(SensorScheme* scheme) {
     for (size_t i = 0; i < scheme->groupCount; i++) {
         size += getSensorComponentGroupSize(&scheme->groups[i]);
     }
+    size += getSensorOptionsSchemeSize(&scheme->configOptions);
 
     return size;
 }
@@ -76,6 +144,13 @@ ssize_t serializeSensorScheme(SensorScheme* scheme, char* buffer, size_t bufferS
         }
         buffer += groupSize;
     }
+
+    // configOptions
+    ssize_t optionsSize = serializeSensorOptionsScheme(&scheme->configOptions, buffer, bufferSize - (buffer - bufferStart));
+    if (optionsSize < 0) {
+        return -1;
+    }
+    buffer += optionsSize;
 
     return buffer - bufferStart;
 }
