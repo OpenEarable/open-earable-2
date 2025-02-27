@@ -86,10 +86,8 @@ struct sensor_msg {
 
 struct sensor_config {
     uint8_t sensorId;
-    float sampleRate;
-	//bool sd;
-	//bool stream;
-    uint32_t latency;
+    uint8_t sampleRateIndex;
+	uint8_t storageOptions;
 } __attribute__((packed));
 
 #endif

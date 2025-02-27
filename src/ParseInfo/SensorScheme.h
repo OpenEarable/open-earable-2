@@ -48,4 +48,9 @@ struct ParseInfoScheme {
 
 int initParseInfoService(ParseInfoScheme* scheme);
 
+SensorScheme* getSensorSchemeForId(uint8_t id);
+
+float getSampleRateForSensor(uint8_t id, uint8_t frequencyIndex);
+float getSampleRateForSensor(SensorScheme* sensorScheme, uint8_t frequencyIndex);
+
 #endif
