@@ -260,7 +260,7 @@ int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_conf, struct bma5
 int BMA580::init(int odr) {
     int8_t rslt;
     struct bma580_int_map int_map, get_int_map;
-    struct bma5_fifo_conf fifo_conf;
+    //struct bma5_fifo_conf fifo_conf;
 
     /* Assign context parameter selection */
     enum bma5_context context;

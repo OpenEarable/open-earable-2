@@ -155,14 +155,11 @@ public:
 private:
     //TWIM & _i2cPort = I2C3;
 
-    struct bma5_dev dev;
-    struct bma5_fifo_conf fifo_conf;
-
-    //struct bma580_int_map int_map;
-    //struct bma5_fifo_conf fifo_conf;
-
     int _odr;
 
+    struct bma5_dev dev;
+    struct bma5_fifo_conf fifo_conf;
+    
     /*! Number of bytes of FIFO data */
     uint8_t fifo_data[BMA580_FIFO_RAW_DATA_BUFFER_SIZE] = { 0 };
 
