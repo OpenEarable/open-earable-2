@@ -215,34 +215,3 @@ int initParseInfoService(ParseInfoScheme* scheme) {
 
     return 0;
 }
-
-SensorScheme* getSensorSchemeForId(uint8_t id) {
-    for (size_t i = 0; i < parseInfoSchemeStruct->sensorCount; i++) {
-        if (parseInfoSchemeStruct->sensors[i].id == id) {
-            return &parseInfoSchemeStruct->sensors[i];
-        }
-    }
-
-    return NULL;
-}
-
-float getSampleRateForSensor(uint8_t id, uint8_t frequencyIndex) {
-    SensorScheme* scheme = getSensorSchemeForId(id);
-    if (scheme == NULL) {
-        return -1;
-    }
-
-    return getSampleRateForSensor(scheme, frequencyIndex);
-}
-
-float getSampleRateForSensor(SensorScheme* sensorScheme, uint8_t frequencyIndex) {
-    if (!(sensorScheme->configOptions.availableOptions & FREQUENCIES_DEFINED)) {
-        return -1;
-    }
-
-    if (frequencyIndex >= sensorScheme->configOptions.frequencyOptions.frequencyCount) {
-        return -1;
-    }
-
-    return sensorScheme->configOptions.frequencyOptions.frequencies[frequencyIndex];
-}
