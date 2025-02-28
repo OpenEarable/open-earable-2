@@ -14,6 +14,15 @@ DFRobot_BMX160 IMU::imu(&I2C2);
 
 IMU IMU::sensor;
 
+const sample_rate_setting IMU::sample_rates[IMU::num_sample_rates] = {
+    {BMX160_GYRO_ODR_25HZ,  25},   // 25 Hz
+    {BMX160_GYRO_ODR_50HZ,  50},   // 50 Hz
+    {BMX160_GYRO_ODR_100HZ, 100},  // 100 Hz
+    {BMX160_GYRO_ODR_200HZ, 200},  // 200 Hz
+    {BMX160_GYRO_ODR_400HZ, 400},  // 400 Hz
+    {BMX160_GYRO_ODR_800HZ, 800},  // 800 Hz
+};
+
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
 
@@ -82,8 +91,15 @@ bool IMU::init(struct k_msgq * queue) {
 	return true;
 }
 
-void IMU::start(k_timeout_t t) {
+void IMU::start(int sample_rate_idx) {
 	if (!_active) return;
+
+	sample_rate_setting setting = sample_rates[sample_rate_idx];
+    k_timeout_t t = K_USEC(1e6 / setting.sample_rate);
+    
+    //ppg.set_interrogation_rate(setting.reg_val);
+    //ppg.start();
+
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 

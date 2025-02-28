@@ -148,7 +148,7 @@ bool bma5_check_rslt(const char api_name[], int8_t rslt);
 
 class BMA580 {
 public:
-    int init();
+    int init(int odr = BMA5_ACC_ODR_HZ_100);
     int start();
     int stop();
     int read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data);
@@ -157,6 +157,11 @@ private:
 
     struct bma5_dev dev;
     struct bma5_fifo_conf fifo_conf;
+
+    //struct bma580_int_map int_map;
+    //struct bma5_fifo_conf fifo_conf;
+
+    int _odr;
 
     /*! Number of bytes of FIFO data */
     uint8_t fifo_data[BMA580_FIFO_RAW_DATA_BUFFER_SIZE] = { 0 };

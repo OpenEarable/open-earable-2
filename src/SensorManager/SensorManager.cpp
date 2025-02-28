@@ -56,5 +56,6 @@ void config_sensor(struct sensor_config * config) {
 	EdgeMlSensor * sensor = get_sensor((enum sensor_id) config->sensorId);
 
 	if (config->sampleRate == 0) sensor->stop();
-	else if (sensor->init(&sensor_queue)) sensor->start(t);
+	//else if (sensor->init(&sensor_queue)) sensor->start(t);
+	else if (sensor->init(&sensor_queue)) sensor->start(0);
 }

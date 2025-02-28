@@ -22,7 +22,7 @@ public:
     static PPG sensor;
 
     bool init(struct k_msgq * queue) override;
-    void start(k_timeout_t t) override;
+    void start(int sample_rate_idx) override;
     void stop() override;
 
     void reset();
@@ -34,6 +34,9 @@ private:
     static void update_sensor(struct k_work *work);
 
     ppg_sample data_buffer[64];
+
+    const static int num_sample_rates = 16;
+    const static sample_rate_setting sample_rates[num_sample_rates];
 
     bool _active = false;
 };

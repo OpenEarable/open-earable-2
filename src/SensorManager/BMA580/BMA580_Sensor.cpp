@@ -181,7 +181,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
 
     /* Set accel configurations */
     //acc_cfg.acc_odr = BMA5_ACC_ODR_HZ_6K4;
-	acc_cfg.acc_odr = BMA5_ACC_ODR_HZ_100;
+	acc_cfg.acc_odr = _odr;
     acc_cfg.acc_bwp = BMA5_ACC_BWP_OSR4_AVG1;
     acc_cfg.power_mode = BMA5_POWER_MODE_HPM;
 
@@ -193,14 +193,14 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     rslt = bma5_set_acc_conf(&acc_cfg, dev);
     bma5_check_rslt("bma5_get_acc_conf", rslt);
 
-    LOG_INF("Accel configurations");
-    LOG_INF("ODR : %s\t", enum_to_string(BMA5_ACC_ODR_HZ_6K4));
+    /*LOG_INF("Accel configurations");
+    LOG_INF("ODR : %s\t", enum_to_string(acc_cfg.acc_odr));
     LOG_INF("Bandwidth : %s\t", enum_to_string(BMA5_ACC_BWP_NORM_AVG4));
     LOG_INF("Power mode : %s\t", enum_to_string(BMA5_POWER_MODE_HPM));
     LOG_INF("Range : %s\t", enum_to_string(BMA5_ACC_RANGE_MAX_2G));
     LOG_INF("IIR RO : %s\t", enum_to_string(BMA5_ACC_IIR_RO_DB_60));
     LOG_INF("Noise mode : %s\t", enum_to_string(BMA5_NOISE_MODE_LOWER_POWER));
-    LOG_INF("Auto Int clear : %s\t", enum_to_string(BMA5_ACC_DRDY_INT_AUTO_CLEAR_DISABLED));
+    LOG_INF("Auto Int clear : %s\t", enum_to_string(BMA5_ACC_DRDY_INT_AUTO_CLEAR_DISABLED));*/
 
     /* Enable accel */
     sensor_ctrl = BMA5_SENSOR_CTRL_ENABLE;
@@ -257,7 +257,7 @@ int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_conf, struct bma5
     return rslt;
 }
 
-int BMA580::init() {
+int BMA580::init(int odr) {
     int8_t rslt;
     struct bma580_int_map int_map, get_int_map;
     struct bma5_fifo_conf fifo_conf;
@@ -266,6 +266,8 @@ int BMA580::init() {
     enum bma5_context context;
 
     context = BMA5_HEARABLE;
+
+    _odr = odr;
 
     /* Interface reference is given as a parameter
      *         For I2C : BMA5_I2C_INTF

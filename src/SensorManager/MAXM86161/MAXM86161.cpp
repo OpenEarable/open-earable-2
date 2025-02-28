@@ -50,7 +50,7 @@ int MAXM86161::init(enum sample_rate sample_rate)
     // cmd[0] = 0x12; cmd[1] = 0x50;  // 8Hz with no averaging
     // cmd[1] = 0x08; 50 Hz with no averaging
     //_write_to_reg(REG_PPG_CONFIG2, 0x08);
-    _write_to_reg(REG_PPG_CONFIG2, sample_rate << 3);
+    _write_to_reg(REG_PPG_CONFIG2, sample_rate << POS_PPG_SR);
 
     // Set LED settling, digital filter, burst rate, burst enable
     //  No Burst mode with default settling

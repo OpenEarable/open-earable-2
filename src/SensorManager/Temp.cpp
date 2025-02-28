@@ -12,6 +12,17 @@ MLX90632 Temp::temp;
 
 static struct sensor_msg msg_temp;
 
+const sample_rate_setting Temp::sample_rates[Temp::num_sample_rates] = {
+    {0x00, 0.5},  // 0.5 Hz
+    {0x01, 1},    // 1 Hz
+    {0x02, 2},    // 2 Hz
+    {0x03, 4},    // 4 Hz
+    {0x04, 8},    // 8 Hz
+    {0x05, 16},   // 16 Hz
+    {0x06, 32},   // 32 Hz
+    {0x07, 64},   // 64 Hz
+};
+
 bool Temp::init(struct k_msgq * queue) {
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
@@ -65,10 +76,13 @@ void Temp::sensor_timer_handler(struct k_timer *dummy) {
 	k_work_submit(&sensor.sensor_work);
 }
 
-void Temp::start(k_timeout_t t) {
+void Temp::start(int sample_rate_idx) {
     if (!_active) return;
 
-    temp.setSampleRate(32);
+    sample_rate_setting setting = sample_rates[sample_rate_idx];
+    k_timeout_t t = K_USEC(1e6 / setting.sample_rate);
+
+    temp.setSampleRateRegVal(setting.reg_val);
     temp.continuousMode();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);

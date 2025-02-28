@@ -150,6 +150,8 @@ class MLX90632 {
     uint8_t getMode(status &returnError);
     MLX90632::status setSOC(); //Set the start conversion bit
 
+    void setSampleRateRegVal(uint8_t val);
+
     void setSampleRate(float sample_rate);
     float getSampleRate();
 

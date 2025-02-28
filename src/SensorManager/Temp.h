@@ -15,12 +15,15 @@ public:
     static Temp sensor;
 
     bool init(struct k_msgq * queue) override;
-    void start(k_timeout_t t) override;
+    void start(int sample_rate_idx) override;
     void stop() override;
 
     void reset();
 private:
     static MLX90632 temp;
+
+    const static int num_sample_rates = 8;
+    const static sample_rate_setting sample_rates[num_sample_rates];
 
     static void sensor_timer_handler(struct k_timer *dummy);
 

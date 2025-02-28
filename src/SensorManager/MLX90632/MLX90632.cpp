@@ -575,6 +575,16 @@ void MLX90632::reset() {
   //writeRegister16(REG_CONTROL, reg_value);
 }
 
+void MLX90632::setSampleRateRegVal(uint8_t val) {
+  uint8_t originalMode = getMode();
+  setMode(MODE_SLEEP);
+
+  writeEEPROM(EE_MEAS_1, 0x800D | (val << 8));
+  writeEEPROM(EE_MEAS_2, 0x801D | (val << 8));
+
+  setMode(originalMode);
+}
+
 void MLX90632::setSampleRate(float sample_rate) {
   uint16_t val;
 
