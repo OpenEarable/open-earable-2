@@ -22,29 +22,31 @@ static struct sensor_data * const data_buf = &(msg.data);
 static void sd_work_handler(struct k_work * work);
 
 K_WORK_DEFINE(sd_sensor_work, sd_work_handler);
-
-int write_sensor_data() {
-	const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
-
-	// TODO: write the data
-
-	return 0;
-}
+K_MSGQ_DEFINE(sd_queue, sizeof(struct sensor_msg), 16, 4);
 
 static void sd_work_handler(struct k_work * work) {
-	//send_sensor_data();
-	//if (connection_complete && notify_enabled) {
+	int ret;
+
+	ret = k_msgq_get(&sd_queue, &msg, K_NO_WAIT);
+
+	if (ret != 0) {
+		LOG_WRN("No data to process");
+		return;
+	}
+	
 	if (msg.sd) {
-		int ret = write_sensor_data();
+		const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size;
+		// TODO: implement SD stuff here
+		ret = 0;
 		if (ret != 0) LOG_WRN("Failed to write data to sd_card.\n");
 	}
-	//}
 }
 
 static void sensor_sd_task(void)
 {
 	int ret;
 	const struct zbus_channel *chan;
+	static struct sensor_msg msg;
 
 	while (1) {
 		ret = zbus_sub_wait(&sensor_sd_sub, &chan, K_FOREVER);
@@ -54,7 +56,13 @@ static void sensor_sd_task(void)
 		ERR_CHK(ret);
 
 		if (msg.sd) {
-			k_work_submit(&sd_sensor_work);
+			ret = k_msgq_put(&sd_queue, &msg, K_NO_WAIT);
+
+			if (ret == -EAGAIN) {
+				LOG_WRN("power manager msg queue full");
+			} else {
+				k_work_submit(&sd_sensor_work);
+			}
 		}
 
 		STACK_USAGE_PRINT("sensor_msg_thread", &thread_data);
