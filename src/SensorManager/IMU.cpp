@@ -14,6 +14,7 @@ DFRobot_BMX160 IMU::imu(&I2C2);
 
 IMU IMU::sensor;
 
+/*
 const sample_rate_setting IMU::sample_rates[IMU::num_sample_rates] = {
     {BMX160_GYRO_ODR_25HZ,  25},   // 25 Hz
     {BMX160_GYRO_ODR_50HZ,  50},   // 50 Hz
@@ -21,6 +22,15 @@ const sample_rate_setting IMU::sample_rates[IMU::num_sample_rates] = {
     {BMX160_GYRO_ODR_200HZ, 200},  // 200 Hz
     {BMX160_GYRO_ODR_400HZ, 400},  // 400 Hz
     {BMX160_GYRO_ODR_800HZ, 800},  // 800 Hz
+};*/
+
+const SampleRateSetting<6> IMU::sample_rates = {
+    { BMX160_GYRO_ODR_25HZ, BMX160_GYRO_ODR_50HZ, BMX160_GYRO_ODR_100HZ,
+	BMX160_GYRO_ODR_200HZ, BMX160_GYRO_ODR_400HZ, BMX160_GYRO_ODR_800HZ },
+
+	{ 25, 50, 100, 200, 400, 800 },
+
+	{ 25.0, 50.0, 100.0, 200.0, 400.0, 800.0 }
 };
 
 void IMU::update_sensor(struct k_work *work) {
@@ -94,8 +104,7 @@ bool IMU::init(struct k_msgq * queue) {
 void IMU::start(int sample_rate_idx) {
 	if (!_active) return;
 
-	sample_rate_setting setting = sample_rates[sample_rate_idx];
-    k_timeout_t t = K_USEC(1e6 / setting.sample_rate);
+    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
     
     //ppg.set_interrogation_rate(setting.reg_val);
     //ppg.start();

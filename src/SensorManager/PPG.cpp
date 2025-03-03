@@ -12,23 +12,15 @@ MAXM86161 PPG::ppg(&I2C2);
 
 static struct sensor_msg msg_ppg;
 
-const sample_rate_setting PPG::sample_rates[PPG::num_sample_rates] = {
-    {0x00, 25},    // 24.995 Hz
-    {0x01, 50},    // 50.027 Hz
-    {0x02, 84},    // 84.021 Hz
-    {0x03, 100},   // 99.902 Hz
-    {0x04, 200},   // 199.805 Hz
-    {0x05, 400},   // 399.610 Hz
-    {0x0A, 8},     // 8 Hz
-    {0x0B, 16},    // 16 Hz
-    {0x0C, 32},    // 32 Hz
-    {0x0D, 64},    // 64 Hz
-    {0x0E, 128},   // 128 Hz
-    {0x0F, 256},   // 256 Hz
-    {0x10, 512},   // 512 Hz
-    {0x11, 1024},  // 1024 Hz
-    {0x12, 2048},  // 2048 Hz
-    {0x13, 4096}   // 4096 Hz
+const SampleRateSetting<16> PPG::sample_rates = {
+    {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x0A, 0x0B,
+    0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13},
+
+    { 25, 50, 84, 100, 200, 400, 8, 16,
+    32, 64, 128, 256, 512, 1024, 2048, 4096},
+
+    {25, 50, 84, 100, 200, 400, 8, 16,
+    32, 64, 128, 256, 512, 1024, 2048, 4096},
 };
 
 bool PPG::init(struct k_msgq * queue) {
@@ -110,10 +102,9 @@ void PPG::sensor_timer_handler(struct k_timer *dummy) {
 void PPG::start(int sample_rate_idx) {
     if (!_active) return;
 
-    sample_rate_setting setting = sample_rates[sample_rate_idx];
-    k_timeout_t t = K_USEC(1e6 / setting.sample_rate);
+    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
     
-    ppg.set_interrogation_rate(setting.reg_val);
+    ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
     ppg.start();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);

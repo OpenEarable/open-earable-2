@@ -23,11 +23,10 @@ public:
 
     void reset();
 
+    const static SampleRateSetting<10> sample_rates;
+
 private:
     BMA580 bma580;
-
-    const static int num_sample_rates = 10;
-    const static sample_rate_setting sample_rates[num_sample_rates];
 
     /*! Number of accel frames to be extracted from FIFO */
     uint8_t fifo_accel_frame_length = ACCEL_FRAME_LEN;

@@ -15,13 +15,12 @@ public:
     bool init(struct k_msgq * queue) override;
     void start(int sample_rate_idx) override;
     void stop() override;
+
+    const static SampleRateSetting<18> sample_rates;
 private:
     static Adafruit_BMP3XX bmp;
 
     bool _active = false;
-
-    const static int num_sample_rates = 18;
-    const static sample_rate_setting sample_rates[num_sample_rates];
 
     static void update_sensor(struct k_work *work);
 

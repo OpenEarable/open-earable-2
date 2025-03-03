@@ -24,7 +24,7 @@ struct FrequencyOptions {
     uint8_t frequencyCount;
     uint8_t defaultFrequencyIndex;
     uint8_t maxBleFrequencyIndex;
-    float* frequencies;
+    const float* frequencies;
 };
 
 struct SensorConfigOptions {

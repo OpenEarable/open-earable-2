@@ -10,17 +10,14 @@ BoneConduction BoneConduction::sensor;
 
 static struct sensor_msg msg_bc;
 
-const sample_rate_setting BoneConduction::sample_rates[BoneConduction::num_sample_rates] = {
-    {BMA5_ACC_ODR_HZ_12P5,  12.5}, // 12.5 Hz
-    {BMA5_ACC_ODR_HZ_25,  25},     // 25 Hz
-    {BMA5_ACC_ODR_HZ_50,  50},     // 50 Hz
-    {BMA5_ACC_ODR_HZ_100, 100},    // 100 Hz
-    {BMA5_ACC_ODR_HZ_200, 200},    // 200 Hz
-    {BMA5_ACC_ODR_HZ_400, 400},    // 400 Hz
-    {BMA5_ACC_ODR_HZ_800, 800},    // 800 Hz
-    {BMA5_ACC_ODR_HZ_1K6, 1600},   // 1600 Hz
-    {BMA5_ACC_ODR_HZ_3K2, 3200},   // 3200 Hz
-    {BMA5_ACC_ODR_HZ_6K4, 6400},   // 6400 Hz
+const SampleRateSetting<10> BoneConduction::sample_rates = {
+    { BMA5_ACC_ODR_HZ_12P5, BMA5_ACC_ODR_HZ_25, BMA5_ACC_ODR_HZ_50, BMA5_ACC_ODR_HZ_100, 
+      BMA5_ACC_ODR_HZ_200, BMA5_ACC_ODR_HZ_400, BMA5_ACC_ODR_HZ_800, BMA5_ACC_ODR_HZ_1K6, 
+      BMA5_ACC_ODR_HZ_3K2, BMA5_ACC_ODR_HZ_6K4 },   // reg_vals
+
+    { 12.5, 25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0 },  // sample_rates
+
+    { 12.5, 25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0 }   // true_sample_rates
 };
 
 bool BoneConduction::init(struct k_msgq * queue) {
@@ -77,10 +74,9 @@ void BoneConduction::sensor_timer_handler(struct k_timer *dummy) {
 void BoneConduction::start(int sample_rate_idx) {
     if (!_active) return;
 
-    sample_rate_setting setting = sample_rates[sample_rate_idx];
-    k_timeout_t t = K_USEC(1e6 / setting.sample_rate);
+    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
     
-    bma580.init(setting.reg_val);
+    bma580.init(sample_rates.reg_vals[sample_rate_idx]);
     bma580.start();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);

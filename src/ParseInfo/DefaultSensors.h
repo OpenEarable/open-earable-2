@@ -6,6 +6,12 @@
 #include "zbus_common.h"
 #include "openearable_common.h"
 
+#include "../SensorManager/PPG.h"
+#include "../SensorManager/IMU.h"
+#include "../SensorManager/Baro.h"
+#include "../SensorManager/Temp.h"
+#include "../SensorManager/BoneConduction.h"
+
 // ============= IMU =============
 
 #define IMU_ACC_COUNT 3
@@ -107,10 +113,10 @@ SensorScheme sensors[SENSOR_COUNT] = {
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = 7,
+                .frequencyCount = sizeof(IMU::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 1,
-                .maxBleFrequencyIndex = 3,
-                .frequencies = (float[]) { 12.5, 25.0, 50, 100, 200, 400, 800 },
+                .maxBleFrequencyIndex = 2,
+                .frequencies = IMU::sample_rates.sample_rates,
             },
         },
     },
@@ -122,10 +128,10 @@ SensorScheme sensors[SENSOR_COUNT] = {
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = 16,
+                .frequencyCount = sizeof(PPG::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 1,
                 .maxBleFrequencyIndex = 12,
-                .frequencies = (float[]) { 25, 50, 84, 100, 200, 400, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096 },
+                .frequencies = PPG::sample_rates.sample_rates,
             },
         },
     },
@@ -137,10 +143,10 @@ SensorScheme sensors[SENSOR_COUNT] = {
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = 8,
+                .frequencyCount = sizeof(Temp::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 1,
                 .maxBleFrequencyIndex = 7,
-                .frequencies = (float[]) { 0.5, 1, 2, 4, 8, 16, 32, 64 },
+                .frequencies = Temp::sample_rates.sample_rates,
             },
         },
     },
@@ -152,10 +158,10 @@ SensorScheme sensors[SENSOR_COUNT] = {
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = 8,
+                .frequencyCount = sizeof(Baro::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 1,
                 .maxBleFrequencyIndex = 7,
-                .frequencies = (float[]) { 0.5, 1, 2, 4, 8, 16, 32, 64 },
+                .frequencies = Baro::sample_rates.sample_rates,
             },
         },
     },
@@ -167,10 +173,10 @@ SensorScheme sensors[SENSOR_COUNT] = {
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = 10,
+                .frequencyCount = sizeof(BoneConduction::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 1,
                 .maxBleFrequencyIndex = 6,
-                .frequencies = (float[]) { 12.5, 25, 50, 100, 200, 400, 800, 1600, 3200, 6400 },
+                .frequencies = BoneConduction::sample_rates.sample_rates,
             },
         }, 
     },
