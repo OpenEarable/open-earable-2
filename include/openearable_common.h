@@ -92,4 +92,23 @@ struct sensor_config {
     uint32_t latency;
 } __attribute__((packed));
 
+
+struct battery_settings {
+    float u_nominal;
+    float u_term;
+    float u_vlo;
+    float u_charge_prevent;
+
+    float i_term;
+    float i_charge;
+    float i_max;
+
+    float capacity;
+
+    float temp_min;
+    float temp_fast_min;
+    float temp_fast_max;
+    float temp_max;
+};
+
 #endif

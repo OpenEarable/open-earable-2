@@ -362,7 +362,7 @@ void BQ27220::write_RAM(uint16_t ram_address, uint16_t val) {
         write_RAM(ram_address, data, sizeof(val));
 }
 
-void BQ27220::setup(bool init) {
+void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         // unseal
         write_command(0x0414);
         k_msleep(100);
@@ -378,12 +378,16 @@ void BQ27220::setup(bool init) {
         //write_RAM(0x9220, 0);
 
         // design and full charge capacity
-        write_RAM(0x929F, 108);
-        write_RAM(0x929D, 108); //130
+        write_RAM(0x929F, _battery_settings.capacity);
+        write_RAM(0x929D, _battery_settings.capacity); //130
         // near full
         write_RAM(0x926B, 5);
+
+        write_RAM(0x91F5, _battery_settings.temp_min * 10);
+        write_RAM(0x91F7, _battery_settings.temp_max * 10);
+
         // charging current
-        write_RAM(0x91FB, 100);
+        write_RAM(0x91FB, _battery_settings.i_charge);
         // taper current
         write_RAM(0x9201, 3); //adjust
 
@@ -429,16 +433,16 @@ void BQ27220::setup(bool init) {
         //dod: 103.25%: 3089
 
         // charge voltage
-        write_RAM(0x91FD, 4300);
+        write_RAM(0x91FD, _battery_settings.u_term * 1000);
 
         // 0x9240 
-        write_RAM(0x9240, 3050);
+        write_RAM(0x9240, _battery_settings.u_vlo * 1000 + 50);
 
         // sysDown set Volate
-        write_RAM(0x9243, 3150);
+        write_RAM(0x9243, _battery_settings.u_vlo * 1000 + 150);
 
         // FC Voltage
-        write_RAM(0x9288, 4290);
+        write_RAM(0x9288, _battery_settings.u_term * 1000 - 10);
 
         // Electonic Load in 3µA steps
         write_RAM(0x9269, 6); // 18 µA
@@ -463,15 +467,10 @@ void BQ27220::setup(bool init) {
         write_RAM(0x9281, &flags_b, sizeof(flags_b));
 
         // Overload current
-        write_RAM(0x9264, 200);
+        write_RAM(0x9264, _battery_settings.i_max);
 
         // CEDV Smoothing Config
         write_RAM(0x9272, 0x0C); //Default: 0x08, Enable SMEXT, SMEN 0x0D
-
-        //uint32_t cc_gain = 0x45b6737d; //0x7d73b645;
-        /*uint8_t cc_vals[8] = {0x7d, 0x73, 0xb6, 0x45,
-                                0x92, 0x0a, 0xa5, 0x22};
-        write_RAM(0x9184, cc_vals, sizeof(cc_vals));*/
 
         exit_config_update(init);
 

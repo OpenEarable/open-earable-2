@@ -7,6 +7,8 @@
 #include <math.h>
 #include <Wire.h>
 
+#include "openearable_common.h"
+
 #define BQ27220_I2C_TIMEOUT_US 66
 #define BQ27220_RAM_TIMEOUT_US 1000
 
@@ -136,7 +138,7 @@ public:
     void exit_config_update(bool init = true);
 
     void full_access();
-    void setup(bool init = true);
+    void setup(const battery_settings &_battery_settings, bool init = true);
 
     int set_wakeup_int();
 

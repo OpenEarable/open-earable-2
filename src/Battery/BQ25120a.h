@@ -7,6 +7,8 @@
 #include <math.h>
 #include <Wire.h>
 
+#include "openearable_common.h"
+
 #define BQ25120a_I2C_TIMEOUT_US 66
 #define BQ25120a_HIGH_Z_TIMEOUT_US 1000
 
@@ -49,7 +51,7 @@ public:
 
     void setup_ts_control();
 
-    void setup();
+    void setup(const battery_settings &_battery_settings);
 
     bool power_connected();
     void enter_high_impedance();

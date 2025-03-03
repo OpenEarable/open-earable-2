@@ -133,17 +133,17 @@ void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         last_i2c = micros();
 }
 
-void BQ25120a::setup() {
+void BQ25120a::setup(const battery_settings &_battery_settings) {
         ilim_uvlo params;
-        params.lim_mA = 200;
-        params.uvlo_v = 3.0;
+        params.lim_mA = _battery_settings.i_max;
+        params.uvlo_v = _battery_settings.u_vlo;
 
         exit_high_impedance();
 
         setup_ts_control();
-        write_battery_voltage_control(4.3);
-        write_charging_control(110);
-        write_termination_control(2.5);
+        write_battery_voltage_control(_battery_settings.u_term);
+        write_charging_control(_battery_settings.i_charge);
+        write_termination_control(_battery_settings.u_charge_prevent);
         write_LDO_voltage_control(3.3);
         write_uvlo_ilim(params);
 

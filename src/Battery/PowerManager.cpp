@@ -134,14 +134,14 @@ int PowerManager::begin() {
 
     // LOG_INF("Power on: %i", power_on);
 
-    battery_controller.setup();
+    battery_controller.setup(_battery_settings);
     battery_controller.set_int_callback(battery_controller_callback);
 
     // check setup
     op_state state = fuel_gauge.operation_state();
     if (state.SEC != BQ27220::SEALED) {
         //battery_controller.setup();
-        fuel_gauge.setup();
+        fuel_gauge.setup(_battery_settings);
     }
 
     k_timer_init(&charge_timer, charge_timer_handler, NULL);
@@ -249,18 +249,18 @@ bool PowerManager::check_battery() {
     if (charging) {
         float voltage = fuel_gauge.voltage();
 
-        if (voltage < charge_prevention_voltage) {
+        if (voltage < _battery_settings.u_charge_prevent) {
             battery_controller.disable_charge();
             return false;
         }
 
         float temp = fuel_gauge.temperature();
         
-        if (temp < temp_min || temp > temp_max) {
+        if (temp < _battery_settings.temp_min || temp > _battery_settings.temp_max) {
             // set params
             battery_controller.disable_charge();
             return false;
-        } else if (temp < temp_fast_min || temp > temp_fast_max) {
+        } else if (temp < _battery_settings.temp_fast_min || temp > _battery_settings.temp_fast_max) {
             // set params
             battery_controller.write_charging_control(55);
             battery_controller.enable_charge();
@@ -458,7 +458,7 @@ void PowerManager::charge_task() {
 
     if (last_charging_state == 0) {
         LOG_INF("Setting up charge controller ........");
-        battery_controller.setup();
+        battery_controller.setup(_battery_settings);
         battery_controller.enable_charge();
     }
 
@@ -481,7 +481,7 @@ void PowerManager::charge_task() {
             uint16_t ts_fault = battery_controller.read_ts_fault();
             LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
 
-            battery_controller.setup();
+            battery_controller.setup(_battery_settings);
             
             break;
         }

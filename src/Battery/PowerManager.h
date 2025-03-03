@@ -71,12 +71,12 @@ private:
 
     static battery_data msg;
 
-    const float temp_min = 0;
-    const float temp_fast_min = 15;
-    const float temp_fast_max = 45;
-    const float temp_max = 50;
-
-    const float charge_prevention_voltage = 2.5;
+    const battery_settings _battery_settings = {
+        3.7, 4.3, 3.0, 2.5,  // Spannungen
+        2.5, 110, 200,       // Ströme
+        108,                 // Kapazität
+        0, 15, 45, 50        // Temperaturen
+    };
 
     const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
 };
