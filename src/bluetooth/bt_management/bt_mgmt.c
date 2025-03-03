@@ -6,6 +6,8 @@
 
 #include "bt_mgmt.h"
 
+#include "channel_assignment.h"
+
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
@@ -503,7 +505,10 @@ int bt_mgmt_init(void)
 		return ret;
 	}
 
-	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%03X", CONFIG_BT_DEVICE_NAME, (oe_boot_state.device_id & 0xFFF));
+	enum audio_channel channel;
+	channel_assignment_get(&channel);
+
+	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X-%c", CONFIG_BT_DEVICE_NAME, (oe_boot_state.device_id & 0xFFFF), channel == AUDIO_CH_L ? 'L' : (channel == AUDIO_CH_R ? 'R' : '?'));
 
 	ret = bt_set_name(name);
     if (ret) {
