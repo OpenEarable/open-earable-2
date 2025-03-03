@@ -102,7 +102,16 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     LOG_INF("Fuel Gauge GPOUT Interrupt");
     msg.battery_level = fuel_gauge.state_of_charge();
 
+    bat_status bat =  fuel_gauge.battery_status();
+
     power_manager.get_battery_status(status);
+
+    if (bat.CHGINH) {
+        power_manager.charging_disabled = true;
+        battery_controller.disable_charge();
+    } else if (power_manager.charging_disabled) {
+        battery_controller.enable_charge();
+    }
 
     msg.charging_state = status.power_state;
 

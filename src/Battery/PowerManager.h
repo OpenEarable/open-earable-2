@@ -41,6 +41,7 @@ public:
     static k_work_delayable power_down_work;
 private:
     bool power_on = false;
+    bool charging_disabled = false;
     uint16_t last_charging_state = 0;
 
     void charge_task();
