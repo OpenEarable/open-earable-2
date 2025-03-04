@@ -975,7 +975,7 @@ typedef enum{
     eAccelRange_16G = 0b1100,   /**< Macro for mg per LSB at +/- 16g sensitivity (1 LSB = 0.000488281mg) */
 }eAccelRange_t;
 
-#define EARTH_ACC 9.81
+#define EARTH_ACC 9.81f
 
 class DFRobot_BMX160{
   public:

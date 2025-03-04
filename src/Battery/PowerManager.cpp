@@ -10,6 +10,8 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
+#include <hal/nrf_ficr.h>
+
 #include "../drivers/LED_Controller/KTD2026.h"
 //#include "../drivers/SSM6515.h"
 #include "../drivers/ADAU1860.h"
@@ -239,6 +241,14 @@ int PowerManager::begin() {
     //led_controller.setColor(white);
 
     state_indicator.init(oe_state);
+
+    uint32_t device_id[2];
+
+    // Lesen der DEVICEID
+    device_id[0] = nrf_ficr_deviceid_get(NRF_FICR, 0);
+    device_id[1] = nrf_ficr_deviceid_get(NRF_FICR, 1);
+
+    oe_boot_state.device_id = (((uint64_t) device_id[1]) << 32) | device_id[0];
 
     return 0;
 }

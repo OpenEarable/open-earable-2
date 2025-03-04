@@ -66,9 +66,7 @@ BT_GATT_PRIMARY_SERVICE(BT_UUID_LED),
                 NULL, write_state, NULL),
 );
 
-void LED_Service::begin() {
-    //earable_led.init();
+int init_led_service() {
 	led_controller.begin();
+	return 0;
 }
-
-LED_Service led_service;
