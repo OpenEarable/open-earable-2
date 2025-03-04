@@ -40,11 +40,6 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 //BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 //	     "Console device is not ACM CDC UART device");
 
-/*#define BUFFER_SIZE (16 * 1024)
-
-size_t size = BUFFER_SIZE;
-char buf[BUFFER_SIZE];*/
-
 void print_bat_info() {
 
         bat_status status = fuel_gauge.battery_status();
@@ -203,13 +198,6 @@ int main(void) {
 	} else {
                 state_indicator.set_pairing_state(BONDING);
 	}
-
-	/*if (board_rev.mask & BOARD_VERSION_VALID_MSK_SD_CARD) {
-		ret = sd_card_init();
-		if (ret != -ENODEV) {
-			ERR_CHK(ret);
-		}
-	}*/
 
 	start_sensor_manager();
 
