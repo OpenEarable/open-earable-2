@@ -10,7 +10,7 @@
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
 
-#define SENSOR_DATA_FIXED_LENGTH 9
+#define SENSOR_DATA_FIXED_LENGTH 36
 
 #define millis() k_cyc_to_ms_floor32(k_cycle_get_32())
 #define micros() k_cyc_to_us_floor64(k_cycle_get_32())
@@ -73,8 +73,8 @@ struct battery_data {
 struct sensor_data {
     uint8_t id;
     uint8_t size;
-    uint32_t time;
-    float data[SENSOR_DATA_FIXED_LENGTH];
+    uint64_t time;
+    uint8_t data[SENSOR_DATA_FIXED_LENGTH];
     //uint8_t * data;
 } __attribute__((packed));
 

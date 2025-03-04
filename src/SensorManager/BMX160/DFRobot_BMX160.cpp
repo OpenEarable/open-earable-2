@@ -124,11 +124,17 @@ void DFRobot_BMX160::defaultParamSettg(sBmx160Dev_t *dev)
   dev->gyroCfg.odr = BMX160_GYRO_ODR_100HZ;
   dev->gyroCfg.power = BMX160_GYRO_SUSPEND_MODE;
   dev->gyroCfg.range = BMX160_GYRO_RANGE_2000_DPS;
+
   dev->accelCfg.bw = BMX160_ACCEL_BW_NORMAL_AVG4;
   dev->accelCfg.odr = BMX160_ACCEL_ODR_100HZ;
   dev->accelCfg.power = BMX160_ACCEL_SUSPEND_MODE;
   dev->accelCfg.range = BMX160_ACCEL_RANGE_2G;
-  
+
+  //dev->magnCfg.bw = BMX160_MAGN_BW_MAX
+  dev->magnCfg.odr = BMX160_MAGN_ODR_100HZ;
+  dev->magnCfg.power = BMX160_MAGN_SUSPEND_MODE;
+  //dev->magnCfg.range = BMX160_MAGN_RANGE
+
 
   dev->prevMagnCfg = dev->magnCfg;
   dev->prevGyroCfg = dev->gyroCfg;
@@ -186,19 +192,19 @@ void DFRobot_BMX160::setGyroRange(eGyroRange_t bits){
 void DFRobot_BMX160::setAccelRange(eAccelRange_t bits){
     switch (bits){
         case eAccelRange_2G:
-            accelRange = BMX160_ACCEL_MG_LSB_2G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_2G * EARTH_ACC;
             break;
         case eAccelRange_4G:
-            accelRange = BMX160_ACCEL_MG_LSB_4G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_4G * EARTH_ACC;
             break;
         case eAccelRange_8G:
-            accelRange = BMX160_ACCEL_MG_LSB_8G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_8G * EARTH_ACC;
             break;
         case eAccelRange_16G:
-            accelRange = BMX160_ACCEL_MG_LSB_16G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_16G * EARTH_ACC;
             break;
         default:
-            accelRange = BMX160_ACCEL_MG_LSB_2G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_2G * EARTH_ACC;
             break;
     }
 

@@ -71,17 +71,26 @@ void PPG::update_sensor(struct k_work *work) {
     if((status == 0) && (int_status & MAXM86161_INT_DATA_RDY)) {
         int num_samples = ppg.read(sensor.data_buffer);
 
+        uint64_t time_stamp = micros();
+
         for (int i = 0; i < num_samples; i++) {
             msg_ppg.sd = sensor._sd_logging;
 	        msg_ppg.stream = sensor._ble_stream;
+
+            size_t size = sizeof(uint64_t);
             
             msg_ppg.data.id = ID_PPG;
-            msg_ppg.data.size = 4 * sizeof(uint32_t);
-            msg_ppg.data.time = millis();
-            msg_ppg.data.data[0]=sensor.data_buffer[i][red];
+            msg_ppg.data.size = 4 * size;
+            msg_ppg.data.time = time_stamp - (num_samples - i) * PPG::sensor.t_sample_us;
+            /*msg_ppg.data.data[0]=sensor.data_buffer[i][red];
             msg_ppg.data.data[1]=sensor.data_buffer[i][green];
             msg_ppg.data.data[2]=sensor.data_buffer[i][ir];
-            msg_ppg.data.data[3]=sensor.data_buffer[i][ambient];
+            msg_ppg.data.data[3]=sensor.data_buffer[i][ambient];*/
+
+            memcpy(msg_ppg.data.data + 0 * size, &sensor.data_buffer[i][red], size);
+            memcpy(msg_ppg.data.data + 1 * size, &sensor.data_buffer[i][green], size);
+            memcpy(msg_ppg.data.data + 2 * size, &sensor.data_buffer[i][ir], size);
+            memcpy(msg_ppg.data.data + 3 * size, &sensor.data_buffer[i][ambient], size);
 
             int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
             if (ret == -EAGAIN) {
@@ -102,7 +111,9 @@ void PPG::sensor_timer_handler(struct k_timer *dummy) {
 void PPG::start(int sample_rate_idx) {
     if (!_active) return;
 
-    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
+    t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
+
+    k_timeout_t t = K_USEC(t_sample_us);
     
     ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
     ppg.start();

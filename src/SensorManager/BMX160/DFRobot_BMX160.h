@@ -974,6 +974,8 @@ typedef enum{
     eAccelRange_16G = 0b1100,   /**< Macro for mg per LSB at +/- 16g sensitivity (1 LSB = 0.000488281mg) */
 }eAccelRange_t;
 
+#define EARTH_ACC 9.81
+
 class DFRobot_BMX160{
   public:
     DFRobot_BMX160(TWIM *i2c=&I2C2);
@@ -1101,7 +1103,7 @@ class DFRobot_BMX160{
      */
     void setMagnConf();
 
-    float accelRange = BMX160_ACCEL_MG_LSB_2G * 9.8;
+    float accelRange = BMX160_ACCEL_MG_LSB_2G * EARTH_ACC;
     float gyroRange = BMX160_GYRO_SENSITIVITY_250DPS;
     uint8_t _addr = DT_REG_ADDR(DT_NODELABEL(bmx160));
     

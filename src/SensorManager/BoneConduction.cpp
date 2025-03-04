@@ -48,13 +48,15 @@ void BoneConduction::reset() {
 void BoneConduction::update_sensor(struct k_work *work) {
     int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
 
+    uint64_t time_stamp = micros();
+
     for (int i = 0; i < num_samples; i++) {
         msg_bc.sd = sensor._sd_logging;
 	    msg_bc.stream = sensor._ble_stream;
 
         msg_bc.data.id = ID_BONE_CONDUCTION;
         msg_bc.data.size = 3 * sizeof(int16_t);
-        msg_bc.data.time = millis();
+        msg_bc.data.time = time_stamp - (num_samples - i) * BoneConduction::sensor.t_sample_us;
         memcpy(msg_bc.data.data, &sensor.fifo_acc_data[i], 3 * sizeof(int16_t));
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
@@ -74,7 +76,9 @@ void BoneConduction::sensor_timer_handler(struct k_timer *dummy) {
 void BoneConduction::start(int sample_rate_idx) {
     if (!_active) return;
 
-    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
+    t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
+
+    k_timeout_t t = K_USEC(t_sample_us);
     
     bma580.init(sample_rates.reg_vals[sample_rate_idx]);
     bma580.start();

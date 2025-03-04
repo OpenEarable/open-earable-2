@@ -40,6 +40,8 @@ private:
     static void update_sensor(struct k_work *work);
 
     bool _active = false;
+
+    float t_sample_us;
 };
 
 #endif

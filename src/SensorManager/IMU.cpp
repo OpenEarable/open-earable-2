@@ -14,16 +14,6 @@ DFRobot_BMX160 IMU::imu(&I2C2);
 
 IMU IMU::sensor;
 
-/*
-const sample_rate_setting IMU::sample_rates[IMU::num_sample_rates] = {
-    {BMX160_GYRO_ODR_25HZ,  25},   // 25 Hz
-    {BMX160_GYRO_ODR_50HZ,  50},   // 50 Hz
-    {BMX160_GYRO_ODR_100HZ, 100},  // 100 Hz
-    {BMX160_GYRO_ODR_200HZ, 200},  // 200 Hz
-    {BMX160_GYRO_ODR_400HZ, 400},  // 400 Hz
-    {BMX160_GYRO_ODR_800HZ, 800},  // 800 Hz
-};*/
-
 const SampleRateSetting<6> IMU::sample_rates = {
     { BMX160_GYRO_ODR_25HZ, BMX160_GYRO_ODR_50HZ, BMX160_GYRO_ODR_100HZ,
 	BMX160_GYRO_ODR_200HZ, BMX160_GYRO_ODR_400HZ, BMX160_GYRO_ODR_800HZ },
@@ -36,20 +26,26 @@ const SampleRateSetting<6> IMU::sample_rates = {
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
 
-	msg_imu.sd = sensor._sd_logging;
-	msg_imu.stream = sensor._ble_stream;
-
-	msg_imu.data.id = ID_IMU;
-	msg_imu.data.size = 9 * sizeof(float);
-	msg_imu.data.time = millis();
-
 	sBmx160SensorData_t magno_data;
 	sBmx160SensorData_t gyro_data;
 	sBmx160SensorData_t accel_data;
 
 	imu.getAllData(&magno_data, &gyro_data, &accel_data);
 
-	msg_imu.data.data[0] = accel_data.x;
+	size_t size =  3 * sizeof(float);
+	
+	msg_imu.sd = sensor._sd_logging;
+	msg_imu.stream = sensor._ble_stream;
+
+	msg_imu.data.id = ID_IMU;
+	msg_imu.data.size = 3 * size;
+	msg_imu.data.time = micros();
+
+	memcpy(msg_imu.data.data, &accel_data,size);
+	memcpy(msg_imu.data.data + size, &gyro_data, size);
+	memcpy(msg_imu.data.data + 2 * size, &accel_data, size);
+
+	/*msg_imu.data.data[0] = accel_data.x;
 	msg_imu.data.data[1] = accel_data.y;
 	msg_imu.data.data[2] = accel_data.z;
 
@@ -59,7 +55,7 @@ void IMU::update_sensor(struct k_work *work) {
 
 	msg_imu.data.data[6] = magno_data.x;
 	msg_imu.data.data[7] = magno_data.y;
-	msg_imu.data.data[8] = magno_data.z;
+	msg_imu.data.data[8] = magno_data.z;*/
 
 	//imu.getAllData((sBmx160SensorData_t*) &msg_imu.data[6], (sBmx160SensorData_t*) &msg_imu.data[3], (sBmx160SensorData_t*) &msg_imu);
 

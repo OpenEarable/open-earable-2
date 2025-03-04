@@ -40,6 +40,8 @@ private:
 
     ppg_sample data_buffer[64];
 
+    float t_sample_us;
+
     bool _active = false;
 };
 
