@@ -43,21 +43,7 @@ void IMU::update_sensor(struct k_work *work) {
 
 	memcpy(msg_imu.data.data, &accel_data,size);
 	memcpy(msg_imu.data.data + size, &gyro_data, size);
-	memcpy(msg_imu.data.data + 2 * size, &accel_data, size);
-
-	/*msg_imu.data.data[0] = accel_data.x;
-	msg_imu.data.data[1] = accel_data.y;
-	msg_imu.data.data[2] = accel_data.z;
-
-	msg_imu.data.data[3] = gyro_data.x;
-	msg_imu.data.data[4] = gyro_data.y;
-	msg_imu.data.data[5] = gyro_data.z;
-
-	msg_imu.data.data[6] = magno_data.x;
-	msg_imu.data.data[7] = magno_data.y;
-	msg_imu.data.data[8] = magno_data.z;*/
-
-	//imu.getAllData((sBmx160SensorData_t*) &msg_imu.data[6], (sBmx160SensorData_t*) &msg_imu.data[3], (sBmx160SensorData_t*) &msg_imu);
+	memcpy(msg_imu.data.data + 2 * size, &magno_data, size);
 
 	ret = k_msgq_put(sensor_queue, &msg_imu, K_NO_WAIT);
 	if (ret == -EAGAIN) {
@@ -101,9 +87,8 @@ void IMU::start(int sample_rate_idx) {
 	if (!_active) return;
 
     k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
-    
-    //ppg.set_interrogation_rate(setting.reg_val);
-    //ppg.start();
+
+	imu.setAccelODR(sample_rates.reg_vals[sample_rate_idx]);
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }

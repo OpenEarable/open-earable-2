@@ -15,6 +15,7 @@
 #define LITTLE_ENDIAN 1
 
 /** Mask definitions */
+#define BMX160_MAGN_ODR_MASK                     0x0F
 #define BMX160_ACCEL_BW_MASK                     0x70
 #define BMX160_ACCEL_ODR_MASK                    0x0F
 #define BMX160_ACCEL_UNDERSAMPLING_MASK          0x80
@@ -1011,6 +1012,10 @@ class DFRobot_BMX160{
      * @n       eAccelRange_16G       Macro for mg per LSB at +/- 16g sensitivity (1 LSB = 0.000488281mg)
      */
     void setAccelRange(eAccelRange_t bits);
+
+    void setMagnODR(uint8_t val);
+    void setGyroODR(uint8_t val);
+    void setAccelODR(uint8_t val);
     
     /**
      * @fn getAllData

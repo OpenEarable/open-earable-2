@@ -130,11 +130,8 @@ void DFRobot_BMX160::defaultParamSettg(sBmx160Dev_t *dev)
   dev->accelCfg.power = BMX160_ACCEL_SUSPEND_MODE;
   dev->accelCfg.range = BMX160_ACCEL_RANGE_2G;
 
-  //dev->magnCfg.bw = BMX160_MAGN_BW_MAX
   dev->magnCfg.odr = BMX160_MAGN_ODR_100HZ;
   dev->magnCfg.power = BMX160_MAGN_SUSPEND_MODE;
-  //dev->magnCfg.range = BMX160_MAGN_RANGE
-
 
   dev->prevMagnCfg = dev->magnCfg;
   dev->prevGyroCfg = dev->gyroCfg;
@@ -209,6 +206,18 @@ void DFRobot_BMX160::setAccelRange(eAccelRange_t bits){
     }
 
     writeBmxReg(BMX160_ACCEL_RANGE_ADDR, bits);
+}
+
+void DFRobot_BMX160::setMagnODR(uint8_t val){
+    writeBmxReg(BMX160_MAGN_CONFIG_ADDR, BMX160_MAGN_ODR_MASK & val);
+}
+
+void DFRobot_BMX160::setGyroODR(uint8_t val){
+    writeBmxReg(BMX160_GYRO_CONFIG_ADDR, BMX160_GYRO_ODR_MASK & val);
+}
+
+void DFRobot_BMX160::setAccelODR(uint8_t val){
+    writeBmxReg(BMX160_ACCEL_CONFIG_ADDR, BMX160_ACCEL_ODR_MASK & val);
 }
 
 void DFRobot_BMX160::getAllData(sBmx160SensorData_t *magn, sBmx160SensorData_t *gyro, sBmx160SensorData_t *accel){
