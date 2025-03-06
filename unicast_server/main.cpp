@@ -224,7 +224,7 @@ int main(void) {
 	ret = init_sensor_service();
 	ERR_CHK(ret);
 
-	ret = initParseInfoService(&defaultSensors);
+	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
 	ERR_CHK(ret);
 
 	// error test

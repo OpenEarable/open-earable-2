@@ -104,7 +104,7 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 // ============= Sensors =============
 
 #define SENSOR_COUNT 5
-SensorScheme sensors[SENSOR_COUNT] = {
+SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "BOSCH_BMX160",
         .id = ID_IMU,
@@ -182,9 +182,9 @@ SensorScheme sensors[SENSOR_COUNT] = {
     },
 };
 
-ParseInfoScheme defaultSensors = {
+ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensors = sensors,
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION },
 };
 
 #endif // _DEFAULT_SENSORS_H

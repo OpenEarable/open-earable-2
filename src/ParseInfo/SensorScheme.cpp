@@ -8,15 +8,26 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/devicetree.h>
 #include <stdexcept>
+#include <unordered_map>
 
 LOG_MODULE_REGISTER(parse_info_service, LOG_LEVEL_DBG);
 
 static char* parseInfoScheme;
 static size_t parseInfoSchemeSize;
 
-static ParseInfoScheme* parseInfoSchemeStruct;
+static char* sensorSchemeBuffer;
+static size_t sensorSchemeBufferSize;
+
+static uint8_t requestedSensorId;
 
 static ParseInfoScheme* parseInfoSchemeStruct;
+static std::unordered_map<uint8_t, SensorScheme*> sensorSchemes;
+
+static bool notify_enabled = false;
+
+int initSensorSchemeForId(uint8_t id);
+
+static void notify_client(struct bt_conn *conn);
 
 static ssize_t read_parse_info(struct bt_conn *conn,
                 const struct bt_gatt_attr *attr,
@@ -26,13 +37,67 @@ static ssize_t read_parse_info(struct bt_conn *conn,
     return bt_gatt_attr_read(conn, attr, buf, len, offset, parseInfoScheme, parseInfoSchemeSize);
 }
 
+static ssize_t read_sensor_scheme(struct bt_conn *conn,
+                const struct bt_gatt_attr *attr,
+                void *buf,
+                uint16_t len,
+                uint16_t offset) {
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, sensorSchemeBuffer, sensorSchemeBufferSize);
+}
+
+static ssize_t write_sensor_request(struct bt_conn *conn,
+                const struct bt_gatt_attr *attr,
+                const void *buf,
+                uint16_t len,
+                uint16_t offset,
+                uint8_t flags) {
+    if (len != sizeof(uint8_t)) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    memcpy(&requestedSensorId, buf, sizeof(uint8_t));
+
+    initSensorSchemeForId(requestedSensorId);
+
+    notify_client(conn);
+
+    return len;
+}
+
+
+void scheme_ccc_cfg(const struct bt_gatt_attr *attr, uint16_t value) {
+    notify_enabled = (value == BT_GATT_CCC_NOTIFY);
+}
+
+
 BT_GATT_SERVICE_DEFINE(parseInfo_service,
     BT_GATT_PRIMARY_SERVICE(BT_UUID_PARSE_INFO_SERVICE),
     BT_GATT_CHARACTERISTIC(BT_UUID_PARSE_INFO_CHARAC,
                 BT_GATT_CHRC_READ,
                 BT_GATT_PERM_READ,
-                read_parse_info, NULL, parseInfoScheme)
+                read_parse_info, NULL, parseInfoScheme),
+    BT_GATT_CHARACTERISTIC(BT_UUID_PARSE_INFO_REQUEST_CHARAC,
+                BT_GATT_CHRC_WRITE,
+                BT_GATT_CHRC_WRITE,
+                NULL, write_sensor_request, NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_PARSE_INFO_CHARAC,
+                BT_GATT_CHRC_READ,
+                BT_GATT_PERM_READ,
+                read_sensor_scheme, NULL, sensorSchemeBuffer),
+    BT_GATT_CCC(scheme_ccc_cfg,
+                BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
+
+static void notify_client(struct bt_conn *conn) {
+    if (notify_enabled) {
+        bt_gatt_notify(
+            conn,
+            &parseInfo_service.attrs[3],
+            sensorSchemeBuffer,
+            sensorSchemeBufferSize
+        );
+    }
+}
 
 size_t getFrequencyOptionsSchemeSize(FrequencyOptions* options) {
     size_t size = 0;
@@ -162,9 +227,7 @@ ssize_t serializeSensorScheme(SensorScheme* scheme, char* buffer, size_t bufferS
 size_t getSchemeSize(ParseInfoScheme* scheme) {
     size_t size = 0;
     size += 1; // sensorCount
-    for (size_t i = 0; i < scheme->sensorCount; i++) {
-        size += getSensorSchemeSize(&scheme->sensors[i]);
-    }
+    size += scheme->sensorCount * sizeof(uint8_t);
 
     return size;
 }
@@ -180,20 +243,19 @@ ssize_t serializeScheme(ParseInfoScheme* scheme, char* buffer, size_t bufferSize
     *buffer = scheme->sensorCount;
     buffer++;
 
-    // sensors
-    for (size_t i = 0; i < scheme->sensorCount; i++) {
-        ssize_t sensorSize = serializeSensorScheme(&scheme->sensors[i], buffer, bufferSize - (buffer - bufferStart));
-        if (sensorSize < 0) {
-            return -1;
-        }
-        buffer += sensorSize;
-    }
+    // sensorIds
+    memcpy(buffer, scheme->sensorIds, scheme->sensorCount * sizeof(uint8_t));
+    buffer += scheme->sensorCount * sizeof(uint8_t);
 
     return buffer - bufferStart;
 }
 
-int initParseInfoService(ParseInfoScheme* scheme) {
+int initParseInfoService(ParseInfoScheme* scheme, SensorScheme* sensorSchemes) {
     parseInfoSchemeStruct = scheme;
+    
+    for (size_t i = 0; i < scheme->sensorCount; i++) {
+        sensorSchemes[scheme->sensorIds[i]] = sensorSchemes[i];
+    }
 
     parseInfoSchemeSize = getSchemeSize(scheme);
 
@@ -247,4 +309,36 @@ float getSampleRateForSensor(SensorScheme* sensorScheme, uint8_t frequencyIndex)
     }
 
     return sensorScheme->configOptions.frequencyOptions.frequencies[frequencyIndex];
+}
+
+int initSensorSchemeForId(uint8_t id) {
+    SensorScheme* scheme = getSensorSchemeForId(id);
+
+    if (scheme == NULL) {
+        LOG_ERR("No sensor scheme found for id %d", id);
+        return -1;
+    }
+
+    sensorSchemeBufferSize = getSensorSchemeSize(scheme);
+    sensorSchemeBuffer = (char*)k_malloc(sensorSchemeBufferSize);
+
+    if (sensorSchemeBuffer == NULL) {
+        LOG_ERR("Failed to allocate memory for sensor scheme");
+        return -ENOMEM;
+    }
+
+    ssize_t schemeSize = serializeSensorScheme(scheme, sensorSchemeBuffer, sensorSchemeBufferSize);
+    if (schemeSize < 0) {
+        LOG_ERR("Failed to serialize sensor scheme");
+        return -1;
+    } else if ((size_t) schemeSize != sensorSchemeBufferSize) {
+        LOG_ERR("Serialized sensor scheme size does not match calculated size");
+        return -1;
+    }
+
+    return 0;
+}
+
+SensorScheme* getSensorSchemeForId(uint8_t id) {
+    return sensorSchemes[id];
 }

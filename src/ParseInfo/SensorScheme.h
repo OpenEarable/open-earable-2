@@ -11,8 +11,16 @@
 #define BT_UUID_PARSE_INFO_CHARAC_VAL \
     BT_UUID_128_ENCODE(0xcaa25cb9, 0x7e1b, 0x44f2, 0xadc9, 0xe8c06c9ced43)
 
+#define BT_UUID_PARSE_INFO_REQUEST_CHARAC_VAL \
+    BT_UUID_128_ENCODE(0xcaa25cba, 0x7e1b, 0x44f2, 0xadc9, 0xe8c06c9ced43)
+
+#define BT_UUID_PARSE_INFO_RESPONSE_CHARAC_VAL \
+    BT_UUID_128_ENCODE(0xcaa25cbb, 0x7e1b, 0x44f2, 0xadc9, 0xe8c06c9ced43)
+
 #define BT_UUID_PARSE_INFO_SERVICE       BT_UUID_DECLARE_128(BT_UUID_PARSE_INFO_SERVICE_VAL)
 #define BT_UUID_PARSE_INFO_CHARAC        BT_UUID_DECLARE_128(BT_UUID_PARSE_INFO_CHARAC_VAL)
+#define BT_UUID_PARSE_INFO_REQUEST_CHARAC        BT_UUID_DECLARE_128(BT_UUID_PARSE_INFO_REQUEST_CHARAC_VAL)
+#define BT_UUID_PARSE_INFO_RESPONSE_CHARAC        BT_UUID_DECLARE_128(BT_UUID_PARSE_INFO_RESPONSE_CHARAC_VAL)
 
 enum SensorConfigOptionsMasks {
     DATA_STREAMING = 0x01,
@@ -43,10 +51,10 @@ struct SensorScheme {
 
 struct ParseInfoScheme {
     uint8_t sensorCount;
-    SensorScheme* sensors;
+    uint8_t* sensorIds;
 };
 
-int initParseInfoService(ParseInfoScheme* scheme);
+int initParseInfoService(ParseInfoScheme* scheme, SensorScheme* sensorSchemes);
 
 SensorScheme* getSensorSchemeForId(uint8_t id);
 
