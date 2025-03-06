@@ -21,7 +21,7 @@ static size_t sensorSchemeBufferSize;
 static uint8_t requestedSensorId;
 
 static ParseInfoScheme* parseInfoSchemeStruct;
-static std::unordered_map<uint8_t, SensorScheme*> sensorSchemes;
+static std::unordered_map<uint8_t, SensorScheme*> sensorSchemesMap;
 
 static bool notify_enabled = false;
 
@@ -251,11 +251,16 @@ ssize_t serializeScheme(ParseInfoScheme* scheme, char* buffer, size_t bufferSize
 }
 
 int initParseInfoService(ParseInfoScheme* scheme, SensorScheme* sensorSchemes) {
+    LOG_DBG("Initializing parse info service");
+
     parseInfoSchemeStruct = scheme;
     
     for (size_t i = 0; i < scheme->sensorCount; i++) {
-        sensorSchemes[scheme->sensorIds[i]] = sensorSchemes[i];
+        LOG_DBG("Storing sensor scheme for id %d", sensorSchemes[i].id);
+        sensorSchemesMap[sensorSchemes[i].id] = &sensorSchemes[i];
     }
+
+    LOG_DBG("Stored sensor schemes in map");
 
     parseInfoSchemeSize = getSchemeSize(scheme);
 
@@ -340,5 +345,5 @@ int initSensorSchemeForId(uint8_t id) {
 }
 
 SensorScheme* getSensorSchemeForId(uint8_t id) {
-    return sensorSchemes[id];
+    return sensorSchemesMap[id];
 }
