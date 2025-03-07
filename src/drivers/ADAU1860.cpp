@@ -50,28 +50,6 @@ int ADAU1860::begin() {
 
         k_msleep(35); // CM rise time (see datasheet)
 
-        return 0;
-}
-
-int ADAU1860::end() {
-        int ret;
-
-        // pull-down PD pin
-        gpio_pin_set_dt(&dac_enable_pin, 0);
-
-        ret = pm_device_runtime_put(ls_1_8);
-
-        return ret;
-}
-
-int ADAU1860::setup() {
-        // reset all registers
-        // soft_reset(true);
-        //soft_reset(false);
-
-
-        //k_msleep(35);
-
         uint8_t power_mode = 0x01 | 0x04; // Hibernate 1, Master enable
         writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
 
@@ -89,53 +67,6 @@ int ADAU1860::setup() {
         //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
 
         // bypass PLL
-        /*uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
-        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
-        //k_msleep(10);
-
-        // DSP_PWR - reset val
-
-        //setup clock (PLL integer, MCLK source)
-        uint8_t clk_ctrl1 = (0x3 << 6) | (1 << 3); // | 0x2; // MCLK/XTAL // 0x2; //BCLK
-        writeReg(registers::CLK_CTRL1, &clk_ctrl1, sizeof(clk_ctrl1));
-
-        // //uint8_t clk_ctrl2 = 0x0; // = reset val
-        // readReg(registers::CLK_CTRL2, &test, sizeof(test));
-        // LOG_INF("CLK_CTRL2: 0x%x", test);
-
-        // //uint8_t clk_ctrl3 = 0x4; // = reset val
-        // readReg(registers::CLK_CTRL3, &test, sizeof(test));
-        // LOG_INF("CLK_CTRL3: 0x%x", test);
-
-        //DAC PLL multiple of 24.576MHz (=2x12.288)
-        //CLK_CTRL2 Prescaler = 1
-        //CLK_CTRL3 CLK_CTRL4 R = 4
-        uint8_t clk_ctrl3 = 0x02; // R = 2 with mck setup
-        uint8_t clk_ctrl4 = 0x00; // R = 1024
-
-        writeReg(registers::CLK_CTRL3, &clk_ctrl3, sizeof(clk_ctrl3));
-        writeReg(registers::CLK_CTRL4, &clk_ctrl4, sizeof(clk_ctrl4));
-
-        // PLL update CLK_CTRL9 ?
-        uint8_t clk_ctrl9 = 0x01;
-        writeReg(registers::CLK_CTRL9, &clk_ctrl9, sizeof(clk_ctrl9));
-
-        //
-        // uint8_t clk_ctrl14 = 0x01;
-        // writeReg(registers::CLK_CTRL14, &clk_ctrl14, sizeof(clk_ctrl14));
-
-        // uint8_t clk_ctrl15 = (1 << 5); // Bit 13 for DAC
-        // writeReg(registers::CLK_CTRL15, &clk_ctrl15, sizeof(clk_ctrl15));
-
-        // 
-        clk_ctrl13 &= ~(1 << 7);
-        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
-
-        // set up CLK_CTRL and PLL
-        //uint8_t pll_ctrl = 0x1; // XTAL_EN = 0, PLL_EN = 1 ?
-        uint8_t pll_ctrl = 0x3; // XTAL_EN = 1, PLL_EN = 1 ?
-        writeReg(registers::PLL_PGA_PWR, &pll_ctrl, sizeof(pll_ctrl));*/
-
         uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
         writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
 
@@ -157,32 +88,6 @@ int ADAU1860::setup() {
         uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
         writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
 
-        /*uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
-        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
-        //k_msleep(10);
-
-        // DSP_PWR - reset val
-
-        //setup clock (PLL integer, MCLK source)
-        uint8_t clk_ctrl1 = (0x3 << 6) | (1 << 3); // | 0x2; // MCLK/XTAL // 0x2; //BCLK
-        writeReg(registers::CLK_CTRL1, &clk_ctrl1, sizeof(clk_ctrl1));
-
-        // //uint8_t clk_ctrl2 = 0x0; // = reset val
-        // readReg(registers::CLK_CTRL2, &test, sizeof(test));
-        // LOG_INF("CLK_CTRL2: 0x%x", test);
-
-        // //uint8_t clk_ctrl3 = 0x4; // = reset val
-        // readReg(registers::CLK_CTRL3, &test, sizeof(test));
-        // LOG_INF("CLK_CTRL3: 0x%x", test);
-
-        // PLL update CLK_CTRL9 ?
-        uint8_t clk_ctrl9 = 0x01;
-        writeReg(registers::CLK_CTRL9, &clk_ctrl9, sizeof(clk_ctrl9));
-
-        // 
-        clk_ctrl13 &= ~(1 << 7);
-        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));*/
-
         k_msleep(1);
 
         // verify power up complete
@@ -190,41 +95,20 @@ int ADAU1860::setup() {
         readReg(registers::STATUS2, &status2, sizeof(status2));
         LOG_INF("STATUS2: 0x%x", status2);
 
-        // power up complete and PLL lock
-        /*if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-        if (!(status2 & 1)) LOG_WRN("PLL not locking");
-        if (!(status2 & 4)) LOG_WRN("ASCR not locking");
-
-        while (!(status2 & (1 << 7)) || !(status2 & 1) || !(status2 & 4)) {
-                readReg(registers::STATUS2, &status2, sizeof(status2));
-                LOG_INF("STATUS2: 0x%x", status2);
-
-                // power up complete and PLL lock
-                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-                if (!(status2 & 1)) LOG_WRN("PLL not locking");
-                if (!(status2 & 4)) LOG_WRN("ASCR not locking");
-
-                k_usleep(10);
-        }*/
-
         // ASRCI_CTRL
         //uint8_t asrci_route01 = 0x0; // ASRCI0_EN 
         //writeReg(registers::ASRCI_ROUTE01, &asrci_route01, sizeof(asrci_route01));
 
-        // ASRCI_CTRL = 0
+        // ASRCI_CTRL
 
         if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-        //if (!(status2 & 1)) LOG_WRN("PLL not locking");
-        if (!(status2 & 4)) LOG_WRN("ASCR not locked");
 
-        while (!(status2 & (1 << 7)) || !(status2 & 4)) {
+        while (!(status2 & (1 << 7))) {
                 readReg(registers::STATUS2, &status2, sizeof(status2));
                 LOG_INF("STATUS2: 0x%x", status2);
 
                 // power up complete and PLL lock
                 if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-                //if (!(status2 & 1)) LOG_WRN("PLL not locking");
-                if (!(status2 & 4)) LOG_WRN("waiting for ASCR to lock");
 
                 k_usleep(10);
         }
@@ -329,6 +213,40 @@ int ADAU1860::setup() {
 
         // high performance? PB_CTRL
         // DAC_NOISE_CTRL?
+
+        return 0;
+}
+
+int ADAU1860::end() {
+        int ret;
+
+        // pull-down PD pin
+        gpio_pin_set_dt(&dac_enable_pin, 0);
+
+        ret = pm_device_runtime_put(ls_1_8);
+
+        return ret;
+}
+
+int ADAU1860::setup() {
+        // verify power up complete
+        uint8_t status2;
+        readReg(registers::STATUS2, &status2, sizeof(status2));
+        LOG_INF("STATUS2: 0x%x", status2);
+
+        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+        if (!(status2 & 4)) LOG_WRN("ASCR not locked");
+
+        while (!(status2 & (1 << 7)) || !(status2 & 4)) {
+                readReg(registers::STATUS2, &status2, sizeof(status2));
+                LOG_INF("STATUS2: 0x%x", status2);
+
+                // power up complete and PLL lock
+                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+                if (!(status2 & 4)) LOG_WRN("waiting for ASCR to lock");
+
+                k_usleep(10);
+        }
 
         // unmute dac
         uint8_t dac_ctrl2 = 0x0;
