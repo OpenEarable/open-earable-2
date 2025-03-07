@@ -85,19 +85,18 @@ int ADAU1860::setup() {
         uint8_t cm_startup_over = 1 << 4 | power_mode;
         writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
 
-
         //uint8_t sai_clk_pwr = 0x01; // I2S_IN enable
         //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
 
         // bypass PLL
-        uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
+        /*uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
         writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
         //k_msleep(10);
 
         // DSP_PWR - reset val
 
         //setup clock (PLL integer, MCLK source)
-        uint8_t clk_ctrl1 = (0x3 << 6) | 0x2; //BCLK
+        uint8_t clk_ctrl1 = (0x3 << 6) | (1 << 3); // | 0x2; // MCLK/XTAL // 0x2; //BCLK
         writeReg(registers::CLK_CTRL1, &clk_ctrl1, sizeof(clk_ctrl1));
 
         // //uint8_t clk_ctrl2 = 0x0; // = reset val
@@ -111,7 +110,7 @@ int ADAU1860::setup() {
         //DAC PLL multiple of 24.576MHz (=2x12.288)
         //CLK_CTRL2 Prescaler = 1
         //CLK_CTRL3 CLK_CTRL4 R = 4
-        uint8_t clk_ctrl3 = 0x20; // R = 8 with mck setup (10?)
+        uint8_t clk_ctrl3 = 0x02; // R = 2 with mck setup
         uint8_t clk_ctrl4 = 0x00; // R = 1024
 
         writeReg(registers::CLK_CTRL3, &clk_ctrl3, sizeof(clk_ctrl3));
@@ -135,7 +134,54 @@ int ADAU1860::setup() {
         // set up CLK_CTRL and PLL
         //uint8_t pll_ctrl = 0x1; // XTAL_EN = 0, PLL_EN = 1 ?
         uint8_t pll_ctrl = 0x3; // XTAL_EN = 1, PLL_EN = 1 ?
-        writeReg(registers::PLL_PGA_PWR, &pll_ctrl, sizeof(pll_ctrl));
+        writeReg(registers::PLL_PGA_PWR, &pll_ctrl, sizeof(pll_ctrl));*/
+
+        uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
+        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+
+        //uint8_t clk_ctrl13 = (0 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
+        //writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+
+        //uint8_t clk_ctrl1 = (0x3 << 6) | (1 << 3); //MCLK/XTAL
+        //writeReg(registers::CLK_CTRL1, &clk_ctrl1, sizeof(clk_ctrl1));
+
+        uint8_t clk_ctrl12 = 0x01; // frequency multiplier enabled
+        writeReg(registers::CLK_CTRL12, &clk_ctrl12, sizeof(clk_ctrl12));
+
+        clk_ctrl13 &= ~(1 << 7);
+        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+
+        // uint8_t pll_ctrl = 0x2; // XTAL_EN = 1, PLL_EN = 0
+        // writeReg(registers::PLL_PGA_PWR, &pll_ctrl, sizeof(pll_ctrl));
+
+        uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
+        writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
+
+        /*uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
+        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+        //k_msleep(10);
+
+        // DSP_PWR - reset val
+
+        //setup clock (PLL integer, MCLK source)
+        uint8_t clk_ctrl1 = (0x3 << 6) | (1 << 3); // | 0x2; // MCLK/XTAL // 0x2; //BCLK
+        writeReg(registers::CLK_CTRL1, &clk_ctrl1, sizeof(clk_ctrl1));
+
+        // //uint8_t clk_ctrl2 = 0x0; // = reset val
+        // readReg(registers::CLK_CTRL2, &test, sizeof(test));
+        // LOG_INF("CLK_CTRL2: 0x%x", test);
+
+        // //uint8_t clk_ctrl3 = 0x4; // = reset val
+        // readReg(registers::CLK_CTRL3, &test, sizeof(test));
+        // LOG_INF("CLK_CTRL3: 0x%x", test);
+
+        // PLL update CLK_CTRL9 ?
+        uint8_t clk_ctrl9 = 0x01;
+        writeReg(registers::CLK_CTRL9, &clk_ctrl9, sizeof(clk_ctrl9));
+
+        // 
+        clk_ctrl13 &= ~(1 << 7);
+        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));*/
 
         k_msleep(1);
 
@@ -145,16 +191,40 @@ int ADAU1860::setup() {
         LOG_INF("STATUS2: 0x%x", status2);
 
         // power up complete and PLL lock
-        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+        /*if (!(status2 & (1 << 7))) LOG_WRN("No power up");
         if (!(status2 & 1)) LOG_WRN("PLL not locking");
+        if (!(status2 & 4)) LOG_WRN("ASCR not locking");
 
-        while (!(status2 & (1 << 7)) || !(status2 & 1)) {
+        while (!(status2 & (1 << 7)) || !(status2 & 1) || !(status2 & 4)) {
                 readReg(registers::STATUS2, &status2, sizeof(status2));
                 LOG_INF("STATUS2: 0x%x", status2);
 
                 // power up complete and PLL lock
                 if (!(status2 & (1 << 7))) LOG_WRN("No power up");
                 if (!(status2 & 1)) LOG_WRN("PLL not locking");
+                if (!(status2 & 4)) LOG_WRN("ASCR not locking");
+
+                k_usleep(10);
+        }*/
+
+        // ASRCI_CTRL
+        //uint8_t asrci_route01 = 0x0; // ASRCI0_EN 
+        //writeReg(registers::ASRCI_ROUTE01, &asrci_route01, sizeof(asrci_route01));
+
+        // ASRCI_CTRL = 0
+
+        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+        //if (!(status2 & 1)) LOG_WRN("PLL not locking");
+        if (!(status2 & 4)) LOG_WRN("ASCR not locked");
+
+        while (!(status2 & (1 << 7)) || !(status2 & 4)) {
+                readReg(registers::STATUS2, &status2, sizeof(status2));
+                LOG_INF("STATUS2: 0x%x", status2);
+
+                // power up complete and PLL lock
+                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+                //if (!(status2 & 1)) LOG_WRN("PLL not locking");
+                if (!(status2 & 4)) LOG_WRN("waiting for ASCR to lock");
 
                 k_usleep(10);
         }
@@ -222,8 +292,11 @@ int ADAU1860::setup() {
         }
 
         // EQ_ROUTE - serial port 0 channel 0
+        uint8_t eq_route = 64; // Serial port 0 channel 0
+        writeReg(registers::EQ_ROUTE, &eq_route, sizeof(eq_route));
+
         // uint8_t eq_cfg = 0x10; // Serial port 0 channel 0
-        // writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
+        //writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
 
         // set Eq params
         writeReg(EQ_PROG_MEM, (uint8_t*) eq_program, sizeof(eq_program));
@@ -234,8 +307,6 @@ int ADAU1860::setup() {
         eq_cfg = 0x01;
         writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
 #endif
-
-        // ASRCI_CTRL
 
         // PB_POWER_CTRL enhanced mode?
 
