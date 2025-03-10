@@ -57,7 +57,11 @@ static ssize_t write_sensor_request(struct bt_conn *conn,
 
     memcpy(&requestedSensorId, buf, sizeof(uint8_t));
 
-    initSensorSchemeForId(requestedSensorId);
+    int ret = initSensorSchemeForId(requestedSensorId);
+    if (ret < 0) {
+        LOG_ERR("Failed to initialize sensor scheme for id %d", requestedSensorId);
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
 
     notify_client(conn);
 
@@ -78,10 +82,10 @@ BT_GATT_SERVICE_DEFINE(parseInfo_service,
                 read_parse_info, NULL, parseInfoScheme),
     BT_GATT_CHARACTERISTIC(BT_UUID_PARSE_INFO_REQUEST_CHARAC,
                 BT_GATT_CHRC_WRITE,
-                BT_GATT_CHRC_WRITE,
+                BT_GATT_PERM_WRITE,
                 NULL, write_sensor_request, NULL),
-    BT_GATT_CHARACTERISTIC(BT_UUID_PARSE_INFO_CHARAC,
-                BT_GATT_CHRC_READ,
+    BT_GATT_CHARACTERISTIC(BT_UUID_PARSE_INFO_RESPONSE_CHARAC,
+                BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
                 BT_GATT_PERM_READ,
                 read_sensor_scheme, NULL, sensorSchemeBuffer),
     BT_GATT_CCC(scheme_ccc_cfg,
@@ -90,12 +94,16 @@ BT_GATT_SERVICE_DEFINE(parseInfo_service,
 
 static void notify_client(struct bt_conn *conn) {
     if (notify_enabled) {
-        bt_gatt_notify(
+        int ret = bt_gatt_notify(
             conn,
-            &parseInfo_service.attrs[3],
+            &parseInfo_service.attrs[5],
             sensorSchemeBuffer,
             sensorSchemeBufferSize
         );
+
+        if (ret) {
+            LOG_ERR("Failed to notify client, error code: %d", ret);
+        }
     }
 }
 
