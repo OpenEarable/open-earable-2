@@ -8,6 +8,8 @@
 #include "Temp.h"
 #include "BoneConduction.h"
 #include <SensorScheme.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(sensor_manager);
 
 extern struct k_msgq sensor_queue;
 extern k_tid_t sensor_publish;
@@ -70,5 +72,5 @@ void config_sensor(struct sensor_config * config) {
 	sensor->sd_logging(config->storageOptions & DATA_STORAGE);
 	sensor->ble_stream(config->storageOptions & DATA_STREAMING);
 
-	if (sensor->init(&sensor_queue)) sensor->start(t);
+	if (sensor->init(&sensor_queue)) sensor->start(config->sampleRateIndex);
 }

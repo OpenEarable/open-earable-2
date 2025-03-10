@@ -293,16 +293,6 @@ int initParseInfoService(ParseInfoScheme* scheme, SensorScheme* sensorSchemes) {
     return 0;
 }
 
-SensorScheme* getSensorSchemeForId(uint8_t id) {
-    for (size_t i = 0; i < parseInfoSchemeStruct->sensorCount; i++) {
-        if (parseInfoSchemeStruct->sensors[i].id == id) {
-            return &parseInfoSchemeStruct->sensors[i];
-        }
-    }
-
-    return NULL;
-}
-
 float getSampleRateForSensor(uint8_t id, uint8_t frequencyIndex) {
     SensorScheme* scheme = getSensorSchemeForId(id);
     if (scheme == NULL) {
