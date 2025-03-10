@@ -212,7 +212,7 @@ int main(void) {
 
 	//config_sensor(&ppg);
 
-	ret = init_led_service();
+        ret = init_led_service();
 	ERR_CHK(ret);
 
 	ret = init_battery_service();

@@ -39,6 +39,8 @@ class TWIM
 
   private:
     struct k_mutex mutex;
+
+    bool _active = false;
 };
 
 extern TWIM I2C1;

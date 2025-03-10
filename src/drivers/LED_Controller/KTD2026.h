@@ -41,6 +41,8 @@ private:
 
     //TwoWire * _pWire = &Wire;
     TWIM * _i2c = &I2C1;
+
+    bool _active = false;
 };
 
 extern KTD2026 led_controller;

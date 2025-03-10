@@ -9,23 +9,6 @@
 LOG_MODULE_REGISTER(LED, CONFIG_MAIN_LOG_LEVEL);
 
 bool KTD2026::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
-        /*_pWire->aquire();
-        _pWire->beginTransmission(address);
-        _pWire->write(reg);
-        if (_pWire->endTransmission(false) != 0) {
-                _pWire->release();
-                return false;
-        }
-        _pWire->requestFrom(address, len);
-
-        for (uint16_t i = 0; i < len; i++) {
-            buffer[i] = _pWire->read();
-        }
-
-        int ret = _pWire->endTransmission();
-
-        _pWire->release();*/
-
         _i2c->aquire();
 
         int ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
@@ -37,14 +20,6 @@ bool KTD2026::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 }
 
 void KTD2026::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
-        /*_pWire->aquire();
-        _pWire->beginTransmission(address);
-        _pWire->write(reg);
-        for(uint16_t i = 0; i < len; i ++)
-            _pWire->write(buffer[i]);
-        _pWire->endTransmission();
-        _pWire->release();*/
-
         _i2c->aquire();
 
         int ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
@@ -55,6 +30,10 @@ void KTD2026::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 
 void KTD2026::begin() {
         int ret;
+
+        if (_active) return;
+
+	_active = true;
         
         ret = pm_device_runtime_get(ls_1_8);
         ret = pm_device_runtime_get(ls_3_3);
@@ -75,6 +54,8 @@ void KTD2026::power_off() {
         writeReg(registers::CTRL, &val, sizeof(val));
         int ret = pm_device_runtime_put(ls_1_8);
         ret = pm_device_runtime_put(ls_3_3);
+
+	_active = false;
 }
 
 void KTD2026::setColor(RGBColor color) {

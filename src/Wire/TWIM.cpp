@@ -9,16 +9,20 @@ TWIM::TWIM(const struct device * _device) : master(_device) {}
 void TWIM::begin() {
 	int ret;
 
+	if (_active) return;
+
+	_active = true;
+
+	k_mutex_init(&mutex);
+
 	if (!device_is_ready(master)) {
 		LOG_ERR("Failed to setup Wire.");
+		_active = false;
 	}
 }
 
 void TWIM::end() {
-	/*if (master != NULL) {
-		delete master;
-		master = NULL;
-	}*/
+	_active = false;
 }
 
 void TWIM::setClock(uint32_t speed) {
