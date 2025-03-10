@@ -228,13 +228,13 @@ int PowerManager::begin() {
     ret = device_is_ready(error_led.port); //bool
     if (!ret) {
         LOG_WRN("Error LED not ready.");
-        return -1;
+        //return -1;
     }
 
     ret = gpio_pin_configure_dt(&error_led, GPIO_OUTPUT_INACTIVE);
     if (ret != 0) {
         LOG_INF("Failed to set Error LED as output: ERROR -%i.", ret);
-        return ret;
+        //return ret;
     }
 
     //RGBColor white = {32, 32, 32};
