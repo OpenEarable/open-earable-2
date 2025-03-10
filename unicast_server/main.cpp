@@ -282,7 +282,6 @@ int main(void) {
 	//config_sensor(&temp);
 
 	//sensor_config ppg = {ID_PPG, 400, 0};
-
 	//config_sensor(&ppg);
 
 	ret = init_battery_service();
