@@ -18,8 +18,6 @@ static size_t parseInfoSchemeSize;
 static char* sensorSchemeBuffer;
 static size_t sensorSchemeBufferSize;
 
-static uint8_t requestedSensorId;
-
 static ParseInfoScheme* parseInfoSchemeStruct;
 static std::unordered_map<uint8_t, SensorScheme*> sensorSchemesMap;
 
@@ -55,7 +53,7 @@ static ssize_t write_sensor_request(struct bt_conn *conn,
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
-    memcpy(&requestedSensorId, buf, sizeof(uint8_t));
+    uint8_t requestedSensorId = *(uint8_t*)buf;
 
     int ret = initSensorSchemeForId(requestedSensorId);
     if (ret < 0) {
@@ -321,6 +319,8 @@ int initSensorSchemeForId(uint8_t id) {
         LOG_ERR("No sensor scheme found for id %d", id);
         return -1;
     }
+
+    k_free(sensorSchemeBuffer);
 
     sensorSchemeBufferSize = getSensorSchemeSize(scheme);
     sensorSchemeBuffer = (char*)k_malloc(sensorSchemeBufferSize);
