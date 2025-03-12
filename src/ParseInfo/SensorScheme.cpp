@@ -320,7 +320,9 @@ int initSensorSchemeForId(uint8_t id) {
         return -1;
     }
 
-    k_free(sensorSchemeBuffer);
+    if (sensorSchemeBuffer != NULL) k_free(sensorSchemeBuffer);
+    
+    sensorSchemeBuffer = NULL;
 
     sensorSchemeBufferSize = getSensorSchemeSize(scheme);
     sensorSchemeBuffer = (char*)k_malloc(sensorSchemeBufferSize);
