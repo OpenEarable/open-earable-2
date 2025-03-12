@@ -64,7 +64,7 @@ void config_sensor(struct sensor_config * config) {
 
 	EdgeMlSensor * sensor = get_sensor((enum sensor_id) config->sensorId);
 
-	if (config->storageOptions == 0) {
+	if (config->storageOptions == 0 || !(config->storageOptions & (DATA_STREAMING | DATA_STORAGE))) {
 		sensor->stop();
 		return;
 	}
