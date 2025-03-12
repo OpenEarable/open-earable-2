@@ -1,2 +1,0 @@
-nrfjprog --program /Users/miguelkuttner/dev/Teco/Earable/v2/open-earable-v2/build/merged_CPUNET.hex --chiperase --verify -f NRF53 --coprocessor CP_NETWORK --snr 261010806 --clockspeed 8000
-nrfjprog --program /Users/miguelkuttner/dev/Teco/Earable/v2/open-earable-v2/build/merged.hex --chiperase --verify -f NRF53 --coprocessor CP_APPLICATION --snr 261010806 --clockspeed 8000

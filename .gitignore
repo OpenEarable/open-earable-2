@@ -10,3 +10,7 @@
 
 # MacOS Finder settings
 **/.DS_Store
+
+# Flash Backup files
+/tools/flash/settings_backup.hex
+/tools/flash/uicr_backup.hex
