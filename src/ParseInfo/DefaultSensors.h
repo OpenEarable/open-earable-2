@@ -6,6 +6,12 @@
 #include "zbus_common.h"
 #include "openearable_common.h"
 
+#include "../SensorManager/PPG.h"
+#include "../SensorManager/IMU.h"
+#include "../SensorManager/Baro.h"
+#include "../SensorManager/Temp.h"
+#include "../SensorManager/BoneConduction.h"
+
 // ============= IMU =============
 
 #define IMU_ACC_COUNT 3
@@ -98,17 +104,87 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 // ============= Sensors =============
 
 #define SENSOR_COUNT 5
-SensorScheme sensors[SENSOR_COUNT] = {
-    { .name = "BOSCH_BMX160", .id = ID_IMU, .groupCount = IMU_GROUP_COUNT, .groups = imuGroups },
-    { .name = "ANALOG_DEVICES_MAXM86161EFD+", .id = ID_PPG, .groupCount = PPG_GROUP_COUNT, .groups = ppgGroups },
-    { .name = "MELEXIS_MLX90632", .id = ID_OPTTEMP, .groupCount = OPTIC_TEMP_GROUP_COUNT, .groups = opticTemperatureGroups },
-    { .name = "BOSCH_BMP388", .id = ID_TEMP_BARO, .groupCount = BARO_GROUP_COUNT, .groups = baroGroups },
-    { .name = "BOSCH_BMA580", .id = ID_BONE_CONDUCTION, .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT, .groups = boneConductionIMUGroups },
+SensorScheme defaultSensors[SENSOR_COUNT] = {
+    {
+        .name = "BOSCH_BMX160",
+        .id = ID_IMU,
+        .groupCount = IMU_GROUP_COUNT,
+        .groups = imuGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(IMU::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 2,
+                .frequencies = IMU::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "ANALOG_DEVICES_MAXM86161EFD+",
+        .id = ID_PPG,
+        .groupCount = PPG_GROUP_COUNT,
+        .groups = ppgGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(PPG::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 12,
+                .frequencies = PPG::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "MELEXIS_MLX90632",
+        .id = ID_OPTTEMP,
+        .groupCount = OPTIC_TEMP_GROUP_COUNT,
+        .groups = opticTemperatureGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(Temp::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 7,
+                .frequencies = Temp::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "BOSCH_BMP388",
+        .id = ID_TEMP_BARO,
+        .groupCount = BARO_GROUP_COUNT,
+        .groups = baroGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(Baro::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 7,
+                .frequencies = Baro::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "BOSCH_BMA580",
+        .id = ID_BONE_CONDUCTION,
+        .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT,
+        .groups = boneConductionIMUGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(BoneConduction::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 6,
+                .frequencies = BoneConduction::sample_rates.sample_rates,
+            },
+        }, 
+    },
 };
 
-ParseInfoScheme defaultSensors = {
+ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensors = sensors,
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION },
 };
 
 #endif // _DEFAULT_SENSORS_H

@@ -19,19 +19,17 @@ ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
 static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
 
+K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_msg), 16, 4);
+
 //extern const k_tid_t sensor_publish;
 
-//static struct sensor_data data;
 static struct sensor_msg msg;
 static struct sensor_data * const data_buf = &(msg.data);
 static struct sensor_config config;
 
 static bool notify_enabled = false;
 
-//k_work gatt_sensor_work;
-
 static void gatt_work_handler(struct k_work * work);
-int send_sensor_data();
 
 K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
 
@@ -62,6 +60,8 @@ static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
 	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
+
+	k_msgq_purge(&gatt_queue);
 }
 
 static ssize_t read_sensor_value(struct bt_conn *conn,
@@ -92,7 +92,7 @@ static ssize_t write_config(struct bt_conn *conn,
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
 
-	LOG_INF("Setup sensor ID %i with samplerate %f", ((struct sensor_config *)buf)->sensorId, ((struct sensor_config *)buf)->sampleRate);
+	LOG_INF("Setup sensor ID %i with samplerateIndex %i", ((struct sensor_config *)buf)->sensorId, ((struct sensor_config *)buf)->sampleRateIndex);
 
 	//stop_sensor_manager();
 	config_sensor((struct sensor_config *) buf);
@@ -115,18 +115,21 @@ BT_GATT_CCC(sensor_ccc_cfg_changed,
 );
 
 static void gatt_work_handler(struct k_work * work) {
-	//send_sensor_data();
-	if (connection_complete && notify_enabled && msg.stream) {
-		int ret = send_sensor_data();
-		//if (ret == 0) printk("data send\n");
-		if (ret != 0) printk("Failed to send data.\n");
-		//ERR_CHK(ret);
-	}
-}
+	int ret;
 
-int send_sensor_data() {
-	if (!notify_enabled) {
-		return -EACCES;
+	ret = k_msgq_get(&gatt_queue, &msg, K_NO_WAIT);
+
+	if (ret != 0) {
+		LOG_WRN("No data to process");
+		return;
+	}
+
+	if (connection_complete && notify_enabled && msg.stream) {
+		//ret = send_sensor_data();
+		const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
+
+		ret =  bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
+		if (ret != 0) LOG_WRN("Failed to send data.\n");
 	}
 
 	const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
@@ -138,6 +141,7 @@ static void sensor_gatt_task(void)
 {
 	int ret;
 	const struct zbus_channel *chan;
+	static struct sensor_msg msg;
 
 	while (1) {
 		ret = zbus_sub_wait(&sensor_gatt_sub, &chan, K_FOREVER);
@@ -147,7 +151,13 @@ static void sensor_gatt_task(void)
 		ERR_CHK(ret);
 
 		if (msg.stream) {
-			k_work_submit(&gatt_sensor_work);
+			ret = k_msgq_put(&gatt_queue, &msg, K_NO_WAIT);
+
+			if (ret == -EAGAIN) {
+				LOG_WRN("power manager msg queue full");
+			} else {
+				k_work_submit(&gatt_sensor_work);
+			}
 		}
 
 		STACK_USAGE_PRINT("sensor_msg_thread", &thread_data);

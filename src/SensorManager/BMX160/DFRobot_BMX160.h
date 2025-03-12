@@ -9,11 +9,13 @@
  * @date  2021-10-20
  * @url https://github.com/DFRobot/DFRobot_BMX160
  */
-#include <Wire.h>
+//#include <Wire.h>
+#include <TWIM.h>
 
 #define LITTLE_ENDIAN 1
 
 /** Mask definitions */
+#define BMX160_MAGN_ODR_MASK                     0x0F
 #define BMX160_ACCEL_BW_MASK                     0x70
 #define BMX160_ACCEL_ODR_MASK                    0x0F
 #define BMX160_ACCEL_UNDERSAMPLING_MASK          0x80
@@ -973,9 +975,11 @@ typedef enum{
     eAccelRange_16G = 0b1100,   /**< Macro for mg per LSB at +/- 16g sensitivity (1 LSB = 0.000488281mg) */
 }eAccelRange_t;
 
+#define EARTH_ACC 9.81f
+
 class DFRobot_BMX160{
   public:
-    DFRobot_BMX160(TwoWire *pWire=&Wire);
+    DFRobot_BMX160(TWIM *i2c=&I2C2);
     
     /**
      * @fn begin
@@ -1008,6 +1012,10 @@ class DFRobot_BMX160{
      * @n       eAccelRange_16G       Macro for mg per LSB at +/- 16g sensitivity (1 LSB = 0.000488281mg)
      */
     void setAccelRange(eAccelRange_t bits);
+
+    void setMagnODR(uint8_t val);
+    void setGyroODR(uint8_t val);
+    void setAccelODR(uint8_t val);
     
     /**
      * @fn getAllData
@@ -1100,14 +1108,14 @@ class DFRobot_BMX160{
      */
     void setMagnConf();
 
-    float accelRange = BMX160_ACCEL_MG_LSB_2G * 9.8;
+    float accelRange = BMX160_ACCEL_MG_LSB_2G * EARTH_ACC;
     float gyroRange = BMX160_GYRO_SENSITIVITY_250DPS;
-    uint8_t _addr = 0x68;
+    uint8_t _addr = DT_REG_ADDR(DT_NODELABEL(bmx160));
     
     sBmx160Dev_t* Obmx160;
 
     sBmx160SensorData_t* Omagn;
     sBmx160SensorData_t* Oaccel;
     sBmx160SensorData_t* Ogyro; 
-    TwoWire *_pWire;
+    TWIM *_i2c;
 };

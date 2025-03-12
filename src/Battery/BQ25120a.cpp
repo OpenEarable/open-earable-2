@@ -2,9 +2,12 @@
 
 #include "openearable_common.h"
 
-BQ25120a battery_controller(&Wire);
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(bq25120a, LOG_LEVEL_DBG);
 
-BQ25120a::BQ25120a(TwoWire * wire) : _pWire(wire) { //, load_switch(LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), lsctrl_gpios))) {
+BQ25120a battery_controller(&I2C1);
+
+BQ25120a::BQ25120a(TWIM * i2c) : _i2c(i2c) { //, load_switch(LoadSwitch(GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), lsctrl_gpios))) {
 
 }
 
@@ -47,7 +50,8 @@ int BQ25120a::begin() {
                 return ret;
         }
 
-        _pWire->begin();
+        //_pWire->begin();
+        _i2c->begin();
 
         uint64_t now = micros();
         last_i2c = last_high_z = now;
@@ -80,6 +84,7 @@ int BQ25120a::set_wakeup_int() {
 }
 
 bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
+        int ret;
         uint64_t now = micros();
         int delay = MIN(BQ25120a_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ25120a_I2C_TIMEOUT_US);
         int delay_hz = MIN(BQ25120a_HIGH_Z_TIMEOUT_US - (int)(now - last_high_z), BQ25120a_HIGH_Z_TIMEOUT_US);
@@ -88,30 +93,20 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
-        _pWire->aquire();
+        _i2c->aquire();
 
-        _pWire->beginTransmission(address);
-        _pWire->write(reg);
-        if (_pWire->endTransmission() != 0) {
-                _pWire->release();
-                return false;
-        }
-        _pWire->requestFrom(address, len);
+        ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
+        if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
-        for (uint16_t i = 0; i < len; i++) {
-                buffer[i] = _pWire->read();
-        }
-
-        int ret = _pWire->endTransmission();
-
-        _pWire->release();
+        _i2c->release();
 
         last_i2c = micros();
 
-        return (ret == 0);
+        return ret == 0;
 }
 
 void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
+        int ret;
         uint64_t now = micros();
         int delay = MIN(BQ25120a_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ25120a_I2C_TIMEOUT_US);
         int delay_hz = MIN(BQ25120a_HIGH_Z_TIMEOUT_US - (int)(now - last_high_z), BQ25120a_HIGH_Z_TIMEOUT_US);
@@ -120,15 +115,12 @@ void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
-        _pWire->aquire();
+        _i2c->aquire();
 
-        _pWire->beginTransmission(address);
-        _pWire->write(reg);
-        for(uint16_t i = 0; i < len; i ++)
-            _pWire->write(buffer[i]);
-        _pWire->endTransmission();
+        ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
+        if (ret) LOG_WRN("I2C write failed: %d\n", ret);
 
-        _pWire->release();
+        _i2c->release();
 
         last_i2c = micros();
 }
@@ -154,7 +146,7 @@ uint8_t BQ25120a::read_charging_state() {
         uint8_t status = 0;
         bool ret = readReg(registers::CTRL, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        //if (!ret) printk("failed to read\n");
 
         return status;
 }
@@ -163,7 +155,7 @@ uint8_t BQ25120a::read_fault() {
         uint8_t status = 0;
         bool ret = readReg(registers::FAULT, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        //if (!ret) printk("failed to read\n");
 
         return status;
 }
@@ -172,7 +164,7 @@ uint8_t BQ25120a::read_ts_fault() {
         uint8_t status = 0;
         bool ret = readReg(registers::TS_FAULT, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        //if (!ret) printk("failed to read\n");
 
         return status;
 }
@@ -183,7 +175,7 @@ chrg_state BQ25120a::read_charging_control() {
 
         chrg_state chrg;
 
-        if (!ret) printk("failed to read\n");
+        //if (!ret) printk("failed to read\n");
 
         chrg.enabled = !(status & 0x2);
         chrg.high_impedance = status & 0x1;
@@ -299,7 +291,7 @@ chrg_state BQ25120a::read_termination_control() {
 
         struct chrg_state chrg;
 
-        if (!ret) printk("failed to read\n");
+        // if (!ret) printk("failed to read\n");
 
         chrg.enabled = status & 0x2;
         //chrg.high_impedance = status & 0x1;
@@ -349,7 +341,7 @@ ilim_uvlo BQ25120a::read_uvlo_ilim() {
 
         bool ret = readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        // if (!ret) printk("failed to read\n");
 
         param.uvlo_v = CLAMP(3.0f- 0.2f * ((status & 0x7) - 2), 2.2, 3.0);
         param.lim_mA = 50.f + 50.f * ((status >> 3) & 0x7);
@@ -416,7 +408,7 @@ button_state BQ25120a::read_button_state() {
         uint8_t status = 0;
         bool ret = readReg(registers::BTN_CTRL, (uint8_t *) &status, sizeof(status));
 
-        if (!ret) printk("failed to read\n");
+        // if (!ret) printk("failed to read\n");
 
         btn.wake_1 = status & 0x2;
         btn.wake_2 = status & 0x1;

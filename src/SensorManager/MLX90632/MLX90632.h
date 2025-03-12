@@ -27,7 +27,8 @@
 
 #pragma once
 
-#include <Wire.h>
+//#include <Wire.h>
+#include <TWIM.h>
 
 //The default I2C address for the MLX90632 on the SparkX breakout is 0x3B. 0x3A is also possible.
 #define MLX90632_DEFAULT_ADDRESS 0x3A 
@@ -116,7 +117,7 @@ class MLX90632 {
     } status;
 
     bool begin(); //By default .begin() will use the default I2C addres, and use Wire port
-    bool begin(uint8_t deviceAddress, TwoWire &wirePort, status &returnError);
+    bool begin(uint8_t deviceAddress, TWIM &i2c, status &returnError);
 
     status readRegister16(uint16_t addr, uint16_t &outputPointer);
     status writeRegister16(uint16_t addr, uint16_t val);
@@ -149,6 +150,8 @@ class MLX90632 {
     uint8_t getMode(status &returnError);
     MLX90632::status setSOC(); //Set the start conversion bit
 
+    void setSampleRateRegVal(uint8_t val);
+
     void setSampleRate(float sample_rate);
     float getSampleRate();
 
@@ -159,7 +162,7 @@ class MLX90632 {
     float gatherSensorTemp(status &returnError);
 
     //Variables
-    TwoWire *_i2cPort; //The generic connection to user's chosen I2C hardware
+    TWIM *_i2c; //The generic connection to user's chosen I2C hardware
     uint8_t _deviceAddress; //Keeps track of I2C address. setI2CAddress changes this. Either 0x3A or 0x3B (default)
 
 };

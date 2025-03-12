@@ -7,6 +7,9 @@
 #include "PPG.h"
 #include "Temp.h"
 #include "BoneConduction.h"
+#include <SensorScheme.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(sensor_manager);
 
 extern struct k_msgq sensor_queue;
 extern k_tid_t sensor_publish;
@@ -51,10 +54,23 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 }
 
 void config_sensor(struct sensor_config * config) {
-    k_timeout_t t = K_USEC(1e6 / config->sampleRate);
+	float sampleRate = getSampleRateForSensor(config->sensorId, config->sampleRateIndex);
+	if (sampleRate <= 0) {
+		LOG_ERR("Invalid sample rate %f for sensor %i", sampleRate, config->sensorId);
+		return;
+	}
+
+    k_timeout_t t = K_USEC(1e6 / sampleRate);
 
 	EdgeMlSensor * sensor = get_sensor((enum sensor_id) config->sensorId);
 
-	if (config->sampleRate == 0) sensor->stop();
-	else if (sensor->init(&sensor_queue)) sensor->start(t);
+	if (config->storageOptions == 0 || !(config->storageOptions & (DATA_STREAMING | DATA_STORAGE))) {
+		sensor->stop();
+		return;
+	}
+
+	sensor->sd_logging(config->storageOptions & DATA_STORAGE);
+	sensor->ble_stream(config->storageOptions & DATA_STREAMING);
+
+	if (sensor->init(&sensor_queue)) sensor->start(config->sampleRateIndex);
 }

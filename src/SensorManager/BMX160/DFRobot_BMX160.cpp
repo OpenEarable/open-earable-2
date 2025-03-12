@@ -11,12 +11,14 @@
  */
 #include "DFRobot_BMX160.h"
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(BMX160, CONFIG_MAIN_LOG_LEVEL);
+
 #define delay(ms) k_msleep(ms)
 #define malloc(a) k_malloc(a)
 
-DFRobot_BMX160::DFRobot_BMX160(TwoWire *pWire)
+DFRobot_BMX160::DFRobot_BMX160(TWIM *i2c) : _i2c(i2c)
 {
-  _pWire = pWire;
   Obmx160 = (sBmx160Dev_t *)malloc(sizeof(sBmx160Dev_t));
   Oaccel = ( sBmx160SensorData_t*)malloc(sizeof( sBmx160SensorData_t));
   Ogyro = ( sBmx160SensorData_t*)malloc(sizeof( sBmx160SensorData_t));
@@ -41,7 +43,7 @@ const uint8_t int_mask_lookup_table[13] = {
 
 bool DFRobot_BMX160::begin()
 {
-    _pWire->begin();
+    _i2c->begin();
     if (scan() == true){
         softReset();
         writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11);
@@ -54,9 +56,7 @@ bool DFRobot_BMX160::begin()
         delay(10);
         setMagnConf();
         return true;
-    }
-    else
-        return false;
+    } else return false;
 }
 
 void DFRobot_BMX160::setLowPower(){
@@ -124,11 +124,14 @@ void DFRobot_BMX160::defaultParamSettg(sBmx160Dev_t *dev)
   dev->gyroCfg.odr = BMX160_GYRO_ODR_100HZ;
   dev->gyroCfg.power = BMX160_GYRO_SUSPEND_MODE;
   dev->gyroCfg.range = BMX160_GYRO_RANGE_2000_DPS;
+
   dev->accelCfg.bw = BMX160_ACCEL_BW_NORMAL_AVG4;
   dev->accelCfg.odr = BMX160_ACCEL_ODR_100HZ;
   dev->accelCfg.power = BMX160_ACCEL_SUSPEND_MODE;
   dev->accelCfg.range = BMX160_ACCEL_RANGE_2G;
-  
+
+  dev->magnCfg.odr = BMX160_MAGN_ODR_100HZ;
+  dev->magnCfg.power = BMX160_MAGN_SUSPEND_MODE;
 
   dev->prevMagnCfg = dev->magnCfg;
   dev->prevGyroCfg = dev->gyroCfg;
@@ -186,23 +189,35 @@ void DFRobot_BMX160::setGyroRange(eGyroRange_t bits){
 void DFRobot_BMX160::setAccelRange(eAccelRange_t bits){
     switch (bits){
         case eAccelRange_2G:
-            accelRange = BMX160_ACCEL_MG_LSB_2G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_2G * EARTH_ACC;
             break;
         case eAccelRange_4G:
-            accelRange = BMX160_ACCEL_MG_LSB_4G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_4G * EARTH_ACC;
             break;
         case eAccelRange_8G:
-            accelRange = BMX160_ACCEL_MG_LSB_8G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_8G * EARTH_ACC;
             break;
         case eAccelRange_16G:
-            accelRange = BMX160_ACCEL_MG_LSB_16G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_16G * EARTH_ACC;
             break;
         default:
-            accelRange = BMX160_ACCEL_MG_LSB_2G * 10;
+            accelRange = BMX160_ACCEL_MG_LSB_2G * EARTH_ACC;
             break;
     }
 
     writeBmxReg(BMX160_ACCEL_RANGE_ADDR, bits);
+}
+
+void DFRobot_BMX160::setMagnODR(uint8_t val){
+    writeBmxReg(BMX160_MAGN_CONFIG_ADDR, BMX160_MAGN_ODR_MASK & val);
+}
+
+void DFRobot_BMX160::setGyroODR(uint8_t val){
+    writeBmxReg(BMX160_GYRO_CONFIG_ADDR, BMX160_GYRO_ODR_MASK & val);
+}
+
+void DFRobot_BMX160::setAccelODR(uint8_t val){
+    writeBmxReg(BMX160_ACCEL_CONFIG_ADDR, BMX160_ACCEL_ODR_MASK & val);
 }
 
 void DFRobot_BMX160::getAllData(sBmx160SensorData_t *magn, sBmx160SensorData_t *gyro, sBmx160SensorData_t *accel){
@@ -245,37 +260,33 @@ void DFRobot_BMX160::writeBmxReg(uint8_t reg, uint8_t value)
 
 void DFRobot_BMX160::writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
-   _pWire->aquire();
-   _pWire->beginTransmission(_addr);
-   _pWire->write(reg);
-    for(uint16_t i = 0; i < len; i ++)
-       _pWire->write(pBuf[i]);
-   _pWire->endTransmission();
-   _pWire->release();
+
+   _i2c->aquire();
+
+    int ret = i2c_burst_write(_i2c->master, _addr, reg, pBuf, len);
+    if (ret) LOG_WRN("I2C write failed: %d\n", ret);
+
+    _i2c->release();
 }
 
 void DFRobot_BMX160::readReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
-   _pWire->aquire();
-   _pWire->beginTransmission(_addr);
-   _pWire->write(reg);
-    if(_pWire->endTransmission() != 0) {
-        _pWire->release();
-        return;
-    }
-   _pWire->requestFrom(_addr, (uint8_t) len);
-    for(uint16_t i = 0; i < len; i ++) {
-        pBuf[i] =_pWire->read();
-    }
-   _pWire->endTransmission();
-   _pWire->release();
+    _i2c->aquire();
+
+    int ret = i2c_burst_read(_i2c->master, _addr, reg, pBuf, len);
+    if (ret) LOG_WRN("I2C read failed: %d\n", ret);
+
+    _i2c->release();
 }
 
 bool DFRobot_BMX160::scan()
 {
-   _pWire->aquire();
-   _pWire->beginTransmission(_addr);
-   int ret = _pWire->endTransmission();
-   _pWire->release();
+   _i2c->aquire();
+
+   uint8_t dummy = 0;
+   int ret = i2c_write(_i2c->master, &dummy, 0, _addr);
+
+    _i2c->release();
+    
    return (ret == 0);
 }

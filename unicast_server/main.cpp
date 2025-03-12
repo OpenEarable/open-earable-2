@@ -7,17 +7,10 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
-#include <zephyr/drivers/sensor.h>
-#include <zephyr/drivers/i2c.h>
-
-#include <hal/nrf_power.h>
-#include <hal/nrf_ficr.h>
 
 //#include "../src/modules/sd_card.h"
 
 #include <zephyr/settings/settings.h>
-
-#include <zephyr/zbus/zbus.h>
 
 #include "macros_common.h"
 #include "openearable_common.h"
@@ -25,7 +18,6 @@
 
 #include "../src/Battery/PowerManager.h"
 #include "../src/SensorManager/SensorManager.h"
-#include "../src/buttons/Button.h"
 #include "../src/utils/StateIndicator.h"
 
 #include "device_info.h"
@@ -41,25 +33,12 @@
 
 #include "streamctrl.h"
 
-#include <zephyr/pm/device.h>
-#include <zephyr/pm/state.h>
-#include <zephyr/pm/pm.h>
-#include <zephyr/pm/device_runtime.h>
-
-#include <zephyr/bluetooth/bluetooth.h>
-#include <zephyr/bluetooth/conn.h>
-
 #include "bt_mgmt.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 //BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 //	     "Console device is not ACM CDC UART device");
-
-/*#define BUFFER_SIZE (16 * 1024)
-
-size_t size = BUFFER_SIZE;
-char buf[BUFFER_SIZE];*/
 
 void print_bat_info() {
 
@@ -208,54 +187,9 @@ int main(void) {
 	ret = power_manager.begin();
 	ERR_CHK(ret);
 
-        uint32_t device_id[2];
-
-        // Lesen der DEVICEID
-        device_id[0] = nrf_ficr_deviceid_get(NRF_FICR, 0);
-        device_id[1] = nrf_ficr_deviceid_get(NRF_FICR, 1);
-
-        oe_boot_state.device_id = (((uint64_t) device_id[1]) << 32) | device_id[0];
-
-        // Ausgabe der 64-Bit-Geräte-ID
-        // LOG_INF("Device ID: %016X", oe_boot_state.device_id);
-
-        // ret = uicr_sirk_set(0xFFFFFFFFU);
-
-        // LOG_ERR("Failed to set SRIK: ret=%i", ret);
-
-        //uint32_t SIRK = uicr_sirk_get();
-
-        // Ausgabe der 64-Bit-Geräte-ID
-        //LOG_INF("SIRK: %016X", SIRK);
-
-        /*uint32_t new_SIRK = uicr_sirk_get();
-
-        // Ausgabe der 64-Bit-Geräte-ID
-        LOG_INF("NEW SIRK: %016X", new_SIRK);*/
-
 	streamctrl_start();
 
-        /*nrfx_reset_reason_get()
-
-        uint32_t reset_reas = nrf_power_resetreas_get(NRF_POWER);
-
-        // Prüfen, ob der Pin-Reset ausgelöst wurde
-        if (reset_reas & POWER_RESETREAS_RESETPIN_Msk) {
-                LOG_INF("System wurde durch einen Pin-Reset gestartet.\n");
-        } else {
-                LOG_INF("Andere Reset-Ursache: 0x%08X\n", reset_reas);
-        }
-
-        // RESETREAS-Register zurücksetzen (empfohlen, um alte Informationen zu löschen)
-        nrf_power_resetreas_clear(reset_reas);*/
-
-	//LOG_INF("Bonded devices: %i", bonded_device_count);
-
-	led_service.begin();
-
         uint32_t sirk = uicr_sirk_get();
-
-        //LOG_INF("NEW SIRK: %016X", sirk);
 
 	if (sirk == 0xFFFFFFFFU) {
                 state_indicator.set_pairing_state(SET_PAIRING);
@@ -264,13 +198,6 @@ int main(void) {
 	} else {
                 state_indicator.set_pairing_state(BONDING);
 	}
-
-	/*if (board_rev.mask & BOARD_VERSION_VALID_MSK_SD_CARD) {
-		ret = sd_card_init();
-		if (ret != -ENODEV) {
-			ERR_CHK(ret);
-		}
-	}*/
 
 	start_sensor_manager();
 
@@ -284,6 +211,9 @@ int main(void) {
 	//sensor_config ppg = {ID_PPG, 400, 0};
 	//config_sensor(&ppg);
 
+        ret = init_led_service();
+	ERR_CHK(ret);
+
 	ret = init_battery_service();
 	ERR_CHK(ret);
 
@@ -293,7 +223,7 @@ int main(void) {
 	ret = init_sensor_service();
 	ERR_CHK(ret);
 
-	ret = initParseInfoService(&defaultSensors);
+	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
 	ERR_CHK(ret);
 
 	// error test

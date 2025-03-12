@@ -5,7 +5,8 @@
 #include <zephyr/drivers/gpio.h>
 
 #include <math.h>
-#include <Wire.h>
+//#include <Wire.h>
+#include <TWIM.h>
 
 #include "openearable_common.h"
 
@@ -44,7 +45,7 @@ public:
         ILIM_UVLO = 0x09
     };
 
-    BQ25120a(TwoWire * wire);
+    BQ25120a(TWIM * i2c);
 
     int begin();
     int set_wakeup_int();
@@ -88,7 +89,7 @@ private:
     uint64_t last_i2c;
     uint64_t last_high_z;
 
-    TwoWire *_pWire;
+    TWIM *_i2c;
 
     gpio_callback power_connect_cb_data;
     gpio_callback int_cb_data;

@@ -19,11 +19,14 @@
 #define BT_UUID_LED_RGB       BT_UUID_DECLARE_128(BT_UUID_LED_RGB_VAL)
 #define BT_UUID_LED_STATE       BT_UUID_DECLARE_128(BT_UUID_LED_STATE_VAL)
 
-class LED_Service {
-public:
-    void begin();
-};
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-extern LED_Service led_service;
+int init_led_service();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //OPEN_EARABLE_LED_SERVICE_H

@@ -10,19 +10,21 @@ static struct sensor_msg msg_imu;
 
 /*k_work IMU::sensor_work;
 k_msgq * IMU::sensor_queue;*/
-DFRobot_BMX160 IMU::imu(&Wire1);
+DFRobot_BMX160 IMU::imu(&I2C3);
 
 IMU IMU::sensor;
 
+const SampleRateSetting<6> IMU::sample_rates = {
+    { BMX160_GYRO_ODR_25HZ, BMX160_GYRO_ODR_50HZ, BMX160_GYRO_ODR_100HZ,
+	BMX160_GYRO_ODR_200HZ, BMX160_GYRO_ODR_400HZ, BMX160_GYRO_ODR_800HZ },
+
+	{ 25, 50, 100, 200, 400, 800 },
+
+	{ 25.0, 50.0, 100.0, 200.0, 400.0, 800.0 }
+};
+
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
-
-	msg_imu.sd = sensor._sd_logging;
-	msg_imu.stream = sensor._ble_stream;
-
-	msg_imu.data.id = ID_IMU;
-	msg_imu.data.size = 9 * sizeof(float);
-	msg_imu.data.time = millis();
 
 	sBmx160SensorData_t magno_data;
 	sBmx160SensorData_t gyro_data;
@@ -30,19 +32,18 @@ void IMU::update_sensor(struct k_work *work) {
 
 	imu.getAllData(&magno_data, &gyro_data, &accel_data);
 
-	msg_imu.data.data[0] = accel_data.x;
-	msg_imu.data.data[1] = accel_data.y;
-	msg_imu.data.data[2] = accel_data.z;
+	size_t size =  3 * sizeof(float);
+	
+	msg_imu.sd = sensor._sd_logging;
+	msg_imu.stream = sensor._ble_stream;
 
-	msg_imu.data.data[3] = gyro_data.x;
-	msg_imu.data.data[4] = gyro_data.y;
-	msg_imu.data.data[5] = gyro_data.z;
+	msg_imu.data.id = ID_IMU;
+	msg_imu.data.size = 3 * size;
+	msg_imu.data.time = micros();
 
-	msg_imu.data.data[6] = magno_data.x;
-	msg_imu.data.data[7] = magno_data.y;
-	msg_imu.data.data[8] = magno_data.z;
-
-	//imu.getAllData((sBmx160SensorData_t*) &msg_imu.data[6], (sBmx160SensorData_t*) &msg_imu.data[3], (sBmx160SensorData_t*) &msg_imu);
+	memcpy(msg_imu.data.data, &accel_data,size);
+	memcpy(msg_imu.data.data + size, &gyro_data, size);
+	memcpy(msg_imu.data.data + 2 * size, &magno_data, size);
 
 	ret = k_msgq_put(sensor_queue, &msg_imu, K_NO_WAIT);
 	if (ret == -EAGAIN) {
@@ -82,8 +83,13 @@ bool IMU::init(struct k_msgq * queue) {
 	return true;
 }
 
-void IMU::start(k_timeout_t t) {
+void IMU::start(int sample_rate_idx) {
 	if (!_active) return;
+
+    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
+
+	imu.setAccelODR(sample_rates.reg_vals[sample_rate_idx]);
+
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 

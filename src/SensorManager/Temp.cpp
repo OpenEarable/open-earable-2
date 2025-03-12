@@ -12,6 +12,12 @@ MLX90632 Temp::temp;
 
 static struct sensor_msg msg_temp;
 
+const SampleRateSetting<8> Temp::sample_rates = {
+    { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 },  // reg_vals
+    { 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 },       // sample_rates
+    { 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 }        // true_sample_rates
+};
+
 bool Temp::init(struct k_msgq * queue) {
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
@@ -49,8 +55,10 @@ void Temp::update_sensor(struct k_work *work) {
 
     msg_temp.data.id = ID_OPTTEMP;
     msg_temp.data.size = sizeof(float);
-    msg_temp.data.time = millis();
-    msg_temp.data.data[0] = temperature;
+    msg_temp.data.time = micros();
+    //msg_temp.data.data[0] = temperature;
+
+    memcpy(msg_temp.data.data, &temperature, sizeof(float));
 
     int ret = k_msgq_put(sensor_queue, &msg_temp, K_NO_WAIT);
     if (ret == -EAGAIN) {
@@ -65,9 +73,12 @@ void Temp::sensor_timer_handler(struct k_timer *dummy) {
 	k_work_submit(&sensor.sensor_work);
 }
 
-void Temp::start(k_timeout_t t) {
+void Temp::start(int sample_rate_idx) {
     if (!_active) return;
 
+    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
+
+    temp.setSampleRateRegVal(sample_rates.reg_vals[sample_rate_idx]);
     temp.continuousMode();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);

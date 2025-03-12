@@ -3,6 +3,8 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
+#include <array>
+#include <utility>
 
 //#include "MAX30102/MAX30102.h"
 #include "MAXM86161/MAXM86161.h"
@@ -22,10 +24,13 @@ public:
     static PPG sensor;
 
     bool init(struct k_msgq * queue) override;
-    void start(k_timeout_t t) override;
+    void start(int sample_rate_idx) override;
     void stop() override;
 
     void reset();
+
+    const static SampleRateSetting<16> sample_rates;
+
 private:
     static MAXM86161 ppg;
 
@@ -34,6 +39,8 @@ private:
     static void update_sensor(struct k_work *work);
 
     ppg_sample data_buffer[64];
+
+    float t_sample_us;
 
     bool _active = false;
 };

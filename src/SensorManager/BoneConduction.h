@@ -18,10 +18,12 @@ public:
     static BoneConduction sensor;
 
     bool init(struct k_msgq * queue) override;
-    void start(k_timeout_t t) override;
+    void start(int sample_rate_idx) override;
     void stop() override;
 
     void reset();
+
+    const static SampleRateSetting<10> sample_rates;
 
 private:
     BMA580 bma580;
@@ -38,6 +40,8 @@ private:
     static void update_sensor(struct k_work *work);
 
     bool _active = false;
+
+    float t_sample_us;
 };
 
 #endif

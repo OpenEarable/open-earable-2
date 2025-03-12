@@ -37,7 +37,8 @@
 
 #include <stdio.h>
 #include "bma5.h"
-#include "Wire.h"
+//#include "Wire.h"
+#include <TWIM.h>
 
 /******************************************************************************/
 /*!                Macro definition                                           */
@@ -145,26 +146,20 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
  */
 bool bma5_check_rslt(const char api_name[], int8_t rslt);
 
-/*!
- * @brief This function deinitializes coines platform
- *
- *  @return void.
- *
- */
-void bma5_coines_deinit(void);
-
 class BMA580 {
 public:
-    int init();
+    int init(int odr = BMA5_ACC_ODR_HZ_100);
     int start();
     int stop();
     int read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data);
 private:
-    TwoWire & _i2cPort = Wire2;
+    //TWIM & _i2cPort = I2C3;
+
+    int _odr;
 
     struct bma5_dev dev;
     struct bma5_fifo_conf fifo_conf;
-
+    
     /*! Number of bytes of FIFO data */
     uint8_t fifo_data[BMA580_FIFO_RAW_DATA_BUFFER_SIZE] = { 0 };
 

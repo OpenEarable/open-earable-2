@@ -5,7 +5,8 @@
 #include <zephyr/drivers/gpio.h>
 
 #include <math.h>
-#include <Wire.h>
+//#include <Wire.h>
+#include <TWIM.h>
 
 #include "openearable_common.h"
 
@@ -112,7 +113,7 @@ public:
         OP_STAT = 0x3A,
     };
 
-    BQ27220(TwoWire * wire);
+    BQ27220(TWIM * i2c);
 
     int begin();
 
@@ -165,7 +166,7 @@ private:
     //const struct gpio_dt_spec gpout_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq27220), gpout_gpios);
     const struct gpio_dt_spec gpout_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq27220), gpout_gpios, {0});
 
-    TwoWire *_pWire;
+    TWIM *_i2c;
 };
 
 extern BQ27220 fuel_gauge;

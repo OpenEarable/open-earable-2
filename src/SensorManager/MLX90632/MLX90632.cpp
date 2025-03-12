@@ -64,21 +64,21 @@ LOG_MODULE_REGISTER(MLX90632, 3);
 //Return true if we got a 'Polo' back from Marco
 bool MLX90632::begin()
 {
-  uint8_t deviceAddress = MLX90632_DEFAULT_ADDRESS;
-  TwoWire &wirePort = Wire2;
+  uint8_t deviceAddress = DT_REG_ADDR(DT_NODELABEL(mlx90632));
+  //TWI  &wirePort = Wire2;
   MLX90632::status returnError;
-  if (begin(deviceAddress, wirePort, returnError) == true)
+  if (begin(deviceAddress, I2C3, returnError) == true)
     return (true);
   return (false);
 }
 
 //This begins the communication with the device
 //Returns a status error if anything went wrong
-bool MLX90632::begin(uint8_t deviceAddress, TwoWire &wirePort, status &returnError)
+bool MLX90632::begin(uint8_t deviceAddress, TWIM &i2c, status &returnError)
 {
   returnError = SENSOR_SUCCESS;
   _deviceAddress = deviceAddress; //Get the I2C address from user
-  _i2cPort = &wirePort; //Grab which port the user wants us to use
+  _i2c = &i2c; //Grab which port the user wants us to use
 
   //We require caller to begin their I2C port, with the speed of their choice
   //external to the library
@@ -446,35 +446,26 @@ MLX90632::status MLX90632::readRegister16(uint16_t addr, uint16_t &outputPointer
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
 
-  _i2cPort->aquire();
+  _i2c->aquire();
 
-  _i2cPort->beginTransmission(_deviceAddress);
-  _i2cPort->write(addr >> 8); //MSB
-  _i2cPort->write(addr & 0xFF); //LSB
-  //_i2cPort->endTransmission(false); //Send a restart command. Do not release bus.
-  if (_i2cPort->endTransmission(false) != 0) //Send a restart command. Do not release bus.
-  {
-    //Sensor did not ACK
-    LOG_WRN("I2C Error: End transmission");
-    returnError = SENSOR_I2C_ERROR;
+  // 32-Bit-Adresse in ein Byte-Array umwandeln (Big-Endian)
+  uint8_t addr_buf[2] = {
+    (uint8_t)(addr >> 8),
+    (uint8_t)(addr & 0xFF),
+  };
+
+  uint8_t buffer[2];
+
+  // Adresse senden und Daten lesen
+  int ret = i2c_write_read(_i2c->master, _deviceAddress, addr_buf, sizeof(addr_buf), buffer, sizeof(buffer));
+  if (ret) {
+      returnError = SENSOR_I2C_ERROR;
+      LOG_WRN("I2C read failed: %d\n", ret);
   }
 
-  _i2cPort->requestFrom((uint8_t)_deviceAddress, (uint8_t)2);
-  if (_i2cPort->available())
-  {
-    uint8_t msb = _i2cPort->read();
-    uint8_t lsb = _i2cPort->read();
+  outputPointer = (uint16_t)buffer[0] << 8 | buffer[1];
 
-    outputPointer = (uint16_t)msb << 8 | lsb;
-  }
-  else
-  {
-    //Sensor did not respond
-    LOG_WRN("I2C Error: No read response");
-    returnError = SENSOR_I2C_ERROR;
-  }
-
-  _i2cPort->release();
+  _i2c->release();
 
   return (returnError); //Report whether we were successful or not
 }
@@ -484,34 +475,29 @@ MLX90632::status MLX90632::readRegister32(uint16_t addr, uint32_t &outputPointer
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
 
-  _i2cPort->aquire();
- 
-  _i2cPort->beginTransmission(_deviceAddress);
-  _i2cPort->write(addr >> 8); //MSB
-  _i2cPort->write(addr & 0xFF); //LSB
-  if (_i2cPort->endTransmission(false) != 0) //Send a restart command. Do not release bus.
-  {
-    //Sensor did not ACK
-    LOG_WRN("I2C Error: End transmission");
+  _i2c->aquire();
+
+  uint8_t addr_buf[2] = {
+    (uint8_t)((addr >> 8) & 0xFF),
+    (uint8_t)(addr & 0xFF),
+  };
+
+  uint8_t buffer[4];
+
+  // Adresse senden und Daten lesen
+  int ret = i2c_write_read(_i2c->master, _deviceAddress, addr_buf, sizeof(addr_buf), buffer, sizeof(buffer));
+
+  uint16_t lower = (uint16_t)buffer[0] << 8 | buffer[1];
+  uint16_t upper = (uint16_t)buffer[2] << 8 | buffer[3];
+
+  outputPointer = (uint32_t)upper << 16 | lower;
+
+  if (ret) {
     returnError = SENSOR_I2C_ERROR;
-  }
- 
-  _i2cPort->requestFrom(_deviceAddress, (uint8_t)4);
-  if (_i2cPort->available())
-  {
-    uint8_t msb0 = _i2cPort->read();
-    uint8_t lsb0 = _i2cPort->read();
-    uint8_t msb1 = _i2cPort->read();
-    uint8_t lsb1 = _i2cPort->read();
- 
-    //For the MLX90632 the first 16-bit chunk is LSB, the 2nd is MSB
-    uint16_t lower = (uint16_t)msb0 << 8 | lsb0;
-    uint16_t upper = (uint16_t)msb1 << 8 | lsb1;
- 
-    outputPointer = (uint32_t)upper << 16 | lower;
+    LOG_WRN("I2C read failed: %d", ret);
   }
 
-  _i2cPort->release();
+  _i2c->release();
  
   return (returnError); //Report whether we were successful or not
 }
@@ -521,21 +507,36 @@ MLX90632::status MLX90632::writeRegister16(uint16_t addr, uint16_t val)
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
 
-  _i2cPort->aquire();
+  _i2c->aquire();
 
-  _i2cPort->beginTransmission(_deviceAddress);
-  _i2cPort->write(addr >> 8); //MSB
-  _i2cPort->write(addr & 0xFF); //LSB
-  _i2cPort->write(val >> 8); //MSB
-  _i2cPort->write(val & 0xFF); //LSB
-  if (_i2cPort->endTransmission() != 0)
-  {
-    //Sensor did not ACK
-    LOG_WRN("I2C Error: End transmission");
+  struct i2c_msg msg[2];
+
+  uint8_t addr_buf[2] = {
+    (uint8_t)(addr >> 8),
+    (uint8_t)(addr & 0xFF),
+  };
+
+  uint8_t buffer[2] = {
+    (uint8_t)(val >> 8),
+    (uint8_t)(val & 0xFF),
+  };
+
+	msg[0].buf = addr_buf;
+	msg[0].len = 2U;
+	msg[0].flags = I2C_MSG_WRITE;
+
+	msg[1].buf = buffer;
+	msg[1].len = 2U;
+	msg[1].flags = I2C_MSG_WRITE | I2C_MSG_STOP;
+
+	int ret = i2c_transfer(_i2c->master, msg, 2, _deviceAddress);
+
+  if (ret != 0) {
     returnError = SENSOR_I2C_ERROR;
+    LOG_WRN("I2C write failed: %d", ret);
   }
 
-  _i2cPort->release();
+  _i2c->release();
 
   return (returnError); //Report whether we were successful or not
 }
@@ -572,6 +573,16 @@ void MLX90632::reset() {
   k_usleep(200);
 
   //writeRegister16(REG_CONTROL, reg_value);
+}
+
+void MLX90632::setSampleRateRegVal(uint8_t val) {
+  uint8_t originalMode = getMode();
+  setMode(MODE_SLEEP);
+
+  writeEEPROM(EE_MEAS_1, 0x800D | (val << 8));
+  writeEEPROM(EE_MEAS_2, 0x801D | (val << 8));
+
+  setMode(originalMode);
 }
 
 void MLX90632::setSampleRate(float sample_rate) {

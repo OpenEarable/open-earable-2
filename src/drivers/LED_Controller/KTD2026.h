@@ -3,7 +3,8 @@
 
 #include <zephyr/kernel.h>
 #include <math.h>
-#include <Wire.h>
+//#include <Wire.h>
+#include <TWIM.h>
 
 #include "openearable_common.h"
 
@@ -38,7 +39,10 @@ private:
 
     int address = 0x30;
 
-    TwoWire * _pWire = &Wire;
+    //TwoWire * _pWire = &Wire;
+    TWIM * _i2c = &I2C1;
+
+    bool _active = false;
 };
 
 extern KTD2026 led_controller;

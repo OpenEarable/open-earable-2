@@ -60,8 +60,8 @@ Adafruit_BMP3XX::Adafruit_BMP3XX(void) {
 
 bool Adafruit_BMP3XX::detect(int address) {
   dev_inf.i2c_dev->aquire();
-  dev_inf.i2c_dev->beginTransmission(address);
-  int ret = dev_inf.i2c_dev->endTransmission();
+  uint8_t dummy = 0;
+  int ret = i2c_write(dev_inf.i2c_dev->master, &dummy, 0, address);
   dev_inf.i2c_dev->release();
   return ret == 0;
 }
@@ -79,11 +79,11 @@ bool Adafruit_BMP3XX::detect(int address) {
     @return True on sensor initialization success. False on failure.
 */
 /**************************************************************************/
-bool Adafruit_BMP3XX::begin_I2C(uint8_t addr, TwoWire *theWire) {
+bool Adafruit_BMP3XX::begin_I2C(uint8_t addr, TWIM *i2c) {
   dev_inf.addr = addr;
-  dev_inf.i2c_dev = theWire;
+  dev_inf.i2c_dev = i2c;
 
-  dev_inf.i2c_dev->begin(I2C_SPEED_FAST_PLUS);
+  dev_inf.i2c_dev->begin();
 
   the_sensor.chip_id = addr;
   the_sensor.intf = BMP3_I2C_INTF;
@@ -404,22 +404,9 @@ int8_t i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len,
   BMP3XX_dev_inf * dev_info = (BMP3XX_dev_inf *) intf_ptr;
 
   dev_info->i2c_dev->aquire();
-  dev_info->i2c_dev->beginTransmission(dev_info->addr);
-  dev_info->i2c_dev->write(reg_addr);
 
-  if (dev_info->i2c_dev->endTransmission(false) != 0) {
-    dev_info->i2c_dev->release();
-    LOG_WRN("I2C reading error");
-    return -1;
-  }
-
-  dev_info->i2c_dev->requestFrom(dev_info->addr, len);
-
-  for (uint16_t i = 0; i < len; i++) {
-    reg_data[i] = dev_info->i2c_dev->read();
-  }
-
-  int ret = dev_info->i2c_dev->endTransmission();
+  int ret = i2c_burst_read(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
+  if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
   dev_info->i2c_dev->release();
 
@@ -436,11 +423,10 @@ int8_t i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
   BMP3XX_dev_inf * dev_info = (BMP3XX_dev_inf *) intf_ptr;
 
   dev_info->i2c_dev->aquire();
-  dev_info->i2c_dev->beginTransmission(dev_info->addr);
-  dev_info->i2c_dev->write(reg_addr);
-  for(uint16_t i = 0; i < len; i ++)
-    dev_info->i2c_dev->write(reg_data[i]);
-  dev_info->i2c_dev->endTransmission();
+
+  int ret = i2c_burst_write(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
+  if (ret) LOG_WRN("I2C write failed: %d\n", ret);
+
   dev_info->i2c_dev->release();
 
   return 0;

@@ -27,7 +27,8 @@
 //#include "../Adafruit_BusIO/Adafruit_I2CDevice.h"
 //#include "Adafruit_SPIDevice.h"
 
-#include "Wire.h"
+//#include "Wire.h"
+#include <TWIM.h>
 
 /*=========================================================================
     I2C ADDRESS/BITS
@@ -42,15 +43,15 @@
 
 struct BMP3XX_dev_inf {
     uint8_t addr;
-    TwoWire * i2c_dev;
+    TWIM * i2c_dev;
 };
 
 class Adafruit_BMP3XX {
 public:
   Adafruit_BMP3XX();
 
-  bool begin_I2C(uint8_t addr = BMP3XX_DEFAULT_ADDRESS,
-                 TwoWire *theWire = &Wire2);
+  bool begin_I2C(uint8_t addr = DT_REG_ADDR(DT_NODELABEL(bmp388)),
+                 TWIM *_i2c = &I2C3);
   //bool begin_SPI(uint8_t cs_pin, SPIClass *theSPI = &SPI);
   //bool begin_SPI(int8_t cs_pin, int8_t sck_pin, int8_t miso_pin,
   //               int8_t mosi_pin);

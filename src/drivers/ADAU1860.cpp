@@ -12,7 +12,7 @@ extern uint32_t eq_param_bank1[];*/
 
 #include "Lark-eq.c"
 
-ADAU1860 dac(&Wire1);
+ADAU1860 dac(&I2C2);
 
 static struct k_work_delayable ascr_lock_work;
 
@@ -33,7 +33,7 @@ void ADAU1860::check_ascr_lock(struct k_work *work)
     }
 }
 
-ADAU1860::ADAU1860(TwoWire * wire) : _pWire(wire) {
+ADAU1860::ADAU1860(TWIM * i2c) : _i2c(i2c) {
 
 }
 
@@ -49,7 +49,7 @@ int ADAU1860::begin() {
                 return ret;
         }
 
-        _pWire->begin();
+        _i2c->begin();
 
         //k_msleep(1);
 
@@ -173,10 +173,12 @@ int ADAU1860::begin() {
 #if CONFIG_EQAULIZER_DSP
 
         // EQ_CFG - engine running
-        // stop eq and clear
-        uint8_t eq_cfg = 0x00; // eq stop
+        // stop EQ
+        uint8_t eq_cfg = 0x00;
         writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
-        eq_cfg = 0x10; // eq clear
+
+        // clear EQ
+        eq_cfg = 0x10;
         writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
 
         // clear done check
@@ -293,12 +295,7 @@ int ADAU1860::soft_reset(bool full_reset) {
 
 bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
         int ret;
-        //uint64_t now = micros();
-        //int delay = MIN(ADAU1860_I2C_TIMEOUT_US - (int)(now - last_i2c), ADAU1860_I2C_TIMEOUT_US);
-
-        //if (delay > 0) k_usleep(delay);
-
-        _pWire->aquire();
+        struct i2c_msg msg[2];
 
         // 32-Bit-Adresse in ein Byte-Array umwandeln (Big-Endian)
         uint8_t addr_buf[4] = {
@@ -308,50 +305,52 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
                 (uint8_t)(reg & 0xFF),
         };
 
+	msg[0].buf = addr_buf;
+	msg[0].len = sizeof(addr_buf);
+	msg[0].flags = I2C_MSG_WRITE;
+
+	msg[1].buf = buffer;
+	msg[1].len = len;
+	msg[1].flags = I2C_MSG_RESTART | I2C_MSG_READ | I2C_MSG_STOP;
+
+        _i2c->aquire();
+
         // Adresse senden und Daten lesen
-        ret = i2c_write_read(_pWire->master, address, addr_buf, sizeof(addr_buf), buffer, len);
+        ret = i2c_transfer(_i2c->master, msg, 2, address);
         if (ret) {
                 LOG_WRN("I2C read failed: %d\n", ret);
-                _pWire->release();
-                return ret;
         }
-        _pWire->release();
-        //last_i2c = micros();
+        _i2c->release();
 
-        return true;  // Erfolg
+        return (ret == 0);
 
 }
 
-// Erstelle einen Puffer für Adresse + Daten
-//uint8_t buf[4 + 78 * 4];
-uint8_t buf[512];
-
 void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
-        //uint64_t now = micros();
-        //int delay = MIN(ADAU1860_I2C_TIMEOUT_US - (int)(now - last_i2c), ADAU1860_I2C_TIMEOUT_US);
+        int ret;
+        struct i2c_msg msg[2];
 
-        //if (delay > 0) k_usleep(delay);
+        uint8_t addr_buf[4] = {
+                (uint8_t)((reg >> 24) & 0xFF),
+                (uint8_t)((reg >> 16) & 0xFF),
+                (uint8_t)((reg >> 8) & 0xFF),
+                (uint8_t)(reg & 0xFF),
+        };
 
-        _pWire->aquire();
+	msg[0].buf = addr_buf;
+	msg[0].len = sizeof(addr_buf);
+	msg[0].flags = I2C_MSG_WRITE;
 
-        // 32-Bit-Adresse in ein Byte-Array umwandeln (Big-Endian)
-        buf[0] = (uint8_t)((reg >> 24) & 0xFF);
-        buf[1] = (uint8_t)((reg >> 16) & 0xFF);
-        buf[2] = (uint8_t)((reg >> 8) & 0xFF);
-        buf[3] = (uint8_t)(reg & 0xFF);
+	msg[1].buf = buffer;
+	msg[1].len = len;
+	msg[1].flags = I2C_MSG_WRITE | I2C_MSG_STOP;
 
-        // Daten anhängen
-        memcpy(&buf[4], buffer, len);
+        _i2c->aquire();
 
-        // Schreibe Adresse und Daten an das I2C-Gerät
-        int ret = i2c_write(_pWire->master, buf, len + sizeof(uint32_t), address);
+	ret = i2c_transfer(_i2c->master, msg, 2, address);
         if (ret) {
                 LOG_WRN("I2C write failed: %d\n", ret);
         }
 
-        _pWire->release();
-
-        //last_i2c = micros();
-
-        //return 0;  // Erfolg
+        _i2c->release();
 }

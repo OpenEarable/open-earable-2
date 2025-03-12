@@ -12,7 +12,7 @@
 
 /** @brief Sensor Characteristic UUID. */
 #define BT_UUID_SENSOR_CONFIG_VAL \
-    BT_UUID_128_ENCODE(0x34c2e3bd, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)
+    BT_UUID_128_ENCODE(0x34c2e3be, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)
 
 #define BT_UUID_SENSOR_DATA_VAL \
     BT_UUID_128_ENCODE(0x34c2e3bc, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)

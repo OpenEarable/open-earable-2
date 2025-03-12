@@ -1,0 +1,173 @@
+# Sensor ParseInfo Scheme
+
+## BLE Specification
+
+The following table contains the BLE specifications with the available Services and Characteristics as well as UUIDs.
+
+| Service Name        | Service UUID                             | Characteristic Name  | Characteristic UUID                    |
+|---------------------|------------------------------------------|----------------------|----------------------------------------|
+| Sensor Service      | `34c2e3bb-34aa-11eb-adc1-0242ac120002`   | Sensor Configuration | `34c2e3bd-34aa-11eb-adc1-0242ac120002` |
+|                     |                                          | Sensor Configuration v2 | `34c2e3be-34aa-11eb-adc1-0242ac120002` |
+|                     |                                          | Sensor Data          | `34c2e3bc-34aa-11eb-adc1-0242ac120002` |
+| Parse Info Service  | `caa25cb7-7e1b-44f2-adc9-e8c06c9ced43`   | Scheme               | `caa25cb8-7e1b-44f2-adc9-e8c06c9ced43` |
+|                     |                                          | Sensor List           | `caa25cb9-7e1b-44f2-adc9-e8c06c9ced43` |
+|                     |                                          | Request Sensor Scheme         | `caa25cba-7e1b-44f2-adc9-e8c06c9ced43` |
+|                     |                                          | Single Sensor Scheme         | `caa25cbb-7e1b-44f2-adc9-e8c06c9ced43` |
+
+### Sensor Configuration Characteristic v2
+Permissions: Write
+
+This characteristic is used to send a sensor configuration to the Earable.
+
+A configuration packet is an implemented struct:
+
+```c++
+struct SensorConfigurationPacket {
+    uint8_t sensorId;
+    uint8_t sampleRateIndex;
+    uint8_t storageMask;
+};
+```
+
+Configuration Package structure:
+
+| Byte 0    | Byte 1     | Byte 2  |
+|-----------|--------------|-----------|
+| sensorId  | sampleRateIndex | storageOptions |
+| uint8     | uint8      | uint8    |
+
+- `sensorId`: ID of the sensor
+- `sampleRate`: Index of the desired sample rate
+- `storageOptions`: `0x01` to enable BLE streaming, `0x02` to enable SD card storage
+
+
+### Sensor Data Characteristic
+Permissions: Read/Notify
+
+This Characteristic is responsible for sending data packages from the Earable to the connected device.
+
+Data Package structure:
+
+| Byte 0    | Byte 1-4    | Byte 5-X   |
+|-----------|-------------|------------|
+| SensorID  | Time Stamp  | Data Array |
+| uint8     | uint32      | ---        |
+
+- `SensorID`: ID of the sensor
+- `Time Stamp`: Timestamp in milliseconds
+- `Data Array`: Array of bytes, which need to be parsed according to the sensor's parsing scheme
+
+### Sensor List
+Permissions: Read
+
+With this characteristic the parsing scheme information can be requested from the device.
+The parsing scheme is needed to convert a received data package to usable values.
+
+
+The received buffer can be represented as such:
+
+| Byte 0       | Byte 1      | Byte 2      | ... |
+|--------------|-------------|-------------|-----|
+| Sensor Count | Sensor Id   | Sensor Id   | ... |
+| uint8        | uint8       | uint8       | ... |
+
+Scheme Count is the total number Sensors.<br>
+
+### Request Sensor Scheme
+Permissions: Write
+
+This characteristic is used to request the parsing scheme of a specific sensor.
+The parsing scheme can then be read at the `Single Sensor Scheme` characteristic.
+
+Request Package structure:
+
+| Byte 0    |
+|-----------|
+| SensorID  |
+| uint8     |
+
+- `SensorID`: ID of the sensor
+
+### Single Sensor Scheme
+Permissions: Read
+
+This characteristic is used to read the parsing scheme of a specific sensor.
+The scheme for a specific sensor can be requested using the `Request Sensor Scheme` characteristic.
+
+
+#### Scheme Packet structure:
+
+| Byte 0   | Byte 1             | Byte 2 - Byte X | Byte X+1        | Byte X+2 - Byte Y  | Byte Y+1 - Byte Z  | ...  | Sensor Config Options |
+|----------|--------------------|-----------------|-----------------|--------------------|--------------------|------|-----------|
+| SensorID | Sensor Name Length | Sensor Name     | Component Count | Component Packet 0 | Component Packet 1 | ...  | Sensor Config Options |
+| uint8    | uint8              | char array      | uint8           | Component Packet   | Component Packet   | ...  | Sensor Config Options |
+
+- `SensorID`: ID of sensor
+- `Sensor Name Length`: length of sensor name char array
+- `Sensor Name`: name char array
+- `Component Count`: count of total number of Component Packets of the sensor
+
+#### Component Packet structure:
+
+| Byte 0 | Byte 1            | Byte 2 - Byte X | Byte X+1              | Byte X+2 - Byte Y | Byte Y+1 - Byte Z | Byte Z+1 - Byte A |
+|--------|-------------------|-----------------|-----------------------|-------------------|-------------------|-------------------|
+| Type   | Group Name Length | Group Name      | Component Name Length | Component Name    | Unit Name Length  | Unit Name         |
+| uint8  | uint8             | char array      | uint8                 | char array        | uint8             | char array        |
+
+- `Type`: Data type of the component
+- `Group Name Length`: Length of the group name char array
+- `Group Name`: Group name char array
+- `Component Name Length`: Length of the component name char array
+- `Component Name`: Component name char array
+- `Unit Name Length`: Length of the unit name char array
+- `Unit Name`: Unit name char array
+
+#### Data types:
+```c++
+enum ParseType {
+    PARSE_TYPE_INT8,
+    PARSE_TYPE_UINT8,
+
+    PARSE_TYPE_INT16,
+    PARSE_TYPE_UINT16,
+
+    PARSE_TYPE_INT32,
+    PARSE_TYPE_UINT32,
+
+    PARSE_TYPE_FLOAT,
+    PARSE_TYPE_DOUBLE
+};
+```
+(Enums are integers in ascending order starting from 0)
+
+#### Sensor Config Options:
+
+| Byte 0 | Byte 1 - Byte X |
+|--------|-----------------|
+| Available Options | Available Frequencies |
+| uint8  | Frequency Packet |
+
+- `Available Options`: Bitmask of available options for the sensor
+    - `0x01`: Streaming
+    - `0x02`: Store on device
+    - `0x10`: Available Frequencies defined
+
+```c++
+enum SensorConfigOptions {
+    SENSOR_CONFIG_STREAMING = 0x01,
+    SENSOR_CONFIG_STORAGE = 0x02,
+    SENSOR_CONFIG_FREQ = 0x10
+};
+```
+
+#### Frequency Packet:
+
+| Byte 0 | Byte 1 | Byte 2 | Byte 3 - Byte X |
+|--------|--------|--------|-----------------|
+| Length | Default Frequency Index | Max BLE Index | Frequency Array |
+| uint8  | uint8  | uint8  | float array     |
+
+- `Length`: Length of the frequency array
+- `Default Frequency Index`: Index of the default frequency
+- `Max BLE Index`: Index of the maximum frequency for BLE streaming
+- `Frequency Array`: Array of available frequencies
