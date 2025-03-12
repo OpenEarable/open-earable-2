@@ -5,26 +5,33 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ADAU1860, 3);
 
-uint32_t eq_program[71] =
-{
-    0x00010000, 0x00025400, 0x0000C000, 0x00001020, 0x000154A0, 0x0000C000, 0x00001020, 0x00015520, 0x0000C000, 0x00001020, 0x0001409C, 0x0000C01D, 0x0000C21E, 0x0000C19F, 0x0000C120, 0x0000A020, 0x0000101E, 0x00014318, 0x0000C299, 0x0000C49A, 0x0000C41B, 0x0000C39E, 0x0000A01C, 0x0000101A, 0x00014594, 0x0000C515, 0x0000C716, 0x0000C697, 0x0000C61A, 0x0000A018, 0x00001016, 0x00014810, 0x0000C791, 0x0000C992, 0x0000C913, 0x0000C896, 0x0000A014, 0x00001012, 0x00014A8C, 0x0000CA0D, 0x0000CC0E, 0x0000CB8F, 0x0000CB12, 0x0000A010, 0x0000100E, 0x00014D08, 0x0000CC89, 0x0000CE8A, 0x0000CE0B, 0x0000CD8E, 0x0000A00C, 0x0000100A, 0x00014F84, 0x0000CF05, 0x0000D106, 0x0000D087, 0x0000D00A, 0x0000A008, 0x00001006, 0x00015200, 0x0000D181, 0x0000D382, 0x0000D303, 0x0000D286, 0x0000A004, 0x00001002, 0x00028000, 0x00018000, 0x0003C000, 0x00000000, 0x00000000
-};
-
-uint32_t eq_param_bank0[45] =
-{
-    0x01F467D2, 0x0F0B773E, 0x011D9CB5, 0x0DCE810F, 0x0113F703, 0x01F87DBE, 0x0F07695C, 0x00FDF314, 0x0E078242, 0x00FAA38F, 0x01EA0ECB, 0x0F146D47, 0x00FEE3A9, 0x0E15F135, 0x00ECAF10, 0x018D7F52, 0x0F41E0D8, 0x00EDC634, 0x0E7280AE, 0x00D058F4, 0x012C8DDB, 0x0F8528EA, 0x00EF5915, 0x0ED37225, 0x008B7E01, 0x014FBC55, 0x0F4172A7, 0x00E99FD1, 0x0EB043AB, 0x00D4ED87, 0x00A87458, 0x0F47CEA8, 0x00EE173F, 0x0F578BA8, 0x00CA1A18, 0x0FC7206C, 0x0F4C46BE, 0x00ECF9E8, 0x0038DF94, 0x00C6BF5A, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000
-};
-
-uint32_t eq_param_bank1[45] =
-{
-    0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01DE28C5, 0x0F1DB6F9, 0x0101D018, 0x0E21D73B, 0x00E078EF, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000
-};
-
+/*
 extern uint32_t eq_program[];
 extern uint32_t eq_param_bank0[];
-extern uint32_t eq_param_bank1[];
+extern uint32_t eq_param_bank1[];*/
+
+#include "Lark-eq.c"
 
 ADAU1860 dac(&Wire1);
+
+static struct k_work_delayable ascr_lock_work;
+
+void ADAU1860::check_ascr_lock(struct k_work *work)
+{
+    uint8_t status2;
+    dac.readReg(registers::STATUS2, &status2, sizeof(status2));
+
+    if ((status2 & (1 << 7)) && (status2 & 4)) {
+        LOG_INF("ASCR locked, proceeding...");
+        
+        // Unmute DAC
+        uint8_t dac_ctrl2 = 0x0;
+        dac.writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2));
+    } else {
+        LOG_WRN("Waiting for ASCR to lock... STATUS2: 0x%x", status2);
+        k_work_reschedule(&ascr_lock_work, K_USEC(10));
+    }
+}
 
 ADAU1860::ADAU1860(TwoWire * wire) : _pWire(wire) {
 
@@ -215,8 +222,15 @@ int ADAU1860::begin() {
         uint8_t hpldo_ctrl = 0x01;
         writeReg(registers::HPLDO_CTRL, &hpldo_ctrl, sizeof(hpldo_ctrl));
 
+        // DAC_NOISE_CTRL1&2
+        uint8_t dac_noise_1 = (1 << 4);
+        uint8_t dac_noise_2 = 0x2;
+        writeReg(registers::DAC_NOISE_CTRL1, &dac_noise_1, sizeof(dac_noise_1));
+        writeReg(registers::DAC_NOISE_CTRL2, &dac_noise_2, sizeof(dac_noise_2));
+
         // high performance? PB_CTRL
-        // DAC_NOISE_CTRL?
+        uint8_t pb_ctrl = 0x02;
+        writeReg(registers::PB_CTRL, &pb_ctrl, sizeof(pb_ctrl));
 
         return 0;
 }
@@ -233,29 +247,8 @@ int ADAU1860::end() {
 }
 
 int ADAU1860::setup() {
-        // verify power up complete
-        uint8_t status2;
-        readReg(registers::STATUS2, &status2, sizeof(status2));
-        LOG_INF("STATUS2: 0x%x", status2);
-
-        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-        if (!(status2 & 4)) LOG_WRN("ASCR not locked");
-
-        // wait for ASRC to lock
-        while (!(status2 & (1 << 7)) || !(status2 & 4)) {
-                readReg(registers::STATUS2, &status2, sizeof(status2));
-                LOG_INF("STATUS2: 0x%x", status2);
-
-                // power up complete and PLL lock
-                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-                if (!(status2 & 4)) LOG_WRN("waiting for ASCR to lock");
-
-                k_usleep(10);
-        }
-
-        // unmute dac
-        uint8_t dac_ctrl2 = 0x0;
-        writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2));
+        k_work_init_delayable(&ascr_lock_work, check_ascr_lock);
+        k_work_schedule(&ascr_lock_work, K_NO_WAIT);
 
         return 0;
 }

@@ -391,6 +391,8 @@ private:
 
     const struct gpio_dt_spec dac_enable_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(adau1860), enable_gpios);
 
+    static void check_ascr_lock(struct k_work *work);
+
     uint64_t last_i2c;
 
     TwoWire *_pWire;
