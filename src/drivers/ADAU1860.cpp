@@ -308,8 +308,7 @@ int ADAU1860::soft_reset(bool full_reset) {
 
 bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
         int ret;
-        
-        _i2c->aquire();
+        struct i2c_msg msg[2];
 
         // 32-Bit-Adresse in ein Byte-Array umwandeln (Big-Endian)
         uint8_t addr_buf[4] = {
@@ -319,40 +318,49 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
                 (uint8_t)(reg & 0xFF),
         };
 
+	msg[0].buf = addr_buf;
+	msg[0].len = sizeof(addr_buf);
+	msg[0].flags = I2C_MSG_WRITE;
+
+	msg[1].buf = buffer;
+	msg[1].len = len;
+	msg[1].flags = I2C_MSG_RESTART | I2C_MSG_READ | I2C_MSG_STOP;
+
+        _i2c->aquire();
+
         // Adresse senden und Daten lesen
-        ret = i2c_write_read(_i2c->master, address, addr_buf, sizeof(addr_buf), buffer, len);
+        ret = i2c_transfer(_i2c->master, msg, 2, address);
         if (ret) {
                 LOG_WRN("I2C read failed: %d\n", ret);
         }
         _i2c->release();
-        //last_i2c = micros();
 
-        return (ret == 0);  // Erfolg
+        return (ret == 0);
 
 }
 
-// Erstelle einen Puffer für Adresse + Daten
-//uint8_t buf[4 + 78 * 4];
-uint8_t buf[512];
-
 void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
-        //uint64_t now = micros();
-        //int delay = MIN(ADAU1860_I2C_TIMEOUT_US - (int)(now - last_i2c), ADAU1860_I2C_TIMEOUT_US);
+        int ret;
+        struct i2c_msg msg[2];
 
-        //if (delay > 0) k_usleep(delay);
+        uint8_t addr_buf[4] = {
+                (uint8_t)((reg >> 24) & 0xFF),
+                (uint8_t)((reg >> 16) & 0xFF),
+                (uint8_t)((reg >> 8) & 0xFF),
+                (uint8_t)(reg & 0xFF),
+        };
+
+	msg[0].buf = addr_buf;
+	msg[0].len = sizeof(addr_buf);
+	msg[0].flags = I2C_MSG_WRITE;
+
+	msg[1].buf = buffer;
+	msg[1].len = len;
+	msg[1].flags = I2C_MSG_WRITE | I2C_MSG_STOP;
 
         _i2c->aquire();
 
-        // 32-Bit-Adresse in ein Byte-Array umwandeln (Big-Endian)
-        buf[0] = (uint8_t)((reg >> 24) & 0xFF);
-        buf[1] = (uint8_t)((reg >> 16) & 0xFF);
-        buf[2] = (uint8_t)((reg >> 8) & 0xFF);
-        buf[3] = (uint8_t)(reg & 0xFF);
-
-        // TODO: replace with burst write
-        memcpy(&buf[4], buffer, len);
-
-        int ret = i2c_write(_i2c->master, buf, len + sizeof(uint32_t), address);
+	ret = i2c_transfer(_i2c->master, msg, 2, address);
         if (ret) {
                 LOG_WRN("I2C write failed: %d\n", ret);
         }
