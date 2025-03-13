@@ -29,7 +29,7 @@
 
 #define DAC_ROUTE_EQ 75
 #define DAC_ROUTE_I2S 0
-#define DAC_ROUTE_DSP_C0 32
+#define DAC_ROUTE_DSP_CH(N) (32 + N)
 
 class ADAU1860 {
 public:

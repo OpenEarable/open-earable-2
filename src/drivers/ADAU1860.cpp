@@ -181,6 +181,11 @@ int ADAU1860::begin() {
 #if CONFIG_EQAULIZER_DSP
         setup_EQ();
         dac_route = DAC_ROUTE_EQ;
+
+#if CONFIG_FDSP
+        setup_FDSP();
+        dac_route = DAC_ROUTE_DSP_CH(0);
+#endif
 #else
         dac_route = DAC_ROUTE_I2S;
 #endif
@@ -261,9 +266,6 @@ int ADAU1860::setup_EQ() {
 int ADAU1860::setup_FDSP() {
         uint8_t dsp_pwr = 0x1;
         writeReg(registers::DSP_PWR, &dsp_pwr, sizeof(dsp_pwr));
-
-        uint8_t dac_route = DAC_ROUTE_DSP_C0;
-        writeReg(registers::DAC_ROUTE0, &dac_route, sizeof(dac_route));
 
         //writeReg(FDSP_PROG_MEM, (uint8_t*) eq_program, sizeof(eq_program));
         //writeReg(FDSP_BANK_A, (uint8_t*) eq_param_bank0, sizeof(eq_param_bank0));
