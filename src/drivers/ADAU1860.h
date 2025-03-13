@@ -21,8 +21,15 @@
 #define EQ_BANK_0   0x4000A200
 #define EQ_BANK_1   0x4000A400
 
+#define FDSP_PROG_MEM 0x40008000
+#define FDSP_BANK_A   0x40008100
+#define FDSP_BANK_B   0x40008600
+#define FDSP_BANK_C   0x40008B00
+#define FDSP_STATE    0x40009000
+
 #define DAC_ROUTE_EQ 75
 #define DAC_ROUTE_I2S 0
+#define DAC_ROUTE_DSP_C0 32
 
 class ADAU1860 {
 public:
@@ -388,6 +395,10 @@ private:
     bool readReg(uint32_t reg, uint8_t * buffer, uint16_t len);
     void writeReg(uint32_t reg, uint8_t * buffer, uint16_t len);
 
+    int setup_EQ();
+    int setup_FDSP();
+    int setup_DAC();
+
     const int address = DT_REG_ADDR(DT_NODELABEL(adau1860));
 
     const struct gpio_dt_spec dac_enable_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(adau1860), enable_gpios);
@@ -395,7 +406,6 @@ private:
     static void check_ascr_lock(struct k_work *work);
 
     uint64_t last_i2c;
-
     TWIM *_i2c;
 
     //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
