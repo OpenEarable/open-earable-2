@@ -11,6 +11,7 @@ extern uint32_t eq_param_bank0[];
 extern uint32_t eq_param_bank1[];*/
 
 #include "Lark-eq.c"
+#include "Lark-fdsp.c"
 
 ADAU1860 dac(&I2C2);
 
@@ -267,10 +268,10 @@ int ADAU1860::setup_FDSP() {
         uint8_t dsp_pwr = 0x1;
         writeReg(registers::DSP_PWR, &dsp_pwr, sizeof(dsp_pwr));
 
-        //writeReg(FDSP_PROG_MEM, (uint8_t*) eq_program, sizeof(eq_program));
-        //writeReg(FDSP_BANK_A, (uint8_t*) eq_param_bank0, sizeof(eq_param_bank0));
-        //writeReg(FDSP_BANK_B, (uint8_t*) eq_param_bank1, sizeof(eq_param_bank1));
-        //writeReg(FDSP_BANK_C, (uint8_t*) eq_param_bank1, sizeof(eq_param_bank1));
+        writeReg(FDSP_PROG_MEM, (uint8_t*) fdsp_program, sizeof(fdsp_program));
+        writeReg(FDSP_BANK_A, (uint8_t*) fdsp_param_bank_a, sizeof(fdsp_param_bank_a));
+        writeReg(FDSP_BANK_B, (uint8_t*) fdsp_param_bank_b, sizeof(fdsp_param_bank_b));
+        writeReg(FDSP_BANK_C, (uint8_t*) fdsp_param_bank_c, sizeof(fdsp_param_bank_c));
 
         uint8_t fdsp_ctrl4 = 2; // framrate source DMIC01
         writeReg(registers::FDSP_CTRL4, &fdsp_ctrl4, sizeof(fdsp_ctrl4));
