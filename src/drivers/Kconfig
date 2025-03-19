@@ -37,6 +37,7 @@ config EQUALIZER_SOFTWARE
 endchoice
 
 config FDSP
+	depends on EQAULIZER_DSP
 	default n
 	bool "Use DSP for EQ"
 

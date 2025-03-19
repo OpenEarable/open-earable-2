@@ -269,13 +269,17 @@ int ADAU1860::setup_FDSP() {
         writeReg(registers::DSP_PWR, &dsp_pwr, sizeof(dsp_pwr));
 
         writeReg(FDSP_PROG_MEM, (uint8_t*) fdsp_program, sizeof(fdsp_program));
-        writeReg(FDSP_BANK_A, (uint8_t*) fdsp_param_bank_a, sizeof(fdsp_param_bank_a));
-        writeReg(FDSP_BANK_B, (uint8_t*) fdsp_param_bank_b, sizeof(fdsp_param_bank_b));
-        writeReg(FDSP_BANK_C, (uint8_t*) fdsp_param_bank_c, sizeof(fdsp_param_bank_c));
+
+        for (int i = 0; i < FDSP_NUM_PARAMS; i++) {
+                writeReg(FDSP_BANK_A(i), (uint8_t*) fdsp_param_bank_a[i], sizeof(fdsp_param_bank_a[i]));
+                writeReg(FDSP_BANK_B(i), (uint8_t*) fdsp_param_bank_b[i], sizeof(fdsp_param_bank_b[i]));
+                writeReg(FDSP_BANK_C(i), (uint8_t*) fdsp_param_bank_c[i], sizeof(fdsp_param_bank_c[i]));
+        }
 
         uint8_t fdsp_ctrl4 = 2; // framrate source DMIC01
         writeReg(registers::FDSP_CTRL4, &fdsp_ctrl4, sizeof(fdsp_ctrl4));
 
+        // run dsp
         uint8_t fdsp_run = 0x1;
         writeReg(registers::FDSP_RUN, &fdsp_run, sizeof(fdsp_run));
 
@@ -294,13 +298,14 @@ int ADAU1860::end() {
 }
 
 int ADAU1860::setup() {
-        k_work_init_delayable(&ascr_lock_work, check_ascr_lock);
-        k_work_schedule(&ascr_lock_work, K_NO_WAIT);
+        // Unmute DAC (no need to wait for the ASCRs to lock)
+        uint8_t dac_ctrl2 = 0x0;
+        dac.writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2));
+
+        //k_work_init_delayable(&ascr_lock_work, check_ascr_lock);
+        //k_work_schedule(&ascr_lock_work, K_NO_WAIT);
 
         return 0;
-}
-
-int ADAU1860::write_dsp_filter_bank(uint32_t * bank[5], int size) {
 }
 
 int ADAU1860::mute(bool active) {
@@ -316,6 +321,34 @@ int ADAU1860::mute(bool active) {
         return 0;
 }
 
+int ADAU1860::fdsp_safe_load(uint8_t address, safe_load_params params) {
+        writeReg(registers::FDSP_SL_ADDR, &address, sizeof(address));
+        writeReg(registers::FDSP_SL_P0_0, (uint8_t *) params, sizeof(safe_load_params));
+
+        uint8_t val = 1;
+        writeReg(registers::FDSP_SL_UPDATE, &val, sizeof(val));
+        
+        return 0;
+}
+
+int ADAU1860::fdsp_safe_load(uint8_t address, int n, uint32_t param) {
+        writeReg(registers::FDSP_SL_ADDR, &address, sizeof(address));
+        writeReg(registers::FDSP_SL_P0_0 + n * sizeof(param), (uint8_t *) &param, sizeof(param));
+
+        uint8_t val = 1;
+        writeReg(registers::FDSP_SL_UPDATE, &val, sizeof(val));
+        
+        return 0;
+}
+
+int ADAU1860::fdsp_mute(bool active) {
+        uint8_t status = 0;
+        uint32_t val = mute ? 0x00000000 : 0x08000000;
+        fdsp_safe_load(1, 4, val);
+
+        return 0;
+}
+
 int ADAU1860::set_volume(uint8_t volume) {
         uint8_t dac_vol = 0xFF-volume;
         writeReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol)); // unmute
@@ -323,7 +356,21 @@ int ADAU1860::set_volume(uint8_t volume) {
         return 0;
 }
 
+
+int ADAU1860::fdsp_set_volume(uint8_t volume) {
+        uint8_t dac_vol = 0xFF-volume;
+        writeReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol)); // unmute
+
+        return 0;
+}
+
 uint8_t ADAU1860::get_volume() {
+        uint8_t dac_vol = 0;
+        readReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol));
+        return 0xFF-dac_vol;
+}
+
+uint8_t ADAU1860::fdsp_get_volume() {
         uint8_t dac_vol = 0;
         readReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol));
         return 0xFF-dac_vol;
@@ -398,4 +445,8 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         }
 
         _i2c->release();
+}
+
+void ADAU1860::writeReg_u8(uint32_t reg, uint8_t &buffer) {
+        writeReg(reg, &buffer, sizeof(buffer));
 }

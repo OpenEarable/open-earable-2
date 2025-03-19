@@ -15,21 +15,24 @@
 //#define OUT_VOLUME_DEFAULT 0x40
 //#define MAX_VOLUME_REG_VAL 0x80
 
-#define ADAU1860_I2C_TIMEOUT_US 66
-
 #define EQ_PROG_MEM 0x4000A000
 #define EQ_BANK_0   0x4000A200
 #define EQ_BANK_1   0x4000A400
 
+#define FDSP_BANK_SIZE 0x100
+#define FDSP_NUM_PARAMS 5
+
 #define FDSP_PROG_MEM 0x40008000
-#define FDSP_BANK_A   0x40008100
-#define FDSP_BANK_B   0x40008600
-#define FDSP_BANK_C   0x40008B00
+#define FDSP_BANK_A(N)   (0x40008100 + N * FDSP_BANK_SIZE)
+#define FDSP_BANK_B(N)   (0x40008600 + N * FDSP_BANK_SIZE)
+#define FDSP_BANK_C(N)   (0x40008B00 + N * FDSP_BANK_SIZE)
 #define FDSP_STATE    0x40009000
 
 #define DAC_ROUTE_EQ 75
 #define DAC_ROUTE_I2S 0
 #define DAC_ROUTE_DSP_CH(N) (32 + N)
+
+typedef uint32_t safe_load_params[FDSP_NUM_PARAMS];
 
 class ADAU1860 {
 public:
@@ -388,16 +391,23 @@ public:
 
     int soft_reset(bool full_reset = false);
 
-    int write_dsp_filter_bank(uint32_t * bank[5], int size);
-
     uint8_t get_volume();
 private:
     bool readReg(uint32_t reg, uint8_t * buffer, uint16_t len);
     void writeReg(uint32_t reg, uint8_t * buffer, uint16_t len);
 
+    void writeReg_u8(uint32_t reg, uint8_t &buffer);
+
     int setup_EQ();
     int setup_FDSP();
     int setup_DAC();
+
+    int fdsp_mute(bool active);
+    int fdsp_set_volume(uint8_t volume);
+    uint8_t fdsp_get_volume();
+
+    int fdsp_safe_load(uint8_t address, safe_load_params params);
+    int fdsp_safe_load(uint8_t address, int n, uint32_t param);
 
     const int address = DT_REG_ADDR(DT_NODELABEL(adau1860));
 
