@@ -105,13 +105,15 @@ int ADAU1860::begin() {
         LOG_INF("STATUS2: 0x%x", status2);
 
         if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+        if (!(status2 & (1 << 1))) LOG_WRN("FM not ready");
 
-        while (!(status2 & (1 << 7))) {
+        while (!(status2 & (1 << 7)) || !(status2 & (1 << 1))) {
                 readReg(registers::STATUS2, &status2, sizeof(status2));
                 LOG_INF("STATUS2: 0x%x", status2);
 
                 // power up complete and PLL lock
                 if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+                if (!(status2 & (1 << 1))) LOG_WRN("FM not ready");
 
                 k_usleep(10);
         }
@@ -177,7 +179,7 @@ int ADAU1860::begin() {
                 writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
         }
 
-        uint8_t dac_route;
+        uint8_t dac_route = DAC_ROUTE_I2S;
 
 #if CONFIG_EQAULIZER_DSP
         setup_EQ();
@@ -187,8 +189,6 @@ int ADAU1860::begin() {
         setup_FDSP();
         dac_route = DAC_ROUTE_DSP_CH(0);
 #endif
-#else
-        dac_route = DAC_ROUTE_I2S;
 #endif
         writeReg(registers::DAC_ROUTE0, &dac_route, sizeof(dac_route));
 
@@ -224,6 +224,12 @@ int ADAU1860::setup_DAC() {
         // high performance
         uint8_t pb_ctrl = 0x02;
         writeReg(registers::PB_CTRL, &pb_ctrl, sizeof(pb_ctrl));
+
+#if CONFIG_FDSP
+        // Unmute DAC
+        uint8_t dac_ctrl2 = 0x0;
+        dac.writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2));
+#endif
 
         return 0;
 }
@@ -298,17 +304,23 @@ int ADAU1860::end() {
 }
 
 int ADAU1860::setup() {
+
+#if !CONFIG_FDSP
         // Unmute DAC (no need to wait for the ASCRs to lock)
         uint8_t dac_ctrl2 = 0x0;
         dac.writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2));
-
-        //k_work_init_delayable(&ascr_lock_work, check_ascr_lock);
-        //k_work_schedule(&ascr_lock_work, K_NO_WAIT);
+#endif
 
         return 0;
 }
 
 int ADAU1860::mute(bool active) {
+#if CONFIG_FDSP
+        // Unmute DAC
+        int ret;
+        ret = fdsp_mute(active);
+        return ret;
+#else
         uint8_t status = 0;
         readReg(registers::DAC_CTRL2, &status, sizeof(status));
 
@@ -319,6 +331,7 @@ int ADAU1860::mute(bool active) {
         writeReg(registers::DAC_CTRL2, &status, sizeof(status));
 
         return 0;
+#endif
 }
 
 int ADAU1860::fdsp_safe_load(uint8_t address, safe_load_params params) {
@@ -332,8 +345,17 @@ int ADAU1860::fdsp_safe_load(uint8_t address, safe_load_params params) {
 }
 
 int ADAU1860::fdsp_safe_load(uint8_t address, int n, uint32_t param) {
+        uint32_t params[FDSP_NUM_PARAMS];
+
+        for (int i = 0; i < FDSP_NUM_PARAMS; i++) {
+                params[i] = fdsp_param_bank_a[i][address];
+        }
+
+        params[n] = param;
+
         writeReg(registers::FDSP_SL_ADDR, &address, sizeof(address));
-        writeReg(registers::FDSP_SL_P0_0 + n * sizeof(param), (uint8_t *) &param, sizeof(param));
+        //writeReg(registers::FDSP_SL_P0_0 + n * sizeof(param), (uint8_t *) &param, sizeof(param));
+        writeReg(registers::FDSP_SL_P0_0, (uint8_t *) params, sizeof(safe_load_params));
 
         uint8_t val = 1;
         writeReg(registers::FDSP_SL_UPDATE, &val, sizeof(val));
@@ -342,8 +364,7 @@ int ADAU1860::fdsp_safe_load(uint8_t address, int n, uint32_t param) {
 }
 
 int ADAU1860::fdsp_mute(bool active) {
-        uint8_t status = 0;
-        uint32_t val = mute ? 0x00000000 : 0x08000000;
+        uint32_t val = active ? 0x00000000 : 0x08000000;
         fdsp_safe_load(1, 4, val);
 
         return 0;

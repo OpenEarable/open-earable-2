@@ -438,11 +438,13 @@ void audio_system_stop(void)
 #if ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB)
 	audio_usb_stop();
 #else
-	ret = hw_codec_soft_reset();
+	//ret = hw_codec_soft_reset();
+	ret = hw_codec_stop_audio();
 	ERR_CHK(ret);
 
 	ret = audio_datapath_stop();
 	ERR_CHK(ret);
+	
 	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		pdm_mic_stop();
 	}*/
