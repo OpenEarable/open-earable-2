@@ -272,6 +272,13 @@ int PowerManager::begin() {
         //return ret;
     }
 
+    // check if fuel gauge has wrong value
+    float capacity = fuel_gauge.capacity();
+    if (abs(capacity - _battery_settings.capacity) > 1e-4) {
+        fuel_gauge.setup(_battery_settings);
+        gpio_pin_set_dt(&error_led, 1);
+    }
+
     //RGBColor white = {32, 32, 32};
     //led_controller.setColor(white);
 

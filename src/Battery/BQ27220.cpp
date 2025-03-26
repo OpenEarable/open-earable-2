@@ -309,20 +309,19 @@ void BQ27220::read_RAM(uint16_t ram_address, uint8_t * data, int len) {
         ret = readReg(0x40, data, len);
 }
 
-void BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len) {
+int BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len, bool check) {
         uint8_t check_sum=0;
         uint8_t data_len=0;
         uint8_t buf[len];
 
         bool ret;
 
-        //
         writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address));
+
         k_usleep(BQ27220_RAM_TIMEOUT_US);
+
         ret = readReg(0x61, (uint8_t *) &data_len, sizeof(data_len));
-        //
         ret = readReg(0x40, buf, len);
-        //
         ret = readReg(0x60, (uint8_t *) &check_sum, sizeof(check_sum));
 
         uint8_t my_check = (uint8_t)0xFF-check_sum; // - data[0] - data[1];
@@ -334,26 +333,42 @@ void BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len) {
 
         my_check = (uint8_t)0xFF - my_check;
 
-        //
         writeReg(0x40, (uint8_t *) data, len);
-        //
         writeReg(0x60, (uint8_t *) &my_check, sizeof(my_check));
-        //
         writeReg(0x61, (uint8_t *) &data_len, sizeof(data_len));
+
         k_usleep(BQ27220_RAM_TIMEOUT_US);
-        //k_msleep(100);
+        
+        if (check) {
+                uint8_t * read_buff = (uint8_t *) k_malloc(data_len);
+
+                read_RAM(ram_address, read_buff, data_len);
+
+                for (int i = 0; i < data_len; i++) {
+                        if (read_buff[i] != data[i]) {
+                                k_free(read_buff);
+                                return -1;
+                        }
+                }
+
+                k_free(read_buff);
+        }
+
+        return 0;
 }
 
-void BQ27220::write_RAM(uint16_t ram_address, uint16_t val) {
+int BQ27220::write_RAM(uint16_t ram_address, uint16_t val, bool check) {
         uint8_t data[sizeof(val)];
 
         data[0] = val >> 8;
         data[1] = val & 0xFF;
 
-        write_RAM(ram_address, data, sizeof(val));
+        return write_RAM(ram_address, data, sizeof(val), check);
 }
 
 void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
+        int ret;
+
         // unseal
         write_command(0x0414);
         k_msleep(100);
@@ -369,40 +384,40 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         //write_RAM(0x9220, 0);
 
         // design and full charge capacity
-        write_RAM(0x929F, _battery_settings.capacity);
-        write_RAM(0x929D, _battery_settings.capacity); //130
+        ret = write_RAM(0x929F, _battery_settings.capacity);
+        ret = write_RAM(0x929D, _battery_settings.capacity); //130
         // near full
-        write_RAM(0x926B, 5);
+        ret = write_RAM(0x926B, 5);
 
-        write_RAM(0x91F5, _battery_settings.temp_min * 10);
-        write_RAM(0x91F7, _battery_settings.temp_max * 10);
+        ret = write_RAM(0x91F5, _battery_settings.temp_min * 10);
+        ret = write_RAM(0x91F7, _battery_settings.temp_max * 10);
 
         // charging current
-        write_RAM(0x91FB, _battery_settings.i_charge);
+        ret = write_RAM(0x91FB, _battery_settings.i_charge);
         // taper current
-        write_RAM(0x9201, 3); //adjust
+        ret = write_RAM(0x9201, 3); //adjust
 
         // experimental: min taper capacity
-        write_RAM(0x9203, 4); // standard: 25
+        ret = write_RAM(0x9203, 4); // standard: 25
 
         // deadband
         uint8_t val = 1;
-        write_RAM(0x91DE, &val, sizeof(uint8_t));
+        ret = write_RAM(0x91DE, &val, sizeof(uint8_t));
         
         // deadband CC (verursacht Probleme, rm zählt zu schnell?)
         /*val = 5;
-        write_RAM(0x91DF, &val, sizeof(uint8_t));
+        ret = write_RAM(0x91DF, &val, sizeof(uint8_t));
         */
         
         // sleep current
-        write_RAM(0x9217, 1);
+        ret = write_RAM(0x9217, 1);
 
         // dischage current trd
-        write_RAM(0x9228, 2);
+        ret = write_RAM(0x9228, 2);
         // charge current trd
-        write_RAM(0x922A, 2);
+        ret = write_RAM(0x922A, 2);
         // quit current
-        write_RAM(0x922C, 1);
+        ret = write_RAM(0x922C, 1);
 
         //dod  0%: 4287
         //dod 10%: 4125
@@ -424,44 +439,44 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         //dod: 103.25%: 3089
 
         // charge voltage
-        write_RAM(0x91FD, _battery_settings.u_term * 1000);
+        ret = write_RAM(0x91FD, _battery_settings.u_term * 1000);
 
         // 0x9240 
-        write_RAM(0x9240, _battery_settings.u_vlo * 1000 + 50);
+        ret = write_RAM(0x9240, _battery_settings.u_vlo * 1000 + 50);
 
         // sysDown set Volate
-        write_RAM(0x9243, _battery_settings.u_vlo * 1000 + 150);
+        ret = write_RAM(0x9243, _battery_settings.u_vlo * 1000 + 150);
 
         // FC Voltage
-        write_RAM(0x9288, _battery_settings.u_term * 1000 - 10);
+        ret = write_RAM(0x9288, _battery_settings.u_term * 1000 - 10);
 
         // Electonic Load in 3µA steps
-        write_RAM(0x9269, 6); // 18 µA
+        ret = write_RAM(0x9269, 6); // 18 µA
 
         // EMF
         //write_RAM(0x92A7, 36001);
         //C0
-        write_RAM(0x92A9, 480); //bat1:250
+        ret = write_RAM(0x92A9, 480); //bat1:250
         //R0
-        write_RAM(0x92AB, 19941); //bat1: 19941 //22542 //new bat:  17340
+        ret = write_RAM(0x92AB, 19941); //bat1: 19941 //22542 //new bat:  17340
         //R1
         //write_RAM(0x92AF, 3160);
 
         // Configuration gauging FIXED_EDV
-        //write_RAM(0x929B, 0x1022); //0x102A
+        //ret = write_RAM(0x929B, 0x1022); //0x102A
 
-        //write_RAM(0x927F, 0x0C8C);
+        //ret = write_RAM(0x927F, 0x0C8C);
 
         // do not use, only on CT makes sense:
         // SOC Flag, enable FC voltage detection
         uint8_t flags_b = 0x8C;
-        write_RAM(0x9281, &flags_b, sizeof(flags_b));
+        ret = write_RAM(0x9281, &flags_b, sizeof(flags_b));
 
         // Overload current
-        write_RAM(0x9264, _battery_settings.i_max);
+        ret = write_RAM(0x9264, _battery_settings.i_max);
 
         // CEDV Smoothing Config
-        write_RAM(0x9272, 0x0C); //Default: 0x08, Enable SMEXT, SMEN 0x0D
+        ret = write_RAM(0x9272, 0x0C); //Default: 0x08, Enable SMEXT, SMEN 0x0D
 
         exit_config_update(init);
 

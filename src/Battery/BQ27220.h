@@ -152,8 +152,8 @@ private:
     void writeReg(uint8_t reg, uint8_t * buffer, uint16_t len);
 
     void read_RAM(uint16_t ram_address, uint8_t * data, int len);
-    void write_RAM(uint16_t ram_address, uint8_t * data, int len);
-    void write_RAM(uint16_t ram_address, uint16_t val);
+    int write_RAM(uint16_t ram_address, uint8_t * data, int len, bool check = false);
+    int write_RAM(uint16_t ram_address, uint16_t val, bool check = false);
 
     void write_command(uint16_t cmd);
 
