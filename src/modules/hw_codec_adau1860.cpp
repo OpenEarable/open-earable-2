@@ -28,6 +28,7 @@ LOG_MODULE_REGISTER(hw_codec, CONFIG_MODULE_HW_CODEC_LOG_LEVEL);
 ZBUS_SUBSCRIBER_DEFINE(volume_evt_sub, CONFIG_VOLUME_MSG_SUB_QUEUE_SIZE);
 
 static uint32_t prev_volume_reg_val = OUT_VOLUME_DEFAULT;
+static bool muted = false;
 
 static k_tid_t volume_msg_sub_thread_id;
 static struct k_thread volume_msg_sub_thread_data;
@@ -207,6 +208,8 @@ int hw_codec_volume_mute(void)
 	int ret;
 
 	ret = dac.mute(true);
+
+	muted = true;
 	
 	return ret;
 }
@@ -217,6 +220,8 @@ int hw_codec_volume_unmute(void)
 
 	ret = dac.mute(false);
 
+	muted = false;
+
 	return ret;
 }
 
@@ -224,12 +229,27 @@ int hw_codec_default_conf_enable(void)
 {
 	int ret;
 
-	ret = dac.setup();
+	//ret = dac.setup();
+	if (!muted) {
+		ret = dac.mute(false);
+		if (ret) {
+			return ret;
+		}
+	}
+
+	ret = hw_codec_volume_adjust(0);
 	if (ret) {
 		return ret;
 	}
 
-	ret = hw_codec_volume_adjust(0);
+	return 0;
+}
+
+int hw_codec_stop_audio(void)
+{
+	int ret;
+
+	ret = dac.mute(true);
 	if (ret) {
 		return ret;
 	}

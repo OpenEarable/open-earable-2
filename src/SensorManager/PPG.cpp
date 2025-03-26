@@ -77,7 +77,7 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.sd = sensor._sd_logging;
 	        msg_ppg.stream = sensor._ble_stream;
 
-            size_t size = sizeof(uint64_t);
+            size_t size = sizeof(uint32_t);
             
             msg_ppg.data.id = ID_PPG;
             msg_ppg.data.size = 4 * size;

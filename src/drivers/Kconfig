@@ -25,16 +25,21 @@ config CS47L63_STACK_SIZE
 	default 700
 
 choice EQUALIZER
-	prompt "Choose BIS or CIS for ISO transport"
+	prompt "Choose EQ on DSP or MCU ISO transport"
 	default EQAULIZER_DSP
 
 config EQAULIZER_DSP
-	bool "Use CIS (Connected Isochronous Stream)"
+	bool "Use DSP for EQ"
 	
 config EQUALIZER_SOFTWARE
-	bool "Use BIS (Broadcast Isochronous Stream)"
+	bool "Use software EQ on MCU"
 
 endchoice
+
+config FDSP
+	depends on EQAULIZER_DSP
+	default n
+	bool "Use DSP for EQ"
 
 module = CS47L63
 module-str = cs47l63
