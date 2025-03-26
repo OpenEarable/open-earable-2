@@ -16,9 +16,9 @@
 
 #define IMU_ACC_COUNT 3
 SensorComponent accComponents[IMU_ACC_COUNT] = {
-    { .name = "X", .unit = "g", .parseType = PARSE_TYPE_FLOAT },
-    { .name = "Y", .unit = "g", .parseType = PARSE_TYPE_FLOAT },
-    { .name = "Z", .unit = "g", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "X", .unit = "m/s^2", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "Y", .unit = "m/s^2", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "Z", .unit = "m/s^2", .parseType = PARSE_TYPE_FLOAT },
 };
 
 #define IMU_GYRO_COUNT 3
@@ -106,7 +106,7 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 #define SENSOR_COUNT 5
 SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
-        .name = "BOSCH_BMX160",
+        .name = "9-Axis IMU",
         .id = ID_IMU,
         .groupCount = IMU_GROUP_COUNT,
         .groups = imuGroups,
@@ -121,7 +121,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
         },
     },
     {
-        .name = "ANALOG_DEVICES_MAXM86161EFD+",
+        .name = "Pulse Oximeter",
         .id = ID_PPG,
         .groupCount = PPG_GROUP_COUNT,
         .groups = ppgGroups,
@@ -136,7 +136,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
         },
     },
     {
-        .name = "MELEXIS_MLX90632",
+        .name = "Skin Temperature Sensor",
         .id = ID_OPTTEMP,
         .groupCount = OPTIC_TEMP_GROUP_COUNT,
         .groups = opticTemperatureGroups,
@@ -151,7 +151,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
         },
     },
     {
-        .name = "BOSCH_BMP388",
+        .name = "Ear Canal Pressure Sensor",
         .id = ID_TEMP_BARO,
         .groupCount = BARO_GROUP_COUNT,
         .groups = baroGroups,
@@ -166,7 +166,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
         },
     },
     {
-        .name = "BOSCH_BMA580",
+        .name = "Bone Conduction Accelerometer",
         .id = ID_BONE_CONDUCTION,
         .groupCount = BONE_CONDUCTION_IMU_GROUP_COUNT,
         .groups = boneConductionIMUGroups,
