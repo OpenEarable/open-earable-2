@@ -88,8 +88,8 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.data.data[3]=sensor.data_buffer[i][ambient];*/
 
             memcpy(msg_ppg.data.data + 0 * size, &sensor.data_buffer[i][red], size);
-            memcpy(msg_ppg.data.data + 1 * size, &sensor.data_buffer[i][green], size);
-            memcpy(msg_ppg.data.data + 2 * size, &sensor.data_buffer[i][ir], size);
+            memcpy(msg_ppg.data.data + 1 * size, &sensor.data_buffer[i][ir], size);
+            memcpy(msg_ppg.data.data + 2 * size, &sensor.data_buffer[i][green], size);
             memcpy(msg_ppg.data.data + 3 * size, &sensor.data_buffer[i][ambient], size);
 
             int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
