@@ -100,6 +100,8 @@ int hw_codec_soft_reset(void);
  */
 int hw_codec_init(void);
 
+int hw_codec_stop_audio(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -137,11 +137,37 @@ int PowerManager::begin() {
 
     uint8_t bat_state = battery_controller.read_charging_state();
 
-    oe_boot_state.timer_reset = bat_state & (1 << 4);
-
     button_state btn = battery_controller.read_button_state();
 
-    power_on = btn.wake_2 || oe_boot_state.timer_reset;
+    power_on = btn.wake_2;
+
+    // get reset reason
+    uint32_t reset_reas = NRF_RESET->RESETREAS;
+
+    // reset the reset reason
+    NRF_RESET->RESETREAS = 0xFFFFFFFF;
+
+    // LOG_INF("Resetreas: 0x%X", reset_reas);
+    
+    if (reset_reas & RESET_RESETREAS_RESETPIN_Msk) {
+        oe_boot_state.timer_reset = bat_state & (1 << 4);
+        power_on = true;
+    }
+
+    /*if (reset_reas & RESET_RESETREAS_DOG1_Msk) {
+        printk("Reset durch Watchdog-Timer\n");
+    }*/
+
+    if (reset_reas & RESET_RESETREAS_SREQ_Msk) {
+        printk("Rebooting ... \n");
+        power_on = true;
+    }
+
+    /*if (reset_reas & RESET_RESETREAS_LOCKUP_Msk) {
+        printk("Reset durch CPU Lockup\n");
+    }*/
+
+    // power_on |= oe_boot_state.timer_reset;
 
     // LOG_INF("Power on: %i", power_on);
 
@@ -363,6 +389,7 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
 
 void PowerManager::reboot() {
     int ret;
+    
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
