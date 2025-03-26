@@ -5,8 +5,7 @@
 
 #include "../../Battery/BootState.h"
 
-//static char device_identifier[sizeof(uint64_t) * 2 + 1]; // = "abcd";
-static char device_identifier[] = "abcd";
+static char device_identifier[sizeof(uint64_t) * 2 + 3];
 static char device_generation[] = "2.0.0";
 static char firmware[] = "2.0.0";
 
@@ -16,7 +15,7 @@ static ssize_t read_device_identifier(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	//snprintf(device_identifier, sizeof(device_identifier), "%016llX", oe_boot_state.device_id);
+	snprintf(device_identifier, sizeof(device_identifier), "0x%08X", oe_boot_state.device_id);
 	
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, device_identifier,
 					 sizeof(device_identifier));
