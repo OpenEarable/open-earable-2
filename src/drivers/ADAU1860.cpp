@@ -137,7 +137,7 @@ int ADAU1860::begin() {
                 uint8_t sai_clk_pwr = 0x01 | (1 << 1) | (1 << 4);
                 writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
 
-                uint8_t asrc_pwr = 0x41; // ASRCO0_EN | ASRCI0_EN 
+                uint8_t asrc_pwr = 0x31; // ASRCO1_EN | ASRCO0_EN | ASRCI0_EN 
                 writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
 
                 // DMIC_CTRL - reset val (32 BCLKs?)
@@ -164,11 +164,11 @@ int ADAU1860::begin() {
                 writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));
 
                 // DMIC_VOL0
-                uint8_t dmic_vol = 0x10;
+                uint8_t dmic_vol = 0x08; // 21dB
                 writeReg(registers::DMIC_VOL0, &dmic_vol, sizeof(dmic_vol));
                 writeReg(registers::DMIC_VOL1, &dmic_vol, sizeof(dmic_vol));
 
-                uint8_t dmic_ctrl = 0x02; // DMIC Channel 0
+                uint8_t dmic_ctrl = 0x02; // 48kHz
                 writeReg(registers::DMIC_CTRL2, &dmic_ctrl, sizeof(dmic_ctrl));
         } else {
                 uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
