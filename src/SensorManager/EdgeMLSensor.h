@@ -34,6 +34,10 @@ public:
     //virtual void end() = 0;
     //virtual void update_sensor(struct k_work * work) = 0;
 
+    bool is_running() {
+        return _running;
+    }
+
     void sd_logging(bool enable) {
         _sd_logging = enable;
     }
@@ -57,6 +61,7 @@ protected:
 
     bool _sd_logging = false;
     bool _ble_stream = true;
+    bool _running = false;
 };
 
 #endif

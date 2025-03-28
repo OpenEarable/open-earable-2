@@ -13,14 +13,14 @@ MAXM86161 PPG::ppg(&I2C2);
 static struct sensor_msg msg_ppg;
 
 const SampleRateSetting<16> PPG::sample_rates = {
-    {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x0A, 0x0B,
-    0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13},
+    { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x0A, 0x0B,
+    0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13 },
 
     { 25, 50, 84, 100, 200, 400, 8, 16,
-    32, 64, 128, 256, 512, 1024, 2048, 4096},
+    32, 64, 128, 256, 512, 1024, 2048, 4096 },
 
-    {25, 50, 84, 100, 200, 400, 8, 16,
-    32, 64, 128, 256, 512, 1024, 2048, 4096},
+    { 25, 50, 84, 100, 200, 400, 8, 16,
+    32, 64, 128, 256, 512, 1024, 2048, 4096 },
 };
 
 bool PPG::init(struct k_msgq * queue) {
@@ -118,12 +118,16 @@ void PPG::start(int sample_rate_idx) {
     ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
     ppg.start();
 
+    _running = true;
+
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 
 void PPG::stop() {
     if (!_active) return;
     _active = false;
+
+    _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
 

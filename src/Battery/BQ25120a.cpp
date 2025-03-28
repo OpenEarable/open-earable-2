@@ -16,37 +16,37 @@ int BQ25120a::begin() {
 
         ret = device_is_ready(pg_pin.port); //bool
         if (!ret) {
-                printk("BQ25120a pins not ready.\n");
+                LOG_ERR("BQ25120a pins not ready.\n");
                 return -1;
         }
 
         ret = gpio_pin_configure_dt(&pg_pin, GPIO_INPUT);
 	if (ret != 0) {
-                printk("Failed to set PG as input.\n");
+                LOG_ERR("Failed to set PG as input.\n");
                 return ret;
         }
 
         ret = gpio_pin_configure_dt(&int_pin, GPIO_INPUT);
 	if (ret != 0) {
-                printk("Failed to set INT as input.\n");
+                LOG_ERR("Failed to set INT as input.\n");
                 return ret;
         }
 
         ret = gpio_pin_configure_dt(&cd_pin, GPIO_OUTPUT_INACTIVE);
 	if (ret != 0) {
-                printk("Failed to set GPOUT as input.\n");
+                LOG_ERR("Failed to set GPOUT as input.\n");
                 return ret;
         }
 
         ret = gpio_pin_interrupt_configure_dt(&pg_pin, GPIO_INT_EDGE_BOTH);
         if (ret != 0) {
-                printk("Failed to setup interrupt on PG.\n");
+                LOG_ERR("Failed to setup interrupt on PG.\n");
                 return ret;
         }
 
         ret = gpio_pin_interrupt_configure_dt(&int_pin, GPIO_INT_EDGE_TO_ACTIVE);
         if (ret != 0) {
-                printk("Failed to setup interrupt on INT: ERROR -%i.\n", ret);
+                LOG_ERR("Failed to setup interrupt on INT: ERROR -%i.\n", ret);
                 return ret;
         }
 
@@ -64,19 +64,19 @@ int BQ25120a::set_wakeup_int() {
 
         ret = device_is_ready(pg_pin.port); //bool
         if (!ret) {
-                printk("BQ25120a pins not ready.\n");
+                LOG_ERR("BQ25120a pins not ready.\n");
                 return -1;
         }
 
         ret = gpio_pin_interrupt_configure_dt(&pg_pin, GPIO_INT_LEVEL_ACTIVE);
         if (ret != 0) {
-                printk("Failed to setup interrupt on PG.\n");
+                LOG_ERR("Failed to setup interrupt on PG.\n");
                 return ret;
         }
 
         ret = gpio_pin_interrupt_configure_dt(&int_pin, GPIO_INT_LEVEL_ACTIVE);
         if (ret != 0) {
-                printk("Failed to setup interrupt on INT.\n");
+                LOG_ERR("Failed to setup interrupt on INT.\n");
                 return ret;
         }
 

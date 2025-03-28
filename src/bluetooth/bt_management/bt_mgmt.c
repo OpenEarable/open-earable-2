@@ -97,7 +97,7 @@ static void le_data_length_updated(struct bt_conn *conn,
 	       info->tx_max_time, info->rx_max_len, info->rx_max_time);
 }
 
-static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_CONN_INTERVAL, 0, 400);
+static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_SLAVE_LATENCY, CONFIG_BLE_ACL_SUP_TIMEOUT);
 
 //callback
 static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)

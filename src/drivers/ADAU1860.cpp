@@ -118,7 +118,7 @@ int ADAU1860::begin() {
                 k_usleep(10);
         }
 
-        //LOG_INF("DAC_CTRL: 0x%02X", status);
+        // LOG_INF("DAC_CTRL: 0x%02X", status);
         // Power saving
         // uint8_t cm_startup_over = 1 << 2 | 0x01; // Master block en | Hibernate 1 (SOC off, ADP on);
         // writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
@@ -256,7 +256,7 @@ int ADAU1860::setup_EQ() {
         writeReg(registers::EQ_ROUTE, &eq_route, sizeof(eq_route));
 
         // uint8_t eq_cfg = 0x10; // Serial port 0 channel 0
-        //writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
+        // writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
 
         // set Eq params
         writeReg(EQ_PROG_MEM, (uint8_t*) eq_program, sizeof(eq_program));
@@ -316,7 +316,7 @@ int ADAU1860::setup() {
 
 int ADAU1860::mute(bool active) {
 #if CONFIG_FDSP
-        // Unmute DAC
+        // Unmute I2S Datapath
         int ret;
         ret = fdsp_mute(active);
         return ret;
@@ -325,8 +325,8 @@ int ADAU1860::mute(bool active) {
         readReg(registers::DAC_CTRL2, &status, sizeof(status));
 
         // clear last bit
-        status &= ~(1 << 6); // 1 << 7 force mute
-        if (active) status |= (1 << 6);
+        status &= ~(1 << 6);
+        if (active) status |= (1 << 6); // 1 << 7 force mute
 
         writeReg(registers::DAC_CTRL2, &status, sizeof(status));
 

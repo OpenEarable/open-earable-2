@@ -82,11 +82,15 @@ void Temp::start(int sample_rate_idx) {
     temp.continuousMode();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
+
+    _running = true;
 }
 
 void Temp::stop() {
     if (!_active) return;
     _active = false;
+
+    _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
 

@@ -48,8 +48,6 @@ static int b_init(const struct device *dev)
         int ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
         if (ret < 0) {
             printk("Failed to suspend device: %d", ret);
-        } else {
-            printk("Device successfully suspended.");
         }
     }
 

@@ -159,7 +159,7 @@ int PowerManager::begin() {
     }*/
 
     if (reset_reas & RESET_RESETREAS_SREQ_Msk) {
-        printk("Rebooting ... \n");
+        LOG_INF("Rebooting ... \n");
         power_on = true;
     }
 
@@ -276,6 +276,7 @@ int PowerManager::begin() {
     float capacity = fuel_gauge.capacity();
     if (abs(capacity - _battery_settings.capacity) > 1e-4) {
         fuel_gauge.setup(_battery_settings);
+        const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
         gpio_pin_set_dt(&error_led, 1);
     }
 

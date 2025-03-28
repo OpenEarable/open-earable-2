@@ -7,7 +7,6 @@ add_subdirectory(BMA580)
 
 target_sources(app PRIVATE
 	       ${CMAKE_CURRENT_SOURCE_DIR}/SensorManager.cpp
-		   ${CMAKE_CURRENT_SOURCE_DIR}/SensorManager.c
 		   ${CMAKE_CURRENT_SOURCE_DIR}/EdgeMLSensor.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/Baro.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/IMU.cpp

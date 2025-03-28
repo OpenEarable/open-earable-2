@@ -49,8 +49,8 @@ static nrfx_i2s_config_t cfg = {
 	.ratio = CONFIG_AUDIO_RATIO,
 	.mck_setup = 0x66666000,
 #if (CONFIG_AUDIO_BIT_DEPTH_16)
-	//.sample_width = NRF_I2S_SWIDTH_16BIT,
-	.sample_width = NRF_I2S_SWIDTH_16BIT_IN32BIT,
+	.sample_width = NRF_I2S_SWIDTH_16BIT,
+	//.sample_width = NRF_I2S_SWIDTH_16BIT_IN32BIT,
 #elif (CONFIG_AUDIO_BIT_DEPTH_32)
 	.sample_width = NRF_I2S_SWIDTH_32BIT,
 #else

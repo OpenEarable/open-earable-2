@@ -11,6 +11,16 @@
 extern "C" {
 #endif
 
+enum sensor_manager_state {
+    INIT,
+    RUNNING,
+    SUSPENDED,
+};
+
+enum sensor_manager_state get_state();
+
+void init_sensor_manager();
+
 void start_sensor_manager();
 
 void stop_sensor_manager();

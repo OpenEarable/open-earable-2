@@ -199,7 +199,7 @@ int main(void) {
                 state_indicator.set_pairing_state(BONDING);
 	}
 
-	start_sensor_manager();
+	init_sensor_manager();
 
 	//sensor_config imu = {ID_IMU, 80, 0};
 	//sensor_config imu = {ID_PPG, 400, 0};

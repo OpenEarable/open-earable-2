@@ -16,19 +16,19 @@ int BQ27220::begin() {
 
         ret = device_is_ready(gpout_pin.port); //bool
         if (!ret) {
-                printk("GPOUT not ready.\n");
+                LOG_ERR("GPOUT not ready.\n");
                 return -1;
         }
 
         ret = gpio_pin_configure_dt(&gpout_pin, GPIO_INPUT);
 	if (ret != 0) {
-                printk("Failed to set GPOUT as input: ERROR -%i.\n", ret);
+                LOG_ERR("Failed to set GPOUT as input: ERROR -%i.\n", ret);
                 return ret;
         }
 
         ret = gpio_pin_interrupt_configure_dt(&gpout_pin, GPIO_INT_EDGE_TO_ACTIVE);
         if (ret != 0) {
-                printk("Failed to setup interrupt on GPOUT: ERROR -%i.\n", ret);
+                LOG_ERR("Failed to setup interrupt on GPOUT: ERROR -%i.\n", ret);
                 return ret;
         }
 
@@ -44,13 +44,13 @@ int BQ27220::set_wakeup_int() {
 
         ret = device_is_ready(gpout_pin.port); //bool
         if (!ret) {
-                printk("GPOUT not ready.\n");
+                LOG_ERR("GPOUT not ready.\n");
                 return -1;
         }
 
         ret = gpio_pin_interrupt_configure_dt(&gpout_pin, GPIO_INT_LEVEL_ACTIVE);
         if (ret != 0) {
-                printk("Failed to setup interrupt on GPOUT: ERROR -%i.\n", ret);
+                LOG_ERR("Failed to setup interrupt on GPOUT: ERROR -%i.\n", ret);
                 return ret;
         }
 
@@ -267,7 +267,7 @@ void BQ27220::enter_config_update() {
     //write_command(0x14); //0x13);
     op_state state = operation_state();
     if (state.CFG_UPDATE) {
-        printk("Already in CONFIG UPDATE MODE.\n");
+        LOG_WRN("Already in CONFIG UPDATE MODE.\n");
         return;
     }
     write_command(CONFIG_UPDATE_ENTER);
@@ -277,7 +277,7 @@ void BQ27220::enter_config_update() {
         k_msleep(100);
     } 
     while (!state.CFG_UPDATE);
-    printk("CONFIG UPDATE MODE entered.\n");
+    LOG_INF("CONFIG UPDATE MODE entered.\n");
 
     //if (state.CFG_UPDATE) printk("CONFIG UPDATE MODE entered.\n");
     //else printk("Failed to enter CONFIG UPDATE MODE.\n");
@@ -286,7 +286,7 @@ void BQ27220::enter_config_update() {
 void BQ27220::exit_config_update(bool init) {
     op_state state = operation_state();
     if (!state.CFG_UPDATE) {
-        printk("Device is not in CONFIG UPDATE MODE.\n");
+        LOG_WRN("Device is not in CONFIG UPDATE MODE.\n");
         return;
     }
     if (init) write_command(CONFIG_UPDATE_EXIT);
@@ -296,7 +296,7 @@ void BQ27220::exit_config_update(bool init) {
         state = operation_state();
         k_msleep(100);
     } while (state.CFG_UPDATE);
-    printk("CONFIG UPDATE MODE exited.\n");
+    LOG_INF("CONFIG UPDATE MODE exited.\n");
     //if (!state.CFG_UPDATE) printk("CONFIG UPDATE MODE exited.\n");
     //else printk("Failed to exit CONFIG UPDATE MODE.\n");
 }

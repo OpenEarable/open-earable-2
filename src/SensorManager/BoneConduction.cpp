@@ -84,11 +84,15 @@ void BoneConduction::start(int sample_rate_idx) {
     bma580.start();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
+
+    _running = true;
 }
 
 void BoneConduction::stop() {
     if (!_active) return;
     _active = false;
+
+    _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
 

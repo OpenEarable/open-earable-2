@@ -355,6 +355,15 @@ config CONTENT_CONTROL_MSG_SUB_THREAD_PRIO
 	  This is a preemptible thread.
 	  This thread will subscribe to content control events from zbus.
 
+# CUSTOM
+
+config SENSOR_THREAD_PRIO
+	int "Thread priority for LE Audio subscriber"
+	default 5
+	help
+	  This is a preemptible thread.
+	  This thread will subscribe to LE Audio events from zbus.
+
 endmenu # Thread priorities
 
 #----------------------------------------------------------------------------#

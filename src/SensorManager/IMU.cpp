@@ -4,12 +4,11 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
 
-//extern struct k_msgq sensor_queue;
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(BMX160);
 
 static struct sensor_msg msg_imu;
 
-/*k_work IMU::sensor_work;
-k_msgq * IMU::sensor_queue;*/
 DFRobot_BMX160 IMU::imu(&I2C3);
 
 IMU IMU::sensor;
@@ -47,8 +46,7 @@ void IMU::update_sensor(struct k_work *work) {
 
 	ret = k_msgq_put(sensor_queue, &msg_imu, K_NO_WAIT);
 	if (ret == -EAGAIN) {
-		//LOG_WRN("sensor msg queue full");
-		printk("sensor msg queue full");
+		LOG_WRN("sensor msg queue full");
 	}
 }
 
@@ -67,7 +65,7 @@ bool IMU::init(struct k_msgq * queue) {
 	}
 
     if (!imu.begin()) {   // hardware I2C mode, can pass in address & alt Wire
-		printk("Could not find a valid BMX160 sensor, check wiring!");
+		LOG_ERR("Could not find a valid BMX160 sensor, check wiring!");
 		pm_device_runtime_put(ls_1_8);
     	_active = false;
 		return false;
@@ -90,12 +88,16 @@ void IMU::start(int sample_rate_idx) {
 
 	imu.setAccelODR(sample_rates.reg_vals[sample_rate_idx]);
 
+	_running = true;
+
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 
 void IMU::stop() {
     if (!_active) return;
     _active = false;
+
+	_running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
 
