@@ -34,6 +34,15 @@
 
 typedef uint32_t safe_load_params[FDSP_NUM_PARAMS];
 
+enum sl_address {
+    BIQ_0 = 0,
+    //LIMIT_1 = 1,
+    VOLUME = 1,
+    MUTE = 2,
+    MIXER = 3,
+    LIMITER_MASTER = 4
+};
+
 class ADAU1860 {
 public:
     enum registers : uint32_t {
@@ -406,8 +415,8 @@ private:
     int fdsp_set_volume(uint8_t volume);
     uint8_t fdsp_get_volume();
 
-    int fdsp_safe_load(uint8_t address, safe_load_params params);
-    int fdsp_safe_load(uint8_t address, int n, uint32_t param);
+    int fdsp_safe_load(sl_address address, safe_load_params params);
+    int fdsp_safe_load(sl_address address, int n, uint32_t param);
 
     const int address = DT_REG_ADDR(DT_NODELABEL(adau1860));
 

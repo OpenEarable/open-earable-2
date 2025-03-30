@@ -3,6 +3,7 @@
 #include "openearable_common.h"
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
+#include <math.h>
 LOG_MODULE_REGISTER(ADAU1860, 3);
 
 /*
@@ -226,6 +227,10 @@ int ADAU1860::setup_DAC() {
         writeReg(registers::PB_CTRL, &pb_ctrl, sizeof(pb_ctrl));
 
 #if CONFIG_FDSP
+        // set volume
+        uint8_t dac_vol = 0xFF - MAX_VOLUME_REG_VAL;
+        writeReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol));
+
         // Unmute DAC
         uint8_t dac_ctrl2 = 0x0;
         dac.writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2));
@@ -334,8 +339,9 @@ int ADAU1860::mute(bool active) {
 #endif
 }
 
-int ADAU1860::fdsp_safe_load(uint8_t address, safe_load_params params) {
-        writeReg(registers::FDSP_SL_ADDR, &address, sizeof(address));
+int ADAU1860::fdsp_safe_load(sl_address address, safe_load_params params) {
+        uint8_t _address = address;
+        writeReg(registers::FDSP_SL_ADDR, &_address, sizeof(_address));
         writeReg(registers::FDSP_SL_P0_0, (uint8_t *) params, sizeof(safe_load_params));
 
         uint8_t val = 1;
@@ -344,7 +350,7 @@ int ADAU1860::fdsp_safe_load(uint8_t address, safe_load_params params) {
         return 0;
 }
 
-int ADAU1860::fdsp_safe_load(uint8_t address, int n, uint32_t param) {
+int ADAU1860::fdsp_safe_load(sl_address address, int n, uint32_t param) {
         uint32_t params[FDSP_NUM_PARAMS];
 
         for (int i = 0; i < FDSP_NUM_PARAMS; i++) {
@@ -353,7 +359,8 @@ int ADAU1860::fdsp_safe_load(uint8_t address, int n, uint32_t param) {
 
         params[n] = param;
 
-        writeReg(registers::FDSP_SL_ADDR, &address, sizeof(address));
+        uint8_t _address = address;
+        writeReg(registers::FDSP_SL_ADDR, &_address, sizeof(_address));
         //writeReg(registers::FDSP_SL_P0_0 + n * sizeof(param), (uint8_t *) &param, sizeof(param));
         writeReg(registers::FDSP_SL_P0_0, (uint8_t *) params, sizeof(safe_load_params));
 
@@ -365,22 +372,30 @@ int ADAU1860::fdsp_safe_load(uint8_t address, int n, uint32_t param) {
 
 int ADAU1860::fdsp_mute(bool active) {
         uint32_t val = active ? 0x00000000 : 0x08000000;
-        fdsp_safe_load(1, 4, val);
+        fdsp_safe_load(MUTE, 4, val);
 
         return 0;
 }
 
 int ADAU1860::set_volume(uint8_t volume) {
+#if CONFIG_FDSP
+        // Unmute I2S Datapath
+        int ret;
+        ret = fdsp_set_volume(volume);
+        return ret;
+#else
         uint8_t dac_vol = 0xFF-volume;
         writeReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol)); // unmute
 
         return 0;
+#endif
 }
 
 
 int ADAU1860::fdsp_set_volume(uint8_t volume) {
-        uint8_t dac_vol = 0xFF-volume;
-        writeReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol)); // unmute
+        float _val = ((float) (1<<27)) * powf(10.f, -3.f * (((float) (0xFF - volume)) / 255.f)); 
+        uint32_t val = MIN(_val, (1 << 27));
+        fdsp_safe_load(VOLUME, 4, val);
 
         return 0;
 }

@@ -44,7 +44,11 @@ K_THREAD_STACK_DEFINE(volume_msg_sub_thread_stack, CONFIG_VOLUME_MSG_SUB_STACK_S
 static uint16_t zbus_vol_conversion(uint8_t volume)
 {
 	//return (((uint16_t)volume + 1) / 2) + 0x40;
+#ifdef CONFIG_FDSP
+	return volume;
+#else
 	return (((int)volume + 1) * (MAX_VOLUME_REG_VAL - MIN_VOLUME_REG_VAL) / 255) + MIN_VOLUME_REG_VAL;
+#endif
 }
 
 /**
@@ -125,10 +129,16 @@ int hw_codec_volume_set(uint8_t set_val)
 	volume_reg_val = set_val;
 	if (volume_reg_val == 0) {
 		LOG_WRN("Volume at MIN (-64dB)");
+#ifdef CONFIG_FDSP
+	} else if (volume_reg_val >= 255) {
+		LOG_WRN("Volume at MAX (0dB)");
+	}
+#else
 	} else if (volume_reg_val >= MAX_VOLUME_REG_VAL) {
 		LOG_WRN("Volume at MAX (0dB)");
 		volume_reg_val = MAX_VOLUME_REG_VAL;
 	}
+#endif
 
 	ret = dac.set_volume(volume_reg_val);
 
@@ -229,17 +239,17 @@ int hw_codec_default_conf_enable(void)
 {
 	int ret;
 
+	ret = hw_codec_volume_adjust(0);
+	if (ret) {
+		return ret;
+	}
+
 	//ret = dac.setup();
 	if (!muted) {
 		ret = dac.mute(false);
 		if (ret) {
 			return ret;
 		}
-	}
-
-	ret = hw_codec_volume_adjust(0);
-	if (ret) {
-		return ret;
 	}
 
 	return 0;
