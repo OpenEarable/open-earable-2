@@ -80,9 +80,9 @@ static void button_msg_sub_thread(void)
 		LOG_DBG("Got btn evt from queue - id = %d, action = %d", msg.button_pin,
 			msg.button_action);
 
-		if (msg.button_action != BUTTON_PRESS) {
+		if (msg.button_action != BUTTON_RELEASED) {
 			LOG_WRN("Unhandled button action");
-			return;
+			continue;
 		}
 
 		switch (msg.button_pin) {
@@ -562,20 +562,14 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
         ad->data += len - 1;
         ad->len -= len - 1;
 
-		//printk("test\n");
-
         // Suchen nach 16-bit Service UUIDs (LE Audio Services)
-        if (type == BT_DATA_SVC_DATA16) { //BT_DATA_UUID16_SOME || type == BT_DATA_UUID16_ALL) {
-			//printk("LE Audio-Gerät gefunden! UUID\n");
-			//printk("type 0x%04X ", type);
+        if (type == BT_DATA_SVC_DATA16) {
             for (size_t i = 0; i < len - 1; i += 2) {
                 uint16_t uuid = (data[i + 1] << 8) | data[i];
 				if (uuid == BT_UUID_CAS_VAL) {
 					is_le_audio_device = true;
-                    //printk("LE Audio-Gerät gefunden! UUID: 0x%04X\n", uuid);
                 }
             }
-			//printk("\n");
         }
 
 		if (is_le_audio_device && type == BT_DATA_MANUFACTURER_DATA) {
@@ -596,9 +590,8 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 	if (is_le_audio_device) {
 		LOG_INF("LE Audio-Gerät gefunden! UUID\n");
 
-		// printk("MANUFACTURER DATA 0x%s\n", bt_hex(chip_id, sizeof(chip_id)));
-
-		// printk("CSIS DATA 0x%s\n", bt_hex(csis_rsi, sizeof(csis_rsi)));
+		// LOG_INF("MANUFACTURER DATA 0x%s\n", bt_hex(chip_id, sizeof(chip_id)));
+		// LOG_INF("CSIS DATA 0x%s\n", bt_hex(csis_rsi, sizeof(csis_rsi)));
 
 		uint32_t hash_ref = (csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
 		uint32_t hash;
