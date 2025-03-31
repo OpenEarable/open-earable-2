@@ -4,7 +4,7 @@
 #include "../SensorManager/SensorManager.h"
 #include "macros_common.h"
 #include <zephyr/logging/log.h>
-#include "SDLogger.hpp"
+#include "SDLogger.h"
 #include <errno.h>
 
 LOG_MODULE_REGISTER(sd_logger, LOG_LEVEL_DBG);

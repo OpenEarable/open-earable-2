@@ -1,4 +1,4 @@
-#include "Benchmark.hpp"
+#include "Benchmark.h"
 
 Benchmark::Benchmark(void (*function)()) {
     this->function = function;

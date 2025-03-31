@@ -4,7 +4,7 @@
 #include <zephyr/bluetooth/gatt.h>
 #include "openearable_common.h"
 #include "zbus_common.h"
-#include "SD_Card_Manager.hpp"
+#include "SD_Card_Manager.h"
 #include <string>
 
 

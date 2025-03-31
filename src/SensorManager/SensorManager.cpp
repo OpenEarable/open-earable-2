@@ -15,7 +15,7 @@
 #include <SensorScheme.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(sensor_manager);
-#include "../SD_Card/SDLogger/SDLogger.hpp"
+#include "../SD_Card/SDLogger/SDLogger.h"
 #include <string>
 
 extern struct k_msgq sensor_queue;

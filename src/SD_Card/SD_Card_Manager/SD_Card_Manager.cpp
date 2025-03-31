@@ -1,4 +1,4 @@
-#include "SD_Card_Manager.hpp"
+#include "SD_Card_Manager.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>

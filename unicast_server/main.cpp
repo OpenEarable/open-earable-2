@@ -28,7 +28,7 @@
 
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
-#include "../src/SD_Card/SDLogger/SDLogger.hpp"
+#include "../src/SD_Card/SDLogger/SDLogger.h"
 
 #include "uicr.h"
 

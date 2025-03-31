@@ -1,4 +1,4 @@
-#include "CSVLogger.hpp"
+#include "CSVLogger.h"
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(CSVLogger, LOG_LEVEL_DBG);
