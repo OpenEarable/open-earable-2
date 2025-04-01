@@ -26,7 +26,6 @@ EdgeMlSensor * get_sensor(enum sensor_id id);
 static sensor_manager_state _state;
 
 K_MSGQ_DEFINE(sensor_queue, sizeof(struct sensor_msg), 16, 4);
-
 K_MSGQ_DEFINE(config_queue, sizeof(struct sensor_config), 16, 4);
 
 ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,

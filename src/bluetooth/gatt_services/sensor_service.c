@@ -132,9 +132,9 @@ static void gatt_work_handler(struct k_work * work) {
 		if (ret != 0) LOG_WRN("Failed to send data.\n");
 	}
 
-	const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
+	//const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
 
-	return bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
+	//return bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
 }
 
 static void sensor_gatt_task(void)
