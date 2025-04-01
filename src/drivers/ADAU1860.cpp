@@ -169,8 +169,11 @@ int ADAU1860::begin() {
                 writeReg(registers::DMIC_VOL0, &dmic_vol, sizeof(dmic_vol));
                 writeReg(registers::DMIC_VOL1, &dmic_vol, sizeof(dmic_vol));
 
-                uint8_t dmic_ctrl = 0x02; // 48kHz
-                writeReg(registers::DMIC_CTRL2, &dmic_ctrl, sizeof(dmic_ctrl));
+                uint8_t dmic_ctrl1 = 0x34; // ... | 6.144 MHz
+                writeReg(registers::DMIC_CTRL1, &dmic_ctrl1, sizeof(dmic_ctrl1));
+
+                uint8_t dmic_ctrl2 = 0x02; // 48kHz
+                writeReg(registers::DMIC_CTRL2, &dmic_ctrl2, sizeof(dmic_ctrl2));
         } else {
                 uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
                 writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
