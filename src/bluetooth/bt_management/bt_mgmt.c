@@ -19,8 +19,7 @@
 #include "macros_common.h"
 #include "zbus_common.h"
 #include "button_assignments.h"
-//#include "button_handler.h"
-//#include "button_manager.h"
+
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"
 #include "bt_mgmt_dfu_internal.h"

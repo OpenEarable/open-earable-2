@@ -9,7 +9,10 @@
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
 static struct k_thread thread_data;
+static struct k_thread thread_data_notify;
+
 static k_tid_t thread_id;
+static k_tid_t thread_id_notify;
 
 ZBUS_SUBSCRIBER_DEFINE(sensor_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 //ZBUS_LISTENER_DEFINE()
@@ -18,8 +21,9 @@ ZBUS_CHAN_DECLARE(sensor_chan);
 ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
 static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
+static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
 
-K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_msg), 16, 4);
+K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_msg), 256, 4);
 
 //extern const k_tid_t sensor_publish;
 
@@ -29,15 +33,17 @@ static struct sensor_config config;
 
 static bool notify_enabled = false;
 
-static void gatt_work_handler(struct k_work * work);
+//static void gatt_work_handler(struct k_work * work);
 
-K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
+//K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
 
 static void connect_evt_handler(const struct zbus_channel *chan);
 
 ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen2, connect_evt_handler); //static
 
 static bool connection_complete = false;
+
+static struct k_mutex notify_mutex;
 
 static void connect_evt_handler(const struct zbus_channel *chan)
 {
@@ -114,27 +120,46 @@ BT_GATT_CCC(sensor_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
-static void gatt_work_handler(struct k_work * work) {
+static void notify_complete() {
+	k_mutex_unlock(&notify_mutex);
+}
+
+//static void gatt_work_handler(struct k_work * work) {
+static void notification_task(void) {
 	int ret;
 
-	ret = k_msgq_get(&gatt_queue, &msg, K_NO_WAIT);
+	while (1) {
+		ret = k_msgq_get(&gatt_queue, &msg, K_FOREVER);
 
-	if (ret != 0) {
-		LOG_WRN("No data to process");
-		return;
+		if (ret != 0) {
+			LOG_WRN("No data to process");
+			continue;
+		}
+
+		if (connection_complete && notify_enabled && msg.stream) {
+			//ret = send_sensor_data();
+			const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
+
+			static struct bt_gatt_notify_params params;
+			params.attr = &sensor_service.attrs[4];
+			params.data = data_buf;
+			params.len = size;
+			params.func = notify_complete;  // Callback für Abschluss
+			params.user_data = NULL;
+
+			//ret =  bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
+			ret = k_mutex_lock(&notify_mutex, K_MSEC(100));
+			if (ret != 0) {
+				LOG_ERR("Unable to lock notify mutex.");
+			}
+
+			ret = bt_gatt_notify_cb(NULL, &params);
+			if (ret != 0) {
+				k_mutex_unlock(&notify_mutex);
+				LOG_WRN("Failed to send data.\n");
+			}
+		}
 	}
-
-	if (connection_complete && notify_enabled && msg.stream) {
-		//ret = send_sensor_data();
-		const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
-
-		ret =  bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
-		if (ret != 0) LOG_WRN("Failed to send data.\n");
-	}
-
-	//const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
-
-	//return bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
 }
 
 static void sensor_gatt_task(void)
@@ -155,8 +180,6 @@ static void sensor_gatt_task(void)
 
 			if (ret == -EAGAIN) {
 				LOG_WRN("power manager msg queue full");
-			} else {
-				k_work_submit(&gatt_sensor_work);
 			}
 		}
 
@@ -168,8 +191,19 @@ int init_sensor_service() {
 	int ret;
 
 	thread_id = k_thread_create(
+		&thread_data_notify, thread_stack_notify,
+		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)notification_task, NULL,
+		NULL, NULL, K_PRIO_PREEMPT(5), 0, K_NO_WAIT);
+	
+	ret = k_thread_name_set(thread_id_notify, "SENSOR_GATT_NOTIFY");
+	if (ret) {
+		LOG_ERR("Failed to create sensor_msg thread");
+		return ret;
+	}
+
+	thread_id = k_thread_create(
 		&thread_data, thread_stack,
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE, (k_thread_entry_t)sensor_gatt_task, NULL,
+		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)sensor_gatt_task, NULL,
 		NULL, NULL, K_PRIO_PREEMPT(4), 0, K_NO_WAIT);
 	
 	ret = k_thread_name_set(thread_id, "SENSOR_GATT_SUB");
@@ -189,6 +223,8 @@ int init_sensor_service() {
 		LOG_ERR("Failed to add bt_mgmt listener");
 		return ret;
 	}
+
+	k_mutex_init(&notify_mutex);
 
     return 0;
 }

@@ -74,7 +74,7 @@ int init_sd_logger() {
 
 	thread_id = k_thread_create(
 		&thread_data, thread_stack,
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE, (k_thread_entry_t)sensor_sd_task, NULL,
+		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)sensor_sd_task, NULL,
 		NULL, NULL, K_PRIO_PREEMPT(4), 0, K_NO_WAIT);
 	
 	ret = k_thread_name_set(thread_id, "SENSOR_SD_SUB");
