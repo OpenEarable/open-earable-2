@@ -82,10 +82,6 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.data.id = ID_PPG;
             msg_ppg.data.size = 4 * size;
             msg_ppg.data.time = time_stamp - (num_samples - i) * PPG::sensor.t_sample_us;
-            /*msg_ppg.data.data[0]=sensor.data_buffer[i][red];
-            msg_ppg.data.data[1]=sensor.data_buffer[i][green];
-            msg_ppg.data.data[2]=sensor.data_buffer[i][ir];
-            msg_ppg.data.data[3]=sensor.data_buffer[i][ambient];*/
 
             memcpy(msg_ppg.data.data + 0 * size, &sensor.data_buffer[i][red], size);
             memcpy(msg_ppg.data.data + 1 * size, &sensor.data_buffer[i][ir], size);

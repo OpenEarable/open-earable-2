@@ -57,6 +57,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
         msg_bc.data.id = ID_BONE_CONDUCTION;
         msg_bc.data.size = 3 * sizeof(int16_t);
         msg_bc.data.time = time_stamp - (num_samples - i) * BoneConduction::sensor.t_sample_us;
+
         memcpy(msg_bc.data.data, &sensor.fifo_acc_data[i], 3 * sizeof(int16_t));
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);

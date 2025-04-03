@@ -75,7 +75,6 @@ struct sensor_data {
     uint8_t size;
     uint64_t time;
     uint8_t data[SENSOR_DATA_FIXED_LENGTH];
-    //uint8_t * data;
 } __attribute__((packed));
 
 struct sensor_msg {
