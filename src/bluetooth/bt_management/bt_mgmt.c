@@ -160,11 +160,11 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Connected: %s", addr);
 
-	msg.event = BT_MGMT_CONNECTED;
+	/*msg.event = BT_MGMT_CONNECTED;
 	msg.conn = conn;
 
 	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
-	ERR_CHK(ret);
+	ERR_CHK(ret);*/
 
 	static struct bt_gatt_exchange_params exchange_params;
 	exchange_params.func = exchange_func;

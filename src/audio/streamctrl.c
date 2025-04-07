@@ -16,8 +16,7 @@
 #include "button_assignments.h"
 #include "macros_common.h"
 #include "audio_system.h"
-//#include "button_handler.h"
-#include "../src/buttons/button_manager.h"
+
 #include "bt_le_audio_tx.h"
 #include "bt_mgmt.h"
 #include "bt_rendering_and_capture.h"

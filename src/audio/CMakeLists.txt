@@ -11,5 +11,9 @@ target_sources(app PRIVATE
 	       ${CMAKE_CURRENT_SOURCE_DIR}/sw_codec_select.c
 	       ${CMAKE_CURRENT_SOURCE_DIR}/le_audio_rx.c
 		   # ${CMAKE_CURRENT_SOURCE_DIR}/pdm_mic.c
-		   ${CMAKE_CURRENT_SOURCE_DIR}/Equalizer.cpp
+		   # ${CMAKE_CURRENT_SOURCE_DIR}/Equalizer.cpp
 )
+
+
+target_sources_ifdef(CONFIG_EQAULIZER_SOFTWARE app PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/Equalizer.cpp)
