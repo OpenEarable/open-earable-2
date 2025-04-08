@@ -13,7 +13,7 @@ LOG_MODULE_REGISTER(sd_logger, LOG_LEVEL_DBG);
 //SDLogger* SDLogger::instance_ptr = nullptr;
 
 // Define thread stack
-K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 8);
+K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
 
 ZBUS_SUBSCRIBER_DEFINE(sensor_sd_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 ZBUS_CHAN_DECLARE(sensor_chan);
@@ -21,17 +21,12 @@ K_WORK_DEFINE(sd_sensor_work, sd_work_handler);
 
 SDLogger::SDLogger() {
     sd_card = &sdcard_manager;
-    owns_sd_card = true;
 }
 
 SDLogger::~SDLogger() {
     if (is_open) {
         end();
     }
-    if (owns_sd_card && sd_card != nullptr) {
-        delete sd_card;
-    }
-    //instance_ptr = nullptr; // Clear the instance pointer
 }
 
 // Define the work handler implementation
@@ -71,20 +66,23 @@ void SDLogger::sensor_sd_task() {
  * Returns -EBUSY if logger is already open or -ENODEV if SD card not initialized.
  */
 int SDLogger::begin(const std::string& filename) {
+    int ret;
+
     if (is_open) {
         LOG_ERR("Logger already open");
         return -EBUSY;
     }
 
-    if (sd_card == nullptr) {
-        LOG_ERR("SD card manager not initialized");
-        return -ENODEV;
+    if (!sd_card->is_mounted()) {
+        ret = sd_card->mount();
+        if (ret < 0) {
+            LOG_ERR("Failed to mount sd card: %d", ret);
+            return ret;
+        }
     }
 
-    sd_card->mount();
-
     std::string full_filename = filename + ".oe";
-    int ret = sd_card->open_file(full_filename, true, false, true);
+    ret = sd_card->open_file(full_filename, true, false, true);
     if (ret < 0) {
         LOG_ERR("Failed to open file: %d", ret);
         return ret;
@@ -102,7 +100,7 @@ int SDLogger::begin(const std::string& filename) {
 
 	thread_id = k_thread_create(
 		&thread_data, thread_stack,
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 8, (k_thread_entry_t)sensor_sd_task, NULL,
+		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)sensor_sd_task, NULL,
 		NULL, NULL, K_PRIO_PREEMPT(5), 0, K_NO_WAIT);
 	
 	ret = k_thread_name_set(thread_id, "SENSOR_SD_SUB");
@@ -128,7 +126,7 @@ int SDLogger::write_header() {
     header->version = SENSOR_LOG_VERSION;
     header->timestamp = micros();
 
-    return sd_card->write(reinterpret_cast<char*>(header_buffer), &header_size, false);
+    return sd_card->write((char *) header_buffer, &header_size, false);
 }
 
 int SDLogger::write_sensor_data(const void* data, size_t length) {
@@ -186,7 +184,7 @@ int SDLogger::end() {
         return ret;
     }
 
-    LOG_INF("Flushed ....");
+    LOG_INF("Close File ....");
 
     ret = sd_card->close_file();
     if (ret < 0) {

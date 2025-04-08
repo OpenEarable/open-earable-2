@@ -29,6 +29,12 @@ public:
      */
     int mount();
     /**
+     * @brief Unmount the sd card.
+     * 
+     * @return < 0 on error, 0 on success
+     */
+    int unmount();
+    /**
      * @brief Open a directory.
      * 
      * @param path The path to the directory.

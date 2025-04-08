@@ -36,13 +36,21 @@ std::string create_path(std::string current_path, std::string new_path) {
 }
 
 SDCardManager::~SDCardManager() {
+	
+}
+
+int SDCardManager::unmount() {
 	if (this->mounted) {
 		fs_closedir(&this->dirp);
 		if (this->tracked_file.is_open) {
-		this->close_file();
-	}
+			this->close_file();
+		}
 		fs_unmount(&this->mnt_pt);
 	}
+
+	pm_device_runtime_put(ls_sd);
+	pm_device_runtime_put(ls_3_3);
+	pm_device_runtime_put(ls_1_8);
 }
 
 int SDCardManager::mount() {

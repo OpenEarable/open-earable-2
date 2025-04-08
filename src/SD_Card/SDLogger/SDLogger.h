@@ -30,7 +30,7 @@ class SDLogger {
         private:
         
         SDCardManager* sd_card = nullptr;
-        bool owns_sd_card = false;
+        //bool owns_sd_card = false;
         bool is_open = false;
         uint8_t buffer[BUFFER_SIZE]; // = nullptr;
         size_t buffer_pos = 0;

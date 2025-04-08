@@ -75,9 +75,7 @@ void init_sensor_manager() {
 
 	k_work_init(&config_work, config_work_handler);
 
-	// Start SDLogger with timestamp-based filename
-	std::string filename = "sensor_log_" + std::to_string(k_uptime_get());
-	sdlogger.begin(filename);
+	//sd_manager.mount();
 }
 
 void start_sensor_manager() {
@@ -92,6 +90,10 @@ void start_sensor_manager() {
 	} else {
 		k_thread_resume(sensor_pub_id);
 	}
+
+	// Start SDLogger with timestamp-based filename
+	std::string filename = "sensor_log_" + std::to_string(micros());
+	sdlogger.begin(filename);
 
 	_state = RUNNING;
 }
