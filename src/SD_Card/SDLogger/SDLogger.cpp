@@ -10,10 +10,10 @@
 LOG_MODULE_REGISTER(sd_logger, LOG_LEVEL_DBG);
 
 // Initialize static member
-SDLogger* SDLogger::instance_ptr = nullptr;
+//SDLogger* SDLogger::instance_ptr = nullptr;
 
 // Define thread stack
-K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
+K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 8);
 
 ZBUS_SUBSCRIBER_DEFINE(sensor_sd_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 ZBUS_CHAN_DECLARE(sensor_chan);
@@ -31,21 +31,20 @@ SDLogger::~SDLogger() {
     if (owns_sd_card && sd_card != nullptr) {
         delete sd_card;
     }
-    instance_ptr = nullptr; // Clear the instance pointer
+    //instance_ptr = nullptr; // Clear the instance pointer
 }
 
 // Define the work handler implementation
 void sd_work_handler(struct k_work* work) {
-    if (SDLogger::instance_ptr && SDLogger::instance_ptr->msg.sd) {
-        int ret = SDLogger::instance_ptr->write_sensor_data();
+    if (sdlogger.msg.sd) {
+        int ret = sdlogger.write_sensor_data();
         if (ret < 0) {
             LOG_ERR("Failed to write sensor data: %d", ret);
         }
     }
 }
 
-void SDLogger::sensor_sd_task(void* instance) {
-    SDLogger* logger = static_cast<SDLogger*>(instance);
+void SDLogger::sensor_sd_task() {
     int ret;
     const struct zbus_channel* chan;
 
@@ -53,12 +52,12 @@ void SDLogger::sensor_sd_task(void* instance) {
         ret = zbus_sub_wait(&sensor_sd_sub, &chan, K_FOREVER);
         ERR_CHK(ret);
 
-        ret = zbus_chan_read(chan, &logger->msg, ZBUS_READ_TIMEOUT_MS);
+        ret = zbus_chan_read(chan, &sdlogger.msg, ZBUS_READ_TIMEOUT_MS);
         ERR_CHK(ret);
 
         k_work_submit(&sd_sensor_work);
 
-        STACK_USAGE_PRINT("sensor_msg_thread", &logger->thread_data);
+        STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
 }
 
@@ -103,7 +102,7 @@ int SDLogger::begin(const std::string& filename) {
 
 	thread_id = k_thread_create(
 		&thread_data, thread_stack,
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)sensor_sd_task, NULL,
+		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 8, (k_thread_entry_t)sensor_sd_task, NULL,
 		NULL, NULL, K_PRIO_PREEMPT(5), 0, K_NO_WAIT);
 	
 	ret = k_thread_name_set(thread_id, "SENSOR_SD_SUB");
@@ -127,7 +126,7 @@ int SDLogger::write_header() {
     FileHeader* header = reinterpret_cast<FileHeader*>(header_buffer);
 
     header->version = SENSOR_LOG_VERSION;
-    header->timestamp = k_uptime_get() * 1000;  // Convert to microseconds
+    header->timestamp = micros();
 
     return sd_card->write(reinterpret_cast<char*>(header_buffer), &header_size, false);
 }
@@ -145,6 +144,7 @@ int SDLogger::write_sensor_data(const void* data, size_t length) {
         length -= to_copy;
 
         if (buffer_pos == BUFFER_SIZE) {
+            LOG_INF("flushing .....");
             int ret = flush();
             if (ret < 0) {
                 return ret;
@@ -157,6 +157,7 @@ int SDLogger::write_sensor_data(const void* data, size_t length) {
 
 int SDLogger::write_sensor_data() {
     const uint16_t data_size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size;
+    LOG_INF("log data ....");
     return write_sensor_data(data_buf, data_size);
 }
 
@@ -168,7 +169,7 @@ int SDLogger::flush() {
     // During end(), buffer_pos may be any value and the filesystem handles any necessary block alignment
     
     size_t write_size = buffer_pos;
-    int ret = sd_card->write(reinterpret_cast<char*>(buffer), &write_size, true);
+    int ret = sd_card->write((char *) buffer, &write_size, false);
     if (ret >= 0) {
         buffer_pos = 0;
     }
@@ -184,6 +185,8 @@ int SDLogger::end() {
     if (ret < 0) {
         return ret;
     }
+
+    LOG_INF("Flushed ....");
 
     ret = sd_card->close_file();
     if (ret < 0) {

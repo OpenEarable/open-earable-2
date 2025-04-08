@@ -18,16 +18,6 @@ LOG_MODULE_DECLARE(sensor_manager);
 #include "../SD_Card/SDLogger/SDLogger.h"
 #include <string>
 
-#include <zephyr/drivers/disk.h>
-
-#include <zephyr/kernel.h>
-#include <zephyr/device.h>
-#include <zephyr/storage/disk_access.h>
-#include <ff.h>
-#include <string.h>
-#include <zephyr/drivers/gpio.h>
-#include <zephyr/devicetree.h>
-
 extern struct k_msgq sensor_queue;
 // extern k_tid_t sensor_publish;
 
@@ -85,46 +75,6 @@ void init_sensor_manager() {
 
 	k_work_init(&config_work, config_work_handler);
 
-	int ret;
-
-	ret = pm_device_runtime_get(ls_1_8);
-	ret = pm_device_runtime_get(ls_3_3);
-	ret = pm_device_runtime_get(ls_sd);
-
-	//int ret;
-	/*static const char *sd_dev = "SD";
-	uint64_t sd_card_size_bytes;
-	uint32_t sector_count;
-	size_t sector_size;
-
-	ret = disk_access_init(sd_dev);
-	if (ret) {
-		LOG_ERR("SD card init failed, please check if SD card inserted");
-		return;// -ENODEV;
-	}
-
-	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_COUNT, &sector_count);
-	if (ret) {
-		LOG_ERR("Unable to get sector count");
-		return; // ret;
-	}
-
-	LOG_DBG("Sector count: %d", sector_count);
-
-	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_SIZE, &sector_size);
-	if (ret) {
-		LOG_ERR("Unable to get sector size");
-		return; // ret;
-	}
-
-	LOG_DBG("Sector size: %d bytes", sector_size);
-
-	sd_card_size_bytes = (uint64_t)sector_count * sector_size;
-
-	LOG_INF("SD card volume size: %lld B", sd_card_size_bytes);*/
-
-	//sd_manager.mount();
-
 	// Start SDLogger with timestamp-based filename
 	std::string filename = "sensor_log_" + std::to_string(k_uptime_get());
 	sdlogger.begin(filename);
@@ -162,7 +112,7 @@ void stop_sensor_manager() {
 	_state = SUSPENDED;
 
 	// End SDLogger and close current log file
-	//SDLogger::get_instance().end();
+	sdlogger.end();
 }
 
 EdgeMlSensor * get_sensor(enum sensor_id id) {
@@ -200,13 +150,14 @@ static void config_work_handler(struct k_work *work) {
 
 	if (config.storageOptions == 0 || !(config.storageOptions & (DATA_STREAMING | DATA_STORAGE))) {
 		if (sensor->is_running()) {
+			sensor->stop();
 			active_sensors--;
 			if (active_sensors < 0) {
 				LOG_WRN("Active sensors is already 0");
 				active_sensors = 0;
-				stop_sensor_manager();
 			}
-			sensor->stop();
+
+			if (active_sensor_count == 0) stop_sensor_manager();
 		}
 		return;
 	}

@@ -8,6 +8,8 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/devicetree.h>
 
+#include "openearable_common.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(SDCardManager, LOG_LEVEL_DBG);
 
@@ -47,22 +49,13 @@ int SDCardManager::mount() {
 	int ret;
 	static const char* sd_dev = "SD";
 
-	this->mnt_pt.mnt_point = SD_ROOT_PATH;
-
-	ret = fs_mount(&this->mnt_pt);
-	if (ret) {
-		this->mounted = ret == -EBUSY;
-
-		LOG_ERR("Mnt. disk failed, could be format issue. should be FAT/exFAT. Error: %d", ret);
-
-		if (ret != -EBUSY) {
-			return ret;
-		}
-	}
-
 	uint64_t sd_card_size_bytes;
 	uint32_t sector_count;
 	size_t sector_size;
+
+	ret = pm_device_runtime_get(ls_1_8);
+	ret = pm_device_runtime_get(ls_3_3);
+	ret = pm_device_runtime_get(ls_sd);
 
 	ret = disk_access_init(sd_dev);
 	if (ret) {
@@ -90,6 +83,19 @@ int SDCardManager::mount() {
 
 	LOG_INF("SD card volume size: %d MB", (uint32_t)(sd_card_size_bytes >> 20));
 
+	this->mnt_pt.mnt_point = SD_ROOT_PATH;
+
+	ret = fs_mount(&this->mnt_pt);
+	if (ret) {
+		this->mounted = ret == -EBUSY;
+
+		LOG_ERR("Mnt. disk failed, could be format issue. should be FAT/exFAT. Error: %d", ret);
+
+		if (ret != -EBUSY) {
+			return ret;
+		}
+	}
+
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
@@ -104,8 +110,6 @@ int SDCardManager::mount() {
 		LOG_ERR("Open root dir failed. Error: %d", ret);
 		return ret;
 	}
-
-	this->mnt_pt.mnt_point = SD_ROOT_PATH;
 
 	this->mounted = true;
 	return 0;

@@ -24,7 +24,7 @@ static void sd_work_handler(struct k_work* work);
 class SDLogger {
         protected:
         // Add static instance pointer for work handler
-        static SDLogger* instance_ptr;
+        //static SDLogger* instance_ptr;
         friend void sd_work_handler(struct k_work* work);
         
         private:
@@ -32,7 +32,7 @@ class SDLogger {
         SDCardManager* sd_card = nullptr;
         bool owns_sd_card = false;
         bool is_open = false;
-        uint8_t* buffer = nullptr;
+        uint8_t buffer[BUFFER_SIZE]; // = nullptr;
         size_t buffer_pos = 0;
         std::string current_file;
 
@@ -51,7 +51,7 @@ class SDLogger {
         k_tid_t thread_id;
         struct sensor_msg msg;
         struct sensor_data* const data_buf = &(msg.data);
-        static void sensor_sd_task(void* instance);
+        static void sensor_sd_task();
 
     public:
         SDLogger();
