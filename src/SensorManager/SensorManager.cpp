@@ -18,6 +18,16 @@ LOG_MODULE_DECLARE(sensor_manager);
 #include "../SD_Card/SDLogger/SDLogger.h"
 #include <string>
 
+#include <zephyr/drivers/disk.h>
+
+#include <zephyr/kernel.h>
+#include <zephyr/device.h>
+#include <zephyr/storage/disk_access.h>
+#include <ff.h>
+#include <string.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/devicetree.h>
+
 extern struct k_msgq sensor_queue;
 // extern k_tid_t sensor_publish;
 
@@ -62,6 +72,8 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
 
 K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, 1024);
 
+SDCardManager sd_manager;
+
 void init_sensor_manager() {
 	_state = INIT;
 
@@ -72,6 +84,50 @@ void init_sensor_manager() {
 			K_PRIO_PREEMPT(CONFIG_SENSOR_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
 
 	k_work_init(&config_work, config_work_handler);
+
+	int ret;
+
+	ret = pm_device_runtime_get(ls_1_8);
+	ret = pm_device_runtime_get(ls_3_3);
+	ret = pm_device_runtime_get(ls_sd);
+
+	//int ret;
+	/*static const char *sd_dev = "SD";
+	uint64_t sd_card_size_bytes;
+	uint32_t sector_count;
+	size_t sector_size;
+
+	ret = disk_access_init(sd_dev);
+	if (ret) {
+		LOG_ERR("SD card init failed, please check if SD card inserted");
+		return;// -ENODEV;
+	}
+
+	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_COUNT, &sector_count);
+	if (ret) {
+		LOG_ERR("Unable to get sector count");
+		return; // ret;
+	}
+
+	LOG_DBG("Sector count: %d", sector_count);
+
+	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_SIZE, &sector_size);
+	if (ret) {
+		LOG_ERR("Unable to get sector size");
+		return; // ret;
+	}
+
+	LOG_DBG("Sector size: %d bytes", sector_size);
+
+	sd_card_size_bytes = (uint64_t)sector_count * sector_size;
+
+	LOG_INF("SD card volume size: %lld B", sd_card_size_bytes);*/
+
+	//sd_manager.mount();
+
+	// Start SDLogger with timestamp-based filename
+	std::string filename = "sensor_log_" + std::to_string(k_uptime_get());
+	sdlogger.begin(filename);
 }
 
 void start_sensor_manager() {
@@ -88,10 +144,6 @@ void start_sensor_manager() {
 	}
 
 	_state = RUNNING;
-
-	// Start SDLogger with timestamp-based filename
-	std::string filename = "sensor_log_" + std::to_string(k_uptime_get());
-	//SDLogger::get_instance().begin(filename);
 }
 
 void stop_sensor_manager() {

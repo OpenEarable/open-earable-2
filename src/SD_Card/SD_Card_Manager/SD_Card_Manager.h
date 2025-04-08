@@ -169,4 +169,6 @@ private:
     };
 };
 
+extern SDCardManager sdcard_manager;
+
 #endif

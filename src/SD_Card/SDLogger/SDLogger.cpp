@@ -19,15 +19,9 @@ ZBUS_SUBSCRIBER_DEFINE(sensor_sd_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 ZBUS_CHAN_DECLARE(sensor_chan);
 K_WORK_DEFINE(sd_sensor_work, sd_work_handler);
 
-SDLogger::SDLogger(SDCardManager* sd_card_manager) {
-    if (sd_card_manager == nullptr) {
-        sd_card = new SDCardManager();
-        owns_sd_card = true;
-    } else {
-        sd_card = sd_card_manager;
-        owns_sd_card = false;
-    }
-    instance_ptr = this; // Set the instance pointer
+SDLogger::SDLogger() {
+    sd_card = &sdcard_manager;
+    owns_sd_card = true;
 }
 
 SDLogger::~SDLogger() {
@@ -88,6 +82,8 @@ int SDLogger::begin(const std::string& filename) {
         return -ENODEV;
     }
 
+    sd_card->mount();
+
     std::string full_filename = filename + ".oe";
     int ret = sd_card->open_file(full_filename, true, false, true);
     if (ret < 0) {
@@ -107,8 +103,8 @@ int SDLogger::begin(const std::string& filename) {
 
 	thread_id = k_thread_create(
 		&thread_data, thread_stack,
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE, (k_thread_entry_t)sensor_sd_task, NULL,
-		NULL, NULL, K_PRIO_PREEMPT(4), 0, K_NO_WAIT);
+		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)sensor_sd_task, NULL,
+		NULL, NULL, K_PRIO_PREEMPT(5), 0, K_NO_WAIT);
 	
 	ret = k_thread_name_set(thread_id, "SENSOR_SD_SUB");
 	if (ret) {
@@ -197,3 +193,5 @@ int SDLogger::end() {
     is_open = false;
     return 0;
 }
+
+SDLogger sdlogger;

@@ -15,12 +15,12 @@ LOG_MODULE_REGISTER(SDCardManager, LOG_LEVEL_DBG);
 #define PATH_MAX_LEN	      260
 #define K_SEM_OPER_TIMEOUT_MS 100
 
-K_SEM_DEFINE(m_sem_sd_mngr_oper_ongoing, 1, 1);
-
-
+//K_SEM_DEFINE(m_sem_sd_mngr_oper_ongoing, 1, 1);
+K_MUTEX_DEFINE(m_sem_sd_mngr_oper_ongoing);
 
 SDCardManager::SDCardManager(): path(SD_ROOT_PATH) {
 	fs_dir_t_init(&this->dirp);
+	//k_sem_reset(&m_sem_sd_mngr_oper_ongoing);
 }
 
 std::string create_path(std::string current_path, std::string new_path) {
@@ -90,21 +90,20 @@ int SDCardManager::mount() {
 
 	LOG_INF("SD card volume size: %d MB", (uint32_t)(sd_card_size_bytes >> 20));
 
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
 	}
 
 	LOG_DBG("Root dir: %s", this->path.c_str());
 	ret = fs_opendir(&this->dirp, this->path.c_str());
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	if (ret) {
 		LOG_ERR("Open root dir failed. Error: %d", ret);
 		return ret;
 	}
-
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
-
 
 	this->mnt_pt.mnt_point = SD_ROOT_PATH;
 
@@ -116,7 +115,7 @@ int SDCardManager::cd(std::string path) {
 	LOG_INF("Changing dir to %s", path.c_str());
 
 	int ret;
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
@@ -124,20 +123,20 @@ int SDCardManager::cd(std::string path) {
 
 	if (!this->mounted) {
 		LOG_ERR("SD card not mounted! Call SDCardManager::mount() first!");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -ENODEV;
 	}
 
 	if (path.length() > CONFIG_FS_FATFS_MAX_LFN) {
 		LOG_ERR("Path is too long");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -FR_INVALID_NAME;
 	}
 
 	ret = fs_closedir(&this->dirp);
 	if (ret) {
 		LOG_ERR("Close SD card dir failed");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return ret;
 	}
 
@@ -157,13 +156,13 @@ int SDCardManager::cd(std::string path) {
 				LOG_ERR("Failed to cd back to previous dir: %d", rret);
 			}
 		}
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return ret;
 	}
 
 	this->path = abs_path_name;
 
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
 }
 
@@ -172,7 +171,7 @@ int SDCardManager::ls(char *buf, size_t *buf_size) {
 	static struct fs_dirent entry;
 	size_t used_buf_size = 0;
 
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
@@ -180,20 +179,20 @@ int SDCardManager::ls(char *buf, size_t *buf_size) {
 
 	if (!this->mounted) {
 		LOG_ERR("SD card not mounted! Call SDCardManager::mount() first!");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -ENODEV;
 	}
 
 	if (this->path.length() > CONFIG_FS_FATFS_MAX_LFN) {
 		LOG_ERR("Path is too long");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -FR_INVALID_NAME;
 	}
 
 	while (1) {
 		ret = fs_readdir(&this->dirp, &entry);
 		if (ret) {
-			k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+			k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 			return ret;
 		}
 
@@ -209,7 +208,7 @@ int SDCardManager::ls(char *buf, size_t *buf_size) {
 
 			if (len >= remaining_buf_size) {
 				LOG_ERR("Failed to append to buffer, error: %d", len);
-				k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+				k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 				return -EINVAL;
 			}
 
@@ -220,13 +219,13 @@ int SDCardManager::ls(char *buf, size_t *buf_size) {
 	}
 
 	*buf_size = used_buf_size;
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
 }
 
 int SDCardManager::mkdir(std::string path) {
 	int ret;
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
@@ -234,13 +233,13 @@ int SDCardManager::mkdir(std::string path) {
 
 	if (!this->mounted) {
 		LOG_ERR("SD card not mounted! Call SDCardManager::mount() first!");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -ENODEV;
 	}
 
 	if (path.length() > CONFIG_FS_FATFS_MAX_LFN) {
 		LOG_ERR("Path is too long");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -FR_INVALID_NAME;
 	}
 
@@ -249,11 +248,11 @@ int SDCardManager::mkdir(std::string path) {
 	ret = fs_mkdir(abs_path_name.c_str());
 	if (ret) {
 		LOG_ERR("Failed to create dir: %d", ret);
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return ret;
 	}
 
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
 }
 
@@ -264,7 +263,7 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 	}
 
 	int ret;
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
@@ -272,7 +271,7 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 
 	if (path.length() > CONFIG_FS_FATFS_MAX_LFN) {
 		LOG_ERR("Path is too long");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -ENAMETOOLONG;
 	}
 
@@ -280,7 +279,7 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 
 	if (this->tracked_file.is_open) {
 		LOG_ERR("File is already open");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -EBUSY;
 	}
 
@@ -300,21 +299,21 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 	ret = fs_open(&this->tracked_file.filep, abs_path_name.c_str(), flags);
 	if (ret) {
 		LOG_ERR("Failed to open file: %d", ret);
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return ret;
 	}
 
 	this->tracked_file.is_open = true;
 	this->path = abs_path_name;
 
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
 }
 
 int SDCardManager::close_file() {
 	if (!this->mounted) {
 		LOG_ERR("SD card not mounted! Call SDCardManager::mount() first!");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -ENODEV;
 	}
 
@@ -325,7 +324,7 @@ int SDCardManager::close_file() {
 		return 0;
 	}
 
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
@@ -334,7 +333,7 @@ int SDCardManager::close_file() {
 	ret = fs_close(&this->tracked_file.filep);
 	if (ret) {
 		LOG_ERR("Failed to close file: %d", ret);
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return ret;
 	}
 
@@ -345,7 +344,7 @@ int SDCardManager::close_file() {
 	}
 	this->tracked_file.is_open = false;
 
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
 }
 
@@ -361,7 +360,7 @@ ssize_t SDCardManager::write(char *buf, size_t *buf_size, bool sync) {
 	}
 
 	int ret;
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
@@ -370,7 +369,7 @@ ssize_t SDCardManager::write(char *buf, size_t *buf_size, bool sync) {
 	ret = fs_write(&this->tracked_file.filep, buf, *buf_size);
 	if (ret < 0) {
 		LOG_ERR("Write file failed. Ret: %d", ret);
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return ret;
 	}
 
@@ -378,12 +377,12 @@ ssize_t SDCardManager::write(char *buf, size_t *buf_size, bool sync) {
 		ret = fs_sync(&this->tracked_file.filep);
 		if (ret) {
 			LOG_ERR("Failed to sync file: %d", ret);
-			k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+			k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 			return ret;
 		}
 	}
 
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 
 	return ret;
 }
@@ -415,7 +414,7 @@ int SDCardManager::read(char *buffer, size_t *buf_size) {
 	}
 	
 	int ret;
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
@@ -423,7 +422,7 @@ int SDCardManager::read(char *buffer, size_t *buf_size) {
 	}
 
 	ret = fs_read(&(this->tracked_file.filep), buffer, *buf_size);
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	if (ret < 0) {
 		LOG_ERR("Read file failed. Ret: %d", ret);
 		return ret;
@@ -482,20 +481,20 @@ int SDCardManager::open_read_close(std::string path, char *buf, size_t *buf_size
 
 int SDCardManager::rm(std::string path) {
 	int ret;
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
 	}
 
 	if (!this->mounted) {
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -ENODEV;
 	}
 
 	if (path.length() > CONFIG_FS_FATFS_MAX_LFN) {
 		LOG_ERR("Path is too long");
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -FR_INVALID_NAME;
 	}
 
@@ -504,11 +503,11 @@ int SDCardManager::rm(std::string path) {
 	ret = fs_unlink(abs_path_name.c_str());
 	if (ret) {
 		LOG_ERR("Failed to remove file: %d", ret);
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return ret;
 	}
 
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
 }
 
@@ -518,7 +517,7 @@ int SDCardManager::sync() {
 	}
 
 	int ret;
-	ret = k_sem_take(&m_sem_sd_mngr_oper_ongoing, K_MSEC(K_SEM_OPER_TIMEOUT_MS));
+	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
@@ -527,10 +526,12 @@ int SDCardManager::sync() {
 	ret = fs_sync(&this->tracked_file.filep);
 	if (ret) {
 		LOG_ERR("Failed to sync file: %d", ret);
-		k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return ret;
 	}
 
-	k_sem_give(&m_sem_sd_mngr_oper_ongoing);
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
 }
+
+SDCardManager sdcard_manager;

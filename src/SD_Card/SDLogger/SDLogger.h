@@ -28,8 +28,6 @@ class SDLogger {
         friend void sd_work_handler(struct k_work* work);
         
         private:
-        SDLogger(SDCardManager* sd_card_manager = nullptr);
-        ~SDLogger();
         
         SDCardManager* sd_card = nullptr;
         bool owns_sd_card = false;
@@ -56,10 +54,12 @@ class SDLogger {
         static void sensor_sd_task(void* instance);
 
     public:
-        static SDLogger& get_instance(SDCardManager* sd_card_manager = nullptr) {
+        SDLogger();
+        ~SDLogger();
+        /*static SDLogger * get_instance(SDCardManager* sd_card_manager = nullptr) {
             static SDLogger instance(sd_card_manager);
-            return instance;
-        }
+            return &instance;
+        }*/
 
         /**
         * @brief Begin logging to a new file
@@ -85,5 +85,7 @@ class SDLogger {
         SDLogger(SDLogger const&) = delete;
         SDLogger& operator=(SDLogger const&) = delete;
 };
+
+extern SDLogger sdlogger;
 
 #endif

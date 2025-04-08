@@ -715,7 +715,7 @@ int unicast_server_enable(le_audio_receive_cb recv_cb, enum bt_audio_location lo
 			snprintf(sirk_string, 16, "%08X", oe_boot_state.device_id); //"%016llX"
 		}
 
-		LOG_INF("SIRK as String: %s", sirk_string);
+		// LOG_INF("SIRK as String: %s", sirk_string);
 
 		memcpy(csip_param.sirk, sirk_string,
 		       BT_CSIP_SIRK_SIZE);

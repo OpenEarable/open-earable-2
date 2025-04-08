@@ -36,6 +36,8 @@
 
 #include "bt_mgmt.h"
 
+//#include "sd_card.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 //BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
@@ -226,6 +228,16 @@ int main(void) {
 
 	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
 	ERR_CHK(ret);
+
+	/*mnt_pt.mnt_point = sd_root_path;
+
+	ret = fs_mount(&mnt_pt);
+	if (ret) {
+		LOG_ERR("Mnt. disk failed, could be format issue. should be FAT/exFAT");
+		return ret;
+	}*/
+
+        //sd_card_init();
 
 	// error test
 	//long *a = nullptr;
