@@ -15,13 +15,16 @@
 #include <SensorScheme.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(sensor_manager);
+#include "../SD_Card/SDLogger/SDLogger.h"
+#include <string>
 
 extern struct k_msgq sensor_queue;
 // extern k_tid_t sensor_publish;
 
 EdgeMlSensor * get_sensor(enum sensor_id id);
 
-//SensorManager SensorManager::manager = SensorManager();
+// Track number of active sensors
+static int active_sensor_count = 0;
 
 static sensor_manager_state _state;
 
@@ -58,6 +61,8 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
 
 K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, 1024);
 
+SDCardManager sd_manager;
+
 void init_sensor_manager() {
 	_state = INIT;
 
@@ -68,6 +73,8 @@ void init_sensor_manager() {
 			K_PRIO_PREEMPT(CONFIG_SENSOR_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
 
 	k_work_init(&config_work, config_work_handler);
+
+	//sd_manager.mount();
 }
 
 void start_sensor_manager() {
@@ -83,6 +90,10 @@ void start_sensor_manager() {
 		k_thread_resume(sensor_pub_id);
 	}
 
+	// Start SDLogger with timestamp-based filename
+	std::string filename = "sensor_log_" + std::to_string(micros());
+	sdlogger.begin(filename);
+
 	_state = RUNNING;
 }
 
@@ -95,9 +106,14 @@ void stop_sensor_manager() {
 	Temp::sensor.stop();
 	BoneConduction::sensor.stop();
 
+	active_sensor_count = 0;
+
 	k_thread_suspend(sensor_pub_id);
 
 	_state = SUSPENDED;
+
+	// End SDLogger and close current log file
+	sdlogger.end();
 }
 
 EdgeMlSensor * get_sensor(enum sensor_id id) {
@@ -135,13 +151,14 @@ static void config_work_handler(struct k_work *work) {
 
 	if (config.storageOptions == 0 || !(config.storageOptions & (DATA_STREAMING | DATA_STORAGE))) {
 		if (sensor->is_running()) {
+			sensor->stop();
 			active_sensors--;
 			if (active_sensors < 0) {
 				LOG_WRN("Active sensors is already 0");
 				active_sensors = 0;
-				stop_sensor_manager();
 			}
-			sensor->stop();
+
+			if (active_sensor_count == 0) stop_sensor_manager();
 		}
 		return;
 	}
