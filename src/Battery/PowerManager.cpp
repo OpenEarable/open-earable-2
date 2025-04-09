@@ -29,6 +29,7 @@
 LOG_MODULE_REGISTER(power_manager, CONFIG_MAIN_LOG_LEVEL);
 
 K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
+K_TIMER_DEFINE(PowerManager::oc_check_timer, PowerManager::oc_check_timer_handler, NULL);
 
 K_WORK_DELAYABLE_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
 
@@ -36,6 +37,7 @@ K_WORK_DELAYABLE_DEFINE(PowerManager::power_down_work, PowerManager::power_down_
 K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_handler);
 K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handler);
 K_WORK_DEFINE(PowerManager::battery_controller_work, PowerManager::battery_controller_work_handler);
+K_WORK_DEFINE(PowerManager::oc_check_work, PowerManager::oc_check_work_handler);
 
 extern struct k_msgq battery_queue;
 
@@ -45,6 +47,10 @@ battery_data PowerManager::msg;
 
 void PowerManager::charge_timer_handler(struct k_timer * timer) {
 	k_work_submit(&charge_ctrl_work);
+}
+
+void PowerManager::oc_check_timer_handler(struct k_timer * timer) {
+	k_work_submit(&oc_check_work);
 }
 
 void PowerManager::fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
@@ -74,6 +80,10 @@ void PowerManager::power_down_work_handler(struct k_work * work) {
 }
 
 void PowerManager::charge_ctrl_work_handler(struct k_work * work) {
+	power_manager.charge_task();
+}
+
+void PowerManager::oc_check_work_handler(struct k_work * work) {
 	power_manager.charge_task();
 }
 
@@ -182,6 +192,7 @@ int PowerManager::begin() {
     }
 
     k_timer_init(&charge_timer, charge_timer_handler, NULL);
+    k_timer_init(&oc_check_timer, oc_check_timer_handler, NULL);
 
     bool battery_condition = check_battery();
 
@@ -195,6 +206,9 @@ int PowerManager::begin() {
             return power_down(false);
         }
     }
+
+    // if battery ready, start oc timer
+    k_timer_start(&oc_check_timer, K_NO_WAIT, power_manager.oc_check_interval); // check immediatley, then every second
 
     if (charging) {
         power_manager.last_charging_state = 0;
@@ -542,6 +556,20 @@ void PowerManager::charge_task() {
     }
 
     last_charging_state = charging_state;
+}
+
+void PowerManager::oc_check_task() {
+    float current_mA = fuel_gauge.current(); // Get the current consumption in mA
+    
+    LOG_INF("OC Check: Current = %.2f mA", current_mA);
+
+    if (current_mA > -OVERCURRENT_MAX_CURRENT) {  // Compare with overcurrent threshold, current_mA negative during discharge
+        LOG_WRN("OC Check: Overcurrent detected! Turning off all load switches. Current: %.2f mA, Threshold: %.2f mA", current_mA, OVERCURRENT_MAX_CURRENT);
+        
+        pm_device_runtime_disable(ls_1_8);
+        pm_device_runtime_enable(ls_3_3);
+        pm_device_runtime_enable(ls_sd);
+    }
 }
 
 PowerManager power_manager;
