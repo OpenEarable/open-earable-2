@@ -159,7 +159,7 @@ int PowerManager::begin() {
     }*/
 
     if (reset_reas & RESET_RESETREAS_SREQ_Msk) {
-        LOG_INF("Rebooting ... \n");
+        LOG_INF("Rebooting ...");
         power_on = true;
     }
 

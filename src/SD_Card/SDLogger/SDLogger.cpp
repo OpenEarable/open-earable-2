@@ -56,6 +56,31 @@ void SDLogger::sensor_sd_task() {
     }
 }
 
+int SDLogger::init() {
+    int ret;
+
+    sd_card->init();
+
+	thread_id = k_thread_create(
+		&thread_data, thread_stack,
+		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)sensor_sd_task, NULL,
+		NULL, NULL, K_PRIO_PREEMPT(5), 0, K_NO_WAIT);
+	
+	ret = k_thread_name_set(thread_id, "SENSOR_SD_SUB");
+	if (ret) {
+		LOG_ERR("Failed to create sensor_msg thread");
+		return ret;
+	}
+
+    ret = zbus_chan_add_obs(&sensor_chan, &sensor_sd_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
+	if (ret) {
+		LOG_ERR("Failed to add sensor sub");
+		return ret;
+	}
+
+    return 0;
+}
+
 
 /**
  * @brief Begin logging to a file
@@ -98,22 +123,7 @@ int SDLogger::begin(const std::string& filename) {
         return ret;
     }
 
-	thread_id = k_thread_create(
-		&thread_data, thread_stack,
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)sensor_sd_task, NULL,
-		NULL, NULL, K_PRIO_PREEMPT(5), 0, K_NO_WAIT);
-	
-	ret = k_thread_name_set(thread_id, "SENSOR_SD_SUB");
-	if (ret) {
-		LOG_ERR("Failed to create sensor_msg thread");
-		return ret;
-	}
-
-    ret = zbus_chan_add_obs(&sensor_chan, &sensor_sd_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
-	if (ret) {
-		LOG_ERR("Failed to add sensor sub");
-		return ret;
-	}
+    k_thread_resume(thread_id);
 
     return 0;
 }
@@ -142,7 +152,7 @@ int SDLogger::write_sensor_data(const void* data, size_t length) {
         length -= to_copy;
 
         if (buffer_pos == BUFFER_SIZE) {
-            LOG_INF("flushing .....");
+            //LOG_INF("flushing .....");
             int ret = flush();
             if (ret < 0) {
                 return ret;
@@ -155,7 +165,6 @@ int SDLogger::write_sensor_data(const void* data, size_t length) {
 
 int SDLogger::write_sensor_data() {
     const uint16_t data_size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size;
-    LOG_INF("log data ....");
     return write_sensor_data(data_buf, data_size);
 }
 
@@ -192,6 +201,9 @@ int SDLogger::end() {
     }
 
     is_open = false;
+
+    k_thread_suspend(thread_id);
+
     return 0;
 }
 

@@ -23,7 +23,7 @@ void KTD2026::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         _i2c->aquire();
 
         int ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
-        if (ret) LOG_WRN("I2C write failed: %d\n", ret);
+        if (ret) LOG_WRN("I2C write failed: %d", ret);
 
         _i2c->release();
 }

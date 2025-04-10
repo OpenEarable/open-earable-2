@@ -61,8 +61,6 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
 
 K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, 1024);
 
-SDCardManager sd_manager;
-
 void init_sensor_manager() {
 	_state = INIT;
 
@@ -74,7 +72,7 @@ void init_sensor_manager() {
 
 	k_work_init(&config_work, config_work_handler);
 
-	//sd_manager.mount();
+	sdlogger.init();
 }
 
 void start_sensor_manager() {

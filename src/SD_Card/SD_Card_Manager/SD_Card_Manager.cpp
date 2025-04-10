@@ -1,6 +1,8 @@
 #include "SD_Card_Manager.h"
 
+#include <zephyr/irq.h>
 #include <zephyr/kernel.h>
+//#include <zephyr/workqueue.h>
 #include <zephyr/device.h>
 #include <zephyr/storage/disk_access.h>
 #include <ff.h>
@@ -16,13 +18,31 @@ LOG_MODULE_REGISTER(SDCardManager, LOG_LEVEL_DBG);
 #define SD_ROOT_PATH	      "/SD:"
 #define PATH_MAX_LEN	      260
 #define K_SEM_OPER_TIMEOUT_MS 100
+#define SD_DEBOUNCE_MS K_MSEC(10)
 
-//K_SEM_DEFINE(m_sem_sd_mngr_oper_ongoing, 1, 1);
 K_MUTEX_DEFINE(m_sem_sd_mngr_oper_ongoing);
+
+void SDCardManager::unmount_work_handler(struct k_work *work) {
+	int ret;
+
+	int sd_inserted = gpio_pin_get_dt(&sdcard_manager.sd_state_pin);
+
+    if (sd_inserted) {
+		ret = sdcard_manager.unmount();
+		LOG_INF("SD card unmounted due to card removal.");
+    } else {
+		LOG_INF("SD card inserted.");
+	}
+}
+
+K_WORK_DELAYABLE_DEFINE(SDCardManager::unmount_work, SDCardManager::unmount_work_handler);
+
+void SDCardManager::sd_card_state_change_isr(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+    k_work_reschedule(&sdcard_manager.unmount_work, SD_DEBOUNCE_MS);
+}
 
 SDCardManager::SDCardManager(): path(SD_ROOT_PATH) {
 	fs_dir_t_init(&this->dirp);
-	//k_sem_reset(&m_sem_sd_mngr_oper_ongoing);
 }
 
 std::string create_path(std::string current_path, std::string new_path) {
@@ -39,6 +59,33 @@ SDCardManager::~SDCardManager() {
 	
 }
 
+void SDCardManager::init() {
+    //k_work_init(&unmount_work, unmount_work_handler);
+
+	int ret;
+
+	ret = pm_device_runtime_get(ls_1_8);
+	ret = pm_device_runtime_get(ls_3_3);
+	ret = pm_device_runtime_get(ls_sd);
+
+    if (!device_is_ready(sd_state_pin.port)) {
+        LOG_ERR("SD state GPIO device not ready\n");
+        return;
+    }
+
+    gpio_pin_configure_dt(&sd_state_pin, GPIO_INPUT);
+    gpio_pin_interrupt_configure_dt(&sd_state_pin, GPIO_INT_EDGE_BOTH);
+
+    gpio_init_callback(&sd_state_cb, sd_card_state_change_isr, sd_state_cb.pin_mask | BIT(sd_state_pin.pin));
+    ret = gpio_add_callback(sd_state_pin.port, &sd_state_cb);
+
+	if (ret) LOG_ERR("Failed to add callback");
+
+	int sd_inserted = gpio_pin_get_dt(&sd_state_pin);
+
+	LOG_INF("SD inserted: %i", sd_inserted);
+}
+
 int SDCardManager::unmount() {
 	if (this->mounted) {
 		fs_closedir(&this->dirp);
@@ -46,11 +93,14 @@ int SDCardManager::unmount() {
 			this->close_file();
 		}
 		fs_unmount(&this->mnt_pt);
+		this->mounted = false;
 	}
 
-	pm_device_runtime_put(ls_sd);
+	return 0;
+
+	/*pm_device_runtime_put(ls_sd);
 	pm_device_runtime_put(ls_3_3);
-	pm_device_runtime_put(ls_1_8);
+	pm_device_runtime_put(ls_1_8);*/
 }
 
 int SDCardManager::mount() {
@@ -64,6 +114,10 @@ int SDCardManager::mount() {
 	ret = pm_device_runtime_get(ls_1_8);
 	ret = pm_device_runtime_get(ls_3_3);
 	ret = pm_device_runtime_get(ls_sd);
+
+	int sd_inserted = gpio_pin_get_dt(&sd_state_pin);
+
+	LOG_INF("SD inserted: %i", sd_inserted);
 
 	ret = disk_access_init(sd_dev);
 	if (ret) {

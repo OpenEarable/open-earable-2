@@ -66,6 +66,13 @@ class SDLogger {
         * @param filename Base filename without extension (.oe will be appended)
         * @return 0 on success, negative error code on failure
         */
+       int init();
+
+        /**
+        * @brief Begin logging to a new file
+        * @param filename Base filename without extension (.oe will be appended)
+        * @return 0 on success, negative error code on failure
+        */
         int begin(const std::string& filename);
 
         /**

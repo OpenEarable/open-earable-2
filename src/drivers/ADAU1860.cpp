@@ -480,7 +480,7 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
 
 	ret = i2c_transfer(_i2c->master, msg, 2, address);
         if (ret) {
-                LOG_WRN("I2C write failed: %d\n", ret);
+                LOG_WRN("I2C write failed: %d", ret);
         }
 
         _i2c->release();

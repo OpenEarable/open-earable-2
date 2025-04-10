@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <string>
 
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+
 #include <zephyr/fs/fs.h>
 #include <ff.h>
 
@@ -18,6 +21,8 @@ class SDCardManager {
 public:
     SDCardManager();
     ~SDCardManager();
+
+    void init();
 
     /**
      * @brief Mount the sd card.
@@ -161,6 +166,11 @@ private:
     bool mounted = false;
     struct fs_dir_t dirp;
 
+    gpio_callback sd_state_cb;
+    const struct gpio_dt_spec sd_state_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(sd_state), gpios);
+
+    static void sd_card_state_change_isr(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+
     FATFS fat_fs;
     struct fs_mount_t mnt_pt = {
         .type = FS_FATFS,
@@ -173,6 +183,11 @@ private:
     } tracked_file = {
         .is_open = false,
     };
+
+    static k_work_delayable unmount_work;
+
+    static void unmount_work_handler(struct k_work *work);
+
 };
 
 extern SDCardManager sdcard_manager;

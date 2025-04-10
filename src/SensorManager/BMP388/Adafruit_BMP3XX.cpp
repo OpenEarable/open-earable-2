@@ -425,7 +425,7 @@ int8_t i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
   dev_info->i2c_dev->aquire();
 
   int ret = i2c_burst_write(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
-  if (ret) LOG_WRN("I2C write failed: %d\n", ret);
+  if (ret) LOG_WRN("I2C write failed: %d", ret);
 
   dev_info->i2c_dev->release();
 
