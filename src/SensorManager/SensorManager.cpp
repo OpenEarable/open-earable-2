@@ -34,6 +34,10 @@ K_MSGQ_DEFINE(config_queue, sizeof(struct sensor_config), 16, 4);
 ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
+static struct k_poll_signal sensor_manager_sig;
+static struct k_poll_event sensor_manager_evt =
+		 K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &sensor_manager_sig);
+
 struct sensor_msg msg;
 
 struct k_thread sensor_publish;
@@ -50,6 +54,8 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
 
 	while (1) {
+		ret = k_poll(&sensor_manager_evt, 1, K_FOREVER);
+
 		k_msgq_get(&sensor_queue, &msg, K_FOREVER);
 
 		ret = zbus_chan_pub(&sensor_chan, &msg, K_FOREVER); //K_NO_WAIT
@@ -72,6 +78,8 @@ void init_sensor_manager() {
 
 	k_work_init(&config_work, config_work_handler);
 
+	k_poll_signal_init(&sensor_manager_sig);
+
 	sdlogger.init();
 }
 
@@ -85,8 +93,11 @@ void start_sensor_manager() {
 	if (_state == INIT) {
 		k_thread_start(sensor_pub_id);
 	} else {
-		k_thread_resume(sensor_pub_id);
+		//k_thread_resume(sensor_pub_id);
+		//k_poll_signal_raise(&sensor_manager_sig, 0);
 	}
+
+	k_poll_signal_raise(&sensor_manager_sig, 0);
 
 	// Start SDLogger with timestamp-based filename
 	std::string filename = "sensor_log_" + std::to_string(micros());
@@ -106,7 +117,8 @@ void stop_sensor_manager() {
 
 	active_sensor_count = 0;
 
-	k_thread_suspend(sensor_pub_id);
+	//k_thread_suspend(sensor_pub_id);
+	k_poll_signal_reset(&sensor_manager_sig);
 
 	_state = SUSPENDED;
 

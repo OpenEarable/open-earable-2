@@ -32,7 +32,7 @@ struct boot_state {
 };
 
 enum pairing_state {
-	SET_PAIRING, //BINDING,
+	SET_PAIRING,
 	BONDING,
 	PAIRED, //DISONNECTED
 	CONNECTED,
@@ -106,6 +106,10 @@ struct battery_settings {
     float temp_fast_min;
     float temp_fast_max;
     float temp_max;
+};
+
+struct sd_msg {
+	bool removed;
 };
 
 #endif

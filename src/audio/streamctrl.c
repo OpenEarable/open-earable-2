@@ -589,9 +589,6 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 	if (is_le_audio_device) {
 		LOG_INF("LE Audio-Gerät gefunden! UUID\n");
 
-		// LOG_INF("MANUFACTURER DATA 0x%s\n", bt_hex(chip_id, sizeof(chip_id)));
-		// LOG_INF("CSIS DATA 0x%s\n", bt_hex(csis_rsi, sizeof(csis_rsi)));
-
 		uint32_t hash_ref = (csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
 		uint32_t hash;
 

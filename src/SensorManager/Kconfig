@@ -1,0 +1,55 @@
+menu "SensorManager"
+
+#----------------------------------------------------------------------------#
+menu "Thread priorities"
+
+config SENSOR_PUB_THREAD_PRIO
+	int "Priority for power measurement thread"
+	default 5
+	help
+	  This thread will publish sensor events to zbus.
+
+config SENSOR_GATT_THRAD_PRIO
+	int "Priority for sensor gatt thread"
+	default 4
+	help
+	  This is a preemptible thread.
+	  This thread will publish button events to zbus.
+
+config SENSOR_GATT_NOTIFY_THREAD_PRIO
+	int "Priority for volume message subscribe thread"
+	default 6
+	help
+	  This is a preemptible thread.
+	  This thread will subscribe to sensor events from zbus.
+
+config SENSOR_SD_THREAD_PRIO
+    int "Priority for volume message subscribe thread"
+	default 4
+	help
+	  This is a preemptible thread.
+	  This thread will subscribe to sensor events from zbus.
+endmenu # Thread priorities
+
+#----------------------------------------------------------------------------#
+menu "Stack sizes"
+
+config SENSOR_PUB_STACK_SIZE
+	int "Stack size for power measurement thread"
+	default 1024
+
+config SENSOR_GATT_STACK_SIZE
+	int "Stack size for button publish thread"
+	default 2048
+
+config SENSOR_GATT_NOTIFY_STACK_SIZE
+	int "Stack size"
+	default 2048
+
+config SENSOR_SD_STACK_SIZE
+    int "Stack size"
+	default 8192
+
+endmenu # Stack sizes
+
+endmenu # Modules

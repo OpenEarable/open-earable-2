@@ -22,12 +22,12 @@ static void sd_work_handler(struct k_work* work);
 
 // Singleton pattern
 class SDLogger {
-        protected:
+protected:
         // Add static instance pointer for work handler
         //static SDLogger* instance_ptr;
         friend void sd_work_handler(struct k_work* work);
         
-        private:
+private:
         
         SDCardManager* sd_card = nullptr;
         //bool owns_sd_card = false;
@@ -52,6 +52,8 @@ class SDLogger {
         struct sensor_msg msg;
         struct sensor_data* const data_buf = &(msg.data);
         static void sensor_sd_task();
+
+        friend void sd_listener_callback(const struct zbus_channel *chan);
 
     public:
         SDLogger();

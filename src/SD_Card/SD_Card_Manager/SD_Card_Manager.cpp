@@ -2,7 +2,7 @@
 
 #include <zephyr/irq.h>
 #include <zephyr/kernel.h>
-//#include <zephyr/workqueue.h>
+#include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
 #include <zephyr/storage/disk_access.h>
 #include <ff.h>
@@ -12,26 +12,43 @@
 
 #include "openearable_common.h"
 
+#include "SDLogger.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(SDCardManager, LOG_LEVEL_DBG);
 
 #define SD_ROOT_PATH	      "/SD:"
 #define PATH_MAX_LEN	      260
 #define K_SEM_OPER_TIMEOUT_MS 100
-#define SD_DEBOUNCE_MS K_MSEC(10)
+#define SD_DEBOUNCE_MS K_MSEC(100)
 
 K_MUTEX_DEFINE(m_sem_sd_mngr_oper_ongoing);
+
+ZBUS_CHAN_DEFINE(sd_card_chan, struct sd_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
+	ZBUS_MSG_INIT(0));
+
+
+bool SDCardManager::sd_inserted() {
+	int sd_inserted = gpio_pin_get_dt(&sdcard_manager.sd_state_pin);
+
+	return sd_inserted == 1;
+}
 
 void SDCardManager::unmount_work_handler(struct k_work *work) {
 	int ret;
 
-	int sd_inserted = gpio_pin_get_dt(&sdcard_manager.sd_state_pin);
+	bool _inserted = sdcard_manager.sd_inserted();
 
-    if (sd_inserted) {
+	sd_msg msg = { .removed = true };
+
+    if (!_inserted) {
 		ret = sdcard_manager.unmount();
 		LOG_INF("SD card unmounted due to card removal.");
-    } else {
-		LOG_INF("SD card inserted.");
+		
+		ret = zbus_chan_pub(&sd_card_chan, &msg, K_FOREVER);
+		if (ret != 0) {
+			LOG_ERR("Failed to publish sd_card_chan: %d", ret);
+		}
 	}
 }
 
@@ -59,16 +76,56 @@ SDCardManager::~SDCardManager() {
 	
 }
 
-void SDCardManager::init() {
-    //k_work_init(&unmount_work, unmount_work_handler);
-
+int SDCardManager::aquire_ls() {
 	int ret;
 
+	if (ls_aquired) return -EALREADY;
+
 	ret = pm_device_runtime_get(ls_1_8);
+	if (ret) {
+		LOG_ERR("Failed to get ls_1_8");
+		return ret;
+	}
+
 	ret = pm_device_runtime_get(ls_3_3);
+	if (ret) {
+		pm_device_runtime_put(ls_1_8);
+		LOG_ERR("Failed to get ls_3_3");
+		return ret;
+	}
+
 	ret = pm_device_runtime_get(ls_sd);
+	if (ret) {
+		pm_device_runtime_put(ls_1_8);
+		pm_device_runtime_put(ls_3_3);
+		LOG_ERR("Failed to get ls_sd");
+		return ret;
+	}
+
+	ls_aquired = true;
+
+	return 0;
+}
+
+int SDCardManager::release_ls() {
+	int ret;
+
+	if (!ls_aquired) return -EALREADY;
+
+	ret = pm_device_runtime_put(ls_1_8);
+	ret = pm_device_runtime_put(ls_3_3);
+	ret = pm_device_runtime_put(ls_sd);
+
+	ls_aquired = false;
+
+	return 0;
+}
+
+void SDCardManager::init() {
+	int ret;
 
     if (!device_is_ready(sd_state_pin.port)) {
+		ret = aquire_ls();
         LOG_ERR("SD state GPIO device not ready\n");
         return;
     }
@@ -80,27 +137,34 @@ void SDCardManager::init() {
     ret = gpio_add_callback(sd_state_pin.port, &sd_state_cb);
 
 	if (ret) LOG_ERR("Failed to add callback");
-
-	int sd_inserted = gpio_pin_get_dt(&sd_state_pin);
-
-	LOG_INF("SD inserted: %i", sd_inserted);
 }
 
 int SDCardManager::unmount() {
+	int ret;
+
 	if (this->mounted) {
-		fs_closedir(&this->dirp);
-		if (this->tracked_file.is_open) {
-			this->close_file();
+		if (sd_inserted()) {
+			if (this->tracked_file.is_open) {
+				ret = this->close_file();
+				if (ret) LOG_ERR("Failed to close file.");
+			}
+
+			ret = fs_closedir(&this->dirp);
+			if (ret) LOG_ERR("Failed to close dir.");
+		} else {
+			this->tracked_file.is_open = false;
 		}
-		fs_unmount(&this->mnt_pt);
+
+		// TODO: remounting is not working after unmount
+		//ret = fs_unmount(&this->mnt_pt);
+		//if (ret) LOG_ERR("Failed to unmout SD card.");
+
 		this->mounted = false;
+
+		release_ls();
 	}
 
 	return 0;
-
-	/*pm_device_runtime_put(ls_sd);
-	pm_device_runtime_put(ls_3_3);
-	pm_device_runtime_put(ls_1_8);*/
 }
 
 int SDCardManager::mount() {
@@ -111,22 +175,26 @@ int SDCardManager::mount() {
 	uint32_t sector_count;
 	size_t sector_size;
 
-	ret = pm_device_runtime_get(ls_1_8);
-	ret = pm_device_runtime_get(ls_3_3);
-	ret = pm_device_runtime_get(ls_sd);
+	ret = aquire_ls();
 
-	int sd_inserted = gpio_pin_get_dt(&sd_state_pin);
+	bool _sd_inserted = sd_inserted();
 
-	LOG_INF("SD inserted: %i", sd_inserted);
+	if (!_sd_inserted) {
+		release_ls();
+		LOG_ERR("No SD card inserted.");
+		return -ENODEV;
+	}
 
 	ret = disk_access_init(sd_dev);
 	if (ret) {
+		release_ls();
 		LOG_DBG("SD card init failed, please check if SD card inserted");
 		return -ENODEV;
 	}
 
 	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_COUNT, &sector_count);
 	if (ret) {
+		release_ls();
 		LOG_ERR("Unable to get sector count");
 		return ret;
 	}
@@ -135,6 +203,7 @@ int SDCardManager::mount() {
 
 	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_SIZE, &sector_size);
 	if (ret) {
+		release_ls();
 		LOG_ERR("Unable to get sector size");
 		return ret;
 	}
@@ -145,22 +214,27 @@ int SDCardManager::mount() {
 
 	LOG_INF("SD card volume size: %d MB", (uint32_t)(sd_card_size_bytes >> 20));
 
-	this->mnt_pt.mnt_point = SD_ROOT_PATH;
+	fs_dir_t_init(&this->dirp);
 
-	ret = fs_mount(&this->mnt_pt);
-	if (ret) {
-		this->mounted = ret == -EBUSY;
+	if (!this->mounted) {
+		this->mnt_pt.mnt_point = SD_ROOT_PATH;
+		ret = fs_mount(&this->mnt_pt);
+		if (ret) {
+			this->mounted = ret == -EBUSY;
 
-		LOG_ERR("Mnt. disk failed, could be format issue. should be FAT/exFAT. Error: %d", ret);
+			LOG_ERR("Mnt. disk failed, could be format issue. should be FAT/exFAT. Error: %d", ret);
 
-		if (ret != -EBUSY) {
-			return ret;
+			if (ret != -EBUSY) {
+				release_ls();
+				return ret;
+			}
 		}
 	}
 
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+		release_ls();
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
 	}
@@ -169,11 +243,13 @@ int SDCardManager::mount() {
 	ret = fs_opendir(&this->dirp, this->path.c_str());
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	if (ret) {
+		release_ls();
 		LOG_ERR("Open root dir failed. Error: %d", ret);
 		return ret;
 	}
 
 	this->mounted = true;
+
 	return 0;
 }
 

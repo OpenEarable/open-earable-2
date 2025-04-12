@@ -188,6 +188,13 @@ private:
 
     static void unmount_work_handler(struct k_work *work);
 
+    int aquire_ls();
+    int release_ls();
+
+    bool ls_aquired = false;
+
+    bool sd_inserted();
+
 };
 
 extern SDCardManager sdcard_manager;

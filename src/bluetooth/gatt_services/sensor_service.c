@@ -20,8 +20,8 @@ ZBUS_SUBSCRIBER_DEFINE(sensor_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 ZBUS_CHAN_DECLARE(sensor_chan);
 ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
-static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
-static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4);
+static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_SENSOR_GATT_STACK_SIZE);
+static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_SENSOR_GATT_NOTIFY_STACK_SIZE);
 
 K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_msg), 256, 4);
 
@@ -137,14 +137,13 @@ static void notification_task(void) {
 		}
 
 		if (connection_complete && notify_enabled && msg.stream) {
-			//ret = send_sensor_data();
-			const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size; //sizeof(float)*6;
+			const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size;
 
 			static struct bt_gatt_notify_params params;
 			params.attr = &sensor_service.attrs[4];
 			params.data = data_buf;
 			params.len = size;
-			params.func = notify_complete;  // Callback für Abschluss
+			params.func = notify_complete;
 			params.user_data = NULL;
 
 			//ret =  bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
@@ -190,10 +189,10 @@ static void sensor_gatt_task(void)
 int init_sensor_service() {
 	int ret;
 
-	thread_id = k_thread_create(
+	thread_id_notify = k_thread_create(
 		&thread_data_notify, thread_stack_notify,
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)notification_task, NULL,
-		NULL, NULL, K_PRIO_PREEMPT(5), 0, K_NO_WAIT);
+		CONFIG_SENSOR_GATT_NOTIFY_STACK_SIZE, (k_thread_entry_t)notification_task, NULL,
+		NULL, NULL, K_PRIO_PREEMPT(CONFIG_SENSOR_GATT_NOTIFY_THREAD_PRIO), 0, K_NO_WAIT);
 	
 	ret = k_thread_name_set(thread_id_notify, "SENSOR_GATT_NOTIFY");
 	if (ret) {
@@ -203,8 +202,8 @@ int init_sensor_service() {
 
 	thread_id = k_thread_create(
 		&thread_data, thread_stack,
-		CONFIG_BUTTON_MSG_SUB_STACK_SIZE * 4, (k_thread_entry_t)sensor_gatt_task, NULL,
-		NULL, NULL, K_PRIO_PREEMPT(4), 0, K_NO_WAIT);
+		CONFIG_SENSOR_GATT_STACK_SIZE, (k_thread_entry_t)sensor_gatt_task, NULL,
+		NULL, NULL, K_PRIO_PREEMPT(CONFIG_SENSOR_GATT_THRAD_PRIO), 0, K_NO_WAIT);
 	
 	ret = k_thread_name_set(thread_id, "SENSOR_GATT_SUB");
 	if (ret) {
