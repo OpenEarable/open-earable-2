@@ -8,38 +8,31 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
-static struct k_thread thread_data;
 static struct k_thread thread_data_notify;
 
-static k_tid_t thread_id;
 static k_tid_t thread_id_notify;
 
 ZBUS_SUBSCRIBER_DEFINE(sensor_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
-//ZBUS_LISTENER_DEFINE()
 
 ZBUS_CHAN_DECLARE(sensor_chan);
 ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
-static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_SENSOR_GATT_STACK_SIZE);
 static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_SENSOR_GATT_NOTIFY_STACK_SIZE);
 
-K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_msg), 256, 4);
+K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_data), CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE, 4);
 
-//extern const k_tid_t sensor_publish;
-
-static struct sensor_msg msg;
-static struct sensor_data * const data_buf = &(msg.data);
+//static struct sensor_msg msg;
+static struct sensor_data sensor_data;
 static struct sensor_config config;
 
 static bool notify_enabled = false;
 
-//static void gatt_work_handler(struct k_work * work);
-
-//K_WORK_DEFINE(gatt_sensor_work, gatt_work_handler);
 
 static void connect_evt_handler(const struct zbus_channel *chan);
-
 ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen2, connect_evt_handler); //static
+
+void sensor_queue_listener_cb(const struct zbus_channel *chan);
+ZBUS_LISTENER_DEFINE(sensor_queue_listener, sensor_queue_listener_cb);
 
 static bool connection_complete = false;
 
@@ -76,9 +69,9 @@ static ssize_t read_sensor_value(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size;
+	const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) + sizeof(sensor_data.time) + sensor_data.size;
 
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, data_buf, size);
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, &sensor_data, size);
 }
 
 static ssize_t write_config(struct bt_conn *conn,
@@ -115,7 +108,7 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG,
 BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_DATA,
             BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
             BT_GATT_PERM_READ,
-            read_sensor_value, NULL, data_buf),
+            read_sensor_value, NULL, &sensor_data),
 BT_GATT_CCC(sensor_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
@@ -129,19 +122,19 @@ static void notification_task(void) {
 	int ret;
 
 	while (1) {
-		ret = k_msgq_get(&gatt_queue, &msg, K_FOREVER);
+		ret = k_msgq_get(&gatt_queue, &sensor_data, K_FOREVER);
 
 		if (ret != 0) {
 			LOG_WRN("No data to process");
 			continue;
 		}
 
-		if (connection_complete && notify_enabled && msg.stream) {
-			const uint16_t size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size;
+		if (connection_complete && notify_enabled) {
+			const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) + sizeof(sensor_data.time) + sensor_data.size;
 
 			static struct bt_gatt_notify_params params;
 			params.attr = &sensor_service.attrs[4];
-			params.data = data_buf;
+			params.data = &sensor_data;
 			params.len = size;
 			params.func = notify_complete;
 			params.user_data = NULL;
@@ -161,28 +154,18 @@ static void notification_task(void) {
 	}
 }
 
-static void sensor_gatt_task(void)
-{
+void sensor_queue_listener_cb(const struct zbus_channel *chan) {
 	int ret;
-	const struct zbus_channel *chan;
-	static struct sensor_msg msg;
+	const struct sensor_msg * msg;
+    
+    msg = (struct sensor_msg *)zbus_chan_const_msg(&sensor_chan);
 
-	while (1) {
-		ret = zbus_sub_wait(&sensor_gatt_sub, &chan, K_FOREVER);
-		ERR_CHK(ret);
+	if (msg->stream) {
+		ret = k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
 
-		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
-		ERR_CHK(ret);
-
-		if (msg.stream) {
-			ret = k_msgq_put(&gatt_queue, &msg, K_NO_WAIT);
-
-			if (ret == -EAGAIN) {
-				LOG_WRN("power manager msg queue full");
-			}
+		if (ret == -EAGAIN) {
+			LOG_WRN("ble sensor stream queue full");
 		}
-
-		STACK_USAGE_PRINT("sensor_msg_thread", &thread_data);
 	}
 }
 
@@ -200,18 +183,7 @@ int init_sensor_service() {
 		return ret;
 	}
 
-	thread_id = k_thread_create(
-		&thread_data, thread_stack,
-		CONFIG_SENSOR_GATT_STACK_SIZE, (k_thread_entry_t)sensor_gatt_task, NULL,
-		NULL, NULL, K_PRIO_PREEMPT(CONFIG_SENSOR_GATT_THRAD_PRIO), 0, K_NO_WAIT);
-	
-	ret = k_thread_name_set(thread_id, "SENSOR_GATT_SUB");
-	if (ret) {
-		LOG_ERR("Failed to create sensor_msg thread");
-		return ret;
-	}
-
-    ret = zbus_chan_add_obs(&sensor_chan, &sensor_gatt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
+    ret = zbus_chan_add_obs(&sensor_chan, &sensor_queue_listener, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
 		LOG_ERR("Failed to add sensor sub");
 		return ret;

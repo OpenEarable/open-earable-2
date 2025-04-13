@@ -65,16 +65,16 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
 	}
 }
 
-K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, 1024);
+K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE);
 
 void init_sensor_manager() {
 	_state = INIT;
 
 	active_sensors = 0;
 
-	sensor_pub_id = k_thread_create(&sensor_publish, sensor_publish_thread_stack, 1024,
+	sensor_pub_id = k_thread_create(&sensor_publish, sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE,
 		sensor_chan_update, NULL, NULL, NULL,
-			K_PRIO_PREEMPT(CONFIG_SENSOR_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
+			K_PRIO_PREEMPT(CONFIG_SENSOR_PUB_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
 
 	k_work_init(&config_work, config_work_handler);
 
@@ -92,9 +92,6 @@ void start_sensor_manager() {
 
 	if (_state == INIT) {
 		k_thread_start(sensor_pub_id);
-	} else {
-		//k_thread_resume(sensor_pub_id);
-		//k_poll_signal_raise(&sensor_manager_sig, 0);
 	}
 
 	k_poll_signal_raise(&sensor_manager_sig, 0);

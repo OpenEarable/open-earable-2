@@ -9,18 +9,17 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sd_logger, LOG_LEVEL_DBG);
 
-//ZBUS_SUBSCRIBER_DEFINE(sdlogger_sd_event_sub, 4);
 ZBUS_CHAN_DECLARE(sd_card_chan);
 
-//ZBUS_SUBSCRIBER_DEFINE(sd_card_event_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
+void sensor_listener_cb(const struct zbus_channel *chan);
+
+K_MSGQ_DEFINE(sd_sensor_queue, sizeof(sensor_data), CONFIG_SENSOR_SD_SUB_QUEUE_SIZE, 4);
+ZBUS_LISTENER_DEFINE(sensor_data_listener, sensor_listener_cb);
 
 // Define thread stack
 K_THREAD_STACK_DEFINE(thread_stack, CONFIG_SENSOR_SD_STACK_SIZE);
 
-ZBUS_SUBSCRIBER_DEFINE(sensor_sd_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
-//ZBUS_LISTENER_DEFINE(sd_card_event_listener, listener_callback_example);
 ZBUS_CHAN_DECLARE(sensor_chan);
-K_WORK_DEFINE(sd_sensor_work, sd_work_handler);
 
 void sd_listener_callback(const struct zbus_channel *chan);
 
@@ -38,51 +37,54 @@ SDLogger::~SDLogger() {
 
 }
 
+void sensor_listener_cb(const struct zbus_channel *chan) {
+    int ret;
+    const sensor_msg* msg = (sensor_msg*)zbus_chan_const_msg(chan);
+
+	if (msg->sd) {
+		ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
+
+		if (ret == -EAGAIN) {
+			LOG_WRN("sensor stream msg queue full");
+		}
+	}
+}
+
+
 void sd_listener_callback(const struct zbus_channel *chan)
 {
-    const struct sd_msg * sd_msg_event;
-    
-    sd_msg_event = (sd_msg *)zbus_chan_const_msg(&sd_card_chan);
+    const struct sd_msg * sd_msg_event = (sd_msg *)zbus_chan_const_msg(&sd_card_chan);
 
     if (sdlogger.is_open && sd_msg_event->removed) {
         k_poll_signal_reset(&logger_sig);
+
+        sdlogger.end();
 
         LOG_ERR("SD card removed mid recording. Stop recording.");
     }
 }
 
-// Define the work handler implementation
-void sd_work_handler(struct k_work* work) {
-    int ret;
-    const struct zbus_channel *chan;
-
-    if (sdlogger.msg.sd) {
-        if (!sdcard_manager.is_mounted()) {
-            LOG_ERR("SD Card not mounted!");
-            return;
-        }
-
-        ret = sdlogger.write_sensor_data();
-        if (ret < 0) {
-            LOG_ERR("Failed to write sensor data: %d", ret);
-        }
-    }
-}
-
 void SDLogger::sensor_sd_task() {
     int ret;
-    const struct zbus_channel* chan;
 
     while (1) {
         ret = k_poll(&logger_evt, 1, K_FOREVER);
 
-        ret = zbus_sub_wait(&sensor_sd_sub, &chan, K_FOREVER);
-        ERR_CHK(ret);
+        int ret = k_msgq_get(&sd_sensor_queue, &sdlogger.msg, K_FOREVER);
+        if (ret != 0) {
+            LOG_ERR("Failed to get message from msgq: %d", ret);
+            continue;
+        }
 
-        ret = zbus_chan_read(chan, &sdlogger.msg, ZBUS_READ_TIMEOUT_MS);
-        ERR_CHK(ret);
-
-        k_work_submit(&sd_sensor_work);
+        if (!sdcard_manager.is_mounted()) {
+            LOG_ERR("SD Card not mounted!");
+            return;
+        }
+    
+        ret = sdlogger.write_sensor_data();
+        if (ret < 0) {
+            LOG_ERR("Failed to write sensor data: %d", ret);
+        }
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
@@ -106,14 +108,13 @@ int SDLogger::init() {
 		return ret;
 	}
 
-    ret = zbus_chan_add_obs(&sensor_chan, &sensor_sd_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
-	if (ret) {
-		LOG_ERR("Failed to add sensor sub");
-		return ret;
-	}
+    ret = zbus_chan_add_obs(&sensor_chan, &sensor_data_listener, ZBUS_ADD_OBS_TIMEOUT_MS);
+    if (ret) {
+        LOG_ERR("Failed to add sensor sub");
+        return ret;
+    }
 
     ret = zbus_chan_add_obs(&sd_card_chan, &sd_card_event_listener, ZBUS_ADD_OBS_TIMEOUT_MS);
-    //ret = zbus_chan_add_obs(&sd_card_chan, &sd_card_event_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
 		LOG_ERR("Failed to add sd sub");
 		return ret;
@@ -205,8 +206,8 @@ int SDLogger::write_sensor_data(const void* data, size_t length) {
 }
 
 int SDLogger::write_sensor_data() {
-    const uint16_t data_size = sizeof(data_buf->id) + sizeof(data_buf->size) + sizeof(data_buf->time) + data_buf->size;
-    return write_sensor_data(data_buf, data_size);
+    const uint16_t data_size = sizeof(msg.id) + sizeof(msg.size) + sizeof(msg.time) + msg.size;
+    return write_sensor_data(&msg, data_size);
 }
 
 int SDLogger::flush() {
@@ -233,6 +234,7 @@ int SDLogger::end() {
 
     if (!sd_card->is_mounted()) {
         //k_poll_signal_reset(&logger_sig);
+        is_open = false;
         return -ENODEV;
     }
 
