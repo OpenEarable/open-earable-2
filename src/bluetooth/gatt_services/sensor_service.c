@@ -139,7 +139,6 @@ static void notification_task(void) {
 			params.func = notify_complete;
 			params.user_data = NULL;
 
-			//ret =  bt_gatt_notify(NULL, &sensor_service.attrs[4], data_buf, size);
 			ret = k_mutex_lock(&notify_mutex, K_MSEC(100));
 			if (ret != 0) {
 				LOG_ERR("Unable to lock notify mutex.");
