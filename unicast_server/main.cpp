@@ -47,8 +47,21 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 //BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 //	     "Console device is not ACM CDC UART device");
 
+/* STEP 5.4 - Include header for USB */
+#include <zephyr/usb/usb_device.h>
+
 int main(void) {
 	int ret;
+
+	/* STEP 5.5 - Enable USB */
+	if (IS_ENABLED(CONFIG_USB_DEVICE_STACK)) {
+		ret = usb_enable(NULL);
+		if (ret) {
+			return 0;
+		}
+	}
+
+	LOG_INF("Hello From MCU boot !!!!!!!!!!!!!!!!!!!!!!!!!");
 
 	LOG_DBG("nRF5340 APP core started");
 

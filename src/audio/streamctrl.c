@@ -80,7 +80,7 @@ static void button_msg_sub_thread(void)
 			msg.button_action);
 
 		if (msg.button_action != BUTTON_RELEASED) {
-			LOG_WRN("Unhandled button action");
+			// LOG_WRN("Unhandled button action");
 			continue;
 		}
 
