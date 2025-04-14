@@ -94,11 +94,11 @@ void start_sensor_manager() {
 		k_thread_start(sensor_pub_id);
 	}
 
-	k_poll_signal_raise(&sensor_manager_sig, 0);
-
 	// Start SDLogger with timestamp-based filename
 	std::string filename = "sensor_log_" + std::to_string(micros());
 	sdlogger.begin(filename);
+
+	k_poll_signal_raise(&sensor_manager_sig, 0);
 
 	_state = RUNNING;
 }
