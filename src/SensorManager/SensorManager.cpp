@@ -17,6 +17,10 @@
 LOG_MODULE_DECLARE(sensor_manager);
 #include "../SD_Card/SDLogger/SDLogger.h"
 #include <string>
+#include <set>
+
+std::set<int> ble_sensors = {};
+std::set<int> sd_sensors = {};
 
 extern struct k_msgq sensor_queue;
 // extern k_tid_t sensor_publish;
@@ -24,7 +28,7 @@ extern struct k_msgq sensor_queue;
 EdgeMlSensor * get_sensor(enum sensor_id id);
 
 // Track number of active sensors
-static int active_sensor_count = 0;
+//static int active_sensor_count = 0;
 
 static sensor_manager_state _state;
 
@@ -90,13 +94,12 @@ void start_sensor_manager() {
 	k_msgq_purge(&sensor_queue);
 	k_msgq_purge(&config_queue);
 
+	ble_sensors.clear();
+	sd_sensors.clear();
+
 	if (_state == INIT) {
 		k_thread_start(sensor_pub_id);
 	}
-
-	// Start SDLogger with timestamp-based filename
-	std::string filename = "sensor_log_" + std::to_string(micros());
-	sdlogger.begin(filename);
 
 	k_poll_signal_raise(&sensor_manager_sig, 0);
 
@@ -112,7 +115,7 @@ void stop_sensor_manager() {
 	Temp::sensor.stop();
 	BoneConduction::sensor.stop();
 
-	active_sensor_count = 0;
+	active_sensors = 0;
 
 	//k_thread_suspend(sensor_pub_id);
 	k_poll_signal_reset(&sensor_manager_sig);
@@ -142,9 +145,10 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 
 // Worker-Funktion für die Sensor-Konfiguration
 static void config_work_handler(struct k_work *work) {
+	int ret;
 	struct sensor_config config;
-
-	int ret = k_msgq_get(&config_queue, &config, K_NO_WAIT);
+	
+	ret = k_msgq_get(&config_queue, &config, K_NO_WAIT);
 
     float sampleRate = getSampleRateForSensor(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
@@ -152,39 +156,53 @@ static void config_work_handler(struct k_work *work) {
 		return;
 	}
 
-    k_timeout_t t = K_USEC(1e6 / sampleRate);
-
 	EdgeMlSensor * sensor = get_sensor((enum sensor_id) config.sensorId);
-
-	if (config.storageOptions == 0 || !(config.storageOptions & (DATA_STREAMING | DATA_STORAGE))) {
-		if (sensor->is_running()) {
-			sensor->stop();
-			active_sensors--;
-			if (active_sensors < 0) {
-				LOG_WRN("Active sensors is already 0");
-				active_sensors = 0;
-			}
-
-			if (active_sensor_count == 0) stop_sensor_manager();
-		}
-		return;
-	}
 
 	if (sensor->is_running()) {
 		sensor->stop();
 		active_sensors--;
+
+		if (active_sensors < 0) {
+			LOG_WRN("Active sensors is already 0");
+			active_sensors = 0;
+		}
 	}
 
 	sensor->sd_logging(config.storageOptions & DATA_STORAGE);
 	sensor->ble_stream(config.storageOptions & DATA_STREAMING);
 
-	if (sensor->init(&sensor_queue)) {
-		if (active_sensors == 0) start_sensor_manager();
-		sensor->start(config.sampleRateIndex);
-		if (sensor->is_running()) {
-			active_sensors++;
+	if (config.storageOptions & (DATA_STORAGE | DATA_STREAMING)) {
+		if (sensor->init(&sensor_queue)) {
+			if (active_sensors == 0) start_sensor_manager();
+			sensor->start(config.sampleRateIndex);
+			if (sensor->is_running()) {
+				active_sensors++;
+			}
 		}
 	}
+
+	if (config.storageOptions & DATA_STORAGE) {
+		sd_sensors.insert(config.sensorId);
+
+		if (!sdlogger.is_active()) {
+			// Start SDLogger with timestamp-based filename
+			std::string filename = "sensor_log_" + std::to_string(micros());
+			sdlogger.begin(filename);
+		}
+	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
+		sd_sensors.erase(config.sensorId);
+
+		if (sd_sensors.empty()) sdlogger.end();
+	}
+
+	if (config.storageOptions & DATA_STREAMING) ble_sensors.insert(config.sensorId);
+	else if (ble_sensors.find(config.sensorId) != ble_sensors.end()) {
+		ble_sensors.erase(config.sensorId);
+
+		// TODO: if (ble_sensors.empty()) ...
+	}
+
+	if (active_sensors == 0) stop_sensor_manager();
 }
 
 void config_sensor(struct sensor_config * config) {

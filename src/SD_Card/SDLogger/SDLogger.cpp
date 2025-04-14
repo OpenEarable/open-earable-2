@@ -258,4 +258,8 @@ int SDLogger::end() {
     return 0;
 }
 
+bool SDLogger::is_active() {
+    return is_open;
+}
+
 SDLogger sdlogger;

@@ -90,6 +90,8 @@ private:
         */
         int end();
 
+        bool is_active();
+
         SDLogger(SDLogger const&) = delete;
         SDLogger& operator=(SDLogger const&) = delete;
 };
