@@ -49,7 +49,7 @@ int init_load_switch()
 
     printk("setup pins\n");
 
-    ret = gpio_pin_configure_dt(&load_switch_pin, GPIO_OUTPUT_INACTIVE);
+    ret = gpio_pin_configure_dt(&load_switch_pin, GPIO_OUTPUT_ACTIVE);
     if (ret != 0) {
         printk("Failed to setup Load Switch.\n");
         return ret;
@@ -61,9 +61,9 @@ int init_load_switch()
         return ret;
     }
 
-    k_msleep(10);
+    //k_msleep(10);
 
-    gpio_pin_set_dt(&load_switch_pin, 1);
+    //gpio_pin_set_dt(&load_switch_pin, 1);
 
     k_msleep(1);
 
