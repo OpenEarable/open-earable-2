@@ -30,13 +30,7 @@ public:
     void get_energy_status(battery_energy_status &status);
     void get_health_status(battery_health_status &status);
 
-    // bool is_power_on();
-
-    //void set_1_8(bool on);
-    //void set_3_3(bool on);
-
-    /*BQ27220 fuel_gauge;
-    BQ25120a battery_controller;*/
+    void set_error_led(int val = 1);
 
     static k_work_delayable power_down_work;
 private:

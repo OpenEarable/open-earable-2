@@ -10,6 +10,8 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
+#include <zephyr/zbus/zbus.h>
+
 #include <hal/nrf_ficr.h>
 
 #include "../drivers/LED_Controller/KTD2026.h"
@@ -37,7 +39,12 @@ K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_han
 K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handler);
 K_WORK_DEFINE(PowerManager::battery_controller_work, PowerManager::battery_controller_work_handler);
 
-extern struct k_msgq battery_queue;
+ZBUS_CHAN_DEFINE(battery_chan, struct battery_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
+    ZBUS_MSG_INIT(0));
+
+struct battery_data pm_msg;
+
+//extern struct k_msgq battery_queue;
 
 battery_data PowerManager::msg;
 
@@ -117,7 +124,8 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
     msg.charging_state = status.power_state;
 
-	ret = k_msgq_put(&battery_queue, &msg, K_NO_WAIT);
+	//ret = k_msgq_put(&battery_queue, &msg, K_NO_WAIT);
+    ret = zbus_chan_pub(&battery_chan, &pm_msg, K_FOREVER);
 	if (ret == -EAGAIN) {
 		LOG_WRN("power manager msg queue full");
 	}
@@ -276,8 +284,7 @@ int PowerManager::begin() {
     float capacity = fuel_gauge.capacity();
     if (abs(capacity - _battery_settings.capacity) > 1e-4) {
         fuel_gauge.setup(_battery_settings);
-        const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
-        gpio_pin_set_dt(&error_led, 1);
+        set_error_led();
     }
 
     //RGBColor white = {32, 32, 32};
@@ -294,6 +301,10 @@ int PowerManager::begin() {
     oe_boot_state.device_id = (((uint64_t) device_id[1]) << 32) | device_id[0];
 
     return 0;
+}
+
+void PowerManager::set_error_led(int val) {
+    gpio_pin_set_dt(&error_led, val > 0 ? 1 : 0);
 }
 
 bool PowerManager::check_battery() {

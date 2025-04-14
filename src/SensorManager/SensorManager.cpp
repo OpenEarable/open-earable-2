@@ -23,17 +23,15 @@ std::set<int> ble_sensors = {};
 std::set<int> sd_sensors = {};
 
 extern struct k_msgq sensor_queue;
-// extern k_tid_t sensor_publish;
 
 EdgeMlSensor * get_sensor(enum sensor_id id);
-
-// Track number of active sensors
-//static int active_sensor_count = 0;
 
 static sensor_manager_state _state;
 
 K_MSGQ_DEFINE(sensor_queue, sizeof(struct sensor_msg), 16, 4);
 K_MSGQ_DEFINE(config_queue, sizeof(struct sensor_config), 16, 4);
+
+K_THREAD_STACK_DEFINE(sensor_work_q_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
 
 ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
@@ -49,6 +47,8 @@ struct k_thread sensor_publish;
 static k_tid_t sensor_pub_id;
 
 static struct k_work config_work;
+
+struct k_work_q sensor_work_q;
 
 int active_sensors = 0;
 
@@ -75,6 +75,12 @@ void init_sensor_manager() {
 	_state = INIT;
 
 	active_sensors = 0;
+
+	k_work_queue_init(&sensor_work_q);
+
+	k_work_queue_start(&sensor_work_q, sensor_work_q_stack,
+                   K_THREAD_STACK_SIZEOF(sensor_work_q_stack), K_PRIO_PREEMPT(CONFIG_SENSOR_WORK_QUEUE_PRIO),
+                   NULL);
 
 	sensor_pub_id = k_thread_create(&sensor_publish, sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE,
 		sensor_chan_update, NULL, NULL, NULL,

@@ -8,18 +8,14 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(battery_pub, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
-K_MSGQ_DEFINE(battery_queue, sizeof(struct battery_data), 1, 4);
-
-ZBUS_CHAN_DEFINE(battery_chan, struct battery_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
-		 ZBUS_MSG_INIT(0));
-
-struct battery_data pm_msg;
+//K_MSGQ_DEFINE(battery_queue, sizeof(struct battery_data), 1, 4);
 
 struct load_switch_data {
     struct gpio_dt_spec ctrl_pin;
     bool default_on;
 };
 
+/*
 void battery_chan_update() {
     int ret;
 
@@ -35,6 +31,7 @@ void battery_chan_update() {
 
 K_THREAD_DEFINE(battery_publish, 1024, battery_chan_update, NULL, NULL, //CONFIG_BUTTON_PUBLISH_STACK_SIZE
 		NULL, K_PRIO_PREEMPT(CONFIG_BUTTON_PUBLISH_THREAD_PRIO), 0, 0); //CONFIG_BUTTON_PUBLISH_THREAD_PRIO
+*/
 
 
 static int b_init(const struct device *dev)

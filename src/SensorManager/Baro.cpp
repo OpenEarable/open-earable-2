@@ -1,5 +1,7 @@
 #include "Baro.h"
 
+#include "SensorManager.h"
+
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
@@ -57,7 +59,7 @@ void Baro::update_sensor(struct k_work *work) {
 */
 void Baro::sensor_timer_handler(struct k_timer *dummy)
 {
-	k_work_submit(&sensor.sensor_work);
+	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 };
 
 bool Baro::init(struct k_msgq * queue) {

@@ -17,6 +17,8 @@ enum sensor_manager_state {
     SUSPENDED,
 };
 
+extern struct k_work_q sensor_work_q;
+
 enum sensor_manager_state get_state();
 
 void init_sensor_manager();

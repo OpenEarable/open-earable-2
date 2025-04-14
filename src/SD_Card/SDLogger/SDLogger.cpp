@@ -4,6 +4,7 @@
 #include "../SensorManager/SensorManager.h"
 #include "macros_common.h"
 #include "SDLogger.h"
+#include "PowerManager.h"
 #include <errno.h>
 
 #include <zephyr/logging/log.h>
@@ -58,9 +59,10 @@ void sd_listener_callback(const struct zbus_channel *chan)
     if (sdlogger.is_open && sd_msg_event->removed) {
         k_poll_signal_reset(&logger_sig);
 
-        sdlogger.end();
-
+        power_manager.set_error_led();
         LOG_ERR("SD card removed mid recording. Stop recording.");
+
+        sdlogger.end();
     }
 }
 
@@ -77,12 +79,14 @@ void SDLogger::sensor_sd_task() {
         }
 
         if (!sdcard_manager.is_mounted()) {
+            power_manager.set_error_led();
             LOG_ERR("SD Card not mounted!");
             return;
         }
     
         ret = sdlogger.write_sensor_data();
         if (ret < 0) {
+            power_manager.set_error_led();
             LOG_ERR("Failed to write sensor data: %d", ret);
         }
 

@@ -17,7 +17,56 @@ LOG_MODULE_REGISTER(battery_service, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 static struct battery_data msg;
 static bool notify_enabled;
 
-DEFINE_GATT_SERVICE(battery, bt_send_battery_level, &msg); //(power_manager);
+//DEFINE_GATT_SERVICE(battery, bt_send_battery_level, &msg); //(power_manager);
+
+static struct k_thread thread_data;
+static k_tid_t thread_id;
+
+ZBUS_SUBSCRIBER_DEFINE(battery_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
+ZBUS_CHAN_DECLARE(battery_chan);
+
+static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE);
+
+static void write_battery_gatt(void)
+{
+	int ret;
+	const struct zbus_channel *chan;
+
+	while (1) {
+		ret = zbus_sub_wait(&battery_sub, &chan, K_FOREVER);
+		ERR_CHK(ret);
+
+		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
+		ERR_CHK(ret);
+
+        bt_send_battery_level(&msg);
+
+		STACK_USAGE_PRINT("battery_msg_thread", &thread_data);
+	}
+}
+
+int init_battery_service() {
+    int ret;
+
+	thread_id = k_thread_create(
+		&thread_data, thread_stack,
+		K_THREAD_STACK_SIZEOF(thread_stack), (k_thread_entry_t)write_battery_gatt, NULL,
+		NULL, NULL, K_PRIO_PREEMPT(CONFIG_BUTTON_MSG_SUB_THREAD_PRIO), 0, K_NO_WAIT);
+
+	ret = k_thread_name_set(thread_id, "battery_gatt_sub");
+	if (ret) {
+		LOG_ERR("Failed to create  battery_msg thread");
+		return ret;
+	}
+
+    ret = zbus_chan_add_obs(&battery_chan, &battery_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
+	if (ret) {
+		LOG_ERR("Failed to add battery sub");
+		return ret;
+	}
+
+    return 0;
+}
 
 struct battery_level_status bat_status;
 struct battery_energy_status en_status;
@@ -52,8 +101,6 @@ static ssize_t read_charging_state(struct bt_conn *conn,
 			  uint16_t offset)
 {
 	power_manager.get_battery_status(bat_status);
-	//bat_status.flags = 0; //no level no addition
-	//bat_status.power_state = msg.charging_state;
 
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, &bat_status,
 					 sizeof(bat_status));

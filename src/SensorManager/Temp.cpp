@@ -1,5 +1,7 @@
 #include "Temp.h"
 
+#include "SensorManager.h"
+
 #include "math.h"
 #include "stdlib.h"
 
@@ -70,7 +72,7 @@ void Temp::update_sensor(struct k_work *work) {
 * @brief Submit a k_work on timer expiry.
 */
 void Temp::sensor_timer_handler(struct k_timer *dummy) {
-	k_work_submit(&sensor.sensor_work);
+	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 }
 
 void Temp::start(int sample_rate_idx) {
