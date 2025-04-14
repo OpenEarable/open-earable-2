@@ -129,7 +129,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
                 .frequencyCount = sizeof(PPG::sample_rates.reg_vals),
-                .defaultFrequencyIndex = 1,
+                .defaultFrequencyIndex = 2,
                 .maxBleFrequencyIndex = 12,
                 .frequencies = PPG::sample_rates.sample_rates,
             },
@@ -144,7 +144,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
                 .frequencyCount = sizeof(Temp::sample_rates.reg_vals),
-                .defaultFrequencyIndex = 1,
+                .defaultFrequencyIndex = 4,
                 .maxBleFrequencyIndex = 7,
                 .frequencies = Temp::sample_rates.sample_rates,
             },
@@ -159,8 +159,8 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
                 .frequencyCount = sizeof(Baro::sample_rates.reg_vals),
-                .defaultFrequencyIndex = 1,
-                .maxBleFrequencyIndex = 7,
+                .defaultFrequencyIndex = 12,
+                .maxBleFrequencyIndex = 17,
                 .frequencies = Baro::sample_rates.sample_rates,
             },
         },
@@ -174,7 +174,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
                 .frequencyCount = sizeof(BoneConduction::sample_rates.reg_vals),
-                .defaultFrequencyIndex = 1,
+                .defaultFrequencyIndex = 2,
                 .maxBleFrequencyIndex = 6,
                 .frequencies = BoneConduction::sample_rates.sample_rates,
             },
