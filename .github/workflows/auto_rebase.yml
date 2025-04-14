@@ -1,0 +1,30 @@
+name: Auto Rebase flex-pcb-fix on main update
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  rebase-flex-pcb-fix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Important for rebase
+
+      - name: Set up Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Fetch all branches
+        run: git fetch --all
+
+      - name: Rebase flex-pcb-fix onto main
+        run: |
+          git checkout flex-pcb-fix
+          git rebase origin/main || echo "❌ Rebase failed on 'flex-pcb-fix' due to conflicts. Manual intervention required."
+          git push --force-with-lease origin flex-pcb-fix
