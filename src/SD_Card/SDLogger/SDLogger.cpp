@@ -147,6 +147,7 @@ int SDLogger::begin(const std::string& filename) {
     if (!sd_card->is_mounted()) {
         ret = sd_card->mount();
         if (ret < 0) {
+            power_manager.set_error_led();
             LOG_ERR("Failed to mount sd card: %d", ret);
             return ret;
         }
@@ -157,6 +158,7 @@ int SDLogger::begin(const std::string& filename) {
     std::string full_filename = filename + ".oe";
     ret = sd_card->open_file(full_filename, true, false, true);
     if (ret < 0) {
+        power_manager.set_error_led();
         LOG_ERR("Failed to open file: %d", ret);
         return ret;
     }
@@ -167,6 +169,7 @@ int SDLogger::begin(const std::string& filename) {
 
     ret = write_header();
     if (ret < 0) {
+        power_manager.set_error_led();
         LOG_ERR("Failed to write header: %d", ret);
         return ret;
     }
