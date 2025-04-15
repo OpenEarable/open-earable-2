@@ -17,8 +17,6 @@ LOG_MODULE_REGISTER(battery_service, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 static struct battery_data msg;
 static bool notify_enabled;
 
-//DEFINE_GATT_SERVICE(battery, bt_send_battery_level, &msg); //(power_manager);
-
 static struct k_thread thread_data;
 static k_tid_t thread_id;
 

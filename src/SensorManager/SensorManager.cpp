@@ -50,6 +50,8 @@ static struct k_work config_work;
 
 struct k_work_q sensor_work_q;
 
+K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE);
+
 int active_sensors = 0;
 
 static void config_work_handler(struct k_work *work);
@@ -68,8 +70,6 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
 		}
 	}
 }
-
-K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE);
 
 void init_sensor_manager() {
 	_state = INIT;

@@ -62,7 +62,8 @@ void sd_listener_callback(const struct zbus_channel *chan)
         power_manager.set_error_led();
         LOG_ERR("SD card removed mid recording. Stop recording.");
 
-        sdlogger.end();
+        // sdlogger.end();
+        sdlogger.is_open = false;
     }
 }
 

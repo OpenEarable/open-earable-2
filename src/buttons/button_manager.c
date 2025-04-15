@@ -28,5 +28,5 @@ void button_pub_task() {
 	}
 }
 
-K_THREAD_DEFINE(button_publish, 1024, button_pub_task, NULL, NULL, //CONFIG_BUTTON_PUBLISH_STACK_SIZE
+K_THREAD_DEFINE(button_publish, CONFIG_BUTTON_PUBLISH_STACK_SIZE, button_pub_task, NULL, NULL,
 		NULL, K_PRIO_PREEMPT(CONFIG_BUTTON_PUBLISH_THREAD_PRIO), 0, 0);

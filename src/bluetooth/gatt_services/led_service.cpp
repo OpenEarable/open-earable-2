@@ -10,9 +10,6 @@ static ssize_t write_led(struct bt_conn *conn,
 			 const void *buf,
 			 uint16_t len, uint16_t offset, uint8_t flags)
 {
-	//printk("Attribute write, handle: %u, conn: %p", attr->handle,
-		//(void *)conn);
-
 	if (len != 3U) {
 		LOG_INF("Write led: Incorrect data length");
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
@@ -22,9 +19,6 @@ static ssize_t write_led(struct bt_conn *conn,
 		LOG_INF("Write led: Incorrect data offset");
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
-
-    //earable_led.set_color((uint8_t*)buf);
-	//led_controller.setColor((uint8_t*)buf);
 
 	state_indicator.set_custom_color((uint8_t *) buf);
 
