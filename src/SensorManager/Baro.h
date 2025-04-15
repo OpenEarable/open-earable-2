@@ -25,6 +25,8 @@ private:
     static void update_sensor(struct k_work *work);
 
     static void sensor_timer_handler(struct k_timer *dummy);
+
+    int _sample_count_ble = 0;
 };
 
 #endif

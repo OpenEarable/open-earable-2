@@ -13,11 +13,12 @@
 #include "Temp.h"
 #include "BoneConduction.h"
 #include <SensorScheme.h>
-#include <zephyr/logging/log.h>
-LOG_MODULE_DECLARE(sensor_manager);
-#include "../SD_Card/SDLogger/SDLogger.h"
+#include "SDLogger.h"
 #include <string>
 #include <set>
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(sensor_manager);
 
 std::set<int> ble_sensors = {};
 std::set<int> sd_sensors = {};

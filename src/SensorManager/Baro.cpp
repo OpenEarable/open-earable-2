@@ -9,6 +9,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(BMP388);
 
+#define BLE_FREQ_DEVIDER 10
+
 static struct sensor_msg msg_baro;
 
 Adafruit_BMP3XX Baro::bmp;
@@ -38,8 +40,15 @@ void Baro::update_sensor(struct k_work *work) {
 	bmp.performReading();
 
 	msg_baro.sd = sensor._sd_logging;
-	msg_baro.stream = sensor._ble_stream;
 
+	// stream only every BLE_FREQ_DEVIDER via BLE
+	if (sensor._sample_count_ble++ >= BLE_FREQ_DEVIDER) {
+		msg_baro.stream = sensor._ble_stream;
+		sensor._sample_count_ble -= BLE_FREQ_DEVIDER;
+	} else {
+		msg_baro.stream = false;
+	}
+	
 	msg_baro.data.id = ID_TEMP_BARO;
 	msg_baro.data.size = 2 * sizeof(float);
 	msg_baro.data.time = micros();
@@ -92,6 +101,8 @@ void Baro::start(int sample_rate_idx) {
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 
 	_running = true;
+
+	_sample_count_ble = 0;
 }
 
 void Baro::stop() {
