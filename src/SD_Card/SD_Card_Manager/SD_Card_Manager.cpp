@@ -15,6 +15,7 @@
 #include "openearable_common.h"
 
 #include "SDLogger.h"
+#include "PowerManager.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(SDCardManager, LOG_LEVEL_DBG);
@@ -56,7 +57,10 @@ void SDCardManager::unmount_work_handler(struct k_work *work) {
 		sdcard_manager.aquire_ls();
 	} else {
 		// sd inserted --> reboot
-		sys_reboot(SYS_REBOOT_COLD);
+		//sys_reboot(SYS_REBOOT_COLD);
+
+		LOG_INF("SD Card mounted. Rebooting ...");
+		power_manager.reboot();
 	}
 }
 
@@ -112,6 +116,9 @@ int SDCardManager::aquire_ls() {
 
 	ls_aquired = true;
 
+	ret = gpio_add_callback(sd_state_pin.port, &sd_state_cb);
+	if (ret) LOG_ERR("Failed to add callback");
+
 	return 0;
 }
 
@@ -119,6 +126,9 @@ int SDCardManager::release_ls() {
 	int ret;
 
 	if (!ls_aquired) return -EALREADY;
+
+	ret = gpio_remove_callback(sd_state_pin.port, &sd_state_cb);
+	if (ret) LOG_ERR("Failed to remove callback");
 
 	ret = pm_device_runtime_put(ls_1_8);
 	ret = pm_device_runtime_put(ls_3_3);
@@ -141,9 +151,9 @@ void SDCardManager::init() {
     gpio_pin_interrupt_configure_dt(&sd_state_pin, GPIO_INT_EDGE_BOTH);
 
     gpio_init_callback(&sd_state_cb, sd_card_state_change_isr, sd_state_cb.pin_mask | BIT(sd_state_pin.pin));
-    ret = gpio_add_callback(sd_state_pin.port, &sd_state_cb);
 
-	if (ret) LOG_ERR("Failed to add callback");
+    //ret = gpio_add_callback(sd_state_pin.port, &sd_state_cb);
+	//if (ret) LOG_ERR("Failed to add callback");
 }
 
 int SDCardManager::unmount() {
