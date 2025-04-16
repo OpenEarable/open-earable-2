@@ -64,8 +64,6 @@ private:
 
     static void charge_timer_handler(struct k_timer * timer);
 
-    static battery_data msg;
-
     const battery_settings _battery_settings = {
         3.7, 4.3, 3.0, 2.5,  // Spannungen
         2.5, 110, 200,       // Ströme

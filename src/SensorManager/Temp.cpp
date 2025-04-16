@@ -21,6 +21,7 @@ const SampleRateSetting<8> Temp::sample_rates = {
 };
 
 bool Temp::init(struct k_msgq * queue) {
+
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
         pm_device_runtime_get(ls_3_3);
@@ -30,6 +31,8 @@ bool Temp::init(struct k_msgq * queue) {
     if (!temp.begin()) {   // hardware I2C mode, can pass in address & alt Wire
         pm_device_runtime_put(ls_1_8);
         pm_device_runtime_put(ls_3_3);
+
+        _active = false;
 
 		LOG_WRN("Could not find a valid Optical Temperature sensor, check wiring!");
 		return false;
@@ -96,7 +99,8 @@ void Temp::stop() {
 
 	k_timer_stop(&sensor.sensor_timer);
 
-    temp.sleepMode();
+    //temp.sleepMode();
+    temp.reset();
 
     pm_device_runtime_put(ls_1_8);
     pm_device_runtime_put(ls_3_3);

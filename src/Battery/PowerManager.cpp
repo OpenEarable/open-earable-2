@@ -42,11 +42,7 @@ K_WORK_DEFINE(PowerManager::battery_controller_work, PowerManager::battery_contr
 ZBUS_CHAN_DEFINE(battery_chan, struct battery_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
     ZBUS_MSG_INIT(0));
 
-struct battery_data pm_msg;
-
-//extern struct k_msgq battery_queue;
-
-battery_data PowerManager::msg;
+static struct battery_data msg;
 
 //LoadSwitch PowerManager::v1_8_switch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
 
@@ -125,7 +121,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     msg.charging_state = status.power_state;
 
 	//ret = k_msgq_put(&battery_queue, &msg, K_NO_WAIT);
-    ret = zbus_chan_pub(&battery_chan, &pm_msg, K_FOREVER);
+    ret = zbus_chan_pub(&battery_chan, &msg, K_FOREVER);
 	if (ret == -EAGAIN) {
 		LOG_WRN("power manager msg queue full");
 	}

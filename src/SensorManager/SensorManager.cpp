@@ -123,6 +123,8 @@ void stop_sensor_manager() {
 
 	active_sensors = 0;
 
+	//k_work_queue_drain(&sensor_work_q);
+
 	//k_thread_suspend(sensor_pub_id);
 	k_poll_signal_reset(&sensor_manager_sig);
 
@@ -155,6 +157,9 @@ static void config_work_handler(struct k_work *work) {
 	struct sensor_config config;
 	
 	ret = k_msgq_get(&config_queue, &config, K_NO_WAIT);
+	if (ret != 0) {
+		LOG_INF("No config available");
+	}
 
     float sampleRate = getSampleRateForSensor(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
@@ -213,5 +218,7 @@ static void config_work_handler(struct k_work *work) {
 
 void config_sensor(struct sensor_config * config) {
 	int ret = k_msgq_put(&config_queue, config, K_NO_WAIT);
+	k_work_queue_drain(&sensor_work_q, true);
 	k_work_submit(&config_work);
+	k_work_queue_unplug(&sensor_work_q);
 }
