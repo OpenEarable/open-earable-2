@@ -99,8 +99,7 @@ void Temp::stop() {
 
 	k_timer_stop(&sensor.sensor_timer);
 
-    //temp.sleepMode();
-    temp.reset();
+    temp.sleepMode();
 
     pm_device_runtime_put(ls_1_8);
     pm_device_runtime_put(ls_3_3);

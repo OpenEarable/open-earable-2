@@ -86,6 +86,8 @@ bool MLX90632::begin(uint8_t deviceAddress, TWIM &i2c, status &returnError)
   //We could to a check here to see if user has init the Wire or not. Would
   //need to be for different platforms
 
+  setMode(MODE_STEP);
+
   //Check communication with IC
   uint16_t thisAddress;
   returnError = readRegister16(EE_I2C_ADDRESS, thisAddress);

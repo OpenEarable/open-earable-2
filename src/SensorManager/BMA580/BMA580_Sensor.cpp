@@ -131,8 +131,6 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
         /* Bus configuration : I2C */
         if (intf == BMA5_I2C_INTF)
         {
-            printf("I2C Interface \n");
-
             dev_info.addr = DT_REG_ADDR(DT_NODELABEL(bma580)); //BMA5_I2C_ADDRESS;
             bma5->bus_read = bma5_i2c_read;
             bma5->bus_write = bma5_i2c_write;
