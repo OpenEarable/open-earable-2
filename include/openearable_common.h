@@ -59,6 +59,7 @@ struct earable_state {
 enum sensor_id {
 	ID_IMU=0,
 	ID_TEMP_BARO=1,
+	ID_MICRO=2,
 	ID_PPG=4,
 	ID_PULSOX=5,
 	ID_OPTTEMP=6,
@@ -110,6 +111,13 @@ struct battery_settings {
 
 struct sd_msg {
 	bool removed;
+};
+
+#include "audio_i2s.h"
+
+struct audio_rx_data {
+    char data[FRAME_SIZE_BYTES];
+    size_t size;
 };
 
 #endif

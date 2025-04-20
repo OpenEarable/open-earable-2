@@ -21,7 +21,10 @@
 #include "audio_usb.h"
 #include "streamctrl.h"
 
+#include "openearable_common.h"
 //#include "pdm_mic.h"
+
+#define SENQUEUE_FRAME_SIZE 32
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
@@ -36,6 +39,7 @@ K_THREAD_STACK_DEFINE(encoder_thread_stack, CONFIG_ENCODER_STACK_SIZE);
 
 DATA_FIFO_DEFINE(fifo_tx, FIFO_TX_BLOCK_COUNT, WB_UP(BLOCK_SIZE_BYTES));
 DATA_FIFO_DEFINE(fifo_rx, FIFO_RX_BLOCK_COUNT, WB_UP(BLOCK_SIZE_BYTES));
+K_MSGQ_DEFINE(encoder_queue, sizeof(struct audio_rx_data), 16, 4);
 
 static K_SEM_DEFINE(sem_encoder_start, 0, 1);
 
@@ -132,7 +136,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 		 * blocks before copying it to a continuous area of memory
 		 * before sending it to the encoder
 		 */
-		for (int i = 0; i < CONFIG_FIFO_FRAME_SPLIT_NUM; i++) {
+		/*for (int i = 0; i < CONFIG_FIFO_FRAME_SPLIT_NUM; i++) {
 			ret = data_fifo_pointer_last_filled_get(&fifo_rx, &tmp_pcm_raw_data[i],
 								&pcm_block_size, K_FOREVER);
 			ERR_CHK(ret);
@@ -140,6 +144,13 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 			       pcm_block_size);
 
 			data_fifo_block_free(&fifo_rx, tmp_pcm_raw_data[i]);
+        }*/
+
+		//encoder_queue_get(&fifo_rx, tmp_pcm_raw_data, pcm_raw_data, FRAME_SIZE_BYTES);
+		ret = k_msgq_get(&encoder_queue, &pcm_raw_data, K_FOREVER);
+		if (ret) {
+			LOG_ERR("Failed to get message from msgq: %d", ret);
+			continue;
 		}
 
 		if (sw_codec_cfg.encoder.enabled) {

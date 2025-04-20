@@ -12,6 +12,8 @@
 #include "PPG.h"
 #include "Temp.h"
 #include "BoneConduction.h"
+#include "Microphone.h"
+
 #include <SensorScheme.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(sensor_manager);
@@ -22,7 +24,7 @@ LOG_MODULE_DECLARE(sensor_manager);
 std::set<int> ble_sensors = {};
 std::set<int> sd_sensors = {};
 
-extern struct k_msgq sensor_queue;
+//extern struct k_msgq sensor_queue;
 
 EdgeMlSensor * get_sensor(enum sensor_id id);
 
@@ -120,6 +122,7 @@ void stop_sensor_manager() {
 	PPG::sensor.stop();
 	Temp::sensor.stop();
 	BoneConduction::sensor.stop();
+	Microphone::sensor.stop();
 
 	active_sensors = 0;
 
@@ -146,6 +149,8 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 		return &(Temp::sensor);
 	case ID_BONE_CONDUCTION:
 		return &(BoneConduction::sensor);
+	case ID_MICRO:
+		return &(Microphone::sensor);
 	default:
 		return NULL;
 	}
@@ -168,6 +173,11 @@ static void config_work_handler(struct k_work *work) {
 	}
 
 	EdgeMlSensor * sensor = get_sensor((enum sensor_id) config.sensorId);
+
+	if (sensor == NULL) {
+		LOG_ERR("Sensor not found for ID %i", config.sensorId);
+		return;
+	}
 
 	if (sensor->is_running()) {
 		sensor->stop();
@@ -218,7 +228,7 @@ static void config_work_handler(struct k_work *work) {
 
 void config_sensor(struct sensor_config * config) {
 	int ret = k_msgq_put(&config_queue, config, K_NO_WAIT);
-	k_work_queue_drain(&sensor_work_q, true);
+	//k_work_queue_drain(&sensor_work_q, true);
 	k_work_submit(&config_work);
-	k_work_queue_unplug(&sensor_work_q);
+	//k_work_queue_unplug(&sensor_work_q);
 }

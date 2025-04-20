@@ -11,6 +11,21 @@
 #include "../SensorManager/Baro.h"
 #include "../SensorManager/Temp.h"
 #include "../SensorManager/BoneConduction.h"
+#include "../SensorManager/Microphone.h"
+
+
+// ============= Microphones =============
+
+#define MICRO_CHANNEL_COUNT 2
+SensorComponent microComponenents[MICRO_CHANNEL_COUNT] = {
+    { .name = "INNER", .unit = "ADC", .parseType = PARSE_TYPE_UINT16 },
+    { .name = "Outer", .unit = "ADC", .parseType = PARSE_TYPE_UINT16 },
+};
+
+#define MICRO_GROUP_COUNT 1
+SensorComponentGroup microGroups[MICRO_GROUP_COUNT] = {
+    { .name = "MICROPHONE", .componentCount = MICRO_CHANNEL_COUNT, .components = microComponenents },
+};
 
 // ============= IMU =============
 
@@ -103,7 +118,7 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 
 // ============= Sensors =============
 
-#define SENSOR_COUNT 5
+#define SENSOR_COUNT 6
 SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "9-Axis IMU",
@@ -117,6 +132,21 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
                 .defaultFrequencyIndex = 1,
                 .maxBleFrequencyIndex = 2,
                 .frequencies = IMU::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "Microphones",
+        .id = ID_MICRO,
+        .groupCount = MICRO_GROUP_COUNT,
+        .groups = microGroups,
+        .configOptions = {
+            .availableOptions = DATA_STORAGE | FREQUENCIES_DEFINED, // no streaming
+            .frequencyOptions = {
+                .frequencyCount = sizeof(Microphone::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 1,
+                .frequencies = Microphone::sample_rates.sample_rates,
             },
         },
     },
@@ -184,7 +214,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
 };
 
 #endif // _DEFAULT_SENSORS_H

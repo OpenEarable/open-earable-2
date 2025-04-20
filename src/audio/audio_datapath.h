@@ -14,6 +14,10 @@
 
 #include "sw_codec_select.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Mixes a tone into the I2S TX stream
  *
@@ -86,5 +90,15 @@ int audio_datapath_stop(void);
  * @return 0 if successful, error otherwise
  */
 int audio_datapath_init(void);
+
+void start_data_thread(void);
+
+void record_to_sd(bool active);
+
+void set_sensor_queue(struct k_msgq *queue);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _AUDIO_DATAPATH_H_ */
