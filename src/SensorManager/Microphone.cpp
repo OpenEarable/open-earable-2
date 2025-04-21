@@ -16,6 +16,7 @@ extern "C" {
 
 #include <data_fifo.h>
 extern void init_fifo();
+extern void empty_fifo();
 
 #ifdef __cplusplus
 }
@@ -71,6 +72,8 @@ void Microphone::stop() {
 	if (_running) audio_datapath_stop();
 
 	record_to_sd(false);
+
+	empty_fifo();
 
 	_running = false;
 }

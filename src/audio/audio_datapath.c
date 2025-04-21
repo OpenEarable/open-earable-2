@@ -197,27 +197,46 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 	//memcpy(audio_item.data, pcm_raw_data, FRAME_SIZE_BYTES);
 	audio_item.size = FRAME_SIZE_BYTES;
 
-	LOG_ERR("HELLO FROM DATA THREAD");
-
     while (1) {
         // Daten aus der data_queue lesen
         for (int i = 0; i < CONFIG_FIFO_FRAME_SPLIT_NUM; i++) {
             ret = data_fifo_pointer_last_filled_get(ctrl_blk.in.fifo, &tmp_pcm_raw_data[i], &pcm_block_size, K_FOREVER);
             ERR_CHK(ret);
+
+			uint64_t time_stamp = micros();
     
             memcpy(audio_item.data + (i * BLOCK_SIZE_BYTES), tmp_pcm_raw_data[i], pcm_block_size);
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
-        }
 
-        uint64_t time_stamp = micros();
+			if (_record_to_sd) {
+				struct sensor_msg audio_msg;
+	
+				audio_msg.sd = true;
+				audio_msg.stream = false;
+	
+				audio_msg.data.id = ID_MICRO;
+				audio_msg.data.size = SENQUEUE_FRAME_SIZE;
+	
+				for (int n = 0; n < BLOCK_SIZE_BYTES / SENQUEUE_FRAME_SIZE; n++) {
+					audio_msg.data.time = time_stamp - (BLOCK_SIZE_BYTES - n * SENQUEUE_FRAME_SIZE) / sizeof(uint32_t) * 1e6 / 48000;
+	
+					memcpy(audio_msg.data.data, audio_item.data + (i * BLOCK_SIZE_BYTES) + (n * SENQUEUE_FRAME_SIZE), SENQUEUE_FRAME_SIZE);
+	
+					ret = k_msgq_put(sensor_queue, &audio_msg, K_NO_WAIT);
+					if (ret) {
+						LOG_WRN("sensor msg queue full");
+					}
+				}
+			}
+        }
 
 		ret = k_msgq_put(&encoder_queue, &audio_item, K_NO_WAIT);
         if (ret == -EAGAIN) {
             LOG_WRN("sensor msg queue full");
         }
 
-		if (_record_to_sd) {
+		/*if (_record_to_sd) {
 			struct sensor_msg audio_msg;
 
 			audio_msg.sd = true;
@@ -227,16 +246,16 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 			audio_msg.data.size = SENQUEUE_FRAME_SIZE;
 
 			for (int i = 0; i < FRAME_SIZE_BYTES / SENQUEUE_FRAME_SIZE; i++) {
-				audio_msg.data.time = time_stamp - (FRAME_SIZE_BYTES / sizeof(uint32_t) - i) * 1e6 / 48000;
+				audio_msg.data.time = time_stamp - (FRAME_SIZE_BYTES - i * SENQUEUE_FRAME_SIZE) / sizeof(uint32_t) * 1e6 / 48000;
 
 				memcpy(audio_msg.data.data, audio_item.data + i * SENQUEUE_FRAME_SIZE, SENQUEUE_FRAME_SIZE);
 
-				ret = k_msgq_put(sensor_queue, &audio_msg, K_NO_WAIT);
+				ret = k_msgq_put(sensor_queue, &audio_msg, K_FOREVER);
 				if (ret == -EAGAIN) {
 					LOG_WRN("sensor msg queue full");
 				}
 			}
-		}
+		}*/
     }
 }
 

@@ -15,3 +15,11 @@ void init_fifo() {
         ERR_CHK_MSG(ret, "Failed to set up rx FIFO");
     }
 }
+
+void empty_fifo() {
+    int ret;
+    if (fifo_rx.initialized) {
+        ret = data_fifo_empty(&fifo_rx);
+        ERR_CHK_MSG(ret, "Failed to empty rx FIFO");
+    }
+}
