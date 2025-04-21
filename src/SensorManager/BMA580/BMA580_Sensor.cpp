@@ -168,7 +168,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     struct bma5_acc_conf acc_cfg, get_acc_cfg;
     struct bma5_int_conf_types int_config;
 
-    int_config.int_src = BMA5_INT_2;
+    int_config.int_src = BMA5_INT_1;
 
     /* Get accel configurations */
     rslt = bma5_get_acc_conf_0(&sensor_ctrl, dev);
@@ -220,9 +220,9 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     rslt = bma5_get_int_conf(&int_config, n_ints, dev);
     bma5_check_rslt("bma5_get_int_conf", rslt);
 
-    int_config.int_conf.int_mode = BMA5_INT2_MODE_LATCHED;
-    int_config.int_conf.int_od = BMA5_INT2_OD_PUSH_PULL;
-    int_config.int_conf.int_lvl = BMA5_INT2_LVL_ACTIVE_HIGH;
+    int_config.int_conf.int_mode = BMA5_INT1_MODE_LATCHED;
+    int_config.int_conf.int_od = BMA5_INT1_OD_PUSH_PULL;
+    int_config.int_conf.int_lvl = BMA5_INT1_LVL_ACTIVE_HIGH;
 
     rslt = bma5_set_int_conf(&int_config, n_ints, dev);
     bma5_check_rslt("bma5_set_int_conf", rslt);
@@ -284,7 +284,7 @@ int BMA580::init(int odr) {
 
     /* Set FIFO full interrupt to INT2 */
     //int_map.fifo_full_int_map = BMA580_FIFO_FULL_INT_MAP_INT2;
-	int_map.fifo_wm_int_map = BMA580_FIFO_WM_INT_MAP_INT2;
+	int_map.fifo_wm_int_map = BMA580_FIFO_WM_INT_MAP_INT1;
     rslt = bma580_set_int_map(&int_map, &dev);
     bma5_check_rslt("bma580_set_int_map", rslt);
 
@@ -341,7 +341,7 @@ int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
 
     fifoframe.fifo_avail_frames = 0;
 
-    int_status.int_src = BMA580_INT_STATUS_INT2;
+    int_status.int_src = BMA580_INT_STATUS_INT1;
 
     /* Get fifo full interrupt 2 status */
     rslt = bma580_get_int_status(&int_status, n_status, &dev);
