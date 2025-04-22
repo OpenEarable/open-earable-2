@@ -8,6 +8,8 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
 
+#include "ADAU1860.h"
+
 //#include <data_fifo.h>
 
 #ifdef __cplusplus
@@ -61,6 +63,8 @@ void Microphone::start(int sample_rate_idx) {
 	record_to_sd(true);
 
 	audio_datapath_start(&fifo_rx);
+
+	dac.mute(true);
 
 	_running = true;
 }

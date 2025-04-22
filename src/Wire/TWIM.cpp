@@ -10,7 +10,6 @@ void TWIM::begin() {
 	int ret;
 
 	if (_active) return;
-
 	_active = true;
 
 	k_mutex_init(&mutex);

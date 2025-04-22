@@ -54,14 +54,14 @@ int main(void) {
 
 	streamctrl_start();
 
-        uint32_t sirk = uicr_sirk_get();
+	uint32_t sirk = uicr_sirk_get();
 
 	if (sirk == 0xFFFFFFFFU) {
-                state_indicator.set_pairing_state(SET_PAIRING);
-        } else if (bonded_device_count > 0 && !oe_boot_state.timer_reset) {
-                state_indicator.set_pairing_state(PAIRED);
+		state_indicator.set_pairing_state(SET_PAIRING);
+	} else if (bonded_device_count > 0 && !oe_boot_state.timer_reset) {
+		state_indicator.set_pairing_state(PAIRED);
 	} else {
-                state_indicator.set_pairing_state(BONDING);
+		state_indicator.set_pairing_state(BONDING);
 	}
 
 	init_sensor_manager();
@@ -69,14 +69,14 @@ int main(void) {
 	//sensor_config imu = {ID_IMU, 80, 0};
 	//sensor_config imu = {ID_PPG, 400, 0};
 	//sensor_config temp = {ID_OPTTEMP, 10, 0};
-        // sensor_config temp = {ID_BONE_CONDUCTION, 100, 0};
+	// sensor_config temp = {ID_BONE_CONDUCTION, 100, 0};
 
 	//config_sensor(&temp);
 
 	//sensor_config ppg = {ID_PPG, 400, 0};
 	//config_sensor(&ppg);
 
-        ret = init_led_service();
+    ret = init_led_service();
 	ERR_CHK(ret);
 
 	ret = init_battery_service();

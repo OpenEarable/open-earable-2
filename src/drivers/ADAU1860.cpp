@@ -6,11 +6,6 @@
 #include <math.h>
 LOG_MODULE_REGISTER(ADAU1860, 3);
 
-/*
-extern uint32_t eq_program[];
-extern uint32_t eq_param_bank0[];
-extern uint32_t eq_param_bank1[];*/
-
 #include "Lark-eq.c"
 #include "Lark-fdsp.c"
 
@@ -43,6 +38,14 @@ int ADAU1860::begin() {
         int ret;
 
         ret = pm_device_runtime_get(ls_1_8);
+        if (ret != 0) {
+                LOG_ERR("Failed to get power domain 1.8V");
+                return ret;
+        }
+
+        _i2c->begin();
+
+        //k_msleep(1);
 
         // pull-up PD pin
         ret = gpio_pin_configure_dt(&dac_enable_pin, GPIO_OUTPUT_ACTIVE);
@@ -50,8 +53,6 @@ int ADAU1860::begin() {
                 LOG_ERR("Failed to set DAC enable as output.\n");
                 return ret;
         }
-
-        _i2c->begin();
 
         //k_msleep(1);
 
@@ -449,7 +450,7 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
         // Adresse senden und Daten lesen
         ret = i2c_transfer(_i2c->master, msg, 2, address);
         if (ret) {
-                LOG_WRN("I2C read failed: %d\n", ret);
+                LOG_WRN("I2C read failed: %d", ret);
         }
         _i2c->release();
 
