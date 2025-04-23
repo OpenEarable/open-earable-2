@@ -375,13 +375,14 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         write_command(0x3672);
         k_msleep(100);
         
+        // full access
         full_access();
 
         enter_config_update();
         //k_usleep(1000);
 
-        //hibernate off?
-        //write_RAM(0x9220, 0);
+        //hibernate off (not supported by fuel gauge)
+        //ret = write_RAM(0x9220, 0);
 
         // design and full charge capacity
         ret = write_RAM(0x929F, _battery_settings.capacity);
@@ -441,11 +442,17 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         // charge voltage
         ret = write_RAM(0x91FD, _battery_settings.u_term * 1000);
 
-        // 0x9240 
+        // sysDown set Volate
         ret = write_RAM(0x9240, _battery_settings.u_vlo * 1000 + 50);
 
-        // sysDown set Volate
+        // sysDown clear Volate
         ret = write_RAM(0x9243, _battery_settings.u_vlo * 1000 + 150);
+
+        // FD set
+        ret = write_RAM(0x9282, _battery_settings.u_vlo * 1000 + 100);
+
+        // FD clear
+        ret = write_RAM(0x9284, _battery_settings.u_vlo * 1000 + 150); 
 
         // FC Voltage
         ret = write_RAM(0x9288, _battery_settings.u_term * 1000 - 10);
@@ -476,7 +483,11 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         ret = write_RAM(0x9264, _battery_settings.i_max);
 
         // CEDV Smoothing Config
-        ret = write_RAM(0x9272, 0x0C); //Default: 0x08, Enable SMEXT, SMEN 0x0D
+        //ret = write_RAM(0x9272, 0x0C);
+        uint8_t cedv_conf = 0x0C; //Default: 0x08, Enable SMEXT, SMEN 0x0D
+        ret = write_RAM(0x9271, &cedv_conf, sizeof(cedv_conf));
+
+        ret = write_RAM(0x9272, 3700);
 
         exit_config_update(init);
 
