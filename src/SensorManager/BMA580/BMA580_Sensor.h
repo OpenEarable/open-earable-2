@@ -148,7 +148,7 @@ bool bma5_check_rslt(const char api_name[], int8_t rslt);
 
 class BMA580 {
 public:
-    int init(int odr = BMA5_ACC_ODR_HZ_100);
+    int init(int odr = BMA5_ACC_ODR_HZ_100, int fifo_watermark_level = WATERMARK_LEVEL);
     int start();
     int stop();
     int read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data);

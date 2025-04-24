@@ -90,6 +90,8 @@ class MAXM86161 {
 
     int read_interrupt_state(int &value);
 
+    int set_watermark(int level);
+
 private:
     TWIM * _i2c = &I2C2;
 

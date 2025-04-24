@@ -64,8 +64,6 @@ void Microphone::start(int sample_rate_idx) {
 
 	audio_datapath_start(&fifo_rx);
 
-	dac.mute(true);
-
 	_running = true;
 }
 

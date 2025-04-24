@@ -136,7 +136,7 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
             bma5->bus_write = bma5_i2c_write;
             bma5->intf = BMA5_I2C_INTF;
 
-            dev_info.i2c_dev->begin(); //I2C_SPEED_FAST_PLUS
+            dev_info.i2c_dev->begin();
         }
 
         /* Holds the I2C device addr or SPI chip selection */
@@ -255,7 +255,7 @@ int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_conf, struct bma5
     return rslt;
 }
 
-int BMA580::init(int odr) {
+int BMA580::init(int odr, int fifo_watermark_level) {
     int8_t rslt;
     struct bma580_int_map int_map, get_int_map;
     //struct bma5_fifo_conf fifo_conf;
@@ -285,6 +285,7 @@ int BMA580::init(int odr) {
     /* Set FIFO full interrupt to INT2 */
     //int_map.fifo_full_int_map = BMA580_FIFO_FULL_INT_MAP_INT2;
 	int_map.fifo_wm_int_map = BMA580_FIFO_WM_INT_MAP_INT1;
+
     rslt = bma580_set_int_map(&int_map, &dev);
     bma5_check_rslt("bma580_set_int_map", rslt);
 

@@ -74,11 +74,11 @@ int MAXM86161::init(enum sample_rate sample_rate)
     // Set FIFO full to 15 empty spaces left
     _write_to_reg(REG_FIFO_CONFIG1, 0xF);
 
-    // Enable FIFO rollover when full
-    _write_to_reg(REG_FIFO_CONFIG2, 0b00001110);
+    // Enable FIFO rollover when full (A_FULL_TYPE = 0)
+    _write_to_reg(REG_FIFO_CONFIG2, 0b00001010);
 
     // Enable interrupt when new sample detected
-    _write_to_reg(REG_IRQ_ENABLE1, 0b01000000);
+    _write_to_reg(REG_IRQ_ENABLE1, 0b11000000); // Data ready and FIFO full
 
     // Set LED exposure to timeslots
     _write_to_reg(REG_LED_SEQ1, 0x12);
@@ -160,7 +160,6 @@ int MAXM86161::read(ppg_sample * buffer) {
         }
     }
     
-    //_clear_interrupt();
     return output_idx+1;
 }
 
@@ -432,6 +431,14 @@ int MAXM86161::_clear_interrupt(void)
 int MAXM86161::read_interrupt_state(int &value)
 {
     int status;
+    status = _read_from_reg(REG_IRQ_STATUS2, value);
     status = _read_from_reg(REG_IRQ_STATUS1, value);
+    return status;
+}
+
+int MAXM86161::set_watermark(int level)
+{
+    int status;
+    status = _write_to_reg(REG_FIFO_CONFIG1, level);
     return status;
 }

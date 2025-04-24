@@ -8,6 +8,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(MAXM86161);
 
+#define LATENCY_MS 40
+
 PPG PPG::sensor;
 
 MAXM86161 PPG::ppg(&I2C2);
@@ -70,7 +72,13 @@ void PPG::reset() {
 void PPG::update_sensor(struct k_work *work) {
     int int_status;
     int status = ppg.read_interrupt_state(int_status);
-    if((status == 0) && (int_status & MAXM86161_INT_DATA_RDY)) {
+    
+    if (status != 0) {
+        LOG_ERR("PPG read interrupt state failed: %d", status);
+        return;
+    }
+    
+    if((status == 0) && ((int_status & MAXM86161_INT_FULL))) { // MAXM86161_INT_DATA_RDY
         int num_samples = ppg.read(sensor.data_buffer);
 
         uint64_t time_stamp = micros();
@@ -92,7 +100,6 @@ void PPG::update_sensor(struct k_work *work) {
 
             int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
             if (ret == -EAGAIN) {
-                //LOG_WRN("sensor msg queue full");
                 LOG_WRN("sensor msg queue full");
             }
         }
@@ -114,6 +121,7 @@ void PPG::start(int sample_rate_idx) {
     k_timeout_t t = K_USEC(t_sample_us);
     
     ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
+    ppg.set_watermark(MIN(FIFO_SIZE - LED_NUM * MIN(1, (int) (LATENCY_MS * 1e3 / t_sample_us)), 0xF));
     ppg.start();
 
     _running = true;
