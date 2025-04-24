@@ -121,7 +121,7 @@ void PPG::start(int sample_rate_idx) {
     k_timeout_t t = K_USEC(t_sample_us);
     
     ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
-    ppg.set_watermark(MIN(FIFO_SIZE - LED_NUM * MIN(1, (int) (LATENCY_MS * 1e3 / t_sample_us)), 0xF));
+    ppg.set_watermark(MAX(FIFO_SIZE - LED_NUM * MAX(1, (int) (LATENCY_MS * 1e3 / t_sample_us)), 0xF));
     ppg.start();
 
     _running = true;

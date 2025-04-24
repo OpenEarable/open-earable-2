@@ -8,7 +8,7 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(BMA580);
 
-#define LATENCY_MS 20
+#define LATENCY_MS 40
 
 BoneConduction BoneConduction::sensor;
 
@@ -87,7 +87,7 @@ void BoneConduction::start(int sample_rate_idx) {
 
     int word_size = 3 * sizeof(int16_t) + 1;
 
-    int fifo_watermark_level = MIN(BMA5_FIFO_SIZE_MAX_512_BYTES - word_size * MIN(1, (int) (LATENCY_MS * 1e3 / t_sample_us)), 0xF);
+    int fifo_watermark_level = MIN(word_size * MAX(1, (int) (LATENCY_MS * 1e3 / t_sample_us)), 512 - word_size);
     
     bma580.init(sample_rates.reg_vals[sample_rate_idx], fifo_watermark_level);
     bma580.start();
