@@ -8,8 +8,6 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(BMA580);
 
-#define LATENCY_MS 40
-
 BoneConduction BoneConduction::sensor;
 
 static struct sensor_msg msg_bc;
@@ -50,7 +48,18 @@ void BoneConduction::reset() {
 }
 
 void BoneConduction::update_sensor(struct k_work *work) {
+
+    BoneConduction::sensor._sample_count++;
+
+    if (BoneConduction::sensor._sample_count < BoneConduction::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
+        return;
+    }
+
     int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
+
+    if (num_samples >= 0) {
+        BoneConduction::sensor._sample_count = MAX(0, BoneConduction::sensor._num_samples_buffered - num_samples);
+    }
 
     uint64_t time_stamp = micros();
 
@@ -86,15 +95,15 @@ void BoneConduction::start(int sample_rate_idx) {
     k_timeout_t t = K_USEC(t_sample_us);
 
     int word_size = 3 * sizeof(int16_t) + 1;
-
-    int fifo_watermark_level = MIN(word_size * MAX(1, (int) (LATENCY_MS * 1e3 / t_sample_us)), 512 - word_size);
+    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)), 512 / word_size - 2); // Buffer size is 512 bytes
     
-    bma580.init(sample_rates.reg_vals[sample_rate_idx], fifo_watermark_level);
+    bma580.init(sample_rates.reg_vals[sample_rate_idx], _num_samples_buffered * word_size);
     bma580.start();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 
     _running = true;
+    _sample_count = 0;
 }
 
 void BoneConduction::stop() {

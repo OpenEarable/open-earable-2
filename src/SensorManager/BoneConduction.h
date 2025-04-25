@@ -42,6 +42,9 @@ private:
     bool _active = false;
 
     float t_sample_us;
+
+    int _num_samples_buffered;
+    int _sample_count = 0;
 };
 
 #endif

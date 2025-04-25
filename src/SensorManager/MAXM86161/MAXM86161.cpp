@@ -153,6 +153,8 @@ int MAXM86161::read(ppg_sample * buffer) {
             uint8_t tag = val >> 19;
             val = val & ((1 << 19) - 1);
 
+            //LOG_INF("tag: %i, val: %i", tag, val);
+
             if (tag == 1) output_idx++;
             if (tag > 6 || output_idx < 0) continue;
 

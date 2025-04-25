@@ -64,4 +64,26 @@ config SENSOR_GATT_SUB_QUEUE_SIZE
 
 endmenu # Zbus
 
+#-----------------------------------------------------------------------------#
+menu "Buffer management"
+
+config SENSOR_CLOCK_ACCURACY
+	int "Clock accuracy"
+	default 5
+	help
+	  This is the clock accuracy in percent. The default value is 5 percent.
+	  This value is used to calculate the time difference between the
+	  sensor and the system clock. The value is used to calculate the
+	  time difference between the sensor and the system clock.
+
+config SENSOR_LATENCY_MS
+	int "Latency"
+	default 40
+	help
+	  This is the latency in milliseconds. The default value is 40 ms.
+	  This value is used to calaculate the buffer size of the sensors
+	  that use an internal buffer.
+
+endmenu # Buffer management
+
 endmenu # Modules
