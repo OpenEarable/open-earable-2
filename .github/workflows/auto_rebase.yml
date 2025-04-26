@@ -1,4 +1,9 @@
-name: Auto Rebase flex-pcb-fix on main update
+name: Auto Rebase PR flex-pcb-fix on main changes
+
+# Fügen Sie diese Zeilen am Anfang hinzu
+permissions:
+  contents: write
+  pull-requests: write
 
 on:
   push:
