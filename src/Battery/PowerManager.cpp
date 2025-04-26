@@ -111,6 +111,10 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
     power_manager.get_battery_status(status);
 
+    // full discharge
+    //if (bat.FD) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
+    if (bat.SYSDWN) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
+
     if (bat.CHGINH) {
         power_manager.charging_disabled = true;
         battery_controller.disable_charge();
@@ -330,9 +334,12 @@ bool PowerManager::check_battery() {
             battery_controller.enable_charge();
         }
     } else {
-        gauge_status gs = fuel_gauge.gauging_state();
+        bat_status bs =  fuel_gauge.battery_status();
 
-        if (gs.edv1) return false; // critical battery state
+        if (bs.FD) return false;
+
+        //gauge_status gs = fuel_gauge.gauging_state();
+        //if (gs.edv1) return false; // critical battery state
     }
 
     return true;
