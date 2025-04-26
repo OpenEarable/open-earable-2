@@ -7,6 +7,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/shell/shell.h>
+#include <zephyr/shell/shell_uart.h>
 
 //#include "../src/modules/sd_card.h"
 

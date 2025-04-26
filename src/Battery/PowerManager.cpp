@@ -4,6 +4,7 @@
 
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/reboot.h>
+#include <zephyr/shell/shell.h>
 
 #include <zephyr/pm/pm.h>
 #include <zephyr/pm/state.h>
@@ -557,5 +558,72 @@ void PowerManager::charge_task() {
 
     last_charging_state = charging_state;
 }
+
+int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **argv) {
+    ARG_UNUSED(argc);
+    ARG_UNUSED(argv);
+
+    fuel_gauge.setup(power_manager._battery_settings);
+
+    power_manager.reboot();
+
+    return 0;
+}
+
+static int cmd_battery_info(const struct shell *shell, size_t argc, const char **argv) {
+    ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+    shell_print(shell, "------------------ Battery Info ------------------");
+    // Battery fuel gauge status
+    bat_status status = fuel_gauge.battery_status();
+    shell_print(shell, "Battery Status:");
+    shell_print(shell, "  Present: %i, Full Charge: %i, Full Discharge: %i", 
+            status.BATTPRES, status.FC, status.FD);
+
+    // Basic measurements
+    shell_print(shell, "Basic Measurements:");
+    shell_print(shell, "  Voltage: %.3f V", fuel_gauge.voltage());
+    shell_print(shell, "  Temperature: %.1f °C", fuel_gauge.temperature());
+    shell_print(shell, "  Current: %.1f mA (avg: %.1f mA)", 
+            fuel_gauge.current(), fuel_gauge.average_current());
+    shell_print(shell, "  State of Charge: %.1f%%", fuel_gauge.state_of_charge());
+
+    // Capacity info
+    shell_print(shell, "Capacity Information:");
+    shell_print(shell, "  Design Capacity: %.1f mAh", fuel_gauge.design_cap());
+    shell_print(shell, "  Full Charge Capacity: %.1f mAh", fuel_gauge.capacity());
+    shell_print(shell, "  Remaining Capacity: %.1f mAh", fuel_gauge.remaining_cap());
+    
+    // Time estimates
+    float ttf = fuel_gauge.time_to_full();
+    float tte = fuel_gauge.time_to_empty();
+    shell_print(shell, "Time Estimates:");
+    shell_print(shell, "  Time to Full: %ih %02dmin", (int)ttf / 60, (int)ttf % 60);
+    shell_print(shell, "  Time to Empty: %ih %02dmin", (int)tte / 60, (int)tte % 60);
+
+    // Battery controller status
+    battery_controller.exit_high_impedance();
+    
+    shell_print(shell, "Charging Information:");
+    uint16_t charging_state = battery_controller.read_charging_state() >> 6;
+    shell_print(shell, "  Charging State: %i", charging_state);
+    shell_print(shell, "  Power Good: %i", battery_controller.power_connected());
+    
+    struct chrg_state charge_ctrl = battery_controller.read_charging_control();
+    shell_print(shell, "  Charge Control: enabled=%i, current=%.1f mA", 
+            charge_ctrl.enabled, charge_ctrl.mAh);
+
+    battery_controller.enter_high_impedance();
+
+    return 0;
+}
+
+SHELL_STATIC_SUBCMD_SET_CREATE(battery_cmd,
+    SHELL_COND_CMD(CONFIG_SHELL, info, NULL, "Print battery info", cmd_battery_info),
+    SHELL_COND_CMD(CONFIG_SHELL, setup, NULL, "Setup fuel gauge", cmd_setup_fuel_gauge),
+    SHELL_SUBCMD_SET_END);
+
+SHELL_CMD_REGISTER(power_manager, &battery_cmd, "Power Manager Commands", NULL);
 
 PowerManager power_manager;

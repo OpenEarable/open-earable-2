@@ -72,6 +72,8 @@ private:
     };
 
     const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
+
+    friend int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **argv);
 };
 
 extern PowerManager power_manager;
