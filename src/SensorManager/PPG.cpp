@@ -71,15 +71,25 @@ void PPG::reset() {
 
 void PPG::update_sensor(struct k_work *work) {
     int int_status;
-    int status = ppg.read_interrupt_state(int_status);
+    int status;
+
+    PPG::sensor._sample_count++;
+
+    if (PPG::sensor._sample_count < PPG::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
+        return;
+    }
+    
+    status = ppg.read_interrupt_state(int_status);
     
     if (status != 0) {
         LOG_ERR("PPG read interrupt state failed: %d", status);
         return;
     }
     
-    if((status == 0) && ((int_status & MAXM86161_INT_FULL))) { // MAXM86161_INT_DATA_RDY
+    if(int_status & MAXM86161_INT_FULL) { // MAXM86161_INT_DATA_RDY
         int num_samples = ppg.read(sensor.data_buffer);
+
+        PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
 
         uint64_t time_stamp = micros();
 
@@ -99,7 +109,7 @@ void PPG::update_sensor(struct k_work *work) {
             memcpy(msg_ppg.data.data + 3 * size, &sensor.data_buffer[i][ambient], size);
 
             int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
-            if (ret == -EAGAIN) {
+            if (ret) {
                 LOG_WRN("sensor msg queue full");
             }
         }
@@ -119,12 +129,16 @@ void PPG::start(int sample_rate_idx) {
     t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
 
     k_timeout_t t = K_USEC(t_sample_us);
+
+    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)), FIFO_SIZE / LED_NUM - 2);
     
     ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
-    ppg.set_watermark(MAX(FIFO_SIZE - LED_NUM * MAX(1, (int) (LATENCY_MS * 1e3 / t_sample_us)), 0xF));
+    ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * LED_NUM);
     ppg.start();
 
     _running = true;
+
+    _sample_count = 0;
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }

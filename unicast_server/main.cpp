@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/usb/usb_device.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
 
@@ -53,6 +54,17 @@ int main(void) {
 
 	ret = power_manager.begin();
 	ERR_CHK(ret);
+
+	/*sdcard_manager.init();
+
+	sdcard_manager.mount();
+
+	ret = usb_enable(NULL);
+
+	if (ret != 0) {
+		LOG_ERR("Failed to enable USB");
+		return 0;
+	}*/
 
 	streamctrl_start();
 

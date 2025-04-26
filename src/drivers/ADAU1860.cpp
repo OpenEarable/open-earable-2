@@ -104,14 +104,14 @@ int ADAU1860::begin() {
         // verify power up complete
         uint8_t status2;
         readReg(registers::STATUS2, &status2, sizeof(status2));
-        LOG_INF("STATUS2: 0x%x", status2);
+        LOG_DBG("STATUS2: 0x%x", status2);
 
         if (!(status2 & (1 << 7))) LOG_WRN("No power up");
         if (!(status2 & (1 << 1))) LOG_WRN("FM not ready");
 
         while (!(status2 & (1 << 7)) || !(status2 & (1 << 1))) {
                 readReg(registers::STATUS2, &status2, sizeof(status2));
-                LOG_INF("STATUS2: 0x%x", status2);
+                LOG_DBG("STATUS2: 0x%x", status2);
 
                 // power up complete and PLL lock
                 if (!(status2 & (1 << 7))) LOG_WRN("No power up");

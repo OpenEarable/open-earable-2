@@ -59,6 +59,15 @@ int BQ25120a::begin() {
         return 0;
 }
 
+int BQ25120a::reset() {
+        uint8_t val = 0x80;
+        writeReg(registers::ILIM_UVLO, &val, sizeof(val));
+
+        k_usleep(1000); //TODO: check value
+
+        return 0;
+}
+
 int BQ25120a::set_wakeup_int() {
         int ret;
 
@@ -132,6 +141,7 @@ void BQ25120a::setup(const battery_settings &_battery_settings) {
 
         exit_high_impedance();
 
+        //reset();
         setup_ts_control();
         write_battery_voltage_control(_battery_settings.u_term);
         write_charging_control(_battery_settings.i_charge);
@@ -197,7 +207,7 @@ chrg_state BQ25120a::read_charging_control() {
 }
 
 
-uint16_t BQ25120a::write_charging_control(float mA) {
+uint8_t BQ25120a::write_charging_control(float mA) {
         uint8_t status = 0;
         bool ret = readReg(registers::CHARGE_CTRL, &status, sizeof(status));
 
@@ -218,7 +228,7 @@ uint16_t BQ25120a::write_charging_control(float mA) {
 }
 
 
-uint16_t BQ25120a::write_LS_control(bool enable) {
+uint8_t BQ25120a::write_LS_control(bool enable) {
         uint8_t status = 0;
 
         readReg(registers::LS_LDO_CTRL, &status, sizeof(status));
@@ -233,7 +243,7 @@ uint16_t BQ25120a::write_LS_control(bool enable) {
         return status;
 }
 
-uint16_t BQ25120a::write_LDO_voltage_control(float volt) {
+uint8_t BQ25120a::write_LDO_voltage_control(float volt) {
         uint8_t status = 0;
 
         if (volt > 10) volt /= 1000;
@@ -244,7 +254,7 @@ uint16_t BQ25120a::write_LDO_voltage_control(float volt) {
 
         //status |= (((uint16_t)((volt - 0.8) * 10)) & 0x1F) << 2;
         status &= 1 << 7;
-        status |= ((uint16_t)((volt - 0.8f) * 10 + EPS)) << 2;
+        status |= ((uint8_t)((volt - 0.8f) * 10 + EPS)) << 2;
         //status |= 1 << 7;
 
         writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));
@@ -271,7 +281,7 @@ float BQ25120a::read_battery_voltage_control() {
 }
 
 
-uint16_t BQ25120a::write_battery_voltage_control(float volt) {
+uint8_t BQ25120a::write_battery_voltage_control(float volt) {
         uint8_t status = 0;
 
         if (volt > 10) volt /= 1000;
@@ -312,7 +322,7 @@ chrg_state BQ25120a::read_termination_control() {
         return chrg;
 }
 
-uint16_t BQ25120a::write_termination_control(float mA) {
+uint8_t BQ25120a::write_termination_control(float mA) {
         uint8_t status = 0;
 
         bool ret = readReg(registers::TERM_CTRL, &status, sizeof(status));
@@ -349,7 +359,7 @@ ilim_uvlo BQ25120a::read_uvlo_ilim() {
         return param;
 }
 
-uint16_t BQ25120a::write_uvlo_ilim(ilim_uvlo param) {
+uint8_t BQ25120a::write_uvlo_ilim(ilim_uvlo param) {
         float mA = CLAMP(param.lim_mA, 50, 400);
         float v = CLAMP(param.uvlo_v, 2.2, 3.0);
 
@@ -364,13 +374,13 @@ uint16_t BQ25120a::write_uvlo_ilim(ilim_uvlo param) {
 }
 
 void BQ25120a::setup_ts_control() {
-        uint16_t ts_fault = 0;
+        uint8_t ts_fault = 0;
 
         writeReg(registers::TS_FAULT, (uint8_t *) &ts_fault, sizeof(ts_fault));
 }
 
 void BQ25120a::disable_ts() {
-        uint16_t ts_fault = read_ts_fault();
+        uint8_t ts_fault = read_ts_fault();
 
         ts_fault &= ~(1 << 7);
 

@@ -260,7 +260,6 @@ void DFRobot_BMX160::writeBmxReg(uint8_t reg, uint8_t value)
 
 void DFRobot_BMX160::writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
-
    _i2c->aquire();
 
     int ret = i2c_burst_write(_i2c->master, _addr, reg, pBuf, len);
