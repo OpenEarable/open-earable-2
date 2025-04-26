@@ -86,7 +86,7 @@ void PPG::update_sensor(struct k_work *work) {
         return;
     }
     
-    if((status == 0) && ((int_status & MAXM86161_INT_FULL))) { // MAXM86161_INT_DATA_RDY
+    if(int_status & MAXM86161_INT_FULL) { // MAXM86161_INT_DATA_RDY
         int num_samples = ppg.read(sensor.data_buffer);
 
         PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
