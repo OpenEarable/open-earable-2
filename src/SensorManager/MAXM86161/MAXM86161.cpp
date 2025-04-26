@@ -141,7 +141,7 @@ int MAXM86161::read(ppg_sample * buffer) {
 
     status = _read_from_reg(REG_FIFO_DATA_COUNTER, num_samples);
     if (status == 0){
-        number_of_bytes = num_samples * BYTES_PER_CH;
+        number_of_bytes = num_samples / LED_NUM * LED_NUM * BYTES_PER_CH;
         
         status = _read_block(REG_FIFO_DATA, number_of_bytes, (uint8_t *) databuffer);
 

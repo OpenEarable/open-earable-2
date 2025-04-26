@@ -50,6 +50,8 @@ public:
     int begin();
     int set_wakeup_int();
 
+    int reset();
+
     void setup_ts_control();
 
     void setup(const battery_settings &_battery_settings);
@@ -64,17 +66,17 @@ public:
     uint8_t read_fault();
     uint8_t read_ts_fault();
     chrg_state read_charging_control();
-    uint16_t write_charging_control(float mA);
+    uint8_t write_charging_control(float mA);
     float read_battery_voltage_control();
-    uint16_t write_battery_voltage_control(float volt);
+    uint8_t write_battery_voltage_control(float volt);
     struct chrg_state read_termination_control();
-    uint16_t write_termination_control(float mA);
+    uint8_t write_termination_control(float mA);
     ilim_uvlo read_uvlo_ilim();
-    uint16_t write_uvlo_ilim(ilim_uvlo param);
+    uint8_t write_uvlo_ilim(ilim_uvlo param);
     void disable_ts();
-    uint16_t write_LDO_voltage_control(float volt);
+    uint8_t write_LDO_voltage_control(float volt);
     float read_ldo_voltage();
-    uint16_t write_LS_control(bool enable);
+    uint8_t write_LS_control(bool enable);
 
     button_state read_button_state();
 
