@@ -46,7 +46,7 @@ static K_SEM_DEFINE(sem_encoder_start, 0, 1);
 static struct k_thread encoder_thread_data;
 static k_tid_t encoder_thread_id;
 
-static struct k_poll_signal encoder_sig;
+struct k_poll_signal encoder_sig;
 
 static struct k_poll_event encoder_evt =
 	K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &encoder_sig);
@@ -198,6 +198,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 void audio_system_encoder_start(void)
 {
 	LOG_DBG("Encoder started");
+	k_msgq_purge(&encoder_queue);
 	k_poll_signal_raise(&encoder_sig, 0);
 	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		pdm_mic_start();

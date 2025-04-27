@@ -184,6 +184,8 @@ static k_tid_t data_thread_id;
 
 bool _record_to_sd = false;
 
+extern struct k_poll_signal encoder_sig;
+
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
 {
@@ -231,31 +233,15 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 			}
         }
 
-		ret = k_msgq_put(&encoder_queue, &audio_item, K_NO_WAIT);
-        if (ret == -EAGAIN) {
-            LOG_WRN("sensor msg queue full");
-        }
+		unsigned int signaled;
+		k_poll_signal_check(&encoder_sig, &signaled, &ret);
 
-		/*if (_record_to_sd) {
-			struct sensor_msg audio_msg;
-
-			audio_msg.sd = true;
-			audio_msg.stream = false;
-
-			audio_msg.data.id = ID_MICRO;
-			audio_msg.data.size = SENQUEUE_FRAME_SIZE;
-
-			for (int i = 0; i < FRAME_SIZE_BYTES / SENQUEUE_FRAME_SIZE; i++) {
-				audio_msg.data.time = time_stamp - (FRAME_SIZE_BYTES - i * SENQUEUE_FRAME_SIZE) / sizeof(uint32_t) * 1e6 / 48000;
-
-				memcpy(audio_msg.data.data, audio_item.data + i * SENQUEUE_FRAME_SIZE, SENQUEUE_FRAME_SIZE);
-
-				ret = k_msgq_put(sensor_queue, &audio_msg, K_FOREVER);
-				if (ret == -EAGAIN) {
-					LOG_WRN("sensor msg queue full");
-				}
+		if (ret == 0 && signaled != 0) {
+			ret = k_msgq_put(&encoder_queue, &audio_item, K_NO_WAIT);
+			if (ret) {
+				LOG_WRN("encoder queue full");
 			}
-		}*/
+		}
     }
 }
 
