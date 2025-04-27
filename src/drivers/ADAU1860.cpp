@@ -134,7 +134,7 @@ int ADAU1860::begin() {
         //uint8_t asrci_route01 = 0x0; // ASRCI0_EN 
         //writeReg(registers::ASRCI_ROUTE01, &asrci_route01, sizeof(asrci_route01));
 
-        if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
+        if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) && (CONFIG_AUDIO_DEV == HEADSET)) {
                 // I2S_IN enable | I2S_OUT enable | MIC enable
                 uint8_t sai_clk_pwr = 0x01 | (1 << 1) | (1 << 4);
                 writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
@@ -147,11 +147,11 @@ int ADAU1860::begin() {
                 writeReg(registers::DMIC_PWR, &dmic_pwr, sizeof(dmic_pwr));
 
                 // SPT0_ROUTE0 - i2s output route
-                /*uint8_t spt0_route0 = 39; // DMIC Channel 0
-                writeReg(registers::SPT0_ROUTE0, &spt0_route0, sizeof(spt0_route0));
+                // uint8_t spt0_route0 = 39; // DMIC Channel 0
+                // writeReg(registers::SPT0_ROUTE0, &spt0_route0, sizeof(spt0_route0));
 
-                uint8_t spt0_route1 = 40; // DMIC Channel 1
-                writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));*/
+                // uint8_t spt0_route1 = 40; // DMIC Channel 1
+                // writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));
 
                 uint8_t ascro0_route = 35; // DMIC Channel 0
                 writeReg(registers::ASRCO_ROUTE0, &ascro0_route, sizeof(ascro0_route));
@@ -176,12 +176,12 @@ int ADAU1860::begin() {
                 uint8_t dmic_ctrl2 = 0x02; // 48kHz
                 writeReg(registers::DMIC_CTRL2, &dmic_ctrl2, sizeof(dmic_ctrl2));
         } else {
-                uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
-                writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
-
                 // I2S_IN enable
                 uint8_t sai_clk_pwr = 0x01;
                 writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
+
+                uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
+                writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
         }
 
         uint8_t dac_route = DAC_ROUTE_I2S;
