@@ -57,14 +57,13 @@ int main(void) {
 
 	/*sdcard_manager.init();
 
-	sdcard_manager.mount();
+	sdcard_manager.mount();*/
 
 	ret = usb_enable(NULL);
-
 	if (ret != 0) {
 		LOG_ERR("Failed to enable USB");
 		return 0;
-	}*/
+	}
 
 	streamctrl_start();
 

@@ -149,7 +149,7 @@ bool MLX90632::begin(uint8_t deviceAddress, TWIM &i2c, status &returnError)
   readRegister16(EE_Hb, (uint16_t&)tempValue16);
   Hb = (double)tempValue16 * pow(2, -14);
 
-  LOG_INF("MLX90632 online");
+  LOG_DBG("MLX90632 online");
 
   //Note, sensor is in sleep mode
 
@@ -183,7 +183,6 @@ float MLX90632::getObjectTemp(status& returnError)
   /*uint16_t counter = 0;
   while (dataAvailable() == false)
   {
-    LOG_INF("wait for new data");
     k_msleep(1);
     counter++;
     if (counter == MAX_WAIT)

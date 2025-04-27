@@ -47,7 +47,7 @@ void IMU::update_sensor(struct k_work *work) {
 	memcpy(msg_imu.data.data + 2 * size, &magno_data, size);
 
 	ret = k_msgq_put(sensor_queue, &msg_imu, K_NO_WAIT);
-	if (ret == -EAGAIN) {
+	if (ret) {
 		LOG_WRN("sensor msg queue full");
 	}
 }

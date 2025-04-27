@@ -65,10 +65,6 @@ bool PPG::init(struct k_msgq * queue) {
 	return true;
 }
 
-void PPG::reset() {
-    // Reset pulse oximeter state
-}
-
 void PPG::update_sensor(struct k_work *work) {
     int int_status;
     int status;

@@ -79,7 +79,7 @@ static ssize_t write_config(struct bt_conn *conn,
 			 const void *buf,
 			 uint16_t len, uint16_t offset, uint8_t flags)
 {
-	LOG_INF("Attribute write, handle: %u, conn: %p", attr->handle, (void *)conn);
+	LOG_DBG("Attribute write, handle: %u, conn: %p", attr->handle, (void *)conn);
 
 	if (len != sizeof(struct sensor_config)) {
 		LOG_WRN("Write sensor config: Incorrect data length: Expected %i but got %i", sizeof(struct sensor_config), len);
@@ -162,7 +162,7 @@ void sensor_queue_listener_cb(const struct zbus_channel *chan) {
 	if (msg->stream) {
 		ret = k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
 
-		if (ret == -EAGAIN) {
+		if (ret) {
 			LOG_WRN("ble sensor stream queue full");
 		}
 	}

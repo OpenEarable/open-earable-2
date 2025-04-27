@@ -99,9 +99,11 @@ void init_sensor_manager() {
 void start_sensor_manager() {
 	if (_state == RUNNING) return;
 
+	LOG_DBG("Starting sensor manager");
+
 	//empty message queue
 	k_msgq_purge(&sensor_queue);
-	k_msgq_purge(&config_queue);
+	k_work_queue_unplug(&sensor_work_q);
 
 	ble_sensors.clear();
 	sd_sensors.clear();
@@ -118,6 +120,8 @@ void start_sensor_manager() {
 void stop_sensor_manager() {
 	if (_state != RUNNING) return;
 
+	LOG_DBG("Stopping sensor manager");
+
     Baro::sensor.stop();
 	IMU::sensor.stop();
 	PPG::sensor.stop();
@@ -127,7 +131,7 @@ void stop_sensor_manager() {
 
 	active_sensors = 0;
 
-	//k_work_queue_drain(&sensor_work_q);
+	k_work_queue_drain(&sensor_work_q, true);
 
 	//k_thread_suspend(sensor_pub_id);
 	k_poll_signal_reset(&sensor_manager_sig);
@@ -136,6 +140,8 @@ void stop_sensor_manager() {
 
 	// End SDLogger and close current log file
 	sdlogger.end();
+
+	//k_msgq_purge(&config_queue);
 }
 
 EdgeMlSensor * get_sensor(enum sensor_id id) {
@@ -229,6 +235,11 @@ static void config_work_handler(struct k_work *work) {
 
 void config_sensor(struct sensor_config * config) {
 	int ret = k_msgq_put(&config_queue, config, K_NO_WAIT);
+	if (ret) {
+		LOG_ERR("Failed to put config in queue, ret: %d", ret);
+		return;
+	}
+
 	//k_work_queue_drain(&sensor_work_q, true);
 	k_work_submit(&config_work);
 	//k_work_queue_unplug(&sensor_work_q);

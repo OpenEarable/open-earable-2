@@ -44,6 +44,7 @@ const uint8_t int_mask_lookup_table[13] = {
 bool DFRobot_BMX160::begin()
 {
     _i2c->begin();
+    
     if (scan() == true){
         softReset();
         writeBmxReg(BMX160_COMMAND_REG_ADDR, 0x11);

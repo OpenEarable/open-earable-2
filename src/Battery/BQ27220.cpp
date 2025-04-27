@@ -267,7 +267,7 @@ void BQ27220::enter_config_update() {
     //write_command(0x14); //0x13);
     op_state state = operation_state();
     if (state.CFG_UPDATE) {
-        LOG_WRN("Already in CONFIG UPDATE MODE.\n");
+        LOG_WRN("Already in CONFIG UPDATE MODE.");
         return;
     }
     write_command(CONFIG_UPDATE_ENTER);
@@ -277,7 +277,7 @@ void BQ27220::enter_config_update() {
         k_msleep(100);
     } 
     while (!state.CFG_UPDATE);
-    LOG_INF("CONFIG UPDATE MODE entered.\n");
+    LOG_INF("CONFIG UPDATE MODE entered.");
 
     //if (state.CFG_UPDATE) printk("CONFIG UPDATE MODE entered.\n");
     //else printk("Failed to enter CONFIG UPDATE MODE.\n");
@@ -286,7 +286,7 @@ void BQ27220::enter_config_update() {
 void BQ27220::exit_config_update(bool init) {
     op_state state = operation_state();
     if (!state.CFG_UPDATE) {
-        LOG_WRN("Device is not in CONFIG UPDATE MODE.\n");
+        LOG_WRN("Device is not in CONFIG UPDATE MODE.");
         return;
     }
     if (init) write_command(CONFIG_UPDATE_EXIT);
@@ -296,7 +296,7 @@ void BQ27220::exit_config_update(bool init) {
         state = operation_state();
         k_msleep(100);
     } while (state.CFG_UPDATE);
-    LOG_INF("CONFIG UPDATE MODE exited.\n");
+    LOG_INF("CONFIG UPDATE MODE exited.");
     //if (!state.CFG_UPDATE) printk("CONFIG UPDATE MODE exited.\n");
     //else printk("Failed to exit CONFIG UPDATE MODE.\n");
 }

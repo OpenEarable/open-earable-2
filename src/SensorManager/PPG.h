@@ -27,8 +27,6 @@ public:
     void start(int sample_rate_idx) override;
     void stop() override;
 
-    void reset();
-
     const static SampleRateSetting<16> sample_rates;
 
 private:

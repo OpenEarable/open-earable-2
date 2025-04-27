@@ -127,7 +127,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
 	//ret = k_msgq_put(&battery_queue, &msg, K_NO_WAIT);
     ret = zbus_chan_pub(&battery_chan, &msg, K_FOREVER);
-	if (ret == -EAGAIN) {
+	if (ret) {
 		LOG_WRN("power manager msg queue full");
 	}
 }
