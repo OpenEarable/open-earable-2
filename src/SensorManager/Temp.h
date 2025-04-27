@@ -18,8 +18,6 @@ public:
     void start(int sample_rate_idx) override;
     void stop() override;
 
-    void reset();
-
     const static SampleRateSetting<8> sample_rates;
 private:
     static MLX90632 temp;

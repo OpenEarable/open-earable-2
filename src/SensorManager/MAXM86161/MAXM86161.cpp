@@ -27,6 +27,9 @@ MAXM86161::~MAXM86161(void)
 int MAXM86161::init(enum sample_rate sample_rate)
 {
     int read_value;
+
+    _i2c->begin();
+
     // Use function to do software reset
     _write_to_reg(REG_SYSTEM_CONTROL, 0x09);
 

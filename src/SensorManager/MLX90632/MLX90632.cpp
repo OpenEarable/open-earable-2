@@ -82,9 +82,9 @@ bool MLX90632::begin(uint8_t deviceAddress, TWIM &i2c, status &returnError)
 
   //We require caller to begin their I2C port, with the speed of their choice
   //external to the library
-  //_i2cPort->begin();
-  //We could to a check here to see if user has init the Wire or not. Would
-  //need to be for different platforms
+  _i2c->begin();
+
+  reset();
 
   setMode(MODE_STEP);
 
@@ -171,13 +171,19 @@ float MLX90632::getObjectTemp(status& returnError)
   //If the sensor is not in continuous mode then the tell sensor to take reading
   if(getMode() != MODE_CONTINUOUS) setSOC();
 
-  //Write new_data = 0
-  clearNewData();
+  // do not check blocking!
+  if (dataAvailable() == false)
+  {
+      LOG_WRN("Data available timeout");
+      returnError = SENSOR_TIMEOUT_ERROR;
+      return (0.0); //Error
+  }
 
   //Check when new_data = 1
-  uint16_t counter = 0;
+  /*uint16_t counter = 0;
   while (dataAvailable() == false)
   {
+    LOG_INF("wait for new data");
     k_msleep(1);
     counter++;
     if (counter == MAX_WAIT)
@@ -186,7 +192,10 @@ float MLX90632::getObjectTemp(status& returnError)
       returnError = SENSOR_TIMEOUT_ERROR;
       return (0.0); //Error
     }
-  }
+  }*/
+
+  //Write new_data = 0
+  clearNewData();
 
   gatherSensorTemp(returnError);
   if (returnError != SENSOR_SUCCESS)

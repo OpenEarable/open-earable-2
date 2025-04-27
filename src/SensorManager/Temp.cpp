@@ -48,12 +48,16 @@ bool Temp::init(struct k_msgq * queue) {
 	return true;
 }
 
-void Temp::reset() {
-    // Reset pulse oximeter state
-}
-
 void Temp::update_sensor(struct k_work *work) {
-    float temperature = temp.getObjectTemp();
+    if (!temp.dataAvailable()) return;
+
+    MLX90632::status returnError;
+    float temperature = temp.getObjectTemp(returnError);
+
+    if (returnError != MLX90632::SENSOR_SUCCESS) {
+        LOG_WRN("Error reading temperature");
+        return;
+    }
 
     msg_temp.sd = sensor._sd_logging;
     msg_temp.stream = sensor._ble_stream;
@@ -61,12 +65,11 @@ void Temp::update_sensor(struct k_work *work) {
     msg_temp.data.id = ID_OPTTEMP;
     msg_temp.data.size = sizeof(float);
     msg_temp.data.time = micros();
-    //msg_temp.data.data[0] = temperature;
 
     memcpy(msg_temp.data.data, &temperature, sizeof(float));
 
     int ret = k_msgq_put(sensor_queue, &msg_temp, K_NO_WAIT);
-    if (ret == -EAGAIN) {
+    if (ret) {
         LOG_WRN("sensor msg queue full");
     }
 }
