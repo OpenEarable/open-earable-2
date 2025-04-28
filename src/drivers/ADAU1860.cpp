@@ -96,8 +96,8 @@ int ADAU1860::begin() {
         // uint8_t pll_ctrl = 0x2; // XTAL_EN = 1, PLL_EN = 0
         // writeReg(registers::PLL_PGA_PWR, &pll_ctrl, sizeof(pll_ctrl));
 
-        //uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
-        //writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
+        // uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
+        // writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
 
         //k_msleep(1);
 
@@ -199,6 +199,8 @@ int ADAU1860::begin() {
 
         setup_DAC();
 
+        LOG_DBG("DAC booted successfully");
+
         return 0;
 }
 
@@ -260,10 +262,11 @@ int ADAU1860::setup_EQ() {
                 k_usleep(100);
         }
 
-        // EQ_ROUTE - serial port 0 channel 0
-        uint8_t eq_route = 64; // Serial port 0 channel 0
+        // EQ_ROUTE - ASRCI channel 0
+        uint8_t eq_route = 64; // ASRCI channel 0
         writeReg(registers::EQ_ROUTE, &eq_route, sizeof(eq_route));
 
+        // EQ_ROUTE - serial port 0 channel 0
         // uint8_t eq_cfg = 0x10; // Serial port 0 channel 0
         // writeReg(registers::EQ_CFG, &eq_cfg, sizeof(eq_cfg));
 

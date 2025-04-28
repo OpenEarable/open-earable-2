@@ -418,7 +418,7 @@ private:
     int fdsp_safe_load(sl_address address, safe_load_params params);
     int fdsp_safe_load(sl_address address, int n, uint32_t param);
 
-    const int address = DT_REG_ADDR(DT_NODELABEL(adau1860));
+    const uint16_t address = DT_REG_ADDR(DT_NODELABEL(adau1860));
 
     const struct gpio_dt_spec dac_enable_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(adau1860), enable_gpios);
 
