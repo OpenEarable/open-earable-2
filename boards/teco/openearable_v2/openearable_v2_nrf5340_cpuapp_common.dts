@@ -48,6 +48,12 @@
  &clock {
 	 hfclkaudio-frequency = <12288000>;
  };
+
+ /*
+ &lfxo {
+	load-capacitors = "internal";
+	load-capacitance-picofarad = <8>;
+};*/
  
  &adc {
 	 status = "okay";
@@ -230,6 +236,7 @@
 		 sdmmc {
 			 compatible = "zephyr,sdmmc-disk";
 			 status = "okay";
+			 disk-name = "SD";
 		 };
  
 		 spi-max-frequency = <16000000>;
