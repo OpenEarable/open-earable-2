@@ -145,9 +145,9 @@
 	 pinctrl-0 = <&i2c3_default>;
 	 pinctrl-1 = <&i2c3_sleep>;
 	 pinctrl-names = "default", "sleep";
-	clock-frequency = <I2C_BITRATE_FAST>;  // 1000 kHz
-	zephyr,concat-buf-size = <512>;
-    zephyr,flash-buf-max-size = <512>;
+	 clock-frequency = <I2C_BITRATE_FAST_PLUS>;  // 1000 kHz
+	 zephyr,concat-buf-size = <512>;
+     zephyr,flash-buf-max-size = <512>;
 
 	bmp388: bmp388@76 {
         compatible = "i2c-device";
