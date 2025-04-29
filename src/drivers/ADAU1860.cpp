@@ -264,6 +264,8 @@ int ADAU1860::setup_EQ() {
 
         // EQ_ROUTE - ASRCI channel 0
         uint8_t eq_route = 64; // ASRCI channel 0
+        // EQ_ROUTE - ASRCI channel 0
+        uint8_t eq_route = 64; // ASRCI channel 0
         writeReg(registers::EQ_ROUTE, &eq_route, sizeof(eq_route));
 
         // EQ_ROUTE - serial port 0 channel 0
