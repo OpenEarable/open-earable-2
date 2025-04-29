@@ -3,8 +3,8 @@ sample:
   description: LE Audio and Auracast implementation example
 common:
   integration_platforms:
-    - nrf5340_audio_dk/nrf5340/cpuapp
-  platform_allow: nrf5340_audio_dk/nrf5340/cpuapp
+    - openearable_v2/nrf5340/cpuapp
+  platform_allow: openearable_v2/nrf5340/cpuapp
   sysbuild: true
   build_only: true
   tags: ci_build sysbuild
