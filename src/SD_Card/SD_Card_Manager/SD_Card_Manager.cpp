@@ -10,8 +10,6 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/devicetree.h>
 
-#include <zephyr/sys/reboot.h>
-
 #include "openearable_common.h"
 
 #include "SDLogger.h"
@@ -51,12 +49,6 @@ void SDCardManager::unmount_work_handler(struct k_work *work) {
 		if (ret != 0) {
 			LOG_ERR("Failed to publish sd_card_chan: %d", ret);
 		}
-
-		// turn loadswitch back on to listen for reinsertion
-		sdcard_manager.aquire_ls();
-	} else {
-		// sd inserted --> reboot
-		sys_reboot(SYS_REBOOT_COLD);
 	}
 }
 
@@ -133,6 +125,7 @@ void SDCardManager::init() {
 	int ret;
 
     if (!device_is_ready(sd_state_pin.port)) {
+		ret = aquire_ls();
         LOG_ERR("SD state GPIO device not ready\n");
         return;
     }
@@ -168,8 +161,7 @@ int SDCardManager::unmount() {
 
 		this->mounted = false;
 
-		// do not release
-		// release_ls();
+		release_ls();
 	}
 
 	return 0;
