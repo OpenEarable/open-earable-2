@@ -195,8 +195,6 @@ private:
 
     bool sd_inserted();
 
-    bool _insertion_state = false;
-
 };
 
 extern SDCardManager sdcard_manager;
