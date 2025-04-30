@@ -470,7 +470,11 @@ int PowerManager::power_down(bool fault) {
         sys_reboot(SYS_REBOOT_COLD);
     }*/
 
-    LOG_INF("Power off");
+    if (fault) {
+        LOG_WRN("Power off due to fault");
+    } else {
+        LOG_INF("Power off");
+    }
     LOG_PANIC();
 
     ret = bt_mgmt_stop_watchdog();
@@ -550,7 +554,19 @@ void PowerManager::charge_task() {
             uint16_t ts_fault = battery_controller.read_ts_fault();
             LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
 
-            battery_controller.setup(_battery_settings);
+            LOG_INF("------------------ Battery Info ------------------");
+            // Battery fuel gauge status
+            bat_status status = fuel_gauge.battery_status();
+            LOG_INF("Battery Status:");
+            LOG_INF("  Present: %d, Full Charge: %d, Full Discharge: %d", 
+                    status.BATTPRES, status.FC, status.FD);
+
+            // Basic measurements
+            LOG_INF("Basic Measurements:");
+            LOG_INF("  Voltage: %.3f V", fuel_gauge.voltage());
+            LOG_INF("  Temperature: %.1f °C", fuel_gauge.temperature());
+
+            //battery_controller.setup(_battery_settings);
             
             break;
         }
