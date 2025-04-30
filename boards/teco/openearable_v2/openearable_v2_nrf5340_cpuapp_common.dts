@@ -26,6 +26,7 @@
 	 load_switch: load_switch {
 		 compatible = "load-switch";
 		 enable-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+		 power-delay-us = <300>; // 250us per datasheet
 		 status = "okay";
 		 default-on;
 	 };
@@ -33,6 +34,7 @@
 	 load_switch_sd: load_switch_sd {
 		 compatible = "load-switch";
 		 enable-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+		 power-delay-us = <300>; // 250us per datasheet
 		 status = "okay";
 	 };
  
@@ -103,7 +105,13 @@
 		 int-gpios = <&gpio0 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		 cd-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
 		 pg-gpios = <&gpio0 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-		 lsctrl-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
+
+		load-switch {
+			compatible = "load-switch";
+			enable-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
+			power-delay-us = <600>; // 250us per datasheet
+			status = "okay";
+        };
 	 };
  
 	 ssm6515: ssm6515@34 {

@@ -17,3 +17,8 @@ properties:
     type: boolean
     description: |
       If present, the load switch will be enabled by default at boot.
+  power-delay-us:
+    type: int
+    default: 1000
+    description: |
+      Delay in microseconds before enabling the load switch.
