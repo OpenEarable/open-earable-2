@@ -23,9 +23,6 @@
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"
 #include "bt_mgmt_dfu_internal.h"
-#if CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP
-#include "button_assignments.h"
-#endif
 
 #include "BootState.h"
 
@@ -67,25 +64,9 @@ static void conn_state_connected_check(struct bt_conn *conn, void *data)
 	(*num_conn)++;
 }
 
-static void exchange_func(struct bt_conn *conn, uint8_t att_err,
-			  struct bt_gatt_exchange_params *params)
+void mtu_updated(struct bt_conn *conn, uint16_t tx, uint16_t rx)
 {
-	struct bt_conn_info info = {0};
-	int err;
-
-	LOG_INF("MTU exchange %s", att_err == 0 ? "successful" : "failed");
-	LOG_INF("MTU size is: %d", bt_gatt_get_mtu(conn));
-
-	err = bt_conn_get_info(conn, &info);
-	if (err) {
-		LOG_WRN("Failed to get connection info %d\n", err);
-		return;
-	}
-
-	/*if (info.role == BT_CONN_ROLE_MASTER) {
-		instruction_print();
-		//test_ready = true;
-	}*/
+	LOG_INF("Updated MTU: TX: %d RX: %d bytes", tx, rx);
 }
 
 static void le_data_length_updated(struct bt_conn *conn,
@@ -106,11 +87,11 @@ static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_
 
 	LOG_INF("Conn params updated: interval %d unit, latency %d, timeout: %d0 ms",interval, latency, timeout);
 
-	msg.event = BT_MGMT_CONNECTED;
+	/*msg.event = BT_MGMT_CONNECTED;
 	msg.conn = conn;
 
 	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
-	ERR_CHK(ret);
+	ERR_CHK(ret);*/
 }
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)
@@ -160,23 +141,11 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Connected: %s", addr);
 
-	/*msg.event = BT_MGMT_CONNECTED;
+	msg.event = BT_MGMT_CONNECTED;
 	msg.conn = conn;
 
 	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
-	ERR_CHK(ret);*/
-
-	static struct bt_gatt_exchange_params exchange_params;
-	exchange_params.func = exchange_func;
-
-	LOG_INF("MTU size is: %d", bt_gatt_get_mtu(conn));
-
-	err = bt_gatt_exchange_mtu(conn, &exchange_params);
-	if (err) {
-		LOG_WRN("MTU exchange failed (err %d)", err);
-	} else {
-		LOG_INF("MTU exchange pending");
-	}
+	ERR_CHK(ret);
 
 	err = bt_conn_le_phy_update(conn, BT_CONN_LE_PHY_PARAM_2M);
 	if (err) {
@@ -296,85 +265,13 @@ static void bt_enabled_cb(int err)
 static int bonding_clear_check(void)
 {
 	int ret;
-	/*bool pressed;
-
-	ret = button_pressed(BUTTON_EARABLE, &pressed); //BUTTON_5
-	if (ret) {
-		return ret;
-	}*/
 
 	if (oe_boot_state.timer_reset) {
 		LOG_INF("Device Count: %i", bonded_device_count);
-		/*if (bonded_device_count == 0) {
-			LOG_INF("Clearing SIRK");
-			enum audio_channel channel;
 
-			//backup channel
-			channel_assignment_get(&channel);
-			//int ret = nrfx_nvmc_page_erase((uint32_t)NRF_UICR); //
-			//int ret = nrfx_nvmc_uicr_erase();
-			nvmc_erase_mode_set();
-			nrf_nvmc_uicr_erase_start(NRF_NVMC);
-			while (!nrf_nvmc_ready_check(NRF_NVMC))
-			{}
-			nvmc_readonly_mode_set();
-			int ret = NRFX_SUCCESS;
-			if (ret != NRFX_SUCCESS) {
-				LOG_ERR("Failed to erase UICR: %i", ret);
-			}
-			channel_assignment_set(channel);
-			
-			// reboot?
-
-			// uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
-			//bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
-
-			//ret = bt_le_adv_stop();
-
-			//ret = bt_mgmt_stop_watchdog();
-			//ERR_CHK(ret);
-
-			if (!ret) sys_reboot(SYS_REBOOT_COLD);
-		}*/
 		ret = bt_mgmt_bonding_clear();
 		return ret;
 	}
-
-	return 0;
-}
-
-static int ficr_static_addr_set(void)
-{
-	int ret;
-	static bt_addr_le_t addr;
-
-	if ((NRF_FICR->INFO.DEVICEID[0] != UINT32_MAX) ||
-	    ((NRF_FICR->INFO.DEVICEID[1] & UINT16_MAX) != UINT16_MAX)) {
-		/* Put the device ID from FICR into address */
-		sys_put_le32(NRF_FICR->INFO.DEVICEID[0], &addr.a.val[0]);
-		sys_put_le16(NRF_FICR->INFO.DEVICEID[1], &addr.a.val[4]);
-
-		/* The FICR value is a just a random number, with no knowledge
-		 * of the Bluetooth Specification requirements for random
-		 * static addresses.
-		 */
-		BT_ADDR_SET_STATIC(&addr.a);
-
-		addr.type = BT_ADDR_LE_RANDOM;
-
-		ret = bt_id_create(&addr, NULL);
-		if (ret < 0) {
-			LOG_ERR("Failed to create ID %d", ret);
-			return ret;
-		}
-
-		return 0;
-	}
-
-	/* If no address can be created (e.g. based on
-	 * FICR), then a random address is created
-	 */
-	LOG_WRN("Unable to read from FICR");
 
 	return 0;
 }
@@ -487,22 +384,21 @@ void count_bonds(const struct bt_bond_info *info, void *user_data) {
 	bonded_device_count++;
 }
 
+static struct bt_gatt_cb gatt_callbacks = {
+	.att_mtu_updated = mtu_updated,
+};
+
 int bt_mgmt_init(void)
 {
 	int ret;
 	static char name[CONFIG_BT_DEVICE_NAME_MAX];
 
-	if (!IS_ENABLED(CONFIG_BT_PRIVACY)) {
-		ret = ficr_static_addr_set();
-		if (ret) {
-			return ret;
-		}
-	}
-
 	ret = bt_enable(bt_enabled_cb);
 	if (ret) {
 		return ret;
 	}
+
+	bt_gatt_cb_register(&gatt_callbacks);
 
 	enum audio_channel channel;
 	channel_assignment_get(&channel);
