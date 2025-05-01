@@ -1,0 +1,116 @@
+#
+# Copyright (c) 2025 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+config AUDIO_DEV
+	default 1
+
+config BT_GATT_AUTO_DISCOVER_CCC
+	default y
+
+config BT_GATT_AUTO_RESUBSCRIBE
+	default n
+
+config BT_GATT_AUTO_SEC_REQ
+	default n
+
+config BT_GATT_AUTO_UPDATE_MTU
+	default y
+
+config BT_GATT_CACHING
+	default n
+
+config BT_GATT_CLIENT
+	default y
+
+config BT_GATT_DYNAMIC_DB
+	default y
+
+config BT_MAX_CONN
+	default 4
+
+config BT_MAX_PAIRED
+	default 4
+
+config BT_EXT_ADV
+	default y
+
+config BT_AUDIO
+	default y
+
+config BT_PERIPHERAL
+	default y
+
+config BT_ISO_PERIPHERAL
+	default y
+
+config BT_BAP_UNICAST_SERVER
+	default y
+
+config BT_CAP_ACCEPTOR
+	default y
+
+config BT_CAP_ACCEPTOR_SET_MEMBER
+	default y
+
+config BT_PAC_SNK
+	default y
+
+config BT_PAC_SNK_NOTIFIABLE
+	default y
+
+config BT_PAC_SRC
+	default y
+
+config BT_PAC_SRC_NOTIFIABLE
+	default y
+
+config BT_CSIP_SET_MEMBER
+	default y
+
+config BT_DEVICE_APPEARANCE
+	default 2369
+
+config BT_ISO_MAX_CHAN
+	default 2
+
+config BT_ASCS
+	default y
+
+config BT_ASCS_MAX_ASE_SNK_COUNT
+	default 1
+
+config BT_ASCS_MAX_ASE_SRC_COUNT
+	default 1
+
+config BT_VCP_VOL_REND
+	default y
+
+config BT_MCC
+	default y
+
+config BT_MCC_READ_MEDIA_STATE
+	default y
+
+config BT_MCC_SET_MEDIA_CONTROL_POINT
+	default y
+
+config BT_GAP_PERIPHERAL_PREF_PARAMS
+	default n
+
+config BT_AUDIO_CODEC_CFG_MAX_METADATA_SIZE
+	default 25
+
+config LC3_ENC_CHAN_MAX
+	default 1
+
+config LC3_DEC_CHAN_MAX
+	default 1
+
+config MBEDTLS_ENABLE_HEAP
+	default y
+
+config MBEDTLS_HEAP_SIZE
+	default 2048
