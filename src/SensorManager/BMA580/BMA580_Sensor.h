@@ -55,7 +55,7 @@
  */
 
 /*! FIFO watermark level */
-#define WATERMARK_LEVEL                   UINT16_C(64)
+#define WATERMARK_LEVEL                   UINT16_C(128)
 
 /*! Sensortime resolution in seconds */
 #define SENSORTIME_RESOLUTION             (0.0003125f)

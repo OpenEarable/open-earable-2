@@ -49,7 +49,7 @@ void Baro::update_sensor(struct k_work *work) {
 	memcpy(msg_baro.data.data, data, 2 * sizeof(float));
 
 	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
-	if (ret == -EAGAIN) {
+	if (ret) {
 		LOG_WRN("sensor msg queue full");
 	}
 }

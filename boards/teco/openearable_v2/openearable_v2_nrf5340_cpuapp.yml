@@ -8,3 +8,4 @@ flash: 1024
 toolchain:
   - zephyr
 supported: []
+sysbuild: true

@@ -48,20 +48,20 @@ void BoneConduction::reset() {
 }
 
 void BoneConduction::update_sensor(struct k_work *work) {
+    uint64_t _time_stamp = micros();
 
-    BoneConduction::sensor._sample_count++;
-
+    BoneConduction::sensor._sample_count += (_time_stamp - BoneConduction::sensor._last_time_stamp) / BoneConduction::sensor.t_sample_us;
+    BoneConduction::sensor._last_time_stamp = _time_stamp;
+    
     if (BoneConduction::sensor._sample_count < BoneConduction::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
         return;
     }
 
     int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
 
-    if (num_samples >= 0) {
+    if (num_samples > 0) {
         BoneConduction::sensor._sample_count = MAX(0, BoneConduction::sensor._num_samples_buffered - num_samples);
     }
-
-    uint64_t time_stamp = micros();
 
     for (int i = 0; i < num_samples; i++) {
         msg_bc.sd = sensor._sd_logging;
@@ -69,12 +69,12 @@ void BoneConduction::update_sensor(struct k_work *work) {
 
         msg_bc.data.id = ID_BONE_CONDUCTION;
         msg_bc.data.size = 3 * sizeof(int16_t);
-        msg_bc.data.time = time_stamp - (num_samples - i) * BoneConduction::sensor.t_sample_us;
+        msg_bc.data.time = _time_stamp - (num_samples - i) * BoneConduction::sensor.t_sample_us;
 
         memcpy(msg_bc.data.data, &sensor.fifo_acc_data[i], 3 * sizeof(int16_t));
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
-        if (ret == -EAGAIN) {
+        if (ret) {
             LOG_WRN("sensor msg queue full");
         }
     }
@@ -95,7 +95,7 @@ void BoneConduction::start(int sample_rate_idx) {
     k_timeout_t t = K_USEC(t_sample_us);
 
     int word_size = 3 * sizeof(int16_t) + 1;
-    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)), 512 / word_size - 2); // Buffer size is 512 bytes
+    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)), 512 / word_size - 8); // Buffer size is 512 bytes
     
     bma580.init(sample_rates.reg_vals[sample_rate_idx], _num_samples_buffered * word_size);
     bma580.start();
@@ -104,6 +104,7 @@ void BoneConduction::start(int sample_rate_idx) {
 
     _running = true;
     _sample_count = 0;
+    _last_time_stamp = micros();
 }
 
 void BoneConduction::stop() {
