@@ -31,7 +31,7 @@ if [ -z "$SNR" ]; then
 fi
 
 # Validate serial number is numeric
-if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+if ! [[ "$SNR" =~ ^[0-9]+$ ]]; then
     echo "Error: Serial number must be numeric"
     exit 1
 fi
