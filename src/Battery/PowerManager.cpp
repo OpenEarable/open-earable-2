@@ -2,6 +2,7 @@
 
 #include "macros_common.h"
 
+#include <stdio.h>
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/reboot.h>
 #include <zephyr/shell/shell.h>
@@ -114,7 +115,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
     // full discharge
     //if (bat.FD) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
-    if (bat.SYSDWN) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
+    if (power_manager.power_on && bat.SYSDWN) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
 
     if (bat.CHGINH) {
         power_manager.charging_disabled = true;
@@ -198,10 +199,13 @@ int PowerManager::begin() {
     bool charging = battery_controller.power_connected();
 
     if (!battery_condition) {
+        power_on = false;
         // LOG_ERR("Bad battery condition.");
         if (!charging){
             //TODO: Flash red LED once
             return power_down(false);
+        } else {
+            printf("Voltage: %.3f V\n", fuel_gauge.voltage());
         }
     }
 
@@ -334,14 +338,13 @@ bool PowerManager::check_battery() {
             battery_controller.write_charging_control(110);
             battery_controller.enable_charge();
         }
-    } else {
-        bat_status bs =  fuel_gauge.battery_status();
-
-        if (bs.FD) return false;
-
-        //gauge_status gs = fuel_gauge.gauging_state();
-        //if (gs.edv1) return false; // critical battery state
     }
+
+    bat_status bs = fuel_gauge.battery_status();
+    if (bs.FD) return false;
+
+    //gauge_status gs = fuel_gauge.gauging_state();
+    //if (gs.edv1) return false; // critical battery state
 
     return true;
 }
@@ -478,14 +481,12 @@ int PowerManager::power_down(bool fault) {
     LOG_PANIC();
 
     ret = bt_mgmt_stop_watchdog();
-    ERR_CHK(ret);
+    //ERR_CHK(ret);
 
     dac.end();
 
     // TODO: check states of load switch (should already be suspended
     // if all devieses have been terminated correctly)
-
-    ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
 
     // turn off error led
 	gpio_pin_set_dt(&error_led, 0);
@@ -496,11 +497,10 @@ int PowerManager::power_down(bool fault) {
         return 0;
     }
 
-    ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
+    ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
+    ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
-
-    //ERR_CHK(ret);
 
     /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);

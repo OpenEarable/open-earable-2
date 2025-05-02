@@ -12,10 +12,9 @@
 	cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>,<&gpio1 1 GPIO_ACTIVE_LOW>;
 	status = "okay";
 	mx25r64: mx25r6435f@1 {
-
 		compatible = "jedec,spi-nor";
 		reg = <1>;
-		spi-max-frequency = <8000000>;
+		spi-max-frequency = <32000000>;
 
 		jedec-id = [c2 28 17];
 		sfdp-bfp = [
@@ -32,9 +31,16 @@
 	};
 };
 
-/*
-&gpio_fwd {
-	uart {
-		gpios = < &gpio1 0x9 0x0 >, < &gpio1 0x8 0x0 >, < &gpio1 0xb 0x0 >;
+/* STEP 5.1 - Configure CDC ACM */
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
 	};
-};*/
+};
+
+/* STEP 5.2 - Choose CDC ACM for mcumgr */
+/ {
+	chosen {
+		zephyr,uart-mcumgr = &cdc_acm_uart0;
+	};
+};
