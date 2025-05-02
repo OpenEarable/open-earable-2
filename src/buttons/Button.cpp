@@ -98,7 +98,7 @@ int Button::update_state() {
 	msg.button_action = _buttonState;
 
 	ret = k_msgq_put(&button_queue, &msg, K_NO_WAIT);
-	if (ret == -EAGAIN) {
+	if (ret) {
 		LOG_WRN("Btn msg queue full");
 	}
 
