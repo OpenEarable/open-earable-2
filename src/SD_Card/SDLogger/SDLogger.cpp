@@ -45,7 +45,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 	if (msg->sd) {
 		ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
 
-		if (ret == -EAGAIN) {
+		if (ret) {
 			LOG_WRN("sensor stream msg queue full");
 		}
 	}

@@ -69,7 +69,10 @@ void PPG::update_sensor(struct k_work *work) {
     int int_status;
     int status;
 
-    PPG::sensor._sample_count++;
+    uint64_t _time_stamp = micros();
+
+    PPG::sensor._sample_count += (_time_stamp - PPG::sensor._last_time_stamp) / PPG::sensor.t_sample_us;
+    PPG::sensor._last_time_stamp = _time_stamp;
 
     if (PPG::sensor._sample_count < PPG::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
         return;
@@ -87,8 +90,6 @@ void PPG::update_sensor(struct k_work *work) {
 
         PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
 
-        uint64_t time_stamp = micros();
-
         for (int i = 0; i < num_samples; i++) {
             msg_ppg.sd = sensor._sd_logging;
 	        msg_ppg.stream = sensor._ble_stream;
@@ -97,7 +98,7 @@ void PPG::update_sensor(struct k_work *work) {
             
             msg_ppg.data.id = ID_PPG;
             msg_ppg.data.size = 4 * size;
-            msg_ppg.data.time = time_stamp - (num_samples - i) * PPG::sensor.t_sample_us;
+            msg_ppg.data.time = _time_stamp - (num_samples - i) * PPG::sensor.t_sample_us;
 
             memcpy(msg_ppg.data.data + 0 * size, &sensor.data_buffer[i][red], size);
             memcpy(msg_ppg.data.data + 1 * size, &sensor.data_buffer[i][ir], size);
@@ -132,11 +133,11 @@ void PPG::start(int sample_rate_idx) {
     ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * LED_NUM);
     ppg.start();
 
+    k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
+
     _running = true;
-
     _sample_count = 0;
-
-	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
+    _last_time_stamp = micros();
 }
 
 void PPG::stop() {

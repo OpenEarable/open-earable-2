@@ -14,6 +14,10 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(openearable_v2_1)
 
+#set(OVERLAY_CONFIG 
+#    ${CMAKE_CURRENT_SOURCE_DIR}/unicast_server/overlay-unicast_server.conf
+#)
+
 string(TIMESTAMP NRF5340_AUDIO_CORE_APP_COMP_DATE "%a %b %d %H:%M:%S %Y")
 
 # Generate fw_info_app.c

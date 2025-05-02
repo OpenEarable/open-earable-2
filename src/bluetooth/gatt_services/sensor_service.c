@@ -91,7 +91,13 @@ static ssize_t write_config(struct bt_conn *conn,
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
 
-	LOG_INF("Setup sensor ID %i with samplerateIndex %i", ((struct sensor_config *)buf)->sensorId, ((struct sensor_config *)buf)->sampleRateIndex);
+	struct sensor_config * config = (struct sensor_config *)buf;
+
+	if (config->storageOptions == 0) {
+		LOG_INF("Setup sensor ID %i (turned off)", config->sensorId);
+	} else {
+		LOG_INF("Setup sensor ID %i with samplerateIndex %i", config->sensorId, config->sampleRateIndex);
+	}
 
 	//stop_sensor_manager();
 	config_sensor((struct sensor_config *) buf);

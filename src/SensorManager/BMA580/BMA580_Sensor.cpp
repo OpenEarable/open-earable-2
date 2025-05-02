@@ -185,7 +185,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
 
     acc_cfg.acc_range = BMA5_ACC_RANGE_MAX_2G;
     acc_cfg.acc_iir_ro = BMA5_ACC_IIR_RO_DB_60;
-    acc_cfg.noise_mode = BMA5_NOISE_MODE_LOWER_POWER;
+    acc_cfg.noise_mode = BMA5_NOISE_MODE_LOWER_NOISE;
     acc_cfg.acc_drdy_int_auto_clear = BMA5_ACC_DRDY_INT_AUTO_CLEAR_DISABLED;
 
     rslt = bma5_set_acc_conf(&acc_cfg, dev);

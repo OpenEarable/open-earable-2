@@ -30,6 +30,12 @@ if [ -z "$SNR" ]; then
     show_usage
 fi
 
+# Validate serial number is numeric
+if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+    echo "Error: Serial number must be numeric"
+    exit 1
+fi
+
 # Rest of your script remains the same
 if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
     nrfjprog --readuicr ./tools/flash/uicr_backup.hex -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
