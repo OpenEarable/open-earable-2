@@ -134,8 +134,9 @@ int bt_mgmt_ctlr_cfg_init(bool watchdog_enable)
 	return 0;
 }
 
-int bt_mgmt_stop_watchdog()
+int bt_mgmt_stop_watchdog(void)
 {
+	k_timer_stop(&ctlr_poll_timer);
 	int ret = task_wdt_delete(wdt_ch_id);
-    return ret;
+	return ret;
 }

@@ -37,6 +37,10 @@ ADAU1860::ADAU1860(TWIM * i2c) : _i2c(i2c) {
 int ADAU1860::begin() {
         int ret;
 
+        if (_active) return 0;
+
+        _active = true;
+
         ret = pm_device_runtime_get(ls_1_8);
         if (ret != 0) {
                 LOG_ERR("Failed to get power domain 1.8V");
@@ -306,6 +310,9 @@ int ADAU1860::setup_FDSP() {
 
 int ADAU1860::end() {
         int ret;
+
+        if (!_active) return 0;
+        _active = false;
 
         // pull-down PD pin
         gpio_pin_set_dt(&dac_enable_pin, 0);

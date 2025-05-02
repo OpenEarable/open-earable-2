@@ -427,6 +427,8 @@ private:
     uint64_t last_i2c;
     TWIM *_i2c;
 
+    bool _active = false;
+
     //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
 };
 
