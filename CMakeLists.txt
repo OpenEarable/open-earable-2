@@ -85,3 +85,6 @@ if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
         message(FATAL_ERROR "Cirrus Logic/sdk-mcu-drivers repository not found\n")
     endif()
 endif()
+
+include(version.cmake)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)

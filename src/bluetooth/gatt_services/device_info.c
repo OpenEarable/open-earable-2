@@ -1,4 +1,5 @@
 #include "device_info.h"
+#include <generated/version.h>
 
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/gatt.h>
@@ -7,7 +8,7 @@
 
 static char device_identifier[sizeof(uint64_t) * 2 + 3];
 static char device_generation[] = "2.0.0";
-static char firmware[] = "2.0.0";
+static char firmware[] = FIRMWARE_VERSION;
 
 static ssize_t read_device_identifier(struct bt_conn *conn,
 			  const struct bt_gatt_attr *attr,
