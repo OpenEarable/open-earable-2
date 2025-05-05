@@ -17,7 +17,6 @@
 #include <hal/nrf_ficr.h>
 
 #include "../drivers/LED_Controller/KTD2026.h"
-//#include "../drivers/SSM6515.h"
 #include "../drivers/ADAU1860.h"
 #include "../buttons/Button.h"
 #include "../SensorManager/SensorManager.h"

@@ -10,7 +10,9 @@ HASH_APP=$(mcumgr -c acm0 image list | grep "hash: " | sed -n 2p | cut -d" " -f6
 HASH_NET=$(mcumgr -c acm0 image list | grep "hash: " | sed -n 3p | cut -d" " -f6)
 
 # Test both images with their hashes
-mcumgr -c acm0 image test $HASH_APP
+mcumgr -c acm0 image test $HASH_APP > /dev/null 2>&1
 mcumgr -c acm0 image test $HASH_NET
+
+echo "Resetting device..."
 
 mcumgr -c acm0 reset
