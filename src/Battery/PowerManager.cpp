@@ -550,12 +550,35 @@ void PowerManager::charge_task() {
         case 3:
             LOG_WRN("charging state: fault");
 
-            uint16_t ts_fault = battery_controller.read_ts_fault();
+            uint8_t fault = battery_controller.read_fault();
+            // Battery fuel gauge status
+            bat_status status = fuel_gauge.battery_status();
+            float voltage = fuel_gauge.voltage();
+
+            // cleared after read
+            if (fault & (1 << 4)) {
+                LOG_WRN("Over current protection");
+            }
+
+            // as long as fault exists
+            if (fault & (1 << 5)) {
+                LOG_WRN("Battery under voltage: %.3f V", voltage);
+            }
+
+            // cleared after read
+            if (fault & (1 << 6)) {
+                LOG_WRN("Input under voltage");
+            }
+
+            // as long as fault exists
+            if (fault & (1 << 7)) {
+                LOG_WRN("Battery over voltage");
+            }
+
+            uint8_t ts_fault = battery_controller.read_ts_fault();
             LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
 
             LOG_INF("------------------ Battery Info ------------------");
-            // Battery fuel gauge status
-            bat_status status = fuel_gauge.battery_status();
             LOG_INF("Battery Status:");
             LOG_INF("  Present: %d, Full Charge: %d, Full Discharge: %d", 
                     status.BATTPRES, status.FC, status.FD);
@@ -563,7 +586,6 @@ void PowerManager::charge_task() {
             // Basic measurements
             LOG_INF("Basic Measurements:");
             LOG_INF("  Voltage: %.3f V", fuel_gauge.voltage());
-            LOG_INF("  Temperature: %.1f °C", fuel_gauge.temperature());
 
             //battery_controller.setup(_battery_settings);
             
