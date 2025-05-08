@@ -23,7 +23,7 @@ jobs:
         with:
           # Clone the repo to a subdirectory, so we can initialize the Zephyr
           # workspace in the parent directory.
-          path: zephyr-workspace/nrfconnect-ci-app
+          path: zephyr-workspace/open-earable-v2
 
       - name: Cache/Install APT Packages
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -54,7 +54,7 @@ jobs:
         # Set up the Zephyr workspace and install the Python dependencies
         run: |
           cd zephyr-workspace
-          west init -l nrfconnect-ci-app
+          west init -l open-earable-v2
           west update --narrow -o=--depth=1
           pip3 install -r zephyr/scripts/requirements.txt
 
@@ -62,7 +62,7 @@ jobs:
         # Registers our custom boards in the Zephyr build system
         run: |
           mkdir -p $(pwd)/workflow-board-temp
-          cp -R $(pwd)/zephyr-workspace/nrfconnect-ci-app/boards $(pwd)/workflow-board-temp/boards
+          cp -R $(pwd)/zephyr-workspace/open-earable-v2/boards $(pwd)/workflow-board-temp/boards
 
           # Merge teco dir (if it exists) to arm dir (assuming the boards are for arm)
           mkdir -p $(pwd)/workflow-board-temp/boards/arm # Create arm dir if not exist
@@ -76,7 +76,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/ccache
-          key: ccache-v1-${{ runner.os }}-${{ hashFiles('zephyr-workspace/nrfconnect-ci-app/west.yml') }}
+          key: ccache-v1-${{ runner.os }}-${{ hashFiles('zephyr-workspace/open-earable-v2/west.yml') }}
           restore-keys: |
             ccache-v1-${{ runner.os }}-
 
@@ -89,7 +89,8 @@ jobs:
           # using VSCode + Nordic Plugins
           west build \
             --board openearable_v2/nrf5340/cpuapp \
-            --pristine=always nrfconnect-ci-app
+            --pristine=always open-earable-v2 \
+            -- -DFILE_SUFFIX="fota"
           # print detailed ccache statistics
           ccache -sv
 
@@ -97,14 +98,26 @@ jobs:
         run: |
           mkdir -p $(pwd)/workflow-board-temp/build-output
           cp $(pwd)/zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf $(pwd)/workflow-board-temp/build-output/openearable_v2_firmware.elf
+          cp $(pwd)/zephyr-workspace/build/dfu_application.zip $(pwd)/workflow-board-temp/build-output/openearable_v2_fota.zip
+          (cd $(pwd)/workflow-board-temp/build-output && unzip openearable_v2_fota.zip -d openearable_v2_fota && rm openearable_v2_fota.zip)
           ls $(pwd)/workflow-board-temp/build-output/openearable_v2_firmware.elf
+          echo ""
+          echo "Fota dir:"
+          ls $(pwd)/workflow-board-temp/build-output/openearable_v2_fota
 
-      - name: Upload Build Artifact
+      - name: Upload Build Artifact (Firmware)
         uses: actions/upload-artifact@v4
-        id: artifact-upload-step
+        id: artifact-upload-step-1
         with:
           name: openearable_v2_firmware.elf
           path: workflow-board-temp/build-output/openearable_v2_firmware.elf
+
+      - name: Upload Build Artifact (FOTA build)
+        uses: actions/upload-artifact@v4
+        id: artifact-upload-step-2
+        with:
+          name: openearable_v2_fota.zip
+          path: workflow-board-temp/build-output/openearable_v2_fota/
 
       - name: PR Comment with File
         if: github.event_name == 'pull_request'
@@ -112,4 +125,5 @@ jobs:
         with:
           message: |
             Build output available:
-            [openearable_v2_firmware.elf.zip](${{ steps.artifact-upload-step.outputs.artifact-url }})
+            [openearable_v2_firmware.elf.zip](${{ steps.artifact-upload-step-1.outputs.artifact-url }})
+            [openearable_v2_fota.zip](${{ steps.artifact-upload-step-2.outputs.artifact-url }})
