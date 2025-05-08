@@ -37,7 +37,9 @@ static void write_battery_gatt(void)
 		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
 
-        bt_send_battery_level(&msg);
+		if (notify_enabled) {
+        	bt_send_battery_level(&msg);
+		}
 
 		STACK_USAGE_PRINT("battery_msg_thread", &thread_data);
 	}

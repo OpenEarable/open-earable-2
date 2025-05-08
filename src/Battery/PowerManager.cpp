@@ -29,7 +29,7 @@
 #include <zephyr/logging/log_ctrl.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(power_manager, CONFIG_MAIN_LOG_LEVEL);
+LOG_MODULE_REGISTER(power_manager, LOG_LEVEL_DBG);
 
 //K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
 
@@ -50,6 +50,7 @@ static struct battery_data msg;
 //LoadSwitch PowerManager::v1_8_switch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
 
 void PowerManager::fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+    LOG_DBG("Fuel Gauge GPOUT Interrupt");
     k_work_submit(&fuel_gauge_work);
 }
 
@@ -104,7 +105,6 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     int ret;
     battery_level_status status;
 
-    LOG_DBG("Fuel Gauge GPOUT Interrupt");
     msg.battery_level = fuel_gauge.state_of_charge();
 
     bat_status bat = fuel_gauge.battery_status();
@@ -162,6 +162,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
             // Battery fuel gauge status
             bat_status status = fuel_gauge.battery_status();
             float voltage = fuel_gauge.voltage();
+            float current = fuel_gauge.current();
 
             // cleared after read
             if (fault & (1 << 4)) {
@@ -170,6 +171,10 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
             // as long as fault exists
             if (fault & (1 << 5)) {
+                bool power_connected = battery_controller.power_connected();
+                if (power_connected && current > 0.5 * power_manager._battery_settings.i_term) {
+                    msg.charging_state = PRECHARGING;
+                }
                 LOG_WRN("Battery under voltage: %.3f V", voltage);
             }
 
@@ -189,14 +194,15 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
                 LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
             }
 
-            LOG_INF("------------------ Battery Info ------------------");
-            LOG_INF("Battery Status:");
-            LOG_INF("  Present: %d, Full Charge: %d, Full Discharge: %d", 
+            LOG_DBG("------------------ Battery Info ------------------");
+            LOG_DBG("Battery Status:");
+            LOG_DBG("  Present: %d, Full Charge: %d, Full Discharge: %d", 
                     status.BATTPRES, status.FC, status.FD);
 
             // Basic measurements
-            LOG_INF("Basic Measurements:");
-            LOG_INF("  Voltage: %.3f V", voltage);
+            LOG_DBG("Basic Measurements:");
+            LOG_DBG("  Voltage: %.3f V", voltage);
+            LOG_DBG("  Current: %.3f mA", current);
             break;
     }
 
@@ -274,6 +280,8 @@ int PowerManager::begin() {
 
     bool battery_condition = check_battery();
 
+    if (!battery_condition) LOG_WRN("Battery check failed.");
+
     // check charging state
     bool charging = battery_controller.power_connected();
 
@@ -317,7 +325,8 @@ int PowerManager::begin() {
         state_indicator.init(oe_state);
 
         while(!power_on && battery_controller.power_connected()) {
-            __WFE();
+            //__WFE();
+            k_sleep(K_SECONDS(1));
         }
     } else {
         oe_state.charging_state = DISCHARGING;
@@ -420,7 +429,7 @@ bool PowerManager::check_battery() {
     }
 
     bat_status bs = fuel_gauge.battery_status();
-    if (bs.FD) return false;
+    if (bs.SYSDWN) return false;
 
     //gauge_status gs = fuel_gauge.gauging_state();
     //if (gs.edv1) return false; // critical battery state
