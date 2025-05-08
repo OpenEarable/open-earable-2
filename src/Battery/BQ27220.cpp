@@ -393,10 +393,14 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         ret = write_RAM(0x91F5, _battery_settings.temp_min * 10);
         ret = write_RAM(0x91F7, _battery_settings.temp_max * 10);
 
-        // charging current
+        // charge current
         ret = write_RAM(0x91FB, _battery_settings.i_charge);
+
+        // charge voltage
+        ret = write_RAM(0x91FD, _battery_settings.u_term * 1000);
+
         // taper current
-        ret = write_RAM(0x9201, 3); //adjust
+        ret = write_RAM(0x9201, _battery_settings.i_term);
 
         // experimental: min taper capacity
         ret = write_RAM(0x9203, 4); // standard: 25
@@ -439,23 +443,20 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         //dod: 102.5%: 3123
         //dod: 103.25%: 3089
 
-        // charge voltage
-        ret = write_RAM(0x91FD, _battery_settings.u_term * 1000);
+        // sysDown set Voltage
+        ret = write_RAM(0x9240, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET);
 
-        // sysDown set Volate
-        ret = write_RAM(0x9240, _battery_settings.u_vlo * 1000 + 50);
-
-        // sysDown clear Volate
-        ret = write_RAM(0x9243, _battery_settings.u_vlo * 1000 + 150);
+        // sysDown clear Voltage
+        ret = write_RAM(0x9243, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET + CONFIG_BATTERY_SYSDOWN_HYSTERESIS);
 
         // FD set
-        ret = write_RAM(0x9282, _battery_settings.u_vlo * 1000 + 100);
+        ret = write_RAM(0x9282, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET);
 
         // FD clear
-        ret = write_RAM(0x9284, _battery_settings.u_vlo * 1000 + 150); 
+        ret = write_RAM(0x9284, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET + CONFIG_BATTERY_FD_HYSTERESIS); 
 
         // FC Voltage
-        ret = write_RAM(0x9288, _battery_settings.u_term * 1000 - 10);
+        ret = write_RAM(0x9288, _battery_settings.u_term * 1000 - CONFIG_BATTERY_FC_VOLTAGE_OFFSET);
 
         // Electonic Load in 3µA steps
         ret = write_RAM(0x9269, 6); // 18 µA
@@ -483,8 +484,7 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         ret = write_RAM(0x9264, _battery_settings.i_max);
 
         // CEDV Smoothing Config
-        //ret = write_RAM(0x9272, 0x0C);
-        uint8_t cedv_conf = 0x0C; //Default: 0x08, Enable SMEXT, SMEN 0x0D
+        uint8_t cedv_conf = 0x0D; //Default: 0x08, Enable SMEXT, SMEN 0x0D
         ret = write_RAM(0x9271, &cedv_conf, sizeof(cedv_conf));
 
         ret = write_RAM(0x9272, 3700);

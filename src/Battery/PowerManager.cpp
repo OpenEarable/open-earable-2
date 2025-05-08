@@ -31,12 +31,14 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(power_manager, CONFIG_MAIN_LOG_LEVEL);
 
-K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
+//K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
+
+K_WORK_DELAYABLE_DEFINE(PowerManager::charge_ctrl_delayable, PowerManager::charge_ctrl_work_handler);
 
 K_WORK_DELAYABLE_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
 
 //K_WORK_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
-K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_handler);
+//K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_handler);
 K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handler);
 K_WORK_DEFINE(PowerManager::battery_controller_work, PowerManager::battery_controller_work_handler);
 
@@ -47,10 +49,6 @@ static struct battery_data msg;
 
 //LoadSwitch PowerManager::v1_8_switch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
 
-void PowerManager::charge_timer_handler(struct k_timer * timer) {
-	k_work_submit(&charge_ctrl_work);
-}
-
 void PowerManager::fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
     k_work_submit(&fuel_gauge_work);
 }
@@ -60,15 +58,15 @@ void PowerManager::battery_controller_callback(const struct device *dev, struct 
 }
 
 void PowerManager::power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-	bool power_good = battery_controller.power_connected();
+    bool power_good = battery_controller.power_connected();
 
     k_work_submit(&fuel_gauge_work);
 
     if (power_good) {
         power_manager.last_charging_state = 0;
-        k_timer_start(&charge_timer, K_NO_WAIT, power_manager.chrg_interval);
+        k_work_schedule(&charge_ctrl_delayable, K_NO_WAIT);
     } else {
-        k_timer_stop(&charge_timer);
+        k_work_cancel_delayable(&charge_ctrl_delayable);
         if (!power_manager.power_on) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
     }
 }
@@ -79,13 +77,14 @@ void PowerManager::power_down_work_handler(struct k_work * work) {
 
 void PowerManager::charge_ctrl_work_handler(struct k_work * work) {
 	power_manager.charge_task();
+    // Schedule next execution
+    k_work_schedule(&charge_ctrl_delayable, power_manager.chrg_interval);
 }
 
 void PowerManager::battery_controller_work_handler(struct k_work * work) {
     button_state state;
 
     //uint8_t val = gpio_pin_get_dt(&power_manager.error_led);
-
     //gpio_pin_set_dt(&power_manager.error_led, 1 - val);
 
     battery_controller.exit_high_impedance();
@@ -105,10 +104,10 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     int ret;
     battery_level_status status;
 
-    LOG_INF("Fuel Gauge GPOUT Interrupt");
+    LOG_DBG("Fuel Gauge GPOUT Interrupt");
     msg.battery_level = fuel_gauge.state_of_charge();
 
-    bat_status bat =  fuel_gauge.battery_status();
+    bat_status bat = fuel_gauge.battery_status();
 
     power_manager.get_battery_status(status);
 
@@ -123,7 +122,92 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
         battery_controller.enable_charge();
     }
 
-    msg.charging_state = status.power_state;
+    float current;
+    float target_current;
+    float voltage;
+
+    uint16_t charging_state = battery_controller.read_charging_state() >> 6;
+
+    switch (charging_state) {
+        case 0:
+            LOG_INF("charging state: discharge");
+            msg.charging_state = DISCHARGING;
+            break;
+        case 1:
+            LOG_INF("charging state: charging");
+            current = fuel_gauge.current();
+            target_current = fuel_gauge.charge_current();
+            voltage = fuel_gauge.voltage();
+
+            msg.charging_state = POWER_CONNECTED;
+
+            LOG_DBG("Voltage: %.3f V", voltage);
+            LOG_DBG("Charging current: %.3f mA", current);
+            LOG_DBG("Target current: %.3f mA", target_current);
+
+            // check if target current is met (if not tapering)
+            if (current > 0.8 * target_current - 2 * power_manager._battery_settings.i_term || voltage > power_manager._battery_settings.u_term - 0.02) {
+                msg.charging_state = CHARGING;
+            }
+            break;
+        case 2:
+            LOG_INF("charging state: done");
+            msg.charging_state = FULLY_CHARGED;
+            break;
+        case 3:
+            LOG_WRN("charging state: fault");
+            msg.charging_state = FAULT;
+
+            uint8_t fault = battery_controller.read_fault();
+            // Battery fuel gauge status
+            bat_status status = fuel_gauge.battery_status();
+            float voltage = fuel_gauge.voltage();
+
+            // cleared after read
+            if (fault & (1 << 4)) {
+                LOG_WRN("Over current protection");
+            }
+
+            // as long as fault exists
+            if (fault & (1 << 5)) {
+                LOG_WRN("Battery under voltage: %.3f V", voltage);
+            }
+
+            // cleared after read
+            if (fault & (1 << 6)) {
+                LOG_WRN("Input under voltage");
+            }
+
+            // as long as fault exists
+            if (fault & (1 << 7)) {
+                LOG_WRN("Battery over voltage");
+            }
+
+            uint8_t ts_fault = battery_controller.read_ts_fault();
+
+            if ((ts_fault >> 5) & 0x7) {
+                LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
+            }
+
+            LOG_INF("------------------ Battery Info ------------------");
+            LOG_INF("Battery Status:");
+            LOG_INF("  Present: %d, Full Charge: %d, Full Discharge: %d", 
+                    status.BATTPRES, status.FC, status.FD);
+
+            // Basic measurements
+            LOG_INF("Basic Measurements:");
+            LOG_INF("  Voltage: %.3f V", voltage);
+            break;
+    }
+
+    power_manager.last_charging_msg_state = msg.charging_state;
+    
+    // Adjust interval based on state
+    if (msg.charging_state == FAULT || msg.charging_state == POWER_CONNECTED) {
+        power_manager.chrg_interval = K_SECONDS(CONFIG_BATTERY_CHARGE_CONTROLLER_FAST_INTERVAL_SECONDS);
+    } else {
+        power_manager.chrg_interval = K_SECONDS(CONFIG_BATTERY_CHARGE_CONTROLLER_NORMAL_INTERVAL_SECONDS);
+    }
 
 	//ret = k_msgq_put(&battery_queue, &msg, K_NO_WAIT);
     ret = zbus_chan_pub(&battery_chan, &msg, K_FOREVER);
@@ -176,10 +260,6 @@ int PowerManager::begin() {
         printk("Reset durch CPU Lockup\n");
     }*/
 
-    // power_on |= oe_boot_state.timer_reset;
-
-    // LOG_INF("Power on: %i", power_on);
-
     battery_controller.setup(_battery_settings);
     battery_controller.set_int_callback(battery_controller_callback);
 
@@ -190,7 +270,7 @@ int PowerManager::begin() {
         fuel_gauge.setup(_battery_settings);
     }
 
-    k_timer_init(&charge_timer, charge_timer_handler, NULL);
+    //k_timer_init(&charge_timer, charge_timer_handler, NULL);
 
     bool battery_condition = check_battery();
 
@@ -211,7 +291,7 @@ int PowerManager::begin() {
     if (charging) {
         power_manager.last_charging_state = 0;
         
-        k_timer_start(&charge_timer, power_manager.chrg_interval, power_manager.chrg_interval);
+        k_work_schedule(&charge_ctrl_delayable, power_manager.chrg_interval);
 
         int ret = pm_device_runtime_enable(ls_1_8);
         if (ret != 0) {
@@ -330,11 +410,11 @@ bool PowerManager::check_battery() {
             return false;
         } else if (temp < _battery_settings.temp_fast_min || temp > _battery_settings.temp_fast_max) {
             // set params
-            battery_controller.write_charging_control(55);
+            battery_controller.write_charging_control(_battery_settings.i_charge / 2);
             battery_controller.enable_charge();
         } else {
             // normal params
-            battery_controller.write_charging_control(110);
+            battery_controller.write_charging_control(_battery_settings.i_charge);
             battery_controller.enable_charge();
         }
     }
@@ -534,10 +614,10 @@ void PowerManager::charge_task() {
         battery_controller.enable_charge();
     }
 
-    if (last_charging_state != charging_state) {
+    //if (last_charging_state != charging_state ||  ) {
         k_work_submit(&fuel_gauge_work);
         //state_inidicator.set_state()
-        switch (charging_state) {
+        /*switch (charging_state) {
         case 0:
             LOG_INF("charging state: ready");
             break;
@@ -550,48 +630,11 @@ void PowerManager::charge_task() {
         case 3:
             LOG_WRN("charging state: fault");
 
-            uint8_t fault = battery_controller.read_fault();
-            // Battery fuel gauge status
-            bat_status status = fuel_gauge.battery_status();
-            float voltage = fuel_gauge.voltage();
-
-            // cleared after read
-            if (fault & (1 << 4)) {
-                LOG_WRN("Over current protection");
-            }
-
-            // as long as fault exists
-            if (fault & (1 << 5)) {
-                LOG_WRN("Battery under voltage: %.3f V", voltage);
-            }
-
-            // cleared after read
-            if (fault & (1 << 6)) {
-                LOG_WRN("Input under voltage");
-            }
-
-            // as long as fault exists
-            if (fault & (1 << 7)) {
-                LOG_WRN("Battery over voltage");
-            }
-
-            uint8_t ts_fault = battery_controller.read_ts_fault();
-            LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
-
-            LOG_INF("------------------ Battery Info ------------------");
-            LOG_INF("Battery Status:");
-            LOG_INF("  Present: %d, Full Charge: %d, Full Discharge: %d", 
-                    status.BATTPRES, status.FC, status.FD);
-
-            // Basic measurements
-            LOG_INF("Basic Measurements:");
-            LOG_INF("  Voltage: %.3f V", fuel_gauge.voltage());
-
             //battery_controller.setup(_battery_settings);
             
             break;
-        }
-    }
+        }*/
+    //}
 
     last_charging_state = charging_state;
 }
@@ -661,6 +704,6 @@ SHELL_STATIC_SUBCMD_SET_CREATE(battery_cmd,
     SHELL_COND_CMD(CONFIG_SHELL, setup, NULL, "Setup fuel gauge", cmd_setup_fuel_gauge),
     SHELL_SUBCMD_SET_END);
 
-SHELL_CMD_REGISTER(power_manager, &battery_cmd, "Power Manager Commands", NULL);
+SHELL_CMD_REGISTER(battery, &battery_cmd, "Power Manager Commands", NULL);
 
 PowerManager power_manager;

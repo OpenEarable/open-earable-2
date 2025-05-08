@@ -1,0 +1,51 @@
+menu "Battery Configuration"
+
+config BATTERY_SYSDOWN_SET_OFFSET
+	int "System Down Set Voltage Offset (mV)"
+	default 250
+	help
+	  Offset added to VLO voltage for System Down Set threshold
+
+config BATTERY_SYSDOWN_HYSTERESIS
+	int "System Down Clear Voltage Offset (mV)"
+	default 100
+	help
+	  Offset added to VLO voltage for System Down Clear threshold
+
+config BATTERY_FD_SET_OFFSET
+	int "Full Discharge Set Voltage Offset (mV)"
+	default 100
+	help
+	  Offset added to VLO voltage for Full Discharge Set threshold
+
+config BATTERY_FD_HYSTERESIS
+	int "Full Discharge Clear Voltage Offset (mV)"
+	default 100
+	help
+	  Offset added to VLO voltage for Full Discharge Clear threshold
+
+config BATTERY_FC_VOLTAGE_OFFSET
+	int "Full Charge Voltage Offset (mV)"
+	default 10
+	help
+	  Offset subtracted from terminal voltage for Full Charge threshold
+
+config BATTERY_CHARGE_CONTROLLER_INTERVAL_SECONDS
+	int "Charge Controller Check Interval (seconds)"
+	default 10
+	help
+	  Time interval between charge controller status checks
+
+config BATTERY_CHARGE_CONTROLLER_NORMAL_INTERVAL_SECONDS
+	int "Normal Charge Controller Check Interval (seconds)"
+	default 10
+	help
+	  Time interval between charge controller status checks in normal operation
+
+config BATTERY_CHARGE_CONTROLLER_FAST_INTERVAL_SECONDS
+	int "Fast Charge Controller Check Interval (seconds)"
+	default 1
+	help
+	  Time interval between charge controller status checks when in FAULT or POWER_CONNECTED state
+
+endmenu

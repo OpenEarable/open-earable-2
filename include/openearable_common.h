@@ -40,7 +40,11 @@ enum pairing_state {
 
 enum charging_state {
 	DISCHARGING,
+	POWER_CONNECTED,
+	PRECHARGING,
+	SLOW_CHARGING,
 	CHARGING,
+	TRICKLE_CHARGING,
 	FULLY_CHARGED,
 	FAULT,
 };
@@ -68,7 +72,8 @@ enum sensor_id {
 
 struct battery_data {
     uint8_t battery_level;
-    uint16_t charging_state;
+	enum charging_state charging_state;
+    //uint16_t charging_state;
 };
 
 struct sensor_data {

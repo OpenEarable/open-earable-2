@@ -62,6 +62,7 @@ rsource "src/drivers/Kconfig"
 rsource "src/modules/Kconfig"
 rsource "src/utils/Kconfig"
 rsource "src/SensorManager/Kconfig"
+rsource "src/Battery/Kconfig"
 
 #----------------------------------------------------------------------------#
 menu "Logging"

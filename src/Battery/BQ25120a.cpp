@@ -50,7 +50,6 @@ int BQ25120a::begin() {
                 return ret;
         }
 
-        //_pWire->begin();
         _i2c->begin();
 
         uint64_t now = micros();
@@ -156,8 +155,6 @@ uint8_t BQ25120a::read_charging_state() {
         uint8_t status = 0;
         bool ret = readReg(registers::CTRL, (uint8_t *) &status, sizeof(status));
 
-        //if (!ret) printk("failed to read\n");
-
         return status;
 }
 
@@ -165,16 +162,12 @@ uint8_t BQ25120a::read_fault() {
         uint8_t status = 0;
         bool ret = readReg(registers::FAULT, (uint8_t *) &status, sizeof(status));
 
-        //if (!ret) printk("failed to read\n");
-
         return status;
 }
 
 uint8_t BQ25120a::read_ts_fault() {
         uint8_t status = 0;
         bool ret = readReg(registers::TS_FAULT, (uint8_t *) &status, sizeof(status));
-
-        //if (!ret) printk("failed to read\n");
 
         return status;
 }
@@ -184,8 +177,6 @@ chrg_state BQ25120a::read_charging_control() {
         bool ret = readReg(registers::CHARGE_CTRL, (uint8_t *) &status, sizeof(status));
 
         chrg_state chrg;
-
-        //if (!ret) printk("failed to read\n");
 
         chrg.enabled = !(status & 0x2);
         chrg.high_impedance = status & 0x1;

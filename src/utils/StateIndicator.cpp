@@ -44,7 +44,9 @@ static void power_evt_handler(const struct zbus_channel *chan)
 
     // int state = (msg->charging_state >> 5) & 0x3;
 
-	switch ((msg->charging_state >> 5) & 0x3) {
+    state_indicator.set_charging_state(msg->charging_state);
+
+	/*switch ((msg->charging_state >> 5) & 0x3) {
     case 2:
         LOG_INF("charging state: discharge");
         state_indicator.set_charging_state(DISCHARGING);
@@ -67,7 +69,7 @@ static void power_evt_handler(const struct zbus_channel *chan)
         //battery_controller.setup();
         
         //break;
-    }
+    }*/
 }
 
 ZBUS_LISTENER_DEFINE(power_evt_listen, power_evt_handler); //static
@@ -121,9 +123,23 @@ void StateIndicator::set_state(struct earable_state state) {
 
     RGBColor color = {0,0,0};
     switch (_state.charging_state) {
+    case POWER_CONNECTED:
+        color[0] = 24; // Rot
+        color[1] = 8;  // Grün
+        color[2] = 0;  // Blau
+
+        led_controller.setColor(color);
+        break;
     case CHARGING:
         color[0] = 24; // Rot
         color[1] = 8;  // Grün
+        color[2] = 0;  // Blau
+
+        led_controller.pulse(color, 1000, 1000, 512, 2000);
+        break;
+    case PRECHARGING:
+        color[0] = 32; // Rot
+        color[1] = 0;  // Grün
         color[2] = 0;  // Blau
 
         led_controller.pulse(color, 1000, 1000, 512, 2000);
@@ -140,7 +156,7 @@ void StateIndicator::set_state(struct earable_state state) {
         color[1] = 0;  // Grün
         color[2] = 0;  // Blau
 
-        led_controller.pulse(color, 1000, 1000, 512, 2000);
+        led_controller.setColor(color);
         break;
     default:
         switch (_state.pairing_state) {
