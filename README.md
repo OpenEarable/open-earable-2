@@ -1,6 +1,6 @@
 # OpenEarable 2 Firmware
 
-# Setup
+## Setup
 - Install Visual Studio Code
 - Install nRF-Util and add to your PATH https://www.nordicsemi.com/Products/Development-tools/nRF-Util
 - Install the nRF Connect for VS Code extension and all of its dependencies
@@ -13,6 +13,21 @@
 - <img width="808" alt="image" src="https://github.com/user-attachments/assets/a049faa4-b108-49af-8f3d-789b0bf166fb" />
 - Click "Generate and Build" (this will take a while)
 - <img width="938" alt="image" src="https://github.com/user-attachments/assets/fa99f1b9-9187-4f29-855b-5147269ed807" />
+
+## LED States
+| Operational Mode         | LED Color & Pattern   | Meaning                                                                                                 |
+|--------------------------|-----------------------|---------------------------------------------------------------------------------------------------------|
+| **Charging**             |                       |                                                                                                         |
+| – Power Connected        | Orange solid          | Power connected, charging current not yet verified or not at the configured level                      |
+| – Bulk Charge            | Orange blinking       | At least 80% of the configured target charging current                                                  |
+| – Trickle Charge         | Green blinking        | Float/constant-voltage charging reached; this state can be disabled via configuration                   |
+| – Fully Charged          | Green solid           | Battery fully charged                                                                                   |
+| – Pre-Charge/System Fault| Red blinking          | Pre-charge stage or system down; voltage not yet cleared                                                |
+| – Battery Fault          | Red solid             | Any battery fault (e.g. deep discharge, current = 0)                                                     |
+|                          |                       |                                                     |                                                    |
+| **Discharging**          |                       |                                                                                                         |
+| – Critical Battery Level | Red blinking (fast)   | Battery critically low (≈3% SOC or EDV1 reached)                                                         |
+| – Low Battery Level      | Orange blinking (fast)| Battery low (≈7% SOC or EDV2 reached); state is disabled by default and must be enabled via configuration |
 
 
 
