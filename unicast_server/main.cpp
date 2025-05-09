@@ -10,6 +10,7 @@
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
+//#include <zephyr/dfu/mcuboot.h>
 
 //#include "../src/modules/sd_card.h"
 
@@ -49,6 +50,7 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
 /* STEP 5.4 - Include header for USB */
 #include <zephyr/usb/usb_device.h>
+#include <zephyr/dfu/mcuboot.h>
 
 int main(void) {
 	int ret;

@@ -9,11 +9,43 @@
 
 #include "channel_assignment.h"
 
+
+#include <zephyr/mgmt/mcumgr/mgmt/mgmt.h>
+#include <zephyr/mgmt/mcumgr/mgmt/callbacks.h>
+
+#include "bootutil/boot_hooks.h"
+#include "bootutil/mcuboot_status.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(state_indicator, CONFIG_LOG_DEFAULT_LEVEL);
 
 ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 ZBUS_CHAN_DECLARE(battery_chan);
+
+struct mgmt_callback mcu_mgr_cb;
+
+enum mgmt_cb_return chuck_write_indication(uint32_t event, enum mgmt_cb_return prev_status,
+                                int32_t *rc, uint16_t *group, bool *abort_more,
+                                void *data, size_t data_size)
+{
+    if (event == MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK) {
+        /* This is the event we registered for */
+		led_controller.setColor(LED_ORANGE);
+        k_msleep(10);
+        led_controller.setColor(LED_OFF);
+    }
+    /*else if (event == MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK_WRITE_COMPLETE) {
+        led_controller.setColor(LED_OFF);
+    }
+    else if (event == MGMT_EVT_OP_OS_MGMT_RESET) {
+		LOG_INF("RESET received");
+	}*/
+
+	//LOG_INF("my_function called with event: %d", event);
+
+    /* Return OK status code to continue with acceptance to underlying handler */
+    return MGMT_CB_OK;
+}
 
 static void connect_evt_handler(const struct zbus_channel *chan)
 {
@@ -59,6 +91,10 @@ void StateIndicator::init(struct earable_state state) {
 	if (ret && ret != -EALREADY) {
 		LOG_ERR("Failed to add battery listener");
 	}
+
+	mcu_mgr_cb.callback = chuck_write_indication;
+    mcu_mgr_cb.event_id = MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK; //MGMT_EVT_OP_IMG_MGMT_ALL
+    mgmt_callback_register(&mcu_mgr_cb);
 
     set_state(state);
 }
