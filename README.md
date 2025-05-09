@@ -17,6 +17,7 @@
 ## LED States
 | Operational Mode         | LED Color & Pattern   | Meaning                                                                                                 |
 |--------------------------|-----------------------|---------------------------------------------------------------------------------------------------------|
+|                          |                       |                                                     |                                                    |
 | **Charging**             |                       |                                                                                                         |
 | – Power Connected        | Orange solid          | Power connected, charging current not yet verified or not at the configured level                      |
 | – Bulk Charge            | Orange blinking       | At least 80% of the configured target charging current                                                  |
