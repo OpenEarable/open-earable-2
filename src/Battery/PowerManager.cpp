@@ -127,14 +127,32 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     float voltage;
 
     uint16_t charging_state = battery_controller.read_charging_state() >> 6;
+    gauge_status gs;
 
     switch (charging_state) {
         case 0:
             LOG_INF("charging state: discharge");
             msg.charging_state = DISCHARGING;
+
+            gs = fuel_gauge.gauging_state();
+
+            if (gs.edv2) {
+                #ifdef CONFIG_BATTERY_ENABLE_LOW_STATE
+                msg.charging_state = BATTERY_LOW;
+                #endif
+            }
+            if (gs.edv1) {
+                msg.charging_state = BATTERY_CRITICAL;
+            }
             break;
         case 1:
             LOG_INF("charging state: charging");
+
+            if (bat.SYSDWN) {
+                msg.charging_state = PRECHARGING;
+                break;
+            }
+
             current = fuel_gauge.current();
             target_current = fuel_gauge.charge_current();
             voltage = fuel_gauge.voltage();
@@ -144,11 +162,20 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
             LOG_DBG("Voltage: %.3f V", voltage);
             LOG_DBG("Charging current: %.3f mA", current);
             LOG_DBG("Target current: %.3f mA", target_current);
+            LOG_DBG("State of charge: %.3f %%", fuel_gauge.state_of_charge());
 
             // check if target current is met (if not tapering)
-            if (current > 0.8 * target_current - 2 * power_manager._battery_settings.i_term || voltage > power_manager._battery_settings.u_term - 0.02) {
+            if (current > 0.8 * target_current - 2 * power_manager._battery_settings.i_term) {
                 msg.charging_state = CHARGING;
+            } 
+            else if (voltage > power_manager._battery_settings.u_term - 0.02) {
+                #ifdef CONFIG_BATTERY_ENABLE_TRICKLE_CHARGE
+                msg.charging_state = TRICKLE_CHARGING;
+                #else
+                msg.charging_state = CHARGING;
+                #endif
             }
+            
             break;
         case 2:
             LOG_INF("charging state: done");
@@ -161,8 +188,8 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
             uint8_t fault = battery_controller.read_fault();
             // Battery fuel gauge status
             bat_status status = fuel_gauge.battery_status();
-            float voltage = fuel_gauge.voltage();
-            float current = fuel_gauge.current();
+            voltage = fuel_gauge.voltage();
+            current = fuel_gauge.current();
 
             // cleared after read
             if (fault & (1 << 4)) {
@@ -291,8 +318,6 @@ int PowerManager::begin() {
         if (!charging){
             //TODO: Flash red LED once
             return power_down(false);
-        } else {
-            printf("Voltage: %.3f V\n", fuel_gauge.voltage());
         }
     }
 
@@ -314,13 +339,7 @@ int PowerManager::begin() {
         //battery_level_status bat_status;
         //get_battery_status(&bat_status);
 
-        uint16_t charging_state = battery_controller.read_charging_state() >> 6;
-
-        if (charging_state == 2) {
-            oe_state.charging_state = FULLY_CHARGED;
-        } else {
-            oe_state.charging_state = CHARGING;
-        }
+        oe_state.charging_state = POWER_CONNECTED;
 
         state_indicator.init(oe_state);
 

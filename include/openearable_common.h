@@ -40,11 +40,13 @@ enum pairing_state {
 
 enum charging_state {
 	DISCHARGING,
+	BATTERY_CRITICAL,
+	BATTERY_LOW,
 	POWER_CONNECTED,
 	PRECHARGING,
 	SLOW_CHARGING,
-	CHARGING,
-	TRICKLE_CHARGING,
+	CHARGING, // Constant current
+	TRICKLE_CHARGING, //Constant voltage
 	FULLY_CHARGED,
 	FAULT,
 };

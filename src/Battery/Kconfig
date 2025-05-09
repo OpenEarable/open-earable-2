@@ -48,4 +48,16 @@ config BATTERY_CHARGE_CONTROLLER_FAST_INTERVAL_SECONDS
 	help
 	  Time interval between charge controller status checks when in FAULT or POWER_CONNECTED state
 
+config BATTERY_ENABLE_LOW_STATE
+	bool "Enable Battery Low State"
+	default n
+	help
+	  If enabled, battery state will change to BATTERY_LOW when EDV2 is reached
+
+config BATTERY_ENABLE_TRICKLE_CHARGE
+	bool "Enable Trickle Charge State"
+	default y
+	help
+	  If enabled, battery state will change to TRICKLE_CHARGING when voltage is close to terminal voltage
+
 endmenu

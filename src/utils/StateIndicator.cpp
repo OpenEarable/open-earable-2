@@ -144,6 +144,13 @@ void StateIndicator::set_state(struct earable_state state) {
 
         led_controller.pulse(color, 1000, 1000, 512, 2000);
         break;
+    case TRICKLE_CHARGING:
+        color[0] = 0;   // Rot
+        color[1] = 16;  // Grün
+        color[2] = 0;   // Blau
+
+        led_controller.pulse(color, 1000, 1000, 512, 2000);
+        break;
     case FULLY_CHARGED:
         color[0] = 0;   // Rot
         color[1] = 32;  // Grün
@@ -157,6 +164,20 @@ void StateIndicator::set_state(struct earable_state state) {
         color[2] = 0;  // Blau
 
         led_controller.setColor(color);
+        break;
+    case BATTERY_CRITICAL:
+        color[0] = 32; // Rot
+        color[1] = 0;  // Grün
+        color[2] = 0;  // Blau
+
+        led_controller.blink(color, 100, 2000);
+        break;
+    case BATTERY_LOW:
+        color[0] = 16; // Rot
+        color[1] = 16;  // Grün
+        color[2] = 0;  // Blau
+
+        led_controller.blink(color, 100, 2000);
         break;
     default:
         switch (_state.pairing_state) {
