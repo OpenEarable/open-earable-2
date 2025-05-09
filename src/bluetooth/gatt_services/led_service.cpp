@@ -20,7 +20,7 @@ static ssize_t write_led(struct bt_conn *conn,
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
 
-	state_indicator.set_custom_color((uint8_t *) buf);
+	state_indicator.set_custom_color(*((const RGBColor*)(buf)));
 
 	return len;
 }

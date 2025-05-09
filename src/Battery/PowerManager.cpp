@@ -272,8 +272,6 @@ int PowerManager::begin() {
 
     // reset the reset reason
     NRF_RESET->RESETREAS = 0xFFFFFFFF;
-
-    // LOG_INF("Resetreas: 0x%X", reset_reas);
     
     if (reset_reas & RESET_RESETREAS_RESETPIN_Msk) {
         oe_boot_state.timer_reset = bat_state & (1 << 4);

@@ -27,11 +27,11 @@ public:
     void begin();
     void reset();
     void power_off();
-    void setColor(RGBColor color);
+    void setColor(const RGBColor& color);
     void getColor(RGBColor * color);
 
-    void blink(RGBColor color, const int time_on_millis, const int period_millis);
-    void pulse(RGBColor color, const int time_on_millis, const int time_rise_millis, const int time_fall_millis, const int period_millis);
+    void blink(const RGBColor& color, const int time_on_millis, const int period_millis);
+    void pulse(const RGBColor& color, const int time_on_millis, const int time_rise_millis, const int time_fall_millis, const int period_millis);
     //void setPower();
 private:
     bool readReg(uint8_t reg, uint8_t *buffer, uint16_t len);

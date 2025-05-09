@@ -58,30 +58,33 @@ void KTD2026::power_off() {
 	_active = false;
 }
 
-void KTD2026::setColor(RGBColor color) {
+void KTD2026::setColor(const RGBColor& color) {
         uint8_t channel_enable = 0;
+        RGBColor _color;
+        memcpy(_color, color, sizeof(RGBColor));  // Korrekte Array-Kopie
+        
         for (int i = 0; i < 3; i++) {
-                if (color[i] > 0) {
+                if (_color[i] > 0) {
                         channel_enable |= 1 << (2 * i);
-                        color[i]--;
+                        _color[i]--;
                 }
         }
 
-        writeReg(registers::I_R, color, sizeof(RGBColor));
+        writeReg(registers::I_R, _color, sizeof(RGBColor));
         writeReg(registers::EN_CH, &channel_enable, sizeof(channel_enable));
 }
 
-void KTD2026::blink(RGBColor color, const int time_on_millis, const int period_millis) {
+void KTD2026::blink(const RGBColor& color, const int time_on_millis, const int period_millis) {
         pulse(color, time_on_millis, 0, 0, period_millis);
 }
 
-void KTD2026::pulse(RGBColor color, const int time_on_millis, const int time_rise_millis, const int time_fall_millis, const int period_millis) {
+void KTD2026::pulse(const RGBColor& color, const int time_on_millis, const int time_rise_millis, const int time_fall_millis, const int period_millis) {
         uint8_t channel_enable = 0;
         RGBColor _color = {0,0,0};
 
-        uint8_t flash_period = (period_millis >> 7) & 0x7F; // =/ 128
-        uint8_t time_on = 250 * time_on_millis / period_millis; // to 0.4% steps
-        uint8_t t_rise_fall = (((time_fall_millis >> 7) & 0x0F) << 4) | ((time_rise_millis >> 7) & 0x0F); // =/ 128
+        uint8_t flash_period = (period_millis >> 7) & 0x7F;
+        uint8_t time_on = 250 * time_on_millis / period_millis;
+        uint8_t t_rise_fall = (((time_fall_millis >> 7) & 0x0F) << 4) | ((time_rise_millis >> 7) & 0x0F);
 
         for (int i = 0; i < 3; i++) {
                 if (color[i] > 0) {
@@ -90,7 +93,7 @@ void KTD2026::pulse(RGBColor color, const int time_on_millis, const int time_ris
                 }
         }
 
-        writeReg(registers::I_R, color, sizeof(RGBColor));
+        writeReg(registers::I_R, _color, sizeof(RGBColor));
         writeReg(registers::EN_CH, &channel_enable, sizeof(channel_enable));
 
         writeReg(registers::FP, &flash_period, sizeof(flash_period));

@@ -40,36 +40,7 @@ static void power_evt_handler(const struct zbus_channel *chan)
 
 	msg = (battery_data *) zbus_chan_const_msg(chan);
 
-    // LOG_INF("Power Handler %i", (msg->charging_state >> 5) & 0x3);
-
-    // int state = (msg->charging_state >> 5) & 0x3;
-
     state_indicator.set_charging_state(msg->charging_state);
-
-	/*switch ((msg->charging_state >> 5) & 0x3) {
-    case 2:
-        LOG_INF("charging state: discharge");
-        state_indicator.set_charging_state(DISCHARGING);
-        break;
-    case 1:
-        LOG_INF("charging state: charging");
-        state_indicator.set_charging_state(CHARGING);
-        break;
-    case 3:
-        LOG_INF("charging state: done");
-        state_indicator.set_charging_state(FULLY_CHARGED);
-        break;
-    //case 3:
-        //LOG_WRN("charging state: fault");
-        //state_indicator.set_state(FAULT);
-
-        //uint16_t ts_fault = battery_controller.read_ts_fault();
-        //LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
-
-        //battery_controller.setup();
-        
-        //break;
-    }*/
 }
 
 ZBUS_LISTENER_DEFINE(power_evt_listen, power_evt_handler); //static
@@ -92,7 +63,7 @@ void StateIndicator::init(struct earable_state state) {
     set_state(state);
 }
 
-void StateIndicator::set_custom_color(RGBColor color) {
+void StateIndicator::set_custom_color(const RGBColor &color) {
     memcpy(&this->color, color, sizeof(RGBColor));
     if (_state.led_mode == CUSTOM) led_controller.setColor(color);
 }
@@ -121,63 +92,30 @@ void StateIndicator::set_state(struct earable_state state) {
         return;
     }
 
-    RGBColor color = {0,0,0};
     switch (_state.charging_state) {
     case POWER_CONNECTED:
-        color[0] = 24; // Rot
-        color[1] = 8;  // Grün
-        color[2] = 0;  // Blau
-
-        led_controller.setColor(color);
+        led_controller.setColor(LED_ORANGE);
         break;
     case CHARGING:
-        color[0] = 24; // Rot
-        color[1] = 8;  // Grün
-        color[2] = 0;  // Blau
-
-        led_controller.pulse(color, 1000, 1000, 512, 2000);
+        led_controller.pulse(LED_ORANGE, 1000, 1000, 512, 2000);
         break;
     case PRECHARGING:
-        color[0] = 32; // Rot
-        color[1] = 0;  // Grün
-        color[2] = 0;  // Blau
-
-        led_controller.pulse(color, 1000, 1000, 512, 2000);
+        led_controller.pulse(LED_RED, 1000, 1000, 512, 2000);
         break;
     case TRICKLE_CHARGING:
-        color[0] = 0;   // Rot
-        color[1] = 16;  // Grün
-        color[2] = 0;   // Blau
-
-        led_controller.pulse(color, 1000, 1000, 512, 2000);
+        led_controller.pulse(LED_GREEN, 1000, 1000, 512, 2000);
         break;
     case FULLY_CHARGED:
-        color[0] = 0;   // Rot
-        color[1] = 32;  // Grün
-        color[2] = 0;   // Blau
-
-        led_controller.setColor(color);
+        led_controller.setColor(LED_GREEN);
         break;
     case FAULT:
-        color[0] = 32; // Rot
-        color[1] = 0;  // Grün
-        color[2] = 0;  // Blau
-
-        led_controller.setColor(color);
+        led_controller.setColor(LED_RED);
         break;
     case BATTERY_CRITICAL:
-        color[0] = 32; // Rot
-        color[1] = 0;  // Grün
-        color[2] = 0;  // Blau
-
-        led_controller.blink(color, 100, 2000);
+        led_controller.blink(LED_RED, 100, 2000);
         break;
     case BATTERY_LOW:
-        color[0] = 16; // Rot
-        color[1] = 16;  // Grün
-        color[2] = 0;  // Blau
-
-        led_controller.blink(color, 100, 2000);
+        led_controller.blink(LED_ORANGE, 100, 2000);
         break;
     default:
         switch (_state.pairing_state) {
@@ -185,37 +123,19 @@ void StateIndicator::set_state(struct earable_state state) {
             audio_channel channel;
             channel_assignment_get(&channel);
             if (channel == AUDIO_CH_L) {
-                color[0] = 0;   // Rot
-                color[1] = 0;   // Grün
-                color[2] = 16;  // Blau
+                led_controller.blink(LED_BLUE, 100, 200);
             } else  if (channel == AUDIO_CH_R) {
-                color[0] = 16;   // Rot
-                color[1] = 0;   // Grün
-                color[2] = 0;  // Blau
+                led_controller.blink(LED_RED, 100, 200);
             }
-
-            led_controller.blink(color, 100, 200);
             break;
         case BONDING:
-            color[0] = 0;   // Rot
-            color[1] = 0;   // Grün
-            color[2] = 16;  // Blau
-
-            led_controller.blink(color, 100, 500);
+            led_controller.blink(LED_BLUE, 100, 500);
             break;
         case PAIRED:
-            color[0] = 0;   // Rot
-            color[1] = 0;   // Grün
-            color[2] = 16;  // Blau 
-
-            led_controller.blink(color, 100, 2000);
+            led_controller.blink(LED_BLUE, 100, 2000);
             break;
         case CONNECTED:
-            color[0] = 0;   // Rot
-            color[1] = 16;  // Grün
-            color[2] = 0;   // Blau
-
-            led_controller.blink(color, 100, 2000);
+            led_controller.blink(LED_GREEN, 100, 2000);
             break;
         }
     }
