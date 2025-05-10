@@ -219,6 +219,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
             if ((ts_fault >> 5) & 0x7) {
                 LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
+                battery_controller.setup(power_manager._battery_settings);
             }
 
             LOG_DBG("------------------ Battery Info ------------------");
