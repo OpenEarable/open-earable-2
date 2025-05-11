@@ -14,21 +14,25 @@
 - Click "Generate and Build" (this will take a while)
 - <img width="938" alt="image" src="https://github.com/user-attachments/assets/fa99f1b9-9187-4f29-855b-5147269ed807" />
 
-## LED States
-| Operational Mode         | LED Color & Pattern   | Meaning                                                                                                 |
-|--------------------------|-----------------------|---------------------------------------------------------------------------------------------------------|
-|                          |                       |                                                     |                                                    |
-| **Charging**             |                       |                                                                                                         |
-| – Power Connected        | Orange solid          | Power connected, charging current not yet verified or not at the configured level                      |
-| – Bulk Charge            | Orange blinking       | At least 80% of the configured target charging current                                                  |
-| – Trickle Charge         | Green blinking        | Float/constant-voltage charging reached; this state can be disabled via configuration                   |
-| – Fully Charged          | Green solid           | Battery fully charged                                                                                   |
-| – Pre-Charge/System Fault| Red blinking          | Pre-charge stage or system down; voltage not yet cleared                                                |
-| – Battery Fault          | Red solid             | Any battery fault (e.g. deep discharge, current = 0)                                                     |
-|                          |                       |                                                     |                                                    |
-| **Discharging**          |                       |                                                                                                         |
-| – Critical Battery Level | Red blinking (fast)   | Battery critically low (≈3% SOC or EDV1 reached)                                                         |
-| – Low Battery Level      | Orange blinking (fast)| Battery low (≈7% SOC or EDV2 reached); state is disabled by default and must be enabled via configuration |
+
+## Charging States
+
+| LED State         | Description                                                                 |
+|------------------|-----------------------------------------------------------------------------|
+| 🟧 Solid Orange   | Power connected, but charging current is not verified or not at desired level |
+| 🟠 Pulsing Orange | At least 80% of the target charging current is reached                      |
+| 🟢 Pulsing Green  | Trickle charge; final voltage (constant voltage) reached. Can be disabled via config |
+| 🟩 Solid Green    | Fully charged                                                               |
+| 🔴 Pulsing Red    | Pre-charge phase or system-down voltage not yet cleared                     |
+| 🟥 Solid Red      | Battery fault or deep discharge, charging current = 0                       |
+
+## Discharging States
+
+| LED State           | Description                                                              |
+|--------------------|--------------------------------------------------------------------------|
+| 🔴 Blinking Red     | Battery critical (3% remaining or EDV1 reached)                          |
+| 🟠 Blinking Orange  | Battery low (7% remaining or EDV2 reached). Disabled by default, enable via config |
+
 
 
 
