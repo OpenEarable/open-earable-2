@@ -36,6 +36,9 @@
 | 🟠 Blinking Orange  | Battery low (7% remaining or EDV2 reached). Disabled by default, enable via config |
 | 🔴 Blinking Red     | Battery critical (3% remaining or EDV1 reached)                          |
 
+## Parsing
+Files recorded to the local microSD card in the binary `*.oe` format can be parsed using [this Python notebook](https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq).
+
 
 
 
