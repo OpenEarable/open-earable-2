@@ -84,12 +84,12 @@
 
 | LED State         | Description                                                                 |
 |------------------|-----------------------------------------------------------------------------|
-| 🟥 Solid Red      | Battery fault or deep discharge, charging current = 0                       |
-| 🔴 Pulsing Red    | Pre-charge phase or system-down voltage not yet cleared                     |
-| 🟧 Solid Orange   | Power connected, but charging current is not verified or not at desired level |
-| 🟠 Pulsing Orange | At least 80% of the target charging current is reached                      |
-| 🟢 Pulsing Green  | Trickle charge; final voltage (constant voltage) reached. Can be disabled via config |
-| 🟩 Solid Green    | Fully charged                                                               |
+| 🟥 Red - Solid      | Battery fault or deep discharge, charging current = 0                       |
+| 🔴 Red - Pulsing    | Pre-charge phase or system-down voltage not yet cleared                     |
+| 🟧 Orange - Solid   | Power connected, but charging current is not verified or not at desired level |
+| 🟠 Orange - Pulsing | At least 80% of the target charging current is reached                      |
+| 🟢 Green - Pulsing  | Trickle charge; final voltage (constant voltage) reached. Can be disabled via config |
+| 🟩 Green - Solid    | Fully charged                                                               |
 
 
 
@@ -97,8 +97,8 @@
 
 | LED State           | Description                                                              |
 |--------------------|--------------------------------------------------------------------------|
-| 🟠 Blinking Orange  | Battery low (7% remaining or EDV2 reached). Disabled by default, enable via config |
-| 🔴 Blinking Red     | Battery critical (3% remaining or EDV1 reached)                          |
+| 🟠 Orange - Blinking | Battery low (7% remaining or EDV2 reached). Disabled by default, enable via config |
+| 🔴 Red - Blinking      | Battery critical (3% remaining or EDV1 reached)                          |
 
 
 ## Connection States
