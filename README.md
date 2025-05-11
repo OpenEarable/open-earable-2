@@ -102,7 +102,15 @@
 
 
 ## Connection States
-TODO
+
+| LED State                           | Description                                                                 |
+|-------------------------------------|-----------------------------------------------------------------------------|
+| 🔵 Blue – Blinking Very Fast        | Configured as **left device**, searching for **right device**               |
+| 🔴 Red – Blinking Very Fast         | Configured as **right device**, searching for **left device**               |
+| 🔵 Blue – Blinking Fast             | Paired with left/right, **ready for device bonding**                        |
+| 🔵 Blue – Blinking Slow             | Bonded, **waiting for connection**                                          |
+| 🟢 Green – Blinking                 | **Connected**                                                               |
+
 
 ## File Parsing
 Files recorded to the local microSD card in the binary `*.oe` format can be parsed using <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
