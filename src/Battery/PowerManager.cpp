@@ -14,6 +14,10 @@
 
 #include <zephyr/zbus/zbus.h>
 
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
+#include <zephyr/dfu/mcuboot.h>
+#endif
+
 #include <hal/nrf_ficr.h>
 
 #include "../drivers/LED_Controller/KTD2026.h"
@@ -398,8 +402,22 @@ int PowerManager::begin() {
         set_error_led();
     }
 
-    //RGBColor white = {32, 32, 32};
-    //led_controller.setColor(white);
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
+    bool img_confirmed = boot_is_img_confirmed();
+
+	if (!img_confirmed) {
+		ret = boot_write_img_confirmed();
+		if (ret) {
+			LOG_ERR("Failed to confirm image");
+			// reboot and revert to last confirmed image
+			sys_reboot(SYS_REBOOT_COLD);
+		}
+        LOG_INF("Image confirmed");
+        #ifdef CONFIG_SETUP_FUEL_GAUGE
+        fuel_gauge.setup(_battery_settings);
+        #endif
+	}
+#endif
 
     state_indicator.init(oe_state);
 

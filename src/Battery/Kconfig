@@ -60,4 +60,10 @@ config BATTERY_ENABLE_TRICKLE_CHARGE
 	help
 	  If enabled, battery state will change to TRICKLE_CHARGING when voltage is close to terminal voltage
 
+config SETUP_FUEL_GAUGE
+	bool "Setup Fuel Gauge on Boot"
+	default n
+	help
+	  If enabled, fuel gauge will be setup during boot process
+
 endmenu
