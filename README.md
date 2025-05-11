@@ -14,8 +14,8 @@
 - Click "Generate and Build" (this will take a while)
 - <img width="938" alt="image" src="https://github.com/user-attachments/assets/fa99f1b9-9187-4f29-855b-5147269ed807" />
 
-
-## Charging States
+## Battery
+### Charging States
 
 | LED State         | Description                                                                 |
 |------------------|-----------------------------------------------------------------------------|
@@ -26,7 +26,7 @@
 | 🔴 Pulsing Red    | Pre-charge phase or system-down voltage not yet cleared                     |
 | 🟥 Solid Red      | Battery fault or deep discharge, charging current = 0                       |
 
-## Discharging States
+### Discharging States
 
 | LED State           | Description                                                              |
 |--------------------|--------------------------------------------------------------------------|
