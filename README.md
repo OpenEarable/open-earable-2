@@ -37,7 +37,7 @@
 | 🔴 Blinking Red     | Battery critical (3% remaining or EDV1 reached)                          |
 
 ## File Parsing
-Files recorded to the local microSD card in the binary `*.oe` format can be parsed using [this Python notebook](https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq){:target="_blank"}.
+Files recorded to the local microSD card in the binary `*.oe` format can be parsed using <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
 
 
 
