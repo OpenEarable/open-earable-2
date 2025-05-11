@@ -65,6 +65,9 @@
    -  To build **without FOTA**:
       - remove the FOTA flags from above
       - TODO: select the correct proj.conf
+    
+6. **JLink Setup**
+   - TODO
 
 8. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
