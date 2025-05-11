@@ -14,6 +14,7 @@
 - Click "Generate and Build" (this will take a while)
 - <img width="938" alt="image" src="https://github.com/user-attachments/assets/fa99f1b9-9187-4f29-855b-5147269ed807" />
 
+
 ## Battery
 ### Charging States
 
