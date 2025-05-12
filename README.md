@@ -86,6 +86,8 @@
 
 
 ## Battery
+Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
+
 ### Charging States
 
 | LED State         | Description                                                                 |
@@ -108,6 +110,7 @@
 
 
 ## Connection States
+Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
 
 | LED State                           | Description                                                                 |
 |-------------------------------------|-----------------------------------------------------------------------------|
