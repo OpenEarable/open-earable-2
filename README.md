@@ -29,7 +29,7 @@
 1. **Install Visual Studio Code (VS Code)**  
    Download and install from [https://code.visualstudio.com](https://code.visualstudio.com)
 
-2. **Install USB Driver for J‑Link**
+2. **Install USB Driver for J‑Link (Windows only)**
    - TODO
      
 4. **Install nRF-Util**  
