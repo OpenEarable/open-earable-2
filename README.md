@@ -29,31 +29,34 @@
 1. **Install Visual Studio Code (VS Code)**  
    Download and install from [https://code.visualstudio.com](https://code.visualstudio.com)
 
-2. **Install nRF-Util**  
+2. **Install USB Driver for J‑Link**
+   - TODO
+     
+4. **Install nRF-Util**  
    - Download from [nRF Util – Nordic Semiconductor](https://www.nordicsemi.com/Products/Development-tools/nRF-Util)  
    - Add `nrfutil` to your system's `PATH` environment variable
 
-3. **Install the nRF Connect for VS Code Extension**  
+5. **Install the nRF Connect for VS Code Extension**  
    - Open VS Code  
    - Go to the Extensions tab and install **"nRF Connect for VS Code"**  
    - Install all required dependencies when prompted
 
-4. **Install the Toolchain via nRF Connect**  
+6. **Install the Toolchain via nRF Connect**  
    - Open the **nRF Connect** tab in VS Code  
    - Click **"Install Toolchain"**  
    - Select and install **version 3.0.1**
 
-5. **Install the nRF Connect SDK**  
+7. **Install the nRF Connect SDK**  
    - In the **nRF Connect** tab, select **"Manage SDK"**  
    - Install **SDK version 3.0.1**
 
-6. **Open the Firmware Folder in VS Code**  
+8. **Open the Firmware Folder in VS Code**  
    - Use `File > Open Folder` or drag-and-drop the firmware directory into VS Code
    - In the **APPLICATIONS** section of the nRF Connect tab:
      - Select `Open Exisiting Application`
      - Select the `openearable-v2` directory
 
-7. **Configure the Application Build**  
+9. **Configure the Application Build**  
    - In the **APPLICATIONS** section of the nRF Connect tab:  
      - Select the `openearable-v2` application  
      - Click **"+ Add build configuration"** to set up a new build
