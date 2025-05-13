@@ -55,12 +55,13 @@
 
 7. **Open the Firmware Folder in VS Code**  
    - Use `File > Open Folder` or drag-and-drop the firmware directory into VS Code
-   - In the **APPLICATIONS** section of the nRF Connect tab:
+   - OR in the **APPLICATIONS** section of the nRF Connect tab:
      - Select `Open Exisiting Application`
      - Select the `openearable-v2` directory
 
-8. **Configure the Application Build**  
-   - In the **APPLICATIONS** section of the nRF Connect tab:  
+8. **Configure the Application Build**
+   - If not already open, navigate to the nrfConnect extension tab in VSCode
+   - In the **APPLICATIONS** section of the nRF Connect extension tab:  
      - Select the `openearable-v2` application  
      - Click **"+ Add build configuration"** to set up a new build
      - Select the SDK version 3.0.1, toolchain version 3.0.1, and `openearable_v2/nrf5340/cpuapp` as board target
@@ -72,12 +73,12 @@
         - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`
         - Do not set any of the FOTA flags described above
     
-9. **JLink Setup**
+10. **JLink Setup**
    - Wire your JLink to the debugging breakout PCB as shown below.
      <img width="779" alt="image" src="https://github.com/user-attachments/assets/aa6d1556-3526-461f-83fb-bf88ebcbc7a1" />
 
 
-10. **Build and Flash**
+11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your JLink (right click your JLink in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
      ```
