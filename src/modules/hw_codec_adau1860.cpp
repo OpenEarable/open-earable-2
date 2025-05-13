@@ -35,6 +35,11 @@ static struct k_thread volume_msg_sub_thread_data;
 
 K_THREAD_STACK_DEFINE(volume_msg_sub_thread_stack, CONFIG_VOLUME_MSG_SUB_STACK_SIZE);
 
+int hw_codec_set_audio_mode(enum audio_mode mode) {
+    int ret = dac.fdsp_bank_select((uint8_t) mode);
+	return ret;
+}
+
 /**
  * @brief	Convert the zbus volume to the actual volume setting for the HW codec.
  *

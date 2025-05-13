@@ -170,7 +170,7 @@ int ADAU1860::begin() {
                 writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));
 
                 // DMIC_VOL0
-                uint8_t dmic_vol = 0x08; // 21dB
+                uint8_t dmic_vol = 0x20; // 12dB
                 writeReg(registers::DMIC_VOL0, &dmic_vol, sizeof(dmic_vol));
                 writeReg(registers::DMIC_VOL1, &dmic_vol, sizeof(dmic_vol));
 
@@ -410,9 +410,22 @@ int ADAU1860::fdsp_set_volume(uint8_t volume) {
         float _val = ((float) (1<<27)) * powf(10.f, -3.f * (((float) (0xFF - volume)) / 255.f)); 
         uint32_t val = MIN(_val, (1 << 27));
         fdsp_safe_load(VOLUME, 4, val);
+        // TODO: write to non active banks
 
         return 0;
 }
+
+#if CONFIG_FDSP
+int ADAU1860::fdsp_bank_select(uint8_t bank) {
+        uint8_t val;
+        readReg(registers::FDSP_CTRL1, &val, sizeof(val));
+        val &= ~(0x03); // clear bank bits
+        val |= (bank & 0x03); // set bank bits
+        writeReg(registers::FDSP_CTRL1, &bank, sizeof(bank));
+
+        return 0;
+}
+#endif
 
 uint8_t ADAU1860::get_volume() {
         uint8_t dac_vol = 0;

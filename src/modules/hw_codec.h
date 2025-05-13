@@ -10,6 +10,13 @@
 #include <stdint.h>
 #include <zephyr/zbus/zbus.h>
 
+// Audio Mode Options
+enum audio_mode {
+    AUDIO_MODE_NORMAL = 0,
+    AUDIO_MODE_TRANSPARENCY = 1,
+    AUDIO_MODE_ANC = 2
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -101,6 +108,14 @@ int hw_codec_soft_reset(void);
 int hw_codec_init(void);
 
 int hw_codec_stop_audio(void);
+
+/**
+ * @brief Set the audio processing mode
+ *
+ * @param mode The audio mode to set (normal, transparency, ANC)
+ * @return 0 if successful, error otherwise
+ */
+int hw_codec_set_audio_mode(enum audio_mode mode);
 
 #ifdef __cplusplus
 }

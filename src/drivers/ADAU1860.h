@@ -401,6 +401,10 @@ public:
     int soft_reset(bool full_reset = false);
 
     uint8_t get_volume();
+
+#if CONFIG_FDSP
+    int fdsp_bank_select(uint8_t bank);
+#endif
 private:
     bool readReg(uint32_t reg, uint8_t * buffer, uint16_t len);
     void writeReg(uint32_t reg, uint8_t * buffer, uint16_t len);
