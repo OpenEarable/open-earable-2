@@ -75,7 +75,7 @@
     
 10. **JLink Setup**
    - Wire your JLink to the debugging breakout PCB as shown below.
-     <img width="779" alt="image" src="https://github.com/user-attachments/assets/aa6d1556-3526-461f-83fb-bf88ebcbc7a1" />
+     ![image](https://github.com/user-attachments/assets/2eeec41e-6be1-4a4f-b986-7d9a07b0f8e5)
 
 
 11. **Build and Flash**
