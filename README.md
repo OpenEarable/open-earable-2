@@ -70,7 +70,9 @@
       - TODO: select the correct proj.conf
     
 6. **JLink Setup**
-   - TODO
+   - Wire your JLink to the debugging breakout PCB as shown below.
+     <img width="779" alt="image" src="https://github.com/user-attachments/assets/aa6d1556-3526-461f-83fb-bf88ebcbc7a1" />
+
 
 8. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
