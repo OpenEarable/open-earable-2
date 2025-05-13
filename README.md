@@ -7,14 +7,15 @@
 ## Table of Contents
 
 1. [Setup](#setup)  
-   1.1 [Install Visual Studio Code (VS Code)](#install-visual-studio-code-vs-code)  
-   1.2 [Install nRF-Util](#install-nrf-util)  
-   1.3 [Install the nRF Connect for VS Code Extension](#install-the-nrf-connect-for-vs-code-extension)  
-   1.4 [Install the Toolchain via nRF Connect](#install-the-toolchain-via-nrf-connect)  
-   1.5 [Install the nRF Connect SDK](#install-the-nrf-connect-sdk)  
-   1.6 [Open the Firmware Folder in VS Code](#open-the-firmware-folder-in-vs-code)  
-   1.7 [Configure the Application Build](#configure-the-application-build)  
-   1.8 [Build and Flash](#build-and-flash)  
+   1.1 [Install Visual Studio Code (VS Code)](#install-visual-studio-code-vs-code)
+   1.2 [Install the J‑Link Software and Documentation Package](#install-the-j‑link-software-and-documentation-package)
+   1.3 [Install nRF-Util](#install-nrf-util)  
+   1.4 [Install the nRF Connect for VS Code Extension](#install-the-nrf-connect-for-vs-code-extension)  
+   1.5 [Install the Toolchain via nRF Connect](#install-the-toolchain-via-nrf-connect)  
+   1.6 [Install the nRF Connect SDK](#install-the-nrf-connect-sdk)  
+   1.7 [Open the Firmware Folder in VS Code](#open-the-firmware-folder-in-vs-code)  
+   1.8 [Configure the Application Build](#configure-the-application-build)  
+   1.9 [Build and Flash](#build-and-flash)  
 
 2. [Battery](#battery)  
    2.1 [Charging States](#charging-states)  
@@ -24,41 +25,41 @@
 
 4. [File Parsing](#file-parsing)
    
-6. [Citing](#citing)
+5. [Citing](#citing)
 
 
 ## Setup
 1. **Install Visual Studio Code (VS Code)**  
-   Download and install from [https://code.visualstudio.com](https://code.visualstudio.com)
+   - Download and install from [https://code.visualstudio.com](https://code.visualstudio.com)
 
-2. **Install USB Driver for J‑Link (Windows only)**
-   - TODO
+2. **Install the J‑Link Software and Documentation Package**
+   - Download and install from [https://www.segger.com/downloads/jlink/](https://www.segger.com/downloads/jlink/)
      
-4. **Install nRF-Util**  
+3. **Install nRF-Util**  
    - Download from [nRF Util – Nordic Semiconductor](https://www.nordicsemi.com/Products/Development-tools/nRF-Util)  
    - Add `nrfutil` to your system's `PATH` environment variable
 
-5. **Install the nRF Connect for VS Code Extension**  
+4. **Install the nRF Connect for VS Code Extension**  
    - Open VS Code  
    - Go to the Extensions tab and install **"nRF Connect for VS Code"**  
    - Install all required dependencies when prompted
 
-6. **Install the Toolchain via nRF Connect**  
+5. **Install the Toolchain via nRF Connect**  
    - Open the **nRF Connect** tab in VS Code  
    - Click **"Install Toolchain"**  
    - Select and install **version 3.0.1**
 
-7. **Install the nRF Connect SDK**  
+6. **Install the nRF Connect SDK**  
    - In the **nRF Connect** tab, select **"Manage SDK"**  
    - Install **SDK version 3.0.1**
 
-8. **Open the Firmware Folder in VS Code**  
+7. **Open the Firmware Folder in VS Code**  
    - Use `File > Open Folder` or drag-and-drop the firmware directory into VS Code
    - In the **APPLICATIONS** section of the nRF Connect tab:
      - Select `Open Exisiting Application`
      - Select the `openearable-v2` directory
 
-9. **Configure the Application Build**  
+8. **Configure the Application Build**  
    - In the **APPLICATIONS** section of the nRF Connect tab:  
      - Select the `openearable-v2` application  
      - Click **"+ Add build configuration"** to set up a new build
@@ -71,12 +72,12 @@
       - remove the FOTA flags from above
       - TODO: select the correct proj.conf
     
-6. **JLink Setup**
+9. **JLink Setup**
    - Wire your JLink to the debugging breakout PCB as shown below.
      <img width="779" alt="image" src="https://github.com/user-attachments/assets/aa6d1556-3526-461f-83fb-bf88ebcbc7a1" />
 
 
-8. **Build and Flash**
+10. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your JLink (right click your JLink in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
      ```
