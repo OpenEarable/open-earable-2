@@ -62,14 +62,14 @@
         - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`
         - Do not set any of the FOTA flags described above
     
-10. **JLink Setup**
-   - Wire your JLink to the debugging breakout PCB as shown below.
+10. **J-Link Setup**
+   - Wire your J-Link to the debugging breakout PCB as shown below.
      ![image](https://github.com/user-attachments/assets/2eeec41e-6be1-4a4f-b986-7d9a07b0f8e5)
 
 
 11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
-   - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your JLink (right click your JLink in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
+   - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
      ```
      ./tools/flash/flash_fota.sh -snr 123456789 --left
      ```
