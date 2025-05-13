@@ -6,26 +6,15 @@
 
 ## Table of Contents
 
-1. [Setup](#setup)  
-   1.1 [Install Visual Studio Code (VS Code)](#install-visual-studio-code-vs-code)  
-   1.2 [Install the J‑Link Software and Documentation Package](#install-the-j‑link-software-and-documentation-package)  
-   1.3 [Install nRF-Util](#install-nrf-util)  
-   1.4 [Install the nRF Connect for VS Code Extension](#install-the-nrf-connect-for-vs-code-extension)  
-   1.5 [Install the Toolchain via nRF Connect](#install-the-toolchain-via-nrf-connect)  
-   1.6 [Install the nRF Connect SDK](#install-the-nrf-connect-sdk)  
-   1.7 [Open the Firmware Folder in VS Code](#open-the-firmware-folder-in-vs-code)  
-   1.8 [Configure the Application Build](#configure-the-application-build)  
-   1.9 [Build and Flash](#build-and-flash)  
+1. [Setup](#setup)
 
-3. [Battery](#battery)  
-   2.1 [Charging States](#charging-states)  
-   2.2 [Discharging States](#discharging-states)  
+2. [Battery States](#battery-states)
 
-4. [Connection States](#connection-states)  
+3. [Connection States](#connection-states)  
 
-5. [File Parsing](#file-parsing)
+4. [File Parsing](#file-parsing)
    
-6. [Citing](#citing)
+5. [Citing](#citing)
 
 
 ## Setup
@@ -91,7 +80,7 @@
 
 
 
-## Battery
+## Battery States
 Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
 
 ### Charging States
