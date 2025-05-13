@@ -63,14 +63,14 @@
    - In the **APPLICATIONS** section of the nRF Connect tab:  
      - Select the `openearable-v2` application  
      - Click **"+ Add build configuration"** to set up a new build
-   - Select the SDK version 3.0.1, toolchain version 3.0.1, and `openearable_v2/nrf5340/cpuapp` as board target
-   - To build **with FOTA** (firmware over-the-air update functionality):
-     - TODO: proj. conf settings
-     - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`
-     - as `Build directory` name set `build_fota`
-   -  To build **without FOTA**:
-      - remove the FOTA flags from above
-      - TODO: select the correct proj.conf
+     - Select the SDK version 3.0.1, toolchain version 3.0.1, and `openearable_v2/nrf5340/cpuapp` as board target
+     - To build **with FOTA** (firmware over-the-air update functionality):
+       - Leave the `Base configuration files (Kconfig fragments)` dropdown empty
+       - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`
+       - as `Build directory` name set `build_fota`
+     -  To build **without FOTA**:
+        - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`
+        - Do not set any of the FOTA flags described above
     
 9. **JLink Setup**
    - Wire your JLink to the debugging breakout PCB as shown below.
