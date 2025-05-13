@@ -7,8 +7,8 @@
 ## Table of Contents
 
 1. [Setup](#setup)  
-   1.1 [Install Visual Studio Code (VS Code)](#install-visual-studio-code-vs-code)
-   1.2 [Install the J‑Link Software and Documentation Package](#install-the-j‑link-software-and-documentation-package)
+   1.1 [Install Visual Studio Code (VS Code)](#install-visual-studio-code-vs-code)  
+   1.2 [Install the J‑Link Software and Documentation Package](#install-the-j‑link-software-and-documentation-package)  
    1.3 [Install nRF-Util](#install-nrf-util)  
    1.4 [Install the nRF Connect for VS Code Extension](#install-the-nrf-connect-for-vs-code-extension)  
    1.5 [Install the Toolchain via nRF Connect](#install-the-toolchain-via-nrf-connect)  
@@ -17,15 +17,15 @@
    1.8 [Configure the Application Build](#configure-the-application-build)  
    1.9 [Build and Flash](#build-and-flash)  
 
-2. [Battery](#battery)  
+3. [Battery](#battery)  
    2.1 [Charging States](#charging-states)  
    2.2 [Discharging States](#discharging-states)  
 
-3. [Connection States](#connection-states)  
+4. [Connection States](#connection-states)  
 
-4. [File Parsing](#file-parsing)
+5. [File Parsing](#file-parsing)
    
-5. [Citing](#citing)
+6. [Citing](#citing)
 
 
 ## Setup
