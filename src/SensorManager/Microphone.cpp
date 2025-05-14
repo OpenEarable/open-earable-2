@@ -1,6 +1,7 @@
 #include "Microphone.h"
 
 #include "audio_datapath.h"
+#include "streamctrl.h"
 
 #include "SensorManager.h"
 
@@ -62,7 +63,7 @@ void Microphone::start(int sample_rate_idx) {
 
 	record_to_sd(true);
 
-	audio_datapath_start(&fifo_rx);
+	audio_datapath_aquire(&fifo_rx);
 
 	_running = true;
 }
@@ -71,11 +72,11 @@ void Microphone::stop() {
     if (!_active) return;
     _active = false;
 
-	if (_running) audio_datapath_stop();
+	if (!_running) return;
 
 	record_to_sd(false);
 
-	empty_fifo();
+	audio_datapath_release();
 
 	_running = false;
 }

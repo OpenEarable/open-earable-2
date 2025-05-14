@@ -26,7 +26,7 @@ void sd_listener_callback(const struct zbus_channel *chan);
 
 ZBUS_LISTENER_DEFINE(sd_card_event_listener, sd_listener_callback);
 
-static struct k_poll_signal logger_sig;
+struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt =
 		 K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &logger_sig);
 
@@ -46,7 +46,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 		ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
 
 		if (ret) {
-			LOG_WRN("sensor stream msg queue full");
+			LOG_WRN("sd msg queue full");
 		}
 	}
 }

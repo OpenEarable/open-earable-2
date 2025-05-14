@@ -184,7 +184,10 @@ static k_tid_t data_thread_id;
 
 bool _record_to_sd = false;
 
+int _count = 0;
+
 extern struct k_poll_signal encoder_sig;
+extern struct k_poll_event logger_sig;
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
@@ -211,7 +214,10 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
-			if (_record_to_sd) {
+			unsigned int logger_signaled;
+			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
+
+			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
 				struct sensor_msg audio_msg;
 	
 				audio_msg.sd = true;
@@ -1168,10 +1174,34 @@ int audio_datapath_stop(void)
 
 		pres_comp_state_set(PRES_STATE_INIT);
 
+		data_fifo_empty(ctrl_blk.in.fifo);
+
 		return 0;
 	} else {
 		return -EALREADY;
 	}
+}
+
+// TODO: not clean with the argument --> move to init?
+int audio_datapath_aquire(struct data_fifo *fifo_rx) {
+	int ret = 0;
+	if (_count == 0) ret = audio_datapath_start(fifo_rx);
+	_count++;
+
+	return ret;
+}
+
+int audio_datapath_release() {
+	int ret = 0;
+
+	_count --;
+
+	if (_count <= 0) {
+		audio_datapath_stop();
+		_count = 0;
+	}
+
+	return ret;
 }
 
 int audio_datapath_init(void)
@@ -1185,6 +1215,8 @@ int audio_datapath_init(void)
 	ctrl_blk.datapath_initialized = true;
 	ctrl_blk.drift_comp.enabled = true;
 	ctrl_blk.pres_comp.enabled = true;
+
+	_count = 0;
 
 	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) && (CONFIG_AUDIO_DEV == GATEWAY)) {
 		/* Disable presentation compensation feature for microphone return on gateway,

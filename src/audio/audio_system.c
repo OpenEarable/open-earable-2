@@ -423,7 +423,7 @@ void audio_system_start(void)
 	ERR_CHK(ret);
 #else
 
-	ret = audio_datapath_start(&fifo_rx);
+	ret = audio_datapath_aquire(&fifo_rx);
 	ERR_CHK(ret);
 	
 	ret = hw_codec_default_conf_enable();
@@ -455,7 +455,7 @@ void audio_system_stop(void)
 	ret = hw_codec_stop_audio();
 	ERR_CHK(ret);
 
-	ret = audio_datapath_stop();
+	ret = audio_datapath_release();
 	ERR_CHK(ret);
 	
 	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
@@ -467,7 +467,7 @@ void audio_system_stop(void)
 	ERR_CHK_MSG(ret, "Failed to uninit codec");
 	sw_codec_cfg.initialized = false;
 
-	data_fifo_empty(&fifo_rx);
+	//data_fifo_empty(&fifo_rx);
 	data_fifo_empty(&fifo_tx);
 }
 

@@ -97,6 +97,9 @@ void record_to_sd(bool active);
 
 void set_sensor_queue(struct k_msgq *queue);
 
+int audio_datapath_aquire(struct data_fifo *fifo_rx);
+int audio_datapath_release();
+
 #ifdef __cplusplus
 }
 #endif

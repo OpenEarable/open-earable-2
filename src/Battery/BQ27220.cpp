@@ -437,7 +437,7 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         //dod 90%: 3451, 3456
         //dod 92.5%: 3435
         //dod 95%: 3411, 3416 edv1: 6%
-        //dod 97.5%: 3350, edv2: 1.5%
+        //dod 97.5%: 3350, edv0: 1.5%
         //dod: 100%: 3250, 3269
         //dod: 101.25%: 3188
         //dod: 102.5%: 3123
