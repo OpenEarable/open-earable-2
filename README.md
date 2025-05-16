@@ -6,94 +6,95 @@
 
 ## Table of Contents
 
-1. [Setup](#setup)  
-   1.1 [Install Visual Studio Code (VS Code)](#install-visual-studio-code-vs-code)  
-   1.2 [Install nRF-Util](#install-nrf-util)  
-   1.3 [Install the nRF Connect for VS Code Extension](#install-the-nrf-connect-for-vs-code-extension)  
-   1.4 [Install the Toolchain via nRF Connect](#install-the-toolchain-via-nrf-connect)  
-   1.5 [Install the nRF Connect SDK](#install-the-nrf-connect-sdk)  
-   1.6 [Open the Firmware Folder in VS Code](#open-the-firmware-folder-in-vs-code)  
-   1.7 [Configure the Application Build](#configure-the-application-build)  
-   1.8 [Build and Flash](#build-and-flash)  
+1. [Setup](#setup)
 
-2. [Battery](#battery)  
-   2.1 [Charging States](#charging-states)  
-   2.2 [Discharging States](#discharging-states)  
+2. [Battery States](#battery-states)
 
 3. [Connection States](#connection-states)  
 
-4. [File Parsing](#file-parsing)  
+4. [File Parsing](#file-parsing)
+   
+5. [Citing](#citing)
 
 
 ## Setup
 1. **Install Visual Studio Code (VS Code)**  
-   Download and install from [https://code.visualstudio.com](https://code.visualstudio.com)
+   - Download and install from [https://code.visualstudio.com](https://code.visualstudio.com)
 
-2. **Install nRF-Util**  
+2. **Install the J‑Link Software and Documentation Package**
+   - Download and install from [https://www.segger.com/downloads/jlink/](https://www.segger.com/downloads/jlink/)
+     
+3. **Install nRF-Util**  
    - Download from [nRF Util – Nordic Semiconductor](https://www.nordicsemi.com/Products/Development-tools/nRF-Util)  
    - Add `nrfutil` to your system's `PATH` environment variable
 
-3. **Install the nRF Connect for VS Code Extension**  
+4. **Install the nRF Connect for VS Code Extension**  
    - Open VS Code  
    - Go to the Extensions tab and install **"nRF Connect for VS Code"**  
    - Install all required dependencies when prompted
 
-4. **Install the Toolchain via nRF Connect**  
+5. **Install the Toolchain via nRF Connect**  
    - Open the **nRF Connect** tab in VS Code  
    - Click **"Install Toolchain"**  
    - Select and install **version 3.0.1**
 
-5. **Install the nRF Connect SDK**  
+6. **Install the nRF Connect SDK**  
    - In the **nRF Connect** tab, select **"Manage SDK"**  
    - Install **SDK version 3.0.1**
 
-6. **Open the Firmware Folder in VS Code**  
+7. **Open the Firmware Folder in VS Code**  
    - Use `File > Open Folder` or drag-and-drop the firmware directory into VS Code
-   - In the **APPLICATIONS** section of the nRF Connect tab:
+   - OR in the **APPLICATIONS** section of the nRF Connect tab:
      - Select `Open Exisiting Application`
      - Select the `openearable-v2` directory
 
-7. **Configure the Application Build**  
-   - In the **APPLICATIONS** section of the nRF Connect tab:  
+8. **Configure the Application Build**
+   - If not already open, navigate to the nrfConnect extension tab in VSCode
+   - In the **APPLICATIONS** section of the nRF Connect extension tab:  
      - Select the `openearable-v2` application  
      - Click **"+ Add build configuration"** to set up a new build
-   - Select the SDK version 3.0.1, toolchain version 3.0.1, and `openearable_v2/nrf5340/cpuapp` as board target
-   - To build **with FOTA** (firmware over-the-air update functionality):
-     - TODO: proj. conf settings
-     - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`
-     - as `Build directory` name set `build_fota`
-   -  To build **without FOTA**:
-      - remove the FOTA flags from above
-      - TODO: select the correct proj.conf
+     - Select the SDK version 3.0.1, toolchain version 3.0.1, and `openearable_v2/nrf5340/cpuapp` as board target
+     - To build **with FOTA** (firmware over-the-air update functionality):
+       - Leave the `Base configuration files (Kconfig fragments)` dropdown empty
+       - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`
+       - as `Build directory` name set `build_fota`
+     -  To build **without FOTA**:
+        - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`
+        - Do not set any of the FOTA flags described above
     
-6. **JLink Setup**
-   - TODO
+10. **J-Link Setup**
+   - Wire your J-Link to the debugging breakout PCB as shown below.
+     ![image](https://github.com/user-attachments/assets/2eeec41e-6be1-4a4f-b986-7d9a07b0f8e5)
 
-8. **Build and Flash**
+
+11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
-   - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your JLink (right click your JLink in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
-     ```
-     ./tools/flash/flash_fota.sh -snr 123456789 --left
+   - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
+     ```bash
+     ./tools/flash/flash_fota.sh --snr 123456789 --left    # --right for the right ear device, or no flag to retain left/right bonding
      ```
    - or without FOTA
+     ```bash
+     ./tools/flash/flash.sh --snr 123456789 --left        # --right for the right ear device, or no flag to retain left/right bonding
      ```
-     ./tools/flash/flash.sh -snr 123456789 --left
-     ```
 
 
 
-## Battery
+## Battery States
+Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
+
 ### Charging States
 
 | LED State         | Description                                                                 |
 |------------------|-----------------------------------------------------------------------------|
-| 🟥 Red - Solid      | Battery fault or deep discharge, charging current = 0                       |
+| 🟥 Red - Solid      | Battery fault or deep discharge*, charging current = 0                       |
 | 🔴 Red - Pulsing    | Pre-charge phase or system-down voltage not yet cleared                     |
 | 🟧 Orange - Solid   | Power connected, but charging current is not verified or not at desired level |
 | 🟠 Orange - Pulsing | At least 80% of the target charging current is reached                      |
 | 🟢 Green - Pulsing  | Trickle charge; final voltage (constant voltage) reached. Can be disabled via config |
 | 🟩 Green - Solid    | Fully charged                                                               |
 
+*If your OpenEarable goes into deep discharge (solid red) after pre-charge (red pulse), you can unplug the OpenEarable and plug it in again. This should recover the device.
 
 
 ### Discharging States
@@ -105,6 +106,7 @@
 
 
 ## Connection States
+Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
 
 | LED State                           | Description                                                                 |
 |-------------------------------------|-----------------------------------------------------------------------------|
@@ -117,6 +119,21 @@
 
 ## File Parsing
 Files recorded to the local microSD card in the binary `*.oe` format can be parsed using <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
+
+## Citing
+If you are using OpenEarable, please cite is as follows:
+```
+@article{roddiger2025openearable,
+     title = {OpenEarable 2.0: Open-Source Earphone Platform for Physiological Ear Sensing},
+     author = {Röddiger, Tobias and Küttner, Michael and Lepold, Philipp and King, Tobias and Moschina, Dennis and Bagge, Oliver and Paradiso, Joseph A. and Clarke, Christopher and Beigl, Michael},
+     year = 2025,
+     journal = {Proceedings of the ACM on Interactive, Mobile, Wearable and Ubiquitous Technologies},
+     volume = {9},
+     number = {1},
+     pages = {1--33},
+     publisher={ACM New York, NY, USA}
+}
+```
 
 
 
