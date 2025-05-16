@@ -40,10 +40,10 @@ typedef uint32_t safe_load_params[FDSP_NUM_PARAMS];
 enum sl_address {
     BIQ_0 = 0,
     //LIMIT_1 = 1,
-    VOLUME = 1,
-    MUTE = 2,
-    MIXER = 3,
-    LIMITER_MASTER = 4
+    VOLUME = 2,
+    MUTE = 3,
+    MIXER = 4,
+    LIMITER_MASTER = 5
 };
 
 class ADAU1860 {
