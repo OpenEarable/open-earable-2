@@ -1,6 +1,10 @@
 #include "audio_config_service.h"
 #include "../modules/hw_codec.h"
 
+#include "zbus_common.h"
+
+#include "audio_system.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_config_service, CONFIG_BLE_LOG_LEVEL);
 
@@ -20,12 +24,37 @@ static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr 
     return len;
 }
 
+static ssize_t write_mic_select(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                              const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+    if (len != sizeof(uint8_t)) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    LOG_INF("Mic select: %d", *((uint8_t*)buf));
+
+    uint8_t mic_select = *((uint8_t*)buf);
+    if (mic_select > 1) {
+        return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+    }
+
+    int ret = audio_system_set_encoder_channel(mic_select == 0 ? AUDIO_CH_L : AUDIO_CH_R);
+    if (ret) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+    return len;
+}
+
 BT_GATT_SERVICE_DEFINE(audio_config_svc,
     BT_GATT_PRIMARY_SERVICE(BT_UUID_AUDIO_CONFIG_SERVICE),
     BT_GATT_CHARACTERISTIC(BT_UUID_AUDIO_MODE,
                        BT_GATT_CHRC_WRITE,
                        BT_GATT_PERM_WRITE,
                        NULL, write_audio_mode, NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_MIC_SELECT,
+                       BT_GATT_CHRC_WRITE,
+                       BT_GATT_PERM_WRITE,
+                       NULL, write_mic_select, NULL),
 );
 
 int init_audio_config_service(void)

@@ -353,7 +353,16 @@ int ADAU1860::mute(bool active) {
 #endif
 }
 
-int ADAU1860::fdsp_safe_load(sl_address address, safe_load_params params) {
+int ADAU1860::fdsp_safe_load(sl_address address, safe_load_params params, bool update_inactive) {
+        // TODO: not working
+        if (update_inactive) {
+                // write to non active banks
+                for (int i = 0; i < FDSP_NUM_BANKS; i++) {
+                        if (i == _active_bank) continue;
+                        writeReg(FDSP_BANK(i, address), (uint8_t *) params, sizeof(safe_load_params));
+                }
+        }
+
         uint8_t _address = address;
         writeReg(registers::FDSP_SL_ADDR, &_address, sizeof(_address));
         writeReg(registers::FDSP_SL_P0_0, (uint8_t *) params, sizeof(safe_load_params));
@@ -364,7 +373,7 @@ int ADAU1860::fdsp_safe_load(sl_address address, safe_load_params params) {
         return 0;
 }
 
-int ADAU1860::fdsp_safe_load(sl_address address, int n, uint32_t param) {
+int ADAU1860::fdsp_safe_load(sl_address address, int n, uint32_t param, bool update_inactive) {
         uint32_t params[FDSP_NUM_PARAMS];
 
         for (int i = 0; i < FDSP_NUM_PARAMS; i++) {
@@ -373,20 +382,14 @@ int ADAU1860::fdsp_safe_load(sl_address address, int n, uint32_t param) {
 
         params[n] = param;
 
-        uint8_t _address = address;
-        writeReg(registers::FDSP_SL_ADDR, &_address, sizeof(_address));
-        //writeReg(registers::FDSP_SL_P0_0 + n * sizeof(param), (uint8_t *) &param, sizeof(param));
-        writeReg(registers::FDSP_SL_P0_0, (uint8_t *) params, sizeof(safe_load_params));
+        fdsp_safe_load(address, params, update_inactive);
 
-        uint8_t val = 1;
-        writeReg(registers::FDSP_SL_UPDATE, &val, sizeof(val));
-        
         return 0;
 }
 
 int ADAU1860::fdsp_mute(bool active) {
         uint32_t val = active ? 0x00000000 : 0x08000000;
-        fdsp_safe_load(MUTE, 4, val);
+        fdsp_safe_load(MUTE, 4, val, false);
 
         return 0;
 }
@@ -409,8 +412,8 @@ int ADAU1860::set_volume(uint8_t volume) {
 int ADAU1860::fdsp_set_volume(uint8_t volume) {
         float _val = ((float) (1<<27)) * powf(10.f, -3.f * (((float) (0xFF - volume)) / 255.f)); 
         uint32_t val = MIN(_val, (1 << 27));
-        fdsp_safe_load(VOLUME, 4, val);
-        // TODO: write to non active banks
+
+        fdsp_safe_load(VOLUME, 4, val, false);
 
         return 0;
 }
@@ -418,6 +421,8 @@ int ADAU1860::fdsp_set_volume(uint8_t volume) {
 #if CONFIG_FDSP
 int ADAU1860::fdsp_bank_select(uint8_t bank) {
         uint8_t val;
+
+        _active_bank = bank;
         readReg(registers::FDSP_CTRL1, &val, sizeof(val));
         val &= ~(0x03); // clear bank bits
         val |= (bank & 0x03); // set bank bits

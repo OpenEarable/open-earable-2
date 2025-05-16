@@ -3,6 +3,10 @@
 
 #include <string>
 
+#include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/gatt.h>
+
 #include "SensorComponent.h"
 
 #define BT_UUID_PARSE_INFO_SERVICE_VAL \

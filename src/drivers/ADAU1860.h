@@ -19,13 +19,16 @@
 #define EQ_BANK_0   0x4000A200
 #define EQ_BANK_1   0x4000A400
 
-#define FDSP_BANK_SIZE 0x100
+#define FDSP_NUM_BANKS 3
+
+#define FDSP_PARAM_SIZE 0x100
 #define FDSP_NUM_PARAMS 5
 
 #define FDSP_PROG_MEM 0x40008000
-#define FDSP_BANK_A(N)   (0x40008100 + N * FDSP_BANK_SIZE)
-#define FDSP_BANK_B(N)   (0x40008600 + N * FDSP_BANK_SIZE)
-#define FDSP_BANK_C(N)   (0x40008B00 + N * FDSP_BANK_SIZE)
+#define FDSP_BANK(K,N)  (0x40008100 + K * FDSP_PARAM_SIZE * FDSP_NUM_PARAMS + N * FDSP_PARAM_SIZE)
+#define FDSP_BANK_A(N)   FDSP_BANK(0,N)
+#define FDSP_BANK_B(N)   FDSP_BANK(1,N)
+#define FDSP_BANK_C(N)   FDSP_BANK(2,N)
 #define FDSP_STATE    0x40009000
 
 #define DAC_ROUTE_EQ 75
@@ -419,8 +422,8 @@ private:
     int fdsp_set_volume(uint8_t volume);
     uint8_t fdsp_get_volume();
 
-    int fdsp_safe_load(sl_address address, safe_load_params params);
-    int fdsp_safe_load(sl_address address, int n, uint32_t param);
+    int fdsp_safe_load(sl_address address, safe_load_params params, bool update_inactive = false);
+    int fdsp_safe_load(sl_address address, int n, uint32_t param, bool update_inactive = false);
 
     const uint16_t address = DT_REG_ADDR(DT_NODELABEL(adau1860));
 
@@ -432,6 +435,8 @@ private:
     TWIM *_i2c;
 
     bool _active = false;
+
+    uint8_t _active_bank = 0;
 
     //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
 };

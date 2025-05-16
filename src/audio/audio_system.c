@@ -51,6 +51,8 @@ struct k_poll_signal encoder_sig;
 static struct k_poll_event encoder_evt =
 	K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &encoder_sig);
 
+static enum audio_channel encoder_channel = AUDIO_CH_L;
+
 static struct sw_codec_config sw_codec_cfg;
 /* Buffer which can hold max 1 period test tone at 1000 Hz */
 static int16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 1000];
@@ -100,6 +102,7 @@ static void audio_headset_configure(void)
 #if (CONFIG_STREAM_BIDIRECTIONAL)
 	sw_codec_cfg.encoder.num_ch = 1;
 	sw_codec_cfg.encoder.channel_mode = SW_CODEC_MONO;
+	sw_codec_cfg.encoder.audio_ch = encoder_channel;
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
 
 	sw_codec_cfg.decoder.num_ch = 1;
@@ -404,6 +407,8 @@ void audio_system_start(void)
 		ERR_CHK_MSG(ret, "Failed to set up rx FIFO");
 	}
 
+	LOG_INF("Microphone channel set to %d", sw_codec_cfg.encoder.audio_ch);
+
 	ret = sw_codec_init(sw_codec_cfg);
 	ERR_CHK_MSG(ret, "Failed to set up codec");
 
@@ -467,7 +472,7 @@ void audio_system_stop(void)
 	ERR_CHK_MSG(ret, "Failed to uninit codec");
 	sw_codec_cfg.initialized = false;
 
-	//data_fifo_empty(&fifo_rx);
+	data_fifo_empty(&fifo_rx);
 	data_fifo_empty(&fifo_tx);
 }
 
@@ -554,3 +559,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(audio_system_cmd,
 			       SHELL_SUBCMD_SET_END);
 
 SHELL_CMD_REGISTER(audio_system, &audio_system_cmd, "Audio system commands", NULL);
+
+int audio_system_set_encoder_channel(uint8_t channel)
+{
+    encoder_channel = channel;
+	LOG_INF("Microphone channel set to %d", channel);
+    return 0;
+}

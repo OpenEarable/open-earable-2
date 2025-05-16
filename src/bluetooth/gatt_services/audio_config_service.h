@@ -5,19 +5,26 @@
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/gatt.h>
 
-// Service UUID: Replace with your own generated UUID
+// Service UUID
 #define BT_UUID_AUDIO_CONFIG_SERVICE_VAL \
-	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
+	BT_UUID_128_ENCODE(0x1410df95, 0x5f68, 0x4ebb, 0xa7c7, 0x5e0fb9ae7557)
 
 #define BT_UUID_AUDIO_CONFIG_SERVICE \
 	BT_UUID_DECLARE_128(BT_UUID_AUDIO_CONFIG_SERVICE_VAL)
 
 // Mode Characteristic UUID
 #define BT_UUID_AUDIO_MODE_VAL \
-	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef1)
+	BT_UUID_128_ENCODE(0x1410df96, 0x5f68, 0x4ebb, 0xa7c7, 0x5e0fb9ae7557)
 
 #define BT_UUID_AUDIO_MODE \
 	BT_UUID_DECLARE_128(BT_UUID_AUDIO_MODE_VAL)
+
+// Microphone Selection Characteristic UUID
+#define BT_UUID_MIC_SELECT_VAL \
+	BT_UUID_128_ENCODE(0x1410df97, 0x5f68, 0x4ebb, 0xa7c7, 0x5e0fb9ae7557)
+
+#define BT_UUID_MIC_SELECT \
+	BT_UUID_DECLARE_128(BT_UUID_MIC_SELECT_VAL)
 
 int init_audio_config_service(void);
 

@@ -119,23 +119,21 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 			return ret;
 		}
 
-		for (int i = 0; i < m_config.encoder.channel_mode; ++i) {
-			ret = sw_codec_sample_rate_convert(
-				&encoder_converters[i], CONFIG_AUDIO_SAMPLE_RATE_HZ,
-				m_config.encoder.sample_rate_hz,
-				pcm_data_mono_system_sample_rate[i],
-				pcm_block_size_mono_system_sample_rate,
-				pcm_data_mono_converted_buf[i], &pcm_data_mono_ptrs[i],
-				&pcm_block_size_mono);
-			if (ret) {
-				LOG_ERR("Sample rate conversion failed for channel %d: %d", i, ret);
-				return ret;
-			}
-		}
-
 		switch (m_config.encoder.channel_mode) {
 		case SW_CODEC_MONO: {
-			ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[AUDIO_CH_L],
+			ret = sw_codec_sample_rate_convert(
+				&encoder_converters[m_config.encoder.audio_ch], CONFIG_AUDIO_SAMPLE_RATE_HZ,
+				m_config.encoder.sample_rate_hz,
+				pcm_data_mono_system_sample_rate[m_config.encoder.audio_ch],
+				pcm_block_size_mono_system_sample_rate,
+				pcm_data_mono_converted_buf[m_config.encoder.audio_ch], &pcm_data_mono_ptrs[m_config.encoder.audio_ch],
+				&pcm_block_size_mono);
+			if (ret) {
+				LOG_ERR("Sample rate conversion failed for channel %d: %d", m_config.encoder.audio_ch, ret);
+				return ret;
+			}
+
+			ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[m_config.encoder.audio_ch],
 						   pcm_block_size_mono, LC3_USE_BITRATE_FROM_INIT,
 						   0, sizeof(m_encoded_data), m_encoded_data,
 						   &encoded_bytes_written);
@@ -145,6 +143,20 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 			break;
 		}
 		case SW_CODEC_STEREO: {
+			for (int i = 0; i < m_config.encoder.num_ch; ++i) {
+				ret = sw_codec_sample_rate_convert(
+					&encoder_converters[i], CONFIG_AUDIO_SAMPLE_RATE_HZ,
+					m_config.encoder.sample_rate_hz,
+					pcm_data_mono_system_sample_rate[i],
+					pcm_block_size_mono_system_sample_rate,
+					pcm_data_mono_converted_buf[i], &pcm_data_mono_ptrs[i],
+					&pcm_block_size_mono);
+				if (ret) {
+					LOG_ERR("Sample rate conversion failed for channel %d: %d", i, ret);
+					return ret;
+				}
+			}
+
 			ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[AUDIO_CH_L],
 						   pcm_block_size_mono, LC3_USE_BITRATE_FROM_INIT,
 						   AUDIO_CH_L, sizeof(m_encoded_data),
@@ -459,6 +471,8 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 
 	m_config = sw_codec_cfg;
 	m_config.initialized = true;
+
+	LOG_INF("Microphone channel set to %d", m_config.encoder.audio_ch);
 
 	return 0;
 }

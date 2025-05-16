@@ -36,7 +36,17 @@ static struct k_thread volume_msg_sub_thread_data;
 K_THREAD_STACK_DEFINE(volume_msg_sub_thread_stack, CONFIG_VOLUME_MSG_SUB_STACK_SIZE);
 
 int hw_codec_set_audio_mode(enum audio_mode mode) {
-    int ret = dac.fdsp_bank_select((uint8_t) mode);
+    int ret;
+
+	ret = dac.fdsp_bank_select((uint8_t) mode);
+	// TODO: make writing to bank work
+	k_msleep(200);
+	ret = hw_codec_volume_adjust(0);
+	ret = dac.mute(muted);
+	if (ret) {
+		LOG_ERR("Failed to set audio mode, ret: %d", ret);
+		return ret;
+	}
 	return ret;
 }
 

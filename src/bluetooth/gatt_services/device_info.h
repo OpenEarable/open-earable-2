@@ -3,6 +3,10 @@
 #ifndef DEVICE_INFO_H
 #define DEVICE_INFO_H
 
+#include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/gatt.h>
+
 #define BT_UUID_DEVICE_INFO_VAL \
 	BT_UUID_128_ENCODE(0x45622510, 0x6468, 0x465a, 0xb141, 0x0b9b0f96b468)
 

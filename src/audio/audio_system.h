@@ -112,6 +112,14 @@ int audio_system_decoder_num_ch_get(void);
  */
 int audio_system_init(void);
 
+/**
+ * @brief Set the encoder channel (left or right)
+ *
+ * @param[in] channel AUDIO_CH_L for left, AUDIO_CH_R for right
+ * @return 0 on success, error otherwise
+ */
+int audio_system_set_encoder_channel(uint8_t channel);
+
 #ifdef __cplusplus
 }
 #endif
