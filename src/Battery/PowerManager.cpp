@@ -130,6 +130,8 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     float target_current;
     float voltage;
 
+    battery_controller.exit_high_impedance();
+
     uint16_t charging_state = battery_controller.read_charging_state() >> 6;
     gauge_status gs;
 
@@ -237,6 +239,8 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
             LOG_DBG("  Current: %.3f mA", current);
             break;
     }
+
+    battery_controller.enter_high_impedance();
 
     power_manager.last_charging_msg_state = msg.charging_state;
     
