@@ -8,7 +8,7 @@
 #include <errno.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(sd_logger, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(sd_logger, CONFIG_LOG_DEFAULT_LEVEL);
 
 ZBUS_CHAN_DECLARE(sd_card_chan);
 
@@ -26,6 +26,10 @@ void sd_listener_callback(const struct zbus_channel *chan);
 
 ZBUS_LISTENER_DEFINE(sd_card_event_listener, sd_listener_callback);
 
+static struct k_thread thread_data;
+static k_tid_t thread_id;
+        
+
 struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt =
 		 K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &logger_sig);
@@ -38,12 +42,33 @@ SDLogger::~SDLogger() {
 
 }
 
+static bool _prio_boost = false;
+
 void sensor_listener_cb(const struct zbus_channel *chan) {
     int ret;
     const sensor_msg* msg = (sensor_msg*)zbus_chan_const_msg(chan);
 
 	if (msg->sd) {
 		ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
+
+        //LOG_INF("free_space: %i ", k_msgq_num_free_get(&sd_sensor_queue));
+
+        if (!_prio_boost) {
+            if (k_msgq_num_free_get(&sd_sensor_queue) < CONFIG_SENSOR_SD_SUB_QUEUE_SIZE / 2) {
+                k_thread_priority_set(thread_id, CONFIG_SENSOR_SD_THREAD_PRIO - 1);
+                
+                _prio_boost = true;
+
+                LOG_DBG("SD thread priority boost boost");
+            }
+        } else if (_prio_boost) {
+            if (k_msgq_num_used_get(&sd_sensor_queue) < CONFIG_SENSOR_SD_SUB_QUEUE_SIZE / 4) {
+                k_thread_priority_set(thread_id, CONFIG_SENSOR_SD_THREAD_PRIO);
+                _prio_boost = false;
+
+                LOG_DBG("End SD thread priority boost boost");
+            }
+        }
 
 		if (ret) {
 			LOG_WRN("sd msg queue full");

@@ -46,9 +46,8 @@ private:
             uint64_t timestamp;
         };
 
-        struct k_thread thread_data;
-        k_tid_t thread_id;
         struct sensor_data msg;
+
         //struct sensor_data* const data_buf = &(msg.data);
         static void sensor_sd_task();
 
