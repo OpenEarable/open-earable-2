@@ -8,7 +8,7 @@
 #include <errno.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(sd_logger, CONFIG_LOG_DEFAULT_LEVEL);
+LOG_MODULE_REGISTER(sd_logger, LOG_LEVEL_DBG);
 
 ZBUS_CHAN_DECLARE(sd_card_chan);
 
@@ -49,26 +49,28 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
     const sensor_msg* msg = (sensor_msg*)zbus_chan_const_msg(chan);
 
 	if (msg->sd) {
-		ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
 
-        //LOG_INF("free_space: %i ", k_msgq_num_free_get(&sd_sensor_queue));
 
         if (!_prio_boost) {
             if (k_msgq_num_free_get(&sd_sensor_queue) < CONFIG_SENSOR_SD_SUB_QUEUE_SIZE / 2) {
-                k_thread_priority_set(thread_id, CONFIG_SENSOR_SD_THREAD_PRIO - 1);
+                k_thread_priority_set(thread_id, K_PRIO_PREEMPT(CONFIG_SENSOR_SD_THREAD_PRIO - 1));
                 
                 _prio_boost = true;
 
                 LOG_DBG("SD thread priority boost boost");
             }
         } else if (_prio_boost) {
-            if (k_msgq_num_used_get(&sd_sensor_queue) < CONFIG_SENSOR_SD_SUB_QUEUE_SIZE / 4) {
-                k_thread_priority_set(thread_id, CONFIG_SENSOR_SD_THREAD_PRIO);
+            if (k_msgq_num_used_get(&sd_sensor_queue) == 0) { // < CONFIG_SENSOR_SD_SUB_QUEUE_SIZE / 4
+                k_thread_priority_set(thread_id, K_PRIO_PREEMPT(CONFIG_SENSOR_SD_THREAD_PRIO));
                 _prio_boost = false;
 
                 LOG_DBG("End SD thread priority boost boost");
             }
         }
+
+        ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
+
+        //LOG_INF("free_space: %i ", k_msgq_num_free_get(&sd_sensor_queue));
 
 		if (ret) {
 			LOG_WRN("sd msg queue full");
@@ -273,6 +275,7 @@ int SDLogger::end() {
 
     ret = flush();
     if (ret < 0) {
+        LOG_ERR("Failed to flush file buffer.");
         return ret;
     }
 

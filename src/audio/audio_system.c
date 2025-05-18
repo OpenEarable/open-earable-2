@@ -472,7 +472,7 @@ void audio_system_stop(void)
 	ERR_CHK_MSG(ret, "Failed to uninit codec");
 	sw_codec_cfg.initialized = false;
 
-	data_fifo_empty(&fifo_rx);
+	//data_fifo_empty(&fifo_rx);
 	data_fifo_empty(&fifo_tx);
 }
 
