@@ -8,7 +8,7 @@
 #include <errno.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(sd_logger, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(sd_logger, CONFIG_LOG_DEFAULT_LEVEL);
 
 ZBUS_CHAN_DECLARE(sd_card_chan);
 
@@ -49,9 +49,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
     const sensor_msg* msg = (sensor_msg*)zbus_chan_const_msg(chan);
 
 	if (msg->sd) {
-
-
-        if (!_prio_boost) {
+        /*if (!_prio_boost) {
             if (k_msgq_num_free_get(&sd_sensor_queue) < CONFIG_SENSOR_SD_SUB_QUEUE_SIZE / 2) {
                 k_thread_priority_set(thread_id, K_PRIO_PREEMPT(CONFIG_SENSOR_SD_THREAD_PRIO - 1));
                 
@@ -66,7 +64,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 
                 LOG_DBG("End SD thread priority boost boost");
             }
-        }
+        }*/
 
         ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
 

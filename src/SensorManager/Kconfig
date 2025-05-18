@@ -24,7 +24,7 @@ config SENSOR_GATT_NOTIFY_THREAD_PRIO
 
 config SENSOR_SD_THREAD_PRIO
     int "Priority for volume message subscribe thread"
-	default 6
+	default 5
 	help
 	  This is a preemptible thread.
 	  This thread will subscribe to sensor events from zbus.

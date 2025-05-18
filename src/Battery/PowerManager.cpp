@@ -117,7 +117,10 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
     // full discharge
     //if (bat.FD) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
-    if (power_manager.power_on && bat.SYSDWN) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
+    if (power_manager.power_on && bat.SYSDWN) {
+        LOG_WRN("Battery reached system down voltage.");
+        k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
+    }
 
     if (bat.CHGINH) {
         power_manager.charging_disabled = true;
