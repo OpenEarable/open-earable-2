@@ -35,15 +35,22 @@
 #define DAC_ROUTE_I2S 0
 #define DAC_ROUTE_DSP_CH(N) (32 + N)
 
+#define FDSP_USED_BANK_SIZE 2
+#define NOISE_GATE_ACTIVE
+
 typedef uint32_t safe_load_params[FDSP_NUM_PARAMS];
 
 enum sl_address {
     BIQ_0 = 0,
-    //LIMIT_1 = 1,
-    VOLUME = 2,
-    MUTE = 3,
-    MIXER = 4,
-    LIMITER_MASTER = 5
+# ifdef NOISE_GATE_ACTIVE
+    EXPANDER = FDSP_USED_BANK_SIZE,
+    VOLUME,
+# else
+    VOLUME = FDSP_USED_BANK_SIZE,
+#endif
+    MUTE,
+    MIXER,
+    LIMITER_MASTER,
 };
 
 class ADAU1860 {
@@ -439,6 +446,8 @@ private:
     uint8_t _active_bank = 0;
 
     //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
+
+    friend int cmd_dsp_noise_gate(const struct shell *shell, size_t argc, char **argv);
 };
 
 extern ADAU1860 dac;

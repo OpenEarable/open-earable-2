@@ -1,10 +1,13 @@
 #include "ADAU1860.h"
 #include "zbus_common.h"
 #include "openearable_common.h"
+#include <math.h>
+
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
-#include <math.h>
 LOG_MODULE_REGISTER(ADAU1860, 3);
+
+#include <zephyr/shell/shell.h>
 
 #include "Lark-eq.c"
 #include "Lark-fdsp.c"
@@ -301,6 +304,15 @@ int ADAU1860::setup_FDSP() {
         uint8_t fdsp_ctrl4 = 2; // framrate source DMIC01
         writeReg(registers::FDSP_CTRL4, &fdsp_ctrl4, sizeof(fdsp_ctrl4));
 
+        /*uint8_t fdsp_ctrl4 = 15; // fixed frame rate
+        writeReg(registers::FDSP_CTRL4, &fdsp_ctrl4, sizeof(fdsp_ctrl4));
+
+        /*uint8_t fdsp_ctrl5 = 0xFF; // fixed frame rate
+        writeReg(registers::FDSP_CTRL5, &fdsp_ctrl5, sizeof(fdsp_ctrl5));
+
+        uint8_t fdsp_ctrl6 = 0x01; // fixed frame rate
+        writeReg(registers::FDSP_CTRL6, &fdsp_ctrl6, sizeof(fdsp_ctrl6));*/
+
         // run dsp
         uint8_t fdsp_run = 0x1;
         writeReg(registers::FDSP_RUN, &fdsp_run, sizeof(fdsp_run));
@@ -518,3 +530,37 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
 void ADAU1860::writeReg_u8(uint32_t reg, uint8_t &buffer) {
         writeReg(reg, &buffer, sizeof(buffer));
 }
+
+#ifdef NOISE_GATE_ACTIVE
+int cmd_dsp_noise_gate(const struct shell *shell, size_t argc, char **argv) {
+    if (argc != 6) {
+        shell_print(shell, "Usage: dsp_noise_gate <threshold> <gain_min> <gain_max> <attack> <release>");
+        return -EINVAL;
+    }
+
+    safe_load_params params;
+
+    params[0] = strtoul(argv[1], NULL, 16) | 0xC80;
+    params[1] = strtoul(argv[2], NULL, 16) | 0xD00;
+    params[2] = strtoul(argv[3], NULL, 16);
+    params[3] = strtoul(argv[4], NULL, 16);
+    params[4] = strtoul(argv[5], NULL, 16) | 0x80000000;
+
+    shell_print(shell, "Params:");
+    for (int i = 0; i < FDSP_NUM_PARAMS; i++) {
+        shell_print(shell, "  [%d] 0x%08X", i, params[i]);
+    }
+
+    dac.fdsp_safe_load(EXPANDER, params, false);
+
+    shell_print(shell, "Noise gate parameters set.");
+    return 0;
+}
+
+SHELL_STATIC_SUBCMD_SET_CREATE(dsp_cmd,
+        SHELL_COND_CMD(CONFIG_SHELL, noise_gate, NULL, "Set DSP noise gate parameters",
+                cmd_dsp_noise_gate),
+        SHELL_SUBCMD_SET_END);
+
+SHELL_CMD_REGISTER(dsp, &dsp_cmd, "Set DSP parameters", NULL);
+#endif
