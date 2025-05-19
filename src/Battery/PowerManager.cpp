@@ -202,7 +202,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
             // cleared after read
             if (fault & (1 << 4)) {
-                LOG_WRN("Over current protection");
+                LOG_WRN("Input over voltage.");
             }
 
             // as long as fault exists
