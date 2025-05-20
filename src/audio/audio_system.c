@@ -566,3 +566,8 @@ int audio_system_set_encoder_channel(uint8_t channel)
 	LOG_INF("Microphone channel set to %d", channel);
     return 0;
 }
+
+uint8_t audio_system_get_encoder_channel()
+{
+    return encoder_channel;
+}
