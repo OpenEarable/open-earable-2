@@ -42,10 +42,11 @@ static int settings_set_cb(const char *name, size_t len, settings_read_cb read_c
 {
     if (strcmp(name, "mode") == 0 && len == sizeof(audio_mode)) {
         int rc = read_cb(cb_arg, &audio_mode, sizeof(audio_mode));
-        if (rc >= 0) {
+        /*if (rc >= 0) {
             hw_codec_set_audio_mode(audio_mode);
-        }
-        return 0;
+        }*/
+		if (rc >= 0) return 0;
+		else return rc;
     }
     return -ENOENT;
 }
