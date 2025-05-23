@@ -1,0 +1,58 @@
+name: Release OpenEarable v2 Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        required: true
+        description: 'Tag (e.g. v1.0.0)'
+      release_name:
+        required: false
+        description: 'Name (defaults to tag)'
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build_firmware.yaml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Firmware Artifact (Firmware)
+        uses: actions/download-artifact@v4
+        with:
+          name: openearable_v2_firmware.elf
+
+      - name: Create Directory for FOTA
+        run: mkdir -p openearable_v2_fota
+
+      - name: Download Firmware Artifact (FOTA)
+        uses: actions/download-artifact@v4
+        with:
+          name: openearable_v2_fota.zip
+          path: ./openearable_v2_fota
+
+      - name: Zip FOTA files again
+        run: |
+          # Pack the FOTA files into a zip file
+          # Downloading it unpacked the zip
+          ls openearable_v2_fota
+          (cd "openearable_v2_fota" && ls && zip -r ../openearable_v2_fota.zip *)
+
+      - name: Create Github Release & Upload Firmware + FOTA
+        if: startsWith(github.ref, 'refs/tags/${{ inputs.release_tag }}')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_name || inputs.release_tag }}
+          draft: false
+          prerelease: false
+          files: |
+            openearable_v2_firmware.elf
+            openearable_v2_fota.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
