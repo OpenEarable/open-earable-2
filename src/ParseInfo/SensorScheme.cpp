@@ -175,7 +175,7 @@ ssize_t serializeSensorOptionsScheme(SensorConfigOptions* options, char* buffer,
 size_t getSensorSchemeSize(SensorScheme* scheme) {
     size_t size = 0;
     size += 1; // id
-    size += scheme->name.size() + 1; // name and name length
+    size += strlen(scheme->name) + 1; // name and name length
     size += 1; // groupCount
     for (size_t i = 0; i < scheme->groupCount; i++) {
         size += getSensorComponentGroupSize(&scheme->groups[i]);
@@ -197,10 +197,10 @@ ssize_t serializeSensorScheme(SensorScheme* scheme, char* buffer, size_t bufferS
     buffer++;
 
     // name
-    *buffer = scheme->name.size();
+    *buffer = strlen(scheme->name);
     buffer++;
-    memcpy(buffer, scheme->name.c_str(), scheme->name.size());
-    buffer += scheme->name.size();
+    memcpy(buffer, scheme->name, strlen(scheme->name));
+    buffer += strlen(scheme->name);
 
     // componentCount
     size_t componentCount = 0;
@@ -291,7 +291,7 @@ int initParseInfoService(ParseInfoScheme* scheme, SensorScheme* sensorSchemes) {
     return 0;
 }
 
-float getSampleRateForSensor(uint8_t id, uint8_t frequencyIndex) {
+float getSampleRateForSensorId(uint8_t id, uint8_t frequencyIndex) {
     SensorScheme* scheme = getSensorSchemeForId(id);
     if (scheme == NULL) {
         return -1;
@@ -300,7 +300,7 @@ float getSampleRateForSensor(uint8_t id, uint8_t frequencyIndex) {
     return getSampleRateForSensor(scheme, frequencyIndex);
 }
 
-float getSampleRateForSensor(SensorScheme* sensorScheme, uint8_t frequencyIndex) {
+float getSampleRateForSensor(struct SensorScheme* sensorScheme, uint8_t frequencyIndex) {
     if (!(sensorScheme->configOptions.availableOptions & FREQUENCIES_DEFINED)) {
         return -1;
     }
@@ -344,6 +344,10 @@ int initSensorSchemeForId(uint8_t id) {
     return 0;
 }
 
-SensorScheme* getSensorSchemeForId(uint8_t id) {
+struct SensorScheme* getSensorSchemeForId(uint8_t id) {
     return sensorSchemesMap[id];
+}
+
+struct ParseInfoScheme* getParseInfoScheme() {
+    return parseInfoSchemeStruct;
 }
