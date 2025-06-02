@@ -37,6 +37,85 @@ ADAU1860::ADAU1860(TWIM * i2c) : _i2c(i2c) {
 
 }
 
+
+void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
+        int ret;
+        struct i2c_msg msg[2];
+
+        uint8_t addr_buf[4] = {
+                (uint8_t)((reg >> 24) & 0xFF),
+                (uint8_t)((reg >> 16) & 0xFF),
+                (uint8_t)((reg >> 8) & 0xFF),
+                (uint8_t)(reg & 0xFF),
+        };
+
+	msg[0].buf = addr_buf;
+	msg[0].len = sizeof(addr_buf);
+	msg[0].flags = I2C_MSG_WRITE;
+
+	msg[1].buf = buffer;
+	msg[1].len = len;
+	msg[1].flags = I2C_MSG_WRITE | I2C_MSG_STOP;
+
+        _i2c->aquire();
+
+	ret = i2c_transfer(_i2c->master, msg, 2, address);
+        if (ret) {
+                LOG_WRN("I2C write failed: %d", ret);
+        }
+
+        _i2c->release();
+}
+
+int32_t adau_read(void* user_data, uint8_t *rd_buf, uint32_t rd_len, uint8_t *wr_buf, uint32_t wr_len) {
+        int ret;
+        struct i2c_msg msg[2];
+
+	msg[0].buf = wr_buf;
+	msg[0].len = wr_len;
+	msg[0].flags = I2C_MSG_WRITE | I2C_MSG_STOP;
+
+	msg[1].buf = rd_buf;
+	msg[1].len = rd_len;
+	msg[1].flags = I2C_MSG_RESTART | I2C_MSG_READ | I2C_MSG_STOP;
+
+        dac._i2c->aquire();
+
+        ret = i2c_transfer(dac._i2c->master, msg, 2, dac.address);
+        if (ret) {
+                LOG_WRN("I2C read failed: %d", ret);
+        }
+
+        dac._i2c->release();
+
+        return ret;
+}
+
+int32_t adau_write(void* user_data, uint8_t *wr_buf, uint32_t len) {
+        int ret;
+        struct i2c_msg msg[1];
+
+	msg[0].buf = wr_buf;
+	msg[0].len = len;
+	msg[0].flags = I2C_MSG_WRITE | I2C_MSG_STOP;
+
+        dac._i2c->aquire();
+
+	ret = i2c_transfer(dac._i2c->master, msg, 1, dac.address);
+        if (ret) {
+                LOG_WRN("I2C write failed: %d", ret);
+        }
+
+        dac._i2c->release();
+
+        return ret;
+}
+
+int32_t adau_log(void* user_data, char *string) {
+        LOG_INF("ADAU1860 Log: %s", string);
+        return 0;
+}
+
 int ADAU1860::begin() {
         int ret;
 
@@ -61,6 +140,73 @@ int ADAU1860::begin() {
                 return ret;
         }
 
+        k_msleep(1); // wait for DAC to power up
+
+        // adi_lark_clk_startup_pll
+
+        int err;
+
+        device  = {
+                .user_data = NULL,
+                .cp_mode = API_LARK_CP_I2C,
+                .read = adau_read,
+                .write = adau_write,
+                .log_write = adau_log,
+        };
+
+        err = adi_lark_pmu_set_chip_power_mode(&device, API_LARK_PWR_MODE_HIBERNATE0); //API_LARK_PWR_MODE_ACTIVE
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_pmu_enable_master_block(&device, 1);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_pmu_enable_cm_pin_fast_charge(&device, 1);
+        LARK_ERROR_RETURN(err);
+
+        k_msleep(35); // see datasheet for CM rise time
+
+        err = adi_lark_pmu_enable_dlycnt_byp(&device, 1);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_pmu_enable_cm_pin_fast_charge(&device, 0);
+        LARK_ERROR_RETURN(err);
+
+        err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_49P152, true);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_clk_enable_pll_power_on(&device, false);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_clk_enable_xtal_power_on(&device, true);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_clk_select_xtal_mode(&device, API_LARK_CLK_XTAL_MODE_XTAL);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_clk_enable_2x_output(&device, true);
+        LARK_ERROR_RETURN(err);
+
+        //err = adi_lark_clk_config_pll(&device, pll_src, pll_type, sync_src, prescaler, multiplier, numerator, denominator);
+        //LARK_ERROR_RETURN(err);
+        //err = adi_lark_clk_enable_pll_power_on(&device, true);
+        //LARK_ERROR_RETURN(err);
+        //err = adi_lark_clk_update_pll(&device);
+        //LARK_ERROR_RETURN(err);
+
+        /*err = adi_lark_clk_enable_xtal_power_on(&device, 1);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_clk_config_pll(&device, API_LARK_CLK_PLL_SOURCE_MCLKIN, API_LARK_CLK_PLL_TYPE_INTEGER, API_LARK_CLK_SYNC_SOURCE_INTERNAL, 0x00, 0x02, 0x00, 0x00);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_clk_update_pll(&device);
+        LARK_ERROR_RETURN(err);*/
+
+        /*err = adi_lark_clk_enable_xtal_power_on(&device, 1);
+        LARK_ERROR_RETURN(err);
+
+        err = adi_lark_clk_enable_pll_power_on(&device, 0);
+        LARK_ERROR_RETURN(err);
+
+        err = adi_lark_clk_enable_pll_power_on(&device, 1);
+        LARK_ERROR_RETURN(err);*/
+
+        /*err = adi_lark_fdsp_enable_power_on(&device, 1);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_fdsp_enable_run(&device, 0);
+        LARK_ERROR_RETURN(err);*/
+
         //k_msleep(1);
 
         //last_i2c = micros();
@@ -68,7 +214,7 @@ int ADAU1860::begin() {
         /*uint8_t status = 0x1;
         writeReg(registers::RESETS, &status, sizeof(status));*/
 
-        k_msleep(35); // CM rise time (see datasheet)
+        /*k_msleep(35); // CM rise time (see datasheet)
 
         //uint8_t power_mode = 0x01 | 0x04; // Hibernate 1, Master enable
         //writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
@@ -78,14 +224,14 @@ int ADAU1860::begin() {
         writeReg(registers::PMU_CTRL2, &startup_dlycnt_byp, sizeof(startup_dlycnt_byp));
 
         // Power saving
-        uint8_t cm_startup_over = 1 << 4;
-        writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
+        uint8_t cm_startup_over = 1 << 4 | power_mode;
+        writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));*/
 
         //uint8_t sai_clk_pwr = 0x01; // I2S_IN enable
         //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
 
         // bypass PLL
-        uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
+        /*uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
         writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
 
         uint8_t status2;
@@ -114,7 +260,7 @@ int ADAU1860::begin() {
         writeReg(registers::CLK_CTRL12, &clk_ctrl12, sizeof(clk_ctrl12));
 
         clk_ctrl13 &= ~(1 << 7);
-        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));*/
 
         // uint8_t pll_ctrl = 0x2; // XTAL_EN = 1, PLL_EN = 0
         // writeReg(registers::PLL_PGA_PWR, &pll_ctrl, sizeof(pll_ctrl));
@@ -123,6 +269,10 @@ int ADAU1860::begin() {
         // writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
 
         //k_msleep(1);
+
+        uint8_t fm_locked;
+
+        adi_lark_clk_get_2x_locked_status(&device, &fm_locked);
 
         // verify power up complete
         //uint8_t status2;
@@ -144,8 +294,12 @@ int ADAU1860::begin() {
         }
 
         // Power saving
-        uint8_t power_mode = 0x40 | 0x01 | 0x04; // CM_Startup_over | Hibernate 1, Master enable
-        writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
+        // uint8_t cm_startup_over = 1 << 2 | 0x01; // Master block en | Hibernate 1 (SOC off, ADP on);
+        // writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
+
+        /* Select I2S0 as input source, and set divider as 1. */
+        //ret = adi_lark_fdsp_set_rate(&device, API_LARK_FDSP_RATE_SRC_DMIC0_1, 1);
+        //LARK_ERROR_RETURN(ret);
 
         // SPT0_CTRL1 - reset val (32 BCLKs?)
         uint8_t spt0_ctrl1 = 0x10; // 1 << 4 (16 BCLKs)
@@ -249,12 +403,19 @@ int ADAU1860::begin() {
 
 int ADAU1860::setup_DAC() {
         //Headphone power on
-        uint8_t headphone_power = 0x10; // DAC/HP channel 0 enabled
-        writeReg(registers::ADC_DAC_HP_PWR, &headphone_power, sizeof(headphone_power));
+        //uint8_t headphone_power = 0x10; // DAC/HP channel 0 enabled
+        //writeReg(registers::ADC_DAC_HP_PWR, &headphone_power, sizeof(headphone_power));
+
+        adi_lark_dac_enable_power_on(&device, true);
+
+        adi_lark_hpamp_enable_lvm_mode(&device, true);
+        adi_lark_hpamp_enable_lvm_mode_cm(&device, true);
 
         // low voltage 
-        uint8_t lvmode = 0x03; //HP_LVMODE_EN | HP_LVMODE_CM_EN
-        writeReg(registers::HP_LVMODE_CTRL1, &lvmode, sizeof(lvmode));
+        //uint8_t lvmode = 0x03; //HP_LVMODE_EN | HP_LVMODE_CM_EN
+        //writeReg(registers::HP_LVMODE_CTRL1, &lvmode, sizeof(lvmode));
+
+        adi_lark_hpamp_set_voltage_switch_mode(&device, API_LARK_HPAMP_AUTO_SWITCH);
 
         //uint8_t lvmode_ctrl2 = 0x31;
         //writeReg(registers::HP_LVMODE_CTRL2, &lvmode_ctrl2, sizeof(lvmode_ctrl2));
@@ -535,35 +696,6 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
 
         return (ret == 0);
 
-}
-
-void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
-        int ret;
-        struct i2c_msg msg[2];
-
-        uint8_t addr_buf[4] = {
-                (uint8_t)((reg >> 24) & 0xFF),
-                (uint8_t)((reg >> 16) & 0xFF),
-                (uint8_t)((reg >> 8) & 0xFF),
-                (uint8_t)(reg & 0xFF),
-        };
-
-	msg[0].buf = addr_buf;
-	msg[0].len = sizeof(addr_buf);
-	msg[0].flags = I2C_MSG_WRITE;
-
-	msg[1].buf = buffer;
-	msg[1].len = len;
-	msg[1].flags = I2C_MSG_WRITE | I2C_MSG_STOP;
-
-        _i2c->aquire();
-
-	ret = i2c_transfer(_i2c->master, msg, 2, address);
-        if (ret) {
-                LOG_WRN("I2C write failed: %d", ret);
-        }
-
-        _i2c->release();
 }
 
 #ifdef NOISE_GATE_ACTIVE

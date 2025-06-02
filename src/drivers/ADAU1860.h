@@ -4,6 +4,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 
+#include "Lark_SDK/inc/adi_lark.h"
+
 //#include <Wire.h>
 #include <TWIM.h>
 
@@ -54,6 +56,10 @@ enum sl_address {
 };
 
 class ADAU1860 {
+private:
+    // Neue Member Variable hinzufügen
+    adi_lark_device_t device;
+    
 public:
     enum registers : uint32_t {
         VENDOR_ID = 0x4000C000,          // ADI Vendor ID
