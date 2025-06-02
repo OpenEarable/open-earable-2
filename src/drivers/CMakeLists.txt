@@ -9,7 +9,9 @@ target_sources_ifdef(CONFIG_NRF5340_AUDIO_CS47L63_DRIVER
 )
 
 add_subdirectory(LED_Controller)
+add_subdirectory(Lark_SDK/src)
 
 zephyr_library_include_directories(
     LED_Controller
+    Lark_SDK/inc
 )
