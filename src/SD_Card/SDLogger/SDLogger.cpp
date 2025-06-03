@@ -42,7 +42,7 @@ SDLogger::~SDLogger() {
 
 }
 
-static bool _prio_boost = false;
+//static bool _prio_boost = false;
 
 void sensor_listener_cb(const struct zbus_channel *chan) {
     int ret;
@@ -100,7 +100,7 @@ void SDLogger::sensor_sd_task() {
 
         int ret = k_msgq_get(&sd_sensor_queue, &sdlogger.msg, K_FOREVER);
         if (ret != 0) {
-            LOG_ERR("Failed to get message from msgq: %d", ret);
+            LOG_WRN("Failed to get message from msgq: %d", ret);
             continue;
         }
 
@@ -270,6 +270,15 @@ int SDLogger::end() {
         is_open = false;
         return -ENODEV;
     }
+
+    //k_work_queue_drain(&sensor_work_q, K_FOREVER);
+
+    // wait till sensor work queue is empty
+	while (k_msgq_num_used_get(&sd_sensor_queue) > 0) {
+		k_sleep(K_MSEC(10));
+	}
+
+    k_msgq_purge(&sd_sensor_queue);
 
     ret = flush();
     if (ret < 0) {

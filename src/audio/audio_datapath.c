@@ -1185,7 +1185,18 @@ int audio_datapath_stop(void)
 // TODO: not clean with the argument --> move to init?
 int audio_datapath_aquire(struct data_fifo *fifo_rx) {
 	int ret = 0;
-	if (_count == 0) ret = audio_datapath_start(fifo_rx);
+	if (_count == 0) {
+		uint32_t alloced_cnt;
+		uint32_t locked_cnt;
+
+		ret = data_fifo_num_used_get(fifo_rx, &alloced_cnt, &locked_cnt);
+		if (alloced_cnt || locked_cnt || ret) {
+			LOG_WRN("FIFO is not empty, alloced: %d, locked: %d, ret: %d",
+				alloced_cnt, locked_cnt, ret);
+			data_fifo_empty(fifo_rx);
+		}
+		ret = audio_datapath_start(fifo_rx);
+	}
 	_count++;
 
 	return ret;
