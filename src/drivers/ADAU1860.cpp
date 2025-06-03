@@ -168,7 +168,7 @@ int ADAU1860::begin() {
         err = adi_lark_pmu_enable_cm_pin_fast_charge(&device, 0);
         LARK_ERROR_RETURN(err);
 
-        err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_49P152, true);
+        err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_24P576, true);
         LARK_ERROR_RETURN(err);
         err = adi_lark_clk_enable_pll_power_on(&device, false);
         LARK_ERROR_RETURN(err);
@@ -225,10 +225,10 @@ int ADAU1860::begin() {
 
         // Power saving
         uint8_t cm_startup_over = 1 << 4 | power_mode;
-        writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));*/
+        writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
 
         //uint8_t sai_clk_pwr = 0x01; // I2S_IN enable
-        //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
+        //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));*/
 
         // bypass PLL
         /*uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
@@ -272,7 +272,7 @@ int ADAU1860::begin() {
 
         uint8_t fm_locked;
 
-        adi_lark_clk_get_2x_locked_status(&device, &fm_locked);
+        //adi_lark_clk_get_2x_locked_status(&device, &fm_locked);
 
         // verify power up complete
         //uint8_t status2;
@@ -417,8 +417,8 @@ int ADAU1860::setup_DAC() {
 
         adi_lark_hpamp_set_voltage_switch_mode(&device, API_LARK_HPAMP_AUTO_SWITCH);
 
-        //uint8_t lvmode_ctrl2 = 0x31;
-        //writeReg(registers::HP_LVMODE_CTRL2, &lvmode_ctrl2, sizeof(lvmode_ctrl2));
+        uint8_t lvmode_ctrl2 = 0x31;
+        writeReg(registers::HP_LVMODE_CTRL2, &lvmode_ctrl2, sizeof(lvmode_ctrl2));
 
         uint8_t lvmode_ctrl3 = 0x01;
         writeReg(registers::HP_LVMODE_CTRL3, &lvmode_ctrl3, sizeof(lvmode_ctrl3));
