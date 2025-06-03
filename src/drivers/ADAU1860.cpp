@@ -70,15 +70,15 @@ int ADAU1860::begin() {
 
         k_msleep(35); // CM rise time (see datasheet)
 
-        uint8_t power_mode = 0x01 | 0x04; // Hibernate 1, Master enable
-        writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
+        //uint8_t power_mode = 0x01 | 0x04; // Hibernate 1, Master enable
+        //writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
 
         // Non self-boot
         uint8_t startup_dlycnt_byp = 1;
         writeReg(registers::PMU_CTRL2, &startup_dlycnt_byp, sizeof(startup_dlycnt_byp));
 
         // Power saving
-        uint8_t cm_startup_over = 1 << 4 | power_mode;
+        uint8_t cm_startup_over = 1 << 4; // | power_mode;
         writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
 
         //uint8_t sai_clk_pwr = 0x01; // I2S_IN enable
@@ -87,6 +87,22 @@ int ADAU1860::begin() {
         // bypass PLL
         uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
         writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+
+        uint8_t status2;
+        readReg(registers::STATUS2, &status2, sizeof(status2));
+        LOG_DBG("STATUS2: 0x%x", status2);
+
+        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+
+        while (!(status2 & (1 << 7))) {
+                readReg(registers::STATUS2, &status2, sizeof(status2));
+                LOG_DBG("STATUS2: 0x%x", status2);
+
+                // power up complete and PLL lock
+                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+
+                k_usleep(10);
+        }
 
         //uint8_t clk_ctrl13 = (0 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
         //writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
@@ -109,7 +125,7 @@ int ADAU1860::begin() {
         //k_msleep(1);
 
         // verify power up complete
-        uint8_t status2;
+        //uint8_t status2;
         readReg(registers::STATUS2, &status2, sizeof(status2));
         LOG_DBG("STATUS2: 0x%x", status2);
 
@@ -127,10 +143,9 @@ int ADAU1860::begin() {
                 k_usleep(10);
         }
 
-        // LOG_INF("DAC_CTRL: 0x%02X", status);
         // Power saving
-        // uint8_t cm_startup_over = 1 << 2 | 0x01; // Master block en | Hibernate 1 (SOC off, ADP on);
-        // writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
+        uint8_t power_mode = 0x40 | 0x01 | 0x04; // CM_Startup_over | Hibernate 1, Master enable
+        writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
 
         // SPT0_CTRL1 - reset val (32 BCLKs?)
         uint8_t spt0_ctrl1 = 0x10; // 1 << 4 (16 BCLKs)
@@ -525,10 +540,6 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         }
 
         _i2c->release();
-}
-
-void ADAU1860::writeReg_u8(uint32_t reg, uint8_t &buffer) {
-        writeReg(reg, &buffer, sizeof(buffer));
 }
 
 #ifdef NOISE_GATE_ACTIVE
