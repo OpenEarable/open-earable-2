@@ -144,7 +144,7 @@ void BQ25120a::setup(const battery_settings &_battery_settings) {
         setup_ts_control();
         write_battery_voltage_control(_battery_settings.u_term);
         write_charging_control(_battery_settings.i_charge);
-        write_termination_control(_battery_settings.u_charge_prevent);
+        write_termination_control(_battery_settings.i_term);
         write_LDO_voltage_control(3.3);
         write_uvlo_ilim(params);
 
@@ -313,23 +313,26 @@ chrg_state BQ25120a::read_termination_control() {
         return chrg;
 }
 
-uint8_t BQ25120a::write_termination_control(float mA) {
+uint8_t BQ25120a::write_termination_control(float mA, bool enable_termination) {
         uint8_t status = 0;
 
-        bool ret = readReg(registers::TERM_CTRL, &status, sizeof(status));
-
-        status &= 0x3;
-
-        //float mAh = (status & 0x7F) >> 2;
+        //bool ret = readReg(registers::TERM_CTRL, &status, sizeof(status));
+        //status &= 0x3;
 
         if (mA >= 6) {
                 if (mA > 37) mA = 37;
-                status |= (((uint16_t)((mA - 6) / 10 + EPS)) & 0x1F) << 2;
+                status |= (((uint16_t)(mA - 6)) & 0x1F) << 2;
                 status |= 1 << 7;
         } else {
                 if (mA > 5) mA = 5;
                 status |= (((uint16_t)(2 * (mA - 0.5))) & 0x1F) << 2;
         }
+
+        if (enable_termination) {
+                status |= 0x2; // enable termination
+        }
+
+        LOG_DBG("write_termination_control: mA = %.2f, status = 0x%x", mA, status);
 
         writeReg(registers::TERM_CTRL, &status, sizeof(status));
 
