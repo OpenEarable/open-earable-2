@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <unordered_map>
 
-LOG_MODULE_REGISTER(parse_info_service, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(parse_info_service, CONFIG_LOG_DEFAULT_LEVEL);
 
 static char* parseInfoScheme;
 static size_t parseInfoSchemeSize;

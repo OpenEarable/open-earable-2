@@ -78,14 +78,14 @@ int ADAU1860::begin() {
         writeReg(registers::PMU_CTRL2, &startup_dlycnt_byp, sizeof(startup_dlycnt_byp));
 
         // Power saving
-        uint8_t cm_startup_over = 1 << 4; // | power_mode;
+        uint8_t cm_startup_over = 1 << 4;
         writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
 
         //uint8_t sai_clk_pwr = 0x01; // I2S_IN enable
         //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
 
         // bypass PLL
-        uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
+        uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
         writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
 
         uint8_t status2;
