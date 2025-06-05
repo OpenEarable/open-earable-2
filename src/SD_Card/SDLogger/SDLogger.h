@@ -6,6 +6,7 @@
 #include "zbus_common.h"
 #include "SD_Card_Manager.h"
 #include <string>
+#include <zephyr/sys/ring_buffer.h>
 
 
 constexpr size_t SD_BLOCK_SIZE = 512;
@@ -31,7 +32,8 @@ private:
         
         SDCardManager* sd_card = nullptr;
         bool is_open = false;
-        uint8_t buffer[BUFFER_SIZE]; // = nullptr;
+        struct ring_buf ring_buffer;
+        uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
         size_t buffer_pos = 0;
         std::string current_file;
 

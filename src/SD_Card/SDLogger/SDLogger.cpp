@@ -125,6 +125,8 @@ int SDLogger::init() {
 
     sd_card->init();
 
+    ring_buf_init(&ring_buffer, sizeof(buffer), buffer);
+
     k_poll_signal_init(&logger_sig);
 
 	thread_id = k_thread_create(
@@ -217,25 +219,19 @@ int SDLogger::write_header() {
 
 int SDLogger::write_sensor_data(const void* data, size_t length) {
     const uint8_t* src = static_cast<const uint8_t*>(data);
+    uint32_t bytes_written = ring_buf_put(&ring_buffer, src, length);
     
-    while (length > 0) {
-        size_t space = BUFFER_SIZE - buffer_pos;
-        size_t to_copy = std::min(length, space);
-        
-        memcpy(&buffer[buffer_pos], src, to_copy);
-        buffer_pos += to_copy;
-        src += to_copy;
-        length -= to_copy;
-
-        if (buffer_pos == BUFFER_SIZE) {
-            int ret = flush();
-            if (ret < 0) {
-                return ret;
-            }
+    if (bytes_written < length) {
+        // Buffer ist voll, flush durchführen
+        int ret = flush();
+        if (ret < 0) {
+            return ret;
         }
+        // Restliche Daten schreiben
+        bytes_written += ring_buf_put(&ring_buffer, src + bytes_written, length - bytes_written);
     }
     
-    return 0;
+    return (bytes_written == length) ? 0 : -ENOSPC;
 }
 
 int SDLogger::write_sensor_data() {
@@ -244,18 +240,17 @@ int SDLogger::write_sensor_data() {
 }
 
 int SDLogger::flush() {
-    if (buffer_pos == 0) {
-        return 0;
-    }
-    // During normal writes, buffer_pos will be exactly BUFFER_SIZE
-    // During end(), buffer_pos may be any value and the filesystem handles any necessary block alignment
-    
-    size_t write_size = buffer_pos;
-    int ret = sd_card->write((char *) buffer, &write_size, false);
-    if (ret >= 0) {
-        buffer_pos = 0;
-    }
-    return ret;
+    uint32_t bytes_read;
+    uint8_t * data;
+
+    ring_buf_get_claim(&ring_buffer, &data, BUFFER_SIZE);
+
+    size_t write_size = BUFFER_SIZE;
+    bytes_read = sd_card->write((char*)ring_buffer.buffer, &write_size, false);
+
+    ring_buf_get_finish(&ring_buffer, bytes_read);
+
+    return bytes_read;
 }
 
 int SDLogger::end() {
