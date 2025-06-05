@@ -194,6 +194,8 @@ int SDLogger::begin(const std::string& filename) {
     is_open = true;
     buffer_pos = 0;
 
+    ring_buf_reset(&ring_buffer);
+
     ret = write_header();
     if (ret < 0) {
         power_manager.set_error_led();

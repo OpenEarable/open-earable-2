@@ -235,8 +235,8 @@ int ADAU1860::setup_DAC() {
         uint8_t lvmode = 0x03; //HP_LVMODE_EN | HP_LVMODE_CM_EN
         writeReg(registers::HP_LVMODE_CTRL1, &lvmode, sizeof(lvmode));
 
-        uint8_t lvmode_ctrl2 = 0x31;
-        writeReg(registers::HP_LVMODE_CTRL2, &lvmode_ctrl2, sizeof(lvmode_ctrl2));
+        //uint8_t lvmode_ctrl2 = 0x31;
+        //writeReg(registers::HP_LVMODE_CTRL2, &lvmode_ctrl2, sizeof(lvmode_ctrl2));
 
         uint8_t lvmode_ctrl3 = 0x01;
         writeReg(registers::HP_LVMODE_CTRL3, &lvmode_ctrl3, sizeof(lvmode_ctrl3));
