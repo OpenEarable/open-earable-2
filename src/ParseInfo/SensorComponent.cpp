@@ -4,19 +4,19 @@
 #include <string>
 #include <cstring>
 
-size_t getSensorComponentGroupSize(SensorComponentGroup* group) {
+size_t getSensorComponentGroupSize(struct SensorComponentGroup* group) {
     size_t size = 0;
     for (size_t i = 0; i < group->componentCount; i++) {
         size += 1;
-        size += group->name.size() + 1;
-        size += group->components[i].name.size() + 1;
-        size += group->components[i].unit.size() + 1;
+        size += strlen(group->name) + 1;
+        size += strlen(group->components[i].name) + 1;
+        size += strlen(group->components[i].unit) + 1;
     }
 
     return size;
 }
 
-ssize_t serializeSensorComponentGroup(SensorComponentGroup* group, char* buffer, size_t bufferSize) {
+ssize_t serializeSensorComponentGroup(struct SensorComponentGroup* group, char* buffer, size_t bufferSize) {
     size_t size = getSensorComponentGroupSize(group);
     if (size > bufferSize) {
         return -1;
@@ -27,20 +27,20 @@ ssize_t serializeSensorComponentGroup(SensorComponentGroup* group, char* buffer,
         *buffer = group->components[i].parseType;
         buffer++;
 
-        *buffer = group->name.size();
+        *buffer = strlen(group->name);
         buffer++;
-        memcpy(buffer, group->name.c_str(), group->name.size());
-        buffer += group->name.size();
+        memcpy(buffer, group->name, strlen(group->name));
+        buffer += strlen(group->name);
 
-        *buffer = group->components[i].name.size();
+        *buffer = strlen(group->components[i].name);
         buffer++;
-        memcpy(buffer, group->components[i].name.c_str(), group->components[i].name.size());
-        buffer += group->components[i].name.size();
+        memcpy(buffer, group->components[i].name, strlen(group->components[i].name));
+        buffer += strlen(group->components[i].name);
 
-        *buffer = group->components[i].unit.size();
+        *buffer = strlen(group->components[i].unit);
         buffer++;
-        memcpy(buffer, group->components[i].unit.c_str(), group->components[i].unit.size());
-        buffer += group->components[i].unit.size();
+        memcpy(buffer, group->components[i].unit, strlen(group->components[i].unit));
+        buffer += strlen(group->components[i].unit);
     }
 
     return buffer - bufferStart;

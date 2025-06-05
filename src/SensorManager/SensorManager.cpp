@@ -20,6 +20,7 @@
 #include <set>
 
 #include <zephyr/logging/log.h>
+#include <sensor_service.h>
 LOG_MODULE_DECLARE(sensor_manager);
 
 std::set<int> ble_sensors = {};
@@ -173,7 +174,7 @@ static void config_work_handler(struct k_work *work) {
 		LOG_INF("No config available");
 	}
 
-    float sampleRate = getSampleRateForSensor(config.sensorId, config.sampleRateIndex);
+    float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
 		LOG_ERR("Invalid sample rate %f for sensor %i", sampleRate, config.sensorId);
 		return;
@@ -229,6 +230,8 @@ static void config_work_handler(struct k_work *work) {
 
 		// TODO: if (ble_sensors.empty()) ...
 	}
+
+	set_sensor_config_status(config);
 
 	if (active_sensors == 0) stop_sensor_manager();
 }

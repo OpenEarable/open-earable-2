@@ -1,23 +1,31 @@
 #ifndef _SENSOR_COMPONENT_H
 #define _SENSOR_COMPONENT_H
 
-#include <string>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "ParseType.h"
 
+#include <sys/types.h>
+
 struct SensorComponent {
-    std::string name;
-    std::string unit;
-    ParseType parseType;
+    const char* name;
+    const char* unit;
+    enum ParseType parseType;
 };
 
 struct SensorComponentGroup {
-    std::string name;
+    const char* name;
     size_t componentCount;
-    SensorComponent* components;
+    struct SensorComponent* components;
 };
 
-size_t getSensorComponentGroupSize(SensorComponentGroup* group);
-ssize_t serializeSensorComponentGroup(SensorComponentGroup* group, char* buffer, size_t bufferSize);
+size_t getSensorComponentGroupSize(struct SensorComponentGroup* group);
+ssize_t serializeSensorComponentGroup(struct SensorComponentGroup* group, char* buffer, size_t bufferSize);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

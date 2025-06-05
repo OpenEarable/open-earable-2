@@ -104,10 +104,10 @@ int main(void) {
 	ret = init_button_service();
 	ERR_CHK(ret);
 
-	ret = init_sensor_service();
+	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
 	ERR_CHK(ret);
 
-	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
+	ret = init_sensor_service();
 	ERR_CHK(ret);
 
 	// error test
