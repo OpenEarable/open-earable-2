@@ -455,7 +455,6 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 int SDCardManager::close_file() {
 	if (!this->mounted) {
 		LOG_ERR("SD card not mounted! Call SDCardManager::mount() first!");
-		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -ENODEV;
 	}
 

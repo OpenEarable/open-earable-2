@@ -9,8 +9,8 @@
 #include <zephyr/sys/ring_buffer.h>
 
 
-constexpr size_t SD_BLOCK_SIZE = 512;
-constexpr size_t BUFFER_BLOCK_COUNT = 8;
+constexpr size_t SD_BLOCK_SIZE = 4096; //512
+constexpr size_t BUFFER_BLOCK_COUNT = 4;
 constexpr size_t BUFFER_SIZE = SD_BLOCK_SIZE * BUFFER_BLOCK_COUNT;
 
 // BUFFER_SIZE must always be a multiple of SD_BLOCK_SIZE to ensure proper block alignment
@@ -58,10 +58,6 @@ private:
     public:
         SDLogger();
         ~SDLogger();
-        /*static SDLogger * get_instance(SDCardManager* sd_card_manager = nullptr) {
-            static SDLogger instance(sd_card_manager);
-            return &instance;
-        }*/
 
         /**
         * @brief Begin logging to a new file

@@ -222,15 +222,19 @@ int SDLogger::write_header() {
 int SDLogger::write_sensor_data(const void* data, size_t length) {
     const uint8_t* src = static_cast<const uint8_t*>(data);
     uint32_t bytes_written = ring_buf_put(&ring_buffer, src, length);
-    
-    if (bytes_written < length) {
-        // Buffer ist voll, flush durchführen
-        int ret = flush();
-        if (ret < 0) {
-            return ret;
-        }
-        // Restliche Daten schreiben
-        bytes_written += ring_buf_put(&ring_buffer, src + bytes_written, length - bytes_written);
+
+    uint32_t fill = ring_buf_size_get(&ring_buffer);
+
+    while (fill >= SD_BLOCK_SIZE) {
+        uint32_t bytes_read;
+        uint8_t * data;
+        size_t write_size = SD_BLOCK_SIZE;
+
+        ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+        bytes_read = sd_card->write((char*)data, &write_size, false);
+        ring_buf_get_finish(&ring_buffer, bytes_read);
+
+        fill -= bytes_read;
     }
     
     return (bytes_written == length) ? 0 : -ENOSPC;
@@ -244,10 +248,12 @@ int SDLogger::write_sensor_data() {
 int SDLogger::flush() {
     uint32_t bytes_read;
     uint8_t * data;
+    size_t write_size = SD_BLOCK_SIZE;
 
-    ring_buf_get_claim(&ring_buffer, &data, BUFFER_SIZE);
+    uint32_t fill = ring_buf_size_get(&ring_buffer);
 
-    size_t write_size = BUFFER_SIZE;
+    ring_buf_get_claim(&ring_buffer, &data, fill);
+
     bytes_read = sd_card->write((char*)ring_buffer.buffer, &write_size, false);
 
     ring_buf_get_finish(&ring_buffer, bytes_read);
