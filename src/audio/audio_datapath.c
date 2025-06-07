@@ -120,6 +120,9 @@ static const char *const pres_comp_state_names[] = {
 	"LOCKED",
 };
 
+extern struct ring_buf ring_buffer;
+extern struct k_mutex write_mutex;
+
 static struct {
 	bool datapath_initialized;
 	bool stream_started;
@@ -224,19 +227,19 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				audio_msg.stream = false;
 	
 				audio_msg.data.id = ID_MICRO;
-				audio_msg.data.size = SENQUEUE_FRAME_SIZE;
-	
-				for (int n = 0; n < BLOCK_SIZE_BYTES / SENQUEUE_FRAME_SIZE; n++) {
-					audio_msg.data.time = time_stamp - (BLOCK_SIZE_BYTES - n * SENQUEUE_FRAME_SIZE) / sizeof(uint32_t) * 1e6 / 48000;
-	
-					memcpy(audio_msg.data.data, audio_item.data + (i * BLOCK_SIZE_BYTES) + (n * SENQUEUE_FRAME_SIZE), SENQUEUE_FRAME_SIZE);
-	
-					ret = k_msgq_put(sensor_queue, &audio_msg, K_NO_WAIT);
-					if (ret) {
-						LOG_WRN("sensor msg queue full");
-					}
-				}
+				audio_msg.data.size = BLOCK_SIZE_BYTES; //SENQUEUE_FRAME_SIZE;
+
+				k_mutex_lock(&write_mutex, K_FOREVER);
+
+				uint32_t data_size = sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time); // + audio_msg.data.size;
+
+				uint32_t bytes_written = ring_buf_put(&ring_buffer, (uint8_t *) &audio_msg.data, data_size);
+				bytes_written += ring_buf_put(&ring_buffer, audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
+
+				k_mutex_unlock(&write_mutex);
 			}
+
+			k_yield();
         }
 
 		unsigned int signaled;
@@ -250,6 +253,11 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 		}
     }
 }
+
+/*void set_ring_buffer(struct ring_buf *buf)
+{
+	ring_buffer = buf;
+}*/
 
 void set_sensor_queue(struct k_msgq *queue)
 {

@@ -9,8 +9,8 @@
 #include <zephyr/sys/ring_buffer.h>
 
 
-constexpr size_t SD_BLOCK_SIZE = 4096; //512
-constexpr size_t BUFFER_BLOCK_COUNT = 4;
+constexpr size_t SD_BLOCK_SIZE = 4096; // 512
+constexpr size_t BUFFER_BLOCK_COUNT = 8; // Number of blocks in the buffer
 constexpr size_t BUFFER_SIZE = SD_BLOCK_SIZE * BUFFER_BLOCK_COUNT;
 
 // BUFFER_SIZE must always be a multiple of SD_BLOCK_SIZE to ensure proper block alignment
@@ -29,12 +29,12 @@ protected:
         //friend void sd_work_handler(struct k_work* work);
         
 private:
-        
+
         SDCardManager* sd_card = nullptr;
         bool is_open = false;
-        struct ring_buf ring_buffer;
-        uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
-        size_t buffer_pos = 0;
+
+        //uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
+        //size_t buffer_pos = 0;
         std::string current_file;
 
         int write_header(); //Write file header with version and timestamp

@@ -6,6 +6,7 @@
 #include "SDLogger.h"
 #include "PowerManager.h"
 #include <errno.h>
+#include "audio_datapath.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sd_logger, CONFIG_LOG_DEFAULT_LEVEL);
@@ -28,7 +29,10 @@ ZBUS_LISTENER_DEFINE(sd_card_event_listener, sd_listener_callback);
 
 static struct k_thread thread_data;
 static k_tid_t thread_id;
-        
+
+struct ring_buf ring_buffer;
+struct k_mutex write_mutex;
+uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
 
 struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt =
@@ -36,6 +40,7 @@ static struct k_poll_event logger_evt =
 
 SDLogger::SDLogger() {
     sd_card = &sdcard_manager;
+    k_mutex_init(&write_mutex);
 }
 
 SDLogger::~SDLogger() {
@@ -66,7 +71,14 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
             }
         }*/
 
-        ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
+        //ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
+
+        k_mutex_lock(&write_mutex, K_FOREVER);
+
+        uint32_t data_size = sizeof(msg->data.id) + sizeof(msg->data.size) + sizeof(msg->data.time) + msg->data.size;
+        uint32_t bytes_written = ring_buf_put(&ring_buffer, (uint8_t *) &msg->data, data_size);
+
+        k_mutex_unlock(&write_mutex);
 
         //LOG_INF("free_space: %i ", k_msgq_num_free_get(&sd_sensor_queue));
 
@@ -92,25 +104,43 @@ void sd_listener_callback(const struct zbus_channel *chan)
     }
 }
 
+int count_max_buffer_fill = 0;
+
 void SDLogger::sensor_sd_task() {
     int ret;
 
     while (1) {
         ret = k_poll(&logger_evt, 1, K_FOREVER);
 
-        int ret = k_msgq_get(&sd_sensor_queue, &sdlogger.msg, K_FOREVER);
-        if (ret != 0) {
-            LOG_WRN("Failed to get message from msgq: %d", ret);
-            continue;
-        }
-
         if (!sdcard_manager.is_mounted()) {
             power_manager.set_error_led();
             LOG_ERR("SD Card not mounted!");
             return;
         }
+
+        uint32_t fill = ring_buf_size_get(&ring_buffer);
+
+        if (fill >= SD_BLOCK_SIZE) {
+            if (fill > count_max_buffer_fill) {
+                count_max_buffer_fill = fill;
+                //LOG_INF("Max buffer fill: %d bytes", count_max_buffer_fill);
+            }
+            //k_mutex_lock(&write_mutex, K_FOREVER);
+            uint32_t bytes_read;
+            uint8_t * data;
+            size_t write_size = SD_BLOCK_SIZE;
     
-        ret = sdlogger.write_sensor_data();
+            ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+            bytes_read = sdlogger.sd_card->write((char*)data, &write_size, false);
+            ring_buf_get_finish(&ring_buffer, bytes_read);
+
+            //k_mutex_unlock(&write_mutex);
+    
+            //fill -= bytes_read;
+        } else {
+            k_yield();
+        }
+
         if (ret < 0) {
             power_manager.set_error_led();
             LOG_ERR("Failed to write sensor data: %d", ret);
@@ -125,7 +155,9 @@ int SDLogger::init() {
 
     sd_card->init();
 
-    ring_buf_init(&ring_buffer, sizeof(buffer), buffer);
+    ring_buf_init(&ring_buffer, BUFFER_SIZE, buffer);
+
+    //set_ring_buffer(&ring_buffer);
 
     k_poll_signal_init(&logger_sig);
 
@@ -192,7 +224,7 @@ int SDLogger::begin(const std::string& filename) {
 
     current_file = full_filename;
     is_open = true;
-    buffer_pos = 0;
+    //buffer_pos = 0;
 
     ring_buf_reset(&ring_buffer);
 
@@ -220,22 +252,10 @@ int SDLogger::write_header() {
 }
 
 int SDLogger::write_sensor_data(const void* data, size_t length) {
+    k_mutex_lock(&write_mutex, K_FOREVER);
     const uint8_t* src = static_cast<const uint8_t*>(data);
     uint32_t bytes_written = ring_buf_put(&ring_buffer, src, length);
-
-    uint32_t fill = ring_buf_size_get(&ring_buffer);
-
-    while (fill >= SD_BLOCK_SIZE) {
-        uint32_t bytes_read;
-        uint8_t * data;
-        size_t write_size = SD_BLOCK_SIZE;
-
-        ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
-        bytes_read = sd_card->write((char*)data, &write_size, false);
-        ring_buf_get_finish(&ring_buffer, bytes_read);
-
-        fill -= bytes_read;
-    }
+    k_mutex_unlock(&write_mutex);
     
     return (bytes_written == length) ? 0 : -ENOSPC;
 }
@@ -274,8 +294,6 @@ int SDLogger::end() {
         return -ENODEV;
     }
 
-    //k_work_queue_drain(&sensor_work_q, K_FOREVER);
-
     // wait till sensor work queue is empty
 	while (k_msgq_num_used_get(&sd_sensor_queue) > 0) {
 		k_sleep(K_MSEC(10));
@@ -290,6 +308,8 @@ int SDLogger::end() {
     }
 
     LOG_INF("Close File ....");
+
+    LOG_INF("Max buffer fill: %d bytes", count_max_buffer_fill);
 
     ret = sd_card->close_file();
     if (ret < 0) {
