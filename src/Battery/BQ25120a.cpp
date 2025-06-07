@@ -332,8 +332,6 @@ uint8_t BQ25120a::write_termination_control(float mA, bool enable_termination) {
                 status |= 0x2; // enable termination
         }
 
-        LOG_DBG("write_termination_control: mA = %.2f, status = 0x%x", mA, status);
-
         writeReg(registers::TERM_CTRL, &status, sizeof(status));
 
         return status;
