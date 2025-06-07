@@ -175,11 +175,32 @@ int ADAU1860::begin() {
                 // uint8_t spt0_route1 = 40; // DMIC Channel 1
                 // writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));
 
-                uint8_t ascro0_route = 35; // DMIC Channel 0
+                uint8_t fdec_pwr = 0x03; // FDEC0_EN | FDEC1_EN
+                writeReg(registers::FDEC_PWR, &fdec_pwr, sizeof(fdec_pwr));
+
+                uint8_t fdec_ctrl1 = 0x24; // 192khz to 48kHz
+                writeReg(registers::FDEC_CTRL1, &fdec_ctrl1, sizeof(fdec_ctrl1));
+
+                uint8_t fdec_route0 = 39; // DMIC Channel 0
+                writeReg(registers::FDEC_ROUTE0, &fdec_route0, sizeof(fdec_route0));
+                
+                uint8_t fdec_route1 = 40; // DMIC Channel 1
+                writeReg(registers::FDEC_ROUTE1, &fdec_route1, sizeof(fdec_route1));
+
+                uint8_t ascro0_route = 39; // FDEC Channel 0
                 writeReg(registers::ASRCO_ROUTE0, &ascro0_route, sizeof(ascro0_route));
 
-                uint8_t ascro1_route = 36; // DMIC Channel 1
+                uint8_t ascro1_route = 40; // FDEC Channel 1
                 writeReg(registers::ASRCO_ROUTE1, &ascro1_route, sizeof(ascro1_route));
+
+                /*uint8_t fint_pwr = 0x01; // FINT0_EN
+                writeReg(registers::FINT_PWR, &fint_pwr, sizeof(fint_pwr));
+
+                uint8_t fint_ctrl1 = 0x42; // 48kHz to 192kHz
+                writeReg(registers::FINT_CTRL1, &fint_ctrl1, sizeof(fint_ctrl1));
+
+                uint8_t fint_route0 = 75; // EQ
+                writeReg(registers::FINT_ROUTE0, &fint_route0, sizeof(fint_route0));*/
 
                 uint8_t spt0_route0 = 32; // ASCRO 0
                 writeReg(registers::SPT0_ROUTE0, &spt0_route0, sizeof(spt0_route0));
@@ -195,7 +216,7 @@ int ADAU1860::begin() {
                 uint8_t dmic_ctrl1 = 0x34; // ... | 6.144 MHz
                 writeReg(registers::DMIC_CTRL1, &dmic_ctrl1, sizeof(dmic_ctrl1));
 
-                uint8_t dmic_ctrl2 = 0x02; // 48kHz
+                uint8_t dmic_ctrl2 = 0x04; // 192kHz
                 writeReg(registers::DMIC_CTRL2, &dmic_ctrl2, sizeof(dmic_ctrl2));
         } else {
                 // I2S_IN enable
@@ -243,6 +264,9 @@ int ADAU1860::setup_DAC() {
 
         uint8_t hpldo_ctrl = 0x01;
         writeReg(registers::HPLDO_CTRL, &hpldo_ctrl, sizeof(hpldo_ctrl));
+
+        uint8_t dac_ctrl1 = 0x04; // 192kz
+        writeReg(registers::DAC_CTRL1, &dac_ctrl1, sizeof(dac_ctrl1));
 
         // DAC_NOISE_CTRL1&2
         uint8_t dac_noise_1 = 0x10;
