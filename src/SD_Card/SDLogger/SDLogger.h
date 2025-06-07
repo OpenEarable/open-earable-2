@@ -9,7 +9,7 @@
 #include <zephyr/sys/ring_buffer.h>
 
 
-constexpr size_t SD_BLOCK_SIZE = 4096; // 512
+constexpr size_t SD_BLOCK_SIZE = 4096;
 constexpr size_t BUFFER_BLOCK_COUNT = 8; // Number of blocks in the buffer
 constexpr size_t BUFFER_SIZE = SD_BLOCK_SIZE * BUFFER_BLOCK_COUNT;
 
@@ -38,7 +38,6 @@ private:
         std::string current_file;
 
         int write_header(); //Write file header with version and timestamp
-        int write_sensor_data(); // Write sensor data to the log file from zbus channel
         int flush(); // Flush any buffered data to the SD card
         
         static constexpr uint16_t SENSOR_LOG_VERSION = 0x0001;
@@ -79,7 +78,9 @@ private:
         * @param length Number of bytes to write
         * @return 0 on success, negative error code on failure
         */
-        int write_sensor_data(const void* data, size_t length);
+        int write_sensor_data(const void* const* data_blocks, const size_t* lengths, size_t block_count);
+
+        int write_sensor_data(const sensor_data& msg);
 
         /**
         * @brief End logging and close the current file

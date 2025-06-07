@@ -27,6 +27,7 @@
 #include "sd_card_playback.h"
 
 #include "Equalizer.h"
+#include "sdlogger_wrapper.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -227,16 +228,28 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				audio_msg.stream = false;
 	
 				audio_msg.data.id = ID_MICRO;
-				audio_msg.data.size = BLOCK_SIZE_BYTES; //SENQUEUE_FRAME_SIZE;
+				audio_msg.data.size = BLOCK_SIZE_BYTES; // SENQUEUE_FRAME_SIZE;
 
-				k_mutex_lock(&write_mutex, K_FOREVER);
+				/*k_mutex_lock(&write_mutex, K_FOREVER);
 
 				uint32_t data_size = sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time); // + audio_msg.data.size;
 
 				uint32_t bytes_written = ring_buf_put(&ring_buffer, (uint8_t *) &audio_msg.data, data_size);
 				bytes_written += ring_buf_put(&ring_buffer, audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
 
-				k_mutex_unlock(&write_mutex);
+				k_mutex_unlock(&write_mutex);*/
+
+				uint32_t data_size[2] = {sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time), BLOCK_SIZE_BYTES};
+
+				const void *data_ptrs[2] = {
+					&audio_msg.data,
+					audio_item.data + (i * BLOCK_SIZE_BYTES)
+				};
+
+				sdlogger_write_data(&data_ptrs, data_size, 2);
+
+				//sdlogger_write_data(&audio_msg.data, data_size);
+				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
 			}
 
 			k_yield();
