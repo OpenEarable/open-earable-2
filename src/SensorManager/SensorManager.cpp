@@ -217,10 +217,6 @@ static void config_work_handler(struct k_work *work) {
 
 		if (!sdlogger.is_active()) {
 			const char *recording_name_prefix = get_sensor_recording_name();
-			// if (recording_name_prefix == NULL || strlen(recording_name_prefix) == 0) {
-			// 	LOG_ERR("Invalid recording name prefix");
-			// 	return;
-			// }
 			LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
 			// Start SDLogger with timestamp-based filename
 			std::string filename = recording_name_prefix + std::to_string(micros());
