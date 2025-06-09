@@ -9,6 +9,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
+#define MAX_SENSOR_REC_NAME_LENGTH 64
+
 static struct k_thread thread_data_notify;
 
 static k_tid_t thread_id_notify;
@@ -28,6 +30,9 @@ static struct sensor_config config;
 
 static bool notify_enabled = false;
 static bool sensor_config_status_ntfy_enabled = false;
+
+void set_sensor_recording_name(const char *name);
+static char sensor_recording_name[MAX_SENSOR_REC_NAME_LENGTH] = "sensor_log_";
 
 static struct sensor_config *active_sensor_configs;
 static size_t active_sensor_configs_size = 0;
@@ -115,6 +120,45 @@ static ssize_t write_config(struct bt_conn *conn,
 	return len;
 }
 
+static ssize_t read_sensor_rec_name(struct bt_conn *conn,
+			  const struct bt_gatt_attr *attr,
+			  void *buf,
+			  uint16_t len,
+			  uint16_t offset)
+{
+	const char *name = get_sensor_recording_name();
+	size_t name_len = strlen(name);
+
+	if (offset > name_len) {
+		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
+	}
+
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, name, name_len);
+}
+
+static ssize_t write_sensor_rec_name(struct bt_conn *conn,
+			  const struct bt_gatt_attr *attr,
+			  const void *buf,
+			  uint16_t len, uint16_t offset, uint8_t flags)
+{
+	LOG_DBG("Attribute write, len: %u, handle: %u, conn: %p", len, attr->handle, (void *)conn);
+	if (len > MAX_SENSOR_REC_NAME_LENGTH - 1) {
+		LOG_WRN("Write sensor recording name: Data length exceeds maximum allowed length of %i", MAX_SENSOR_REC_NAME_LENGTH - 1);
+		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+	}
+
+	// Print buffer contents as a string (ensure null-termination for safety)
+	char temp_buf[MAX_SENSOR_REC_NAME_LENGTH];
+	strncpy(temp_buf, (const char *)buf, len);
+	temp_buf[len] = '\0';
+
+	LOG_DBG("Write sensor recording name: %s", temp_buf);
+
+	set_sensor_recording_name(temp_buf);
+
+	return len;
+}
+
 static ssize_t read_sensor_config_status(struct bt_conn *conn,
 			  const struct bt_gatt_attr *attr,
 			  void *buf,
@@ -150,6 +194,10 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG_STATUS,
 			read_sensor_config_status, NULL, &active_sensor_configs),
 BT_GATT_CCC(sensor_config_status_ccc_cfg_changed,
 			BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_RECORDING_NAME,
+			BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+			BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+			read_sensor_rec_name, write_sensor_rec_name, NULL),
 );
 
 static void notify_complete() {
@@ -311,4 +359,25 @@ int init_sensor_service() {
 	k_mutex_init(&notify_mutex);
 
     return 0;
+}
+
+const char *get_sensor_recording_name() {
+	return sensor_recording_name;
+}
+
+/**
+ * @brief Set the sensor recording name object.
+ * 
+ * @param name A pointer to the name string.
+ * Has to be a valid string with a length greater than 0
+ * and 0 terminated.
+ */
+void set_sensor_recording_name(const char *name) {
+	if (name == NULL || strlen(name) == 0) {
+		LOG_WRN("Invalid sensor recording name");
+		return;
+	}
+
+	strncpy(sensor_recording_name, name, sizeof(sensor_recording_name) - 1);
+	sensor_recording_name[sizeof(sensor_recording_name) - 1] = '\0';
 }
