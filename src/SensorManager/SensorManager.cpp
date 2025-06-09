@@ -19,6 +19,8 @@
 #include <string>
 #include <set>
 
+#include <sensor_service.h>
+
 #include <zephyr/logging/log.h>
 #include <sensor_service.h>
 LOG_MODULE_DECLARE(sensor_manager);
@@ -214,8 +216,14 @@ static void config_work_handler(struct k_work *work) {
 		sd_sensors.insert(config.sensorId);
 
 		if (!sdlogger.is_active()) {
+			const char *recording_name_prefix = get_sensor_recording_name();
+			// if (recording_name_prefix == NULL || strlen(recording_name_prefix) == 0) {
+			// 	LOG_ERR("Invalid recording name prefix");
+			// 	return;
+			// }
+			LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
 			// Start SDLogger with timestamp-based filename
-			std::string filename = "sensor_log_" + std::to_string(micros());
+			std::string filename = recording_name_prefix + std::to_string(micros());
 			sdlogger.begin(filename);
 		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
