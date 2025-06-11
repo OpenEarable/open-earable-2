@@ -63,20 +63,33 @@ void BoneConduction::update_sensor(struct k_work *work) {
         BoneConduction::sensor._sample_count = MAX(0, BoneConduction::sensor._num_samples_buffered - num_samples);
     }
 
-    for (int i = 0; i < num_samples; i++) {
+    int written = 0;
+
+    while (written < num_samples) {
+        int to_write = MIN(6, num_samples - written);
+        if (to_write <= 0) break;
+
         msg_bc.sd = sensor._sd_logging;
-	    msg_bc.stream = sensor._ble_stream;
+        msg_bc.stream = sensor._ble_stream;
+
+        const int _size = 3 * sizeof(int16_t);
 
         msg_bc.data.id = ID_BONE_CONDUCTION;
-        msg_bc.data.size = 3 * sizeof(int16_t);
-        msg_bc.data.time = _time_stamp - (num_samples - i) * BoneConduction::sensor.t_sample_us;
+        msg_bc.data.size = to_write * _size;
+        msg_bc.data.time = _time_stamp - (num_samples - written) * BoneConduction::sensor.t_sample_us;
 
-        memcpy(msg_bc.data.data, &sensor.fifo_acc_data[i], 3 * sizeof(int16_t));
+        for (int i = 0; i < to_write; i++) {
+            memcpy(&msg_bc.data.data[i * _size], &sensor.fifo_acc_data[written + i], _size);
+        }
+
+        // memcpy(msg_bc.data.data, &sensor.fifo_acc_data[written], to_write * 3 * sizeof(int16_t));
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
         if (ret) {
             LOG_WRN("sensor msg queue full");
         }
+
+        written += to_write;
     }
 }
 
