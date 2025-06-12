@@ -35,7 +35,7 @@
 #define DAC_ROUTE_I2S 0
 #define DAC_ROUTE_DSP_CH(N) (32 + N)
 
-#define FDSP_USED_BANK_SIZE 3
+#define FDSP_USED_BANK_SIZE 5
 #define NOISE_GATE_ACTIVE
 
 typedef uint32_t safe_load_params[FDSP_NUM_PARAMS];
