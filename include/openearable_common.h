@@ -56,11 +56,17 @@ enum led_mode {
 	CUSTOM,
 };
 
+enum sd_state {
+    SD_IDLE,
+    SD_RECORDING
+};
+
 struct earable_state {
 	enum pairing_state pairing_state;
 	enum charging_state charging_state;
+	enum sd_state sd_state;
 	enum led_mode led_mode;
-};	 
+};
 
 enum sensor_id {
 	ID_IMU=0,

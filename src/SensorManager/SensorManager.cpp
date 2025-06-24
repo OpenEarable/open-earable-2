@@ -14,6 +14,9 @@
 #include "BoneConduction.h"
 #include "Microphone.h"
 
+#include "openearable_common.h"
+#include "StateIndicator.h"
+
 #include <SensorScheme.h>
 #include "../SD_Card/SDLogger/SDLogger.h"
 #include <string>
@@ -221,11 +224,15 @@ static void config_work_handler(struct k_work *work) {
 			// Start SDLogger with timestamp-based filename
 			std::string filename = recording_name_prefix + std::to_string(micros());
 			sdlogger.begin(filename);
+			state_indicator.set_sd_state(SD_RECORDING);
 		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);
 
-		if (sd_sensors.empty()) sdlogger.end();
+		if (sd_sensors.empty()) {
+			sdlogger.end();
+			state_indicator.set_sd_state(SD_IDLE);
+		}
 	}
 
 	if (config.storageOptions & DATA_STREAMING) ble_sensors.insert(config.sensorId);

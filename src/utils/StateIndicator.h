@@ -18,6 +18,8 @@ public:
 
     void set_state(struct earable_state state);
 
+    void set_sd_state(enum sd_state state);
+
     void set_charging_state(enum charging_state state);
     void set_pairing_state(enum pairing_state state);
     void set_indication_mode(enum led_mode state);

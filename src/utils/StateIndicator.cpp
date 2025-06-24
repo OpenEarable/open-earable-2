@@ -123,6 +123,12 @@ void StateIndicator::set_pairing_state(enum pairing_state state) {
     set_state(_state);
 }
 
+void StateIndicator::set_sd_state(enum sd_state state) {
+    _state.sd_state = state;
+    // Update the LED state based on the new SD state
+    set_state(_state);
+}
+
 void StateIndicator::set_state(struct earable_state state) {
     _state = state;
 
@@ -158,25 +164,32 @@ void StateIndicator::set_state(struct earable_state state) {
         led_controller.blink(LED_ORANGE, 100, 2000);
         break;
     default:
-        switch (_state.pairing_state) {
-        case SET_PAIRING:
-            audio_channel channel;
-            channel_assignment_get(&channel);
-            if (channel == AUDIO_CH_L) {
-                led_controller.blink(LED_BLUE, 100, 200);
-            } else  if (channel == AUDIO_CH_R) {
-                led_controller.blink(LED_RED, 100, 200);
+        // Check if we're recording to SD card - this takes precedence over pairing state
+        if (_state.sd_state == SD_RECORDING) {
+            // Use red pulsing to indicate active recording
+            led_controller.blink(LED_MAGENTA, 100, 2000);
+        } else {
+            // Not recording, show the pairing state
+            switch (_state.pairing_state) {
+            case SET_PAIRING:
+                audio_channel channel;
+                channel_assignment_get(&channel);
+                if (channel == AUDIO_CH_L) {
+                    led_controller.blink(LED_BLUE, 100, 200);
+                } else  if (channel == AUDIO_CH_R) {
+                    led_controller.blink(LED_RED, 100, 200);
+                }
+                break;
+            case BONDING:
+                led_controller.blink(LED_BLUE, 100, 500);
+                break;
+            case PAIRED:
+                led_controller.blink(LED_BLUE, 100, 2000);
+                break;
+            case CONNECTED:
+                led_controller.blink(LED_GREEN, 100, 2000);
+                break;
             }
-            break;
-        case BONDING:
-            led_controller.blink(LED_BLUE, 100, 500);
-            break;
-        case PAIRED:
-            led_controller.blink(LED_BLUE, 100, 2000);
-            break;
-        case CONNECTED:
-            led_controller.blink(LED_GREEN, 100, 2000);
-            break;
         }
     }
 }
