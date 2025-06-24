@@ -287,7 +287,7 @@ int PowerManager::begin() {
     
     if (reset_reas & RESET_RESETREAS_RESETPIN_Msk) {
         oe_boot_state.timer_reset = bat_state & (1 << 4);
-        power_on = true;
+        power_on |= oe_boot_state.timer_reset;
     }
 
     /*if (reset_reas & RESET_RESETREAS_DOG1_Msk) {
