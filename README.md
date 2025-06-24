@@ -12,7 +12,7 @@
 
 3. [Connection States](#connection-states)  
 
-4. [File Parsing](#file-parsing)
+4. [SD Card](#sd-card)
    
 5. [Citing](#citing)
 
@@ -122,7 +122,7 @@ Because ZephyrOS does not allow remounting of SD cards, it is **very important t
 As long as a recording to the SD card is active, the LED light will blink purple.
 
 
-## File Parsing
+### File Parsing
 Files recorded to the local microSD card in the binary `*.oe` format can be parsed using <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
 
 ## Citing
