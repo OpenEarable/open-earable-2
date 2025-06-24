@@ -118,8 +118,8 @@ Battery states will overwrite LED connection states. All LED states can be manua
 | 🟣 Purple – Blinking Slow           | **SD card recording**                                                       |
 
 ## SD Card
-Because ZephyrOS does not allow remounting of SD cards, it is ** very important that the device is turned of before inserting or removing the SD card **.
-As long as a recording to the SD card is active, the LED light will blink purple
+Because ZephyrOS does not allow remounting of SD cards, it is **very important that the device is turned of before inserting or removing the SD card**.
+As long as a recording to the SD card is active, the LED light will blink purple.
 
 
 ## File Parsing
