@@ -12,7 +12,7 @@
 
 3. [Connection States](#connection-states)  
 
-4. [File Parsing](#file-parsing)
+4. [SD Card](#sd-card)
    
 5. [Citing](#citing)
 
@@ -114,10 +114,15 @@ Battery states will overwrite LED connection states. All LED states can be manua
 | 🔴 Red – Blinking Very Fast         | Configured as **right device**, searching for **left device**               |
 | 🔵 Blue – Blinking Fast             | Paired with left/right, **ready for device bonding**                        |
 | 🔵 Blue – Blinking Slow             | Bonded, **waiting for connection**                                          |
-| 🟢 Green – Blinking                 | **Connected**                                                               |
+| 🟢 Green – Blinking Slow            | **Connected**                                                               |
+| 🟣 Purple – Blinking Slow           | **SD card recording**                                                       |
+
+## SD Card
+Because ZephyrOS does not allow remounting of SD cards, it is **very important that the device is turned of before inserting or removing the SD card**.
+As long as a recording to the SD card is active, the LED light will blink purple.
 
 
-## File Parsing
+### File Parsing
 Files recorded to the local microSD card in the binary `*.oe` format can be parsed using <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
 
 ## Citing
