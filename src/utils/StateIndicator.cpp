@@ -41,7 +41,7 @@ enum mgmt_cb_return chuck_write_indication(uint32_t event, enum mgmt_cb_return p
 		LOG_INF("RESET received");
 	}*/
 
-	//LOG_INF("my_function called with event: %d", event);
+	//LOG_DBG("mcu mgr hook called with event: %d", event);
 
     /* Return OK status code to continue with acceptance to underlying handler */
     return MGMT_CB_OK;
