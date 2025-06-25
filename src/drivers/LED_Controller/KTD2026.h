@@ -32,6 +32,7 @@ public:
 
     void blink(const RGBColor& color, const int time_on_millis, const int period_millis);
     void pulse(const RGBColor& color, const int time_on_millis, const int time_rise_millis, const int time_fall_millis, const int period_millis);
+    void pulse2(const RGBColor& color, const RGBColor& color2, const int time_on_millis, const int time_rise_millis, const int time_fall_millis, const int period_millis);
     //void setPower();
 private:
     bool readReg(uint8_t reg, uint8_t *buffer, uint16_t len);
