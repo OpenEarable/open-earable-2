@@ -42,7 +42,6 @@ static ssize_t read_parse_info(struct bt_conn *conn,
                 uint16_t offset) {
 	temp_disable_notifies(true);
     ssize_t ret = bt_gatt_attr_read(conn, attr, buf, len, offset, parseInfoScheme, parseInfoSchemeSize);
-        LOG_INF("Read parse info scheme, ret: %zd", ret);
     
     // re-enable notifications after a delay
     k_work_schedule(&enable_notifies_work, K_MSEC(500));
