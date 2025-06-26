@@ -587,7 +587,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
     }
 
 	if (is_le_audio_device) {
-		LOG_INF("LE Audio-Gerät gefunden! UUID\n");
+		LOG_INF("Found LE-Audio device!");
 
 		uint32_t hash_ref = (csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
 		uint32_t hash;
@@ -699,11 +699,20 @@ int streamctrl_start() //streamctrl_start
 	uint32_t sirk = uicr_sirk_get();
 
 	if (sirk == 0xFFFFFFFF) {
-		struct bt_le_scan_param  * scan_param = BT_LE_SCAN_PARAM(NRF5340_AUDIO_GATEWAY_SCAN_TYPE, BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
-		
-		int err = bt_le_scan_start(scan_param, device_found);
-		if (err) LOG_ERR("Scanning failed to start (err %d)", err);
-		else LOG_INF("Scanning successfully started");
+		uint32_t standalone = uicr_standalone_get();
+
+		if (standalone == 0) {
+			ret = uicr_sirk_set(oe_boot_state.device_id);
+
+			if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
+			else LOG_ERR("UICR writing error: %i", ret);
+		} else {
+			struct bt_le_scan_param  * scan_param = BT_LE_SCAN_PARAM(NRF5340_AUDIO_GATEWAY_SCAN_TYPE, BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
+			
+			int err = bt_le_scan_start(scan_param, device_found);
+			if (err) LOG_ERR("Scanning failed to start (err %d)", err);
+			else LOG_INF("Scanning successfully started");
+		}
 	}
 
 	return 0;

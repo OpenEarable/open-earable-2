@@ -49,6 +49,11 @@ uint32_t uicr_sirk_get(void);
 int uicr_sirk_set(uint32_t sirk);
 
 /**
+ * @brief Get standalone value from UICR
+ */
+uint8_t uicr_standalone_get(void);
+
+/**
  * @brief Get Segger serial number value from UICR
  */
 uint64_t uicr_snr_get(void);
