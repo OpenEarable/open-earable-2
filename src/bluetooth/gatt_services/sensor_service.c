@@ -29,6 +29,7 @@ static struct sensor_data sensor_data;
 static struct sensor_config config;
 
 static bool notify_enabled = false;
+static bool temp_ntf_disable = false;
 static bool sensor_config_status_ntfy_enabled = false;
 
 void set_sensor_recording_name(const char *name);
@@ -64,6 +65,11 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 	}
 }
 
+void temp_disable_notifies(bool disable) {
+	LOG_DBG("Disabling notifies");
+	temp_ntf_disable = disable;
+}
+
 static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
@@ -76,17 +82,6 @@ static void sensor_config_status_ccc_cfg_changed(const struct bt_gatt_attr *attr
 				  uint16_t value)
 {
 	sensor_config_status_ntfy_enabled = (value == BT_GATT_CCC_NOTIFY);
-}
-
-static ssize_t read_sensor_value(struct bt_conn *conn,
-			  const struct bt_gatt_attr *attr,
-			  void *buf,
-			  uint16_t len,
-			  uint16_t offset)
-{
-	const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) + sizeof(sensor_data.time) + sensor_data.size;
-
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, &sensor_data, size);
 }
 
 static ssize_t write_config(struct bt_conn *conn,
@@ -216,7 +211,7 @@ static void notification_task(void) {
 			continue;
 		}
 
-		if (connection_complete && notify_enabled) {
+		if (connection_complete && notify_enabled && !temp_ntf_disable) {
 			const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) + sizeof(sensor_data.time) + sensor_data.size;
 
 			static struct bt_gatt_notify_params params;
