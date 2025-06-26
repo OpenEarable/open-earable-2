@@ -58,7 +58,8 @@ enum led_mode {
 
 enum sd_state {
     SD_IDLE,
-    SD_RECORDING
+    SD_RECORDING,
+	SD_FAULT,
 };
 
 struct earable_state {

@@ -89,7 +89,7 @@ void KTD2026::pulse(const RGBColor& color, const int time_on_millis, const int t
 
         for (int i = 0; i < 3; i++) {
                 if (color[i] > 0) {
-                        channel_enable |= 2 << (2 * i);
+                        channel_enable |= 0x2 << (2 * i);
                         _color[i] = color[i] - 1;
                 }
         }

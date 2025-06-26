@@ -223,8 +223,8 @@ static void config_work_handler(struct k_work *work) {
 			LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
 			// Start SDLogger with timestamp-based filename
 			std::string filename = recording_name_prefix + std::to_string(micros());
-			sdlogger.begin(filename);
-			state_indicator.set_sd_state(SD_RECORDING);
+			int ret = sdlogger.begin(filename);
+			if (ret == 0) state_indicator.set_sd_state(SD_RECORDING);
 		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);

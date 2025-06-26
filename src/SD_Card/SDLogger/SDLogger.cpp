@@ -8,6 +8,8 @@
 #include <errno.h>
 #include "audio_datapath.h"
 
+#include "StateIndicator.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sd_logger, CONFIG_LOG_DEFAULT_LEVEL);
 
@@ -89,7 +91,7 @@ void sd_listener_callback(const struct zbus_channel *chan)
     if (sdlogger.is_open && sd_msg_event->removed) {
         k_poll_signal_reset(&logger_sig);
 
-        power_manager.set_error_led();
+        state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("SD card removed mid recording. Stop recording.");
 
         // sdlogger.end();
@@ -105,7 +107,7 @@ void SDLogger::sensor_sd_task() {
         ret = k_poll(&logger_evt, 1, K_FOREVER);
 
         if (!sdcard_manager.is_mounted()) {
-            power_manager.set_error_led();
+            state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("SD Card not mounted!");
             return;
         }
@@ -134,7 +136,7 @@ void SDLogger::sensor_sd_task() {
         }
 
         if (ret < 0) {
-            power_manager.set_error_led();
+            state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to write sensor data: %d", ret);
         }
 
@@ -198,7 +200,7 @@ int SDLogger::begin(const std::string& filename) {
     if (!sd_card->is_mounted()) {
         ret = sd_card->mount();
         if (ret < 0) {
-            power_manager.set_error_led();
+            state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to mount sd card: %d", ret);
             return ret;
         }
@@ -209,7 +211,7 @@ int SDLogger::begin(const std::string& filename) {
     std::string full_filename = filename + ".oe";
     ret = sd_card->open_file(full_filename, true, false, true);
     if (ret < 0) {
-        power_manager.set_error_led();
+        state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("Failed to open file: %d", ret);
         return ret;
     }
@@ -222,7 +224,7 @@ int SDLogger::begin(const std::string& filename) {
 
     ret = write_header();
     if (ret < 0) {
-        power_manager.set_error_led();
+        state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("Failed to write header: %d", ret);
         return ret;
     }

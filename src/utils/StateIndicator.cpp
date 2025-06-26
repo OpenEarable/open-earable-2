@@ -165,7 +165,8 @@ void StateIndicator::set_state(struct earable_state state) {
         break;
     default:
         // Check if we're recording to SD card - this takes precedence over pairing state
-        if (_state.sd_state == SD_RECORDING) {
+        switch (_state.sd_state) {
+        case SD_RECORDING:
             // Use red pulsing to indicate active recording
             if (_state.pairing_state == CONNECTED) {
                 // If connected, blink with green and magenta
@@ -174,8 +175,12 @@ void StateIndicator::set_state(struct earable_state state) {
                 // If not connected, blink magenta only
                 led_controller.pulse2(LED_MAGENTA, LED_OFF, 100, 0, 0, 2000);
             }
-            
-        } else {
+            break;
+        case SD_FAULT:
+            // Use red pulsing to indicate SD card fault
+            led_controller.blink(LED_RED, 100, 200);
+            break;
+        default:
             // Not recording, show the pairing state
             switch (_state.pairing_state) {
             case SET_PAIRING:
