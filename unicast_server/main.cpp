@@ -28,6 +28,7 @@
 #include "button_service.h"
 #include "sensor_service.h"
 #include "led_service.h"
+#include "file_transfer_service.h"
 
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
@@ -132,6 +133,10 @@ int main(void) {
 	// error test
 	//long *a = nullptr;
 	//*a = 10;
+
+	file_transfer_service_init();
+
+	init_mp();
 
 	return 0;
 }
