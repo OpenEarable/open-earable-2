@@ -10,6 +10,8 @@
 #include <zephyr/fs/fs.h>
 #include <ff.h>
 
+#include "FsManager.h"
+
 /**
  * @brief Class to manage the sd card.
  * 
@@ -17,7 +19,7 @@
  *      open files, write to files, flush the cache, and remove files or directories.
  * @author Dennis Moschina
  */
-class SDCardManager {
+class SDCardManager : public FSManager {
 public:
     SDCardManager();
     ~SDCardManager();
@@ -159,7 +161,7 @@ public:
      * 
      * @return true if the sd card is mounted, false otherwise
      */
-    bool is_mounted() { return this->mounted; }
+    bool is_mounted() const { return this->mounted; }
 
 private:
     std::string path;
@@ -176,11 +178,8 @@ private:
         .type = FS_FATFS,
         .fs_data = &fat_fs,
     };
-
-    struct tracked_fs_file_t {
-        struct fs_file_t filep;
-        bool is_open;
-    } tracked_file = {
+    
+    struct tracked_fs_file_t tracked_file = {
         .is_open = false,
     };
 

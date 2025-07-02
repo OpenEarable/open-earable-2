@@ -56,6 +56,8 @@ zephyr_library_include_directories(
     src/SD_Card/Benchmark
     src/SD_Card/SD_Card_Manager
     src/time_sync
+    src/file_system_access
+    src/littlefs_manager
 )
 
 zephyr_library_include_directories(app PRIVATE
@@ -76,6 +78,7 @@ add_subdirectory(src/SD_Card/SDLogger)
 add_subdirectory(src/SD_Card/Benchmark)
 add_subdirectory(src/SD_Card/SD_Card_Manager)
 add_subdirectory(src/time_sync)
+add_subdirectory(src/littlefs_manager)
 
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)

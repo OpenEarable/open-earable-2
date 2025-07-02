@@ -217,6 +217,7 @@ int SDCardManager::mount() {
 	fs_dir_t_init(&this->dirp);
 
 	if (!this->mounted) {
+		LOG_DBG("Creating mountpoint for SD card...");
 		this->mnt_pt.mnt_point = SD_ROOT_PATH;
 		ret = fs_mount(&this->mnt_pt);
 		if (ret) {
@@ -229,6 +230,7 @@ int SDCardManager::mount() {
 				return ret;
 			}
 		}
+		LOG_DBG("Mountpoint created for SD card");
 	}
 
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
