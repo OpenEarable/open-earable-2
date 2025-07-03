@@ -13,6 +13,8 @@ public:
     virtual int open_file(std::string path, bool write, bool append, bool create) = 0;
     virtual int close_file() = 0;
     virtual ssize_t write(char *buf, size_t *buf_size, bool sync = false) = 0;
+    virtual ssize_t write(std::string path, char *buf, size_t *buf_size, bool append = false) = 0;
+    virtual int sync() = 0;
     virtual int read(char *buf, size_t *buf_size) = 0;
     virtual int rm(std::string path) = 0;
 

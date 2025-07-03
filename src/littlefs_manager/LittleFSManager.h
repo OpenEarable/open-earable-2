@@ -21,6 +21,8 @@ public:
     int open_file(std::string path, bool write, bool append, bool create) override;
     int close_file() override;
     ssize_t write(char *buf, size_t *buf_size, bool sync = false) override;
+    ssize_t write(std::string path, char *buf, size_t *buf_size, bool append = false) override;
+    int sync() override;
     int read(char *buf, size_t *buf_size) override;
     int rm(std::string path) override;
 

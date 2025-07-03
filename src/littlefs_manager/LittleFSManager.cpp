@@ -152,6 +152,31 @@ ssize_t LittleFsManager::write(char *buf, size_t *buf_size, bool sync) {
     return ret;
 }
 
+ssize_t LittleFsManager::write(std::string path, char *buf, size_t *buf_size, bool append) {
+    int ret = this->open_file(path, true, append, true);
+	if (ret) {
+		LOG_ERR("Failed to open file: %d", ret);
+		return ret;
+	}
+	ssize_t written_size = this->write(buf, buf_size);
+	if (written_size < 0) {
+		LOG_ERR("Failed to write to file: %d", written_size);
+	}
+
+	ret = this->close_file();
+	if (ret) {
+		LOG_ERR("Failed to close file: %d", ret);
+		return ret;
+	}
+
+	return written_size;
+}
+
+int LittleFsManager::sync() {
+    if (!this->tracked_file.is_open) return -EINVAL;
+    return fs_sync(&this->tracked_file.filep);
+}
+
 int LittleFsManager::read(char *buf, size_t *buf_size) {
     if (!this->tracked_file.is_open) return -EINVAL;
     ssize_t ret = fs_read(&this->tracked_file.filep, buf, *buf_size);
