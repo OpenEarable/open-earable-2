@@ -86,6 +86,8 @@ void file_transfer_service_on_command_received(const uint8_t *data, uint16_t len
         return;
     }
 
+    LOG_HEXDUMP_DBG(data, length, "Command data");
+
     memcpy(pending_command, data, length);
     pending_command[length] = '\0';
     pending_command_length = length;
@@ -104,27 +106,33 @@ void command_write_file(std::string path, char *data, size_t data_length);
 static void file_transfer_command_handler(struct k_work *work) {
     std::string command(pending_command);
     char payload[MAX_CMD_LENGTH] = {0};
-    size_t payload_length = pending_command_length - command.length();
+
+    size_t payload_length;
+    if (command.length() == pending_command_length) {
+        payload_length = 0;
+    } else if (command.length() + 1 < pending_command_length) {
+        payload_length = pending_command_length - command.length() - 1;
+    } else {
+        send_status("ERROR Invalid command format", current_conn);
+        return;
+    }
     memcpy(payload, pending_command + command.length() + 1, payload_length);
 
     LOG_INF("Processing command (deferred): %s", command.c_str());
 
     if (command.rfind("LIST ", 0) == 0) {
         std::string path = command.substr(5);
-
         command_list_files(path);
-        return;
     } else if (command.rfind("REMOVE ", 0) == 0) {
         std::string path = command.substr(7);
         command_remove_file(path);
-        return;
     } else if (command.rfind("WRITE ", 0) == 0) {
         std::string command_config = command.substr(6);
         command_write_file(command_config, payload, payload_length);
-        return;
+    } else {
+        send_status("ERROR Unknown command", current_conn);
     }
 
-    send_status("ERROR Unknown command", current_conn);
 }
 
 // MARK: Write
@@ -163,7 +171,8 @@ void command_write_file(std::string command_config, char *data, size_t data_leng
         return;
     } else {
         LOG_DBG("%d bytes written successfully: %s", ret, path.c_str());
-        send_status(std::to_string(ret).c_str(), current_conn);
+        std::string success_msg = "ACK " + std::to_string(ret);
+        send_status(success_msg.c_str(), current_conn);
     }
 }
 
