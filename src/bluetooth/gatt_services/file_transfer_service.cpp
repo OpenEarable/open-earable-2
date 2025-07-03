@@ -92,6 +92,12 @@ void file_transfer_service_on_command_received(const uint8_t *data, uint16_t len
     k_work_submit(&command_work);
 }
 
+void get_fs_manager(std::string path, FSManager *&fs);
+std::string get_remaining_path(std::string path);
+
+void command_list_files(std::string path);
+void command_remove_file(std::string path);
+
 static void file_transfer_command_handler(struct k_work *work) {
     std::string command(pending_command);
     LOG_INF("Processing command (deferred): %s", command.c_str());
@@ -99,60 +105,97 @@ static void file_transfer_command_handler(struct k_work *work) {
     if (command.rfind("LIST ", 0) == 0) {
         std::string path = command.substr(5);
 
-        FSManager *fs = nullptr;
-        if (path.rfind("/sd", 0) == 0) {
-            fs = &sdcard_manager;
-            LOG_DBG("Using SD Card Manager for path: %s", path.c_str());
-        } else if (path.rfind("/flash", 0) == 0) {
-            fs = &littlefs_manager;
-            LOG_DBG("Using LittleFS Manager for path: %s", path.c_str());
-        } else if (path == "/") {
-            send_status("[DIR ]\tsd\n[DIR ]\tflash\n", current_conn);
-            return;
-        } else {
-            LOG_WRN("Unknown filesystem: %s", path.c_str());
-            send_status("ERROR Unknown FS", current_conn);
-            return;
-        }
-
-        if (!fs->is_mounted()) {
-            LOG_DBG("Mounting filesystem for path: %s", path.c_str());
-            int ret = fs->mount();
-            if (ret < 0) {
-                send_status("ERROR Mount failed");
-                return;
-            }
-        }
-        LOG_DBG("Filesystem mounted for path: %s", path.c_str());
-
-        size_t remaining_path_idx = path.find("/", 1);
-        if (remaining_path_idx == std::string::npos) {
-            LOG_DBG("No subdirectory specified, listing root");
-        } else {
-            std::string remaining_path = path.substr(remaining_path_idx);
-            LOG_DBG("Changing directory to: %s", remaining_path.c_str());
-
-            if (!remaining_path.empty()) {
-                if (fs->cd(remaining_path) < 0) {
-                    LOG_ERR("Failed to change directory to: %s", path.c_str());
-                    send_status("ERROR Invalid path");
-                    return;
-                }
-            }
-        }
-
-        char buf[512];
-        size_t buf_size = sizeof(buf);
-        int ret = fs->ls(buf, &buf_size);
-        if (ret < 0) {
-            send_status("ERROR Listing failed", current_conn);
-            return;
-        }
-
-        buf[buf_size] = '\0';
-        send_status(buf, current_conn);
+        command_list_files(path);
+        return;
+    } else if (command.rfind("REMOVE ", 0) == 0) {
+        std::string path = command.substr(7);
+        command_remove_file(path);
         return;
     }
 
     send_status("ERROR Unknown command", current_conn);
+}
+
+void command_remove_file(std::string path) {
+    FSManager *fs = nullptr;
+    get_fs_manager(path, fs);
+    if (!fs) return;
+
+    std::string remaining_path = get_remaining_path(path);
+    LOG_DBG("Removing file at path: %s", remaining_path.c_str());
+
+    int ret = fs->rm(remaining_path);
+    if (ret < 0) {
+        std::string error_msg = "ERROR Remove failed, error code: " + std::to_string(ret);
+        send_status(error_msg.c_str(), current_conn);
+        return;
+    } else {
+        LOG_DBG("File removed successfully: %s", path.c_str());
+        send_status("SUCCESS", current_conn);
+    }
+}
+
+void command_list_files(std::string path) {
+    if (path == "/") {
+        send_status("[DIR ]\tsd\n[DIR ]\tflash\n", current_conn);
+        return;
+    }
+
+    FSManager *fs = nullptr;
+    get_fs_manager(path, fs);
+    if (!fs) return;
+
+    if (!fs->is_mounted()) {
+        LOG_DBG("Mounting filesystem for path: %s", path.c_str());
+        int ret = fs->mount();
+        if (ret < 0) {
+            send_status("ERROR Mount failed");
+            return;
+        }
+    }
+    LOG_DBG("Filesystem mounted for path: %s", path.c_str());
+
+    std::string remaining_path = get_remaining_path(path);
+    
+    if (!remaining_path.empty()) {
+        int ret = fs->cd(remaining_path);
+        if (ret < 0) {
+            LOG_ERR("Failed to change directory to: %s", path.c_str());
+            send_status(("ERROR Invalid path: " + std::to_string(ret)).c_str());
+            return;
+        }
+    }
+
+    char buf[512];
+    size_t buf_size = sizeof(buf);
+    int ret = fs->ls(buf, &buf_size);
+    if (ret < 0) {
+        send_status("ERROR Listing failed", current_conn);
+        return;
+    }
+
+    buf[buf_size] = '\0';
+    send_status(buf, current_conn);
+}
+
+void get_fs_manager(std::string path, FSManager *&fs) {
+    if (path.rfind("/sd", 0) == 0) {
+        fs = &sdcard_manager;
+        LOG_DBG("Using SD Card Manager for path: %s", path.c_str());
+    } else if (path.rfind("/flash", 0) == 0) {
+        fs = &littlefs_manager;
+        LOG_DBG("Using LittleFS Manager for path: %s", path.c_str());
+    } else {
+        LOG_WRN("Unknown filesystem: %s", path.c_str());
+        fs = nullptr;
+    }
+}
+
+std::string get_remaining_path(std::string path) {
+    size_t remaining_path_idx = path.find("/", 1);
+    std::string remaining_path = "/";
+    if (remaining_path_idx != std::string::npos) {
+        remaining_path += path.substr(remaining_path_idx);
+    }
+    return remaining_path;
 }
