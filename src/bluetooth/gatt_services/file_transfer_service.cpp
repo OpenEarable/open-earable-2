@@ -8,11 +8,12 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(file_transfer, LOG_LEVEL_DBG);
 
-#define MAX_CMD_LENGTH 128
+#define MAX_CMD_LENGTH 512
 
 static struct k_work command_work;
 static struct bt_conn *pending_conn;
 static char pending_command[MAX_CMD_LENGTH];
+static size_t pending_command_length = 0;
 
 static struct bt_conn *current_conn = NULL;
 
@@ -87,6 +88,7 @@ void file_transfer_service_on_command_received(const uint8_t *data, uint16_t len
 
     memcpy(pending_command, data, length);
     pending_command[length] = '\0';
+    pending_command_length = length;
     pending_conn = conn;
 
     k_work_submit(&command_work);
@@ -97,9 +99,14 @@ std::string get_remaining_path(std::string path);
 
 void command_list_files(std::string path);
 void command_remove_file(std::string path);
+void command_write_file(std::string path, char *data, size_t data_length);
 
 static void file_transfer_command_handler(struct k_work *work) {
     std::string command(pending_command);
+    char payload[MAX_CMD_LENGTH] = {0};
+    size_t payload_length = pending_command_length - command.length();
+    memcpy(payload, pending_command + command.length() + 1, payload_length);
+
     LOG_INF("Processing command (deferred): %s", command.c_str());
 
     if (command.rfind("LIST ", 0) == 0) {
@@ -111,10 +118,56 @@ static void file_transfer_command_handler(struct k_work *work) {
         std::string path = command.substr(7);
         command_remove_file(path);
         return;
+    } else if (command.rfind("WRITE ", 0) == 0) {
+        std::string command_config = command.substr(6);
+        command_write_file(command_config, payload, payload_length);
+        return;
     }
 
     send_status("ERROR Unknown command", current_conn);
 }
+
+// MARK: Write
+
+void command_write_file(std::string command_config, char *data, size_t data_length) {
+    LOG_DBG("Writing to file with config: %s", command_config.c_str());
+    std::string path = command_config;
+
+    FSManager *fs = nullptr;
+    get_fs_manager(path, fs);
+    if (!fs) {
+        send_status("ERROR Invalid filesystem", current_conn);
+        return;
+    }
+
+    std::string remaining_path = get_remaining_path(path);
+    LOG_DBG("Remaining path for write: %s", remaining_path.c_str());
+
+    if (!fs->is_mounted()) {
+        LOG_DBG("Mounting filesystem for path: %s", path.c_str());
+        int ret = fs->mount();
+        if (ret < 0) {
+            send_status("ERROR Mount failed", current_conn);
+            return;
+        }
+    }
+
+    LOG_DBG("Writing %d bytes to file: %s", data_length, path.c_str());
+    // log the data being written
+    LOG_HEXDUMP_DBG(data, data_length, "Data to write");
+
+    ssize_t ret = fs->write(remaining_path, data, &data_length, true);
+    if (ret < 0) {
+        std::string error_msg = "ERROR Write failed, error code: " + std::to_string(ret);
+        send_status(error_msg.c_str(), current_conn);
+        return;
+    } else {
+        LOG_DBG("%d bytes written successfully: %s", ret, path.c_str());
+        send_status(std::to_string(ret).c_str(), current_conn);
+    }
+}
+
+// MARK: Remove
 
 void command_remove_file(std::string path) {
     FSManager *fs = nullptr;
@@ -134,6 +187,8 @@ void command_remove_file(std::string path) {
         send_status("SUCCESS", current_conn);
     }
 }
+
+// MARK: List Files
 
 void command_list_files(std::string path) {
     if (path == "/") {
@@ -177,6 +232,8 @@ void command_list_files(std::string path) {
     buf[buf_size] = '\0';
     send_status(buf, current_conn);
 }
+
+// MARK: Utility Functions
 
 void get_fs_manager(std::string path, FSManager *&fs) {
     if (path.rfind("/sd", 0) == 0) {
