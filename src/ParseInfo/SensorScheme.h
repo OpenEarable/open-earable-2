@@ -10,6 +10,7 @@ extern "C" {
 #include <zephyr/bluetooth/gatt.h>
 
 #include "SensorComponent.h"
+#include "openearable_common.h"
 
 #define BT_UUID_PARSE_INFO_SERVICE_VAL \
     BT_UUID_128_ENCODE(0xcaa25cb7, 0x7e1b, 0x44f2, 0xadc9, 0xe8c06c9ced43)
@@ -29,9 +30,9 @@ extern "C" {
 #define BT_UUID_PARSE_INFO_RESPONSE_CHARAC        BT_UUID_DECLARE_128(BT_UUID_PARSE_INFO_RESPONSE_CHARAC_VAL)
 
 enum SensorConfigOptionsMasks {
-    DATA_STREAMING = 0x01,
-    DATA_STORAGE = 0x02,
-    FREQUENCIES_DEFINED = 0x10,
+    DATA_STREAMING = SENSOR_CONSUMER_BLE,
+    DATA_STORAGE = SENSOR_CONSUMER_SD,
+    FREQUENCIES_DEFINED = 0x10, 
 };
 
 struct FrequencyOptions {

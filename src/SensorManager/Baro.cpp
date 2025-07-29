@@ -37,8 +37,7 @@ void Baro::update_sensor(struct k_work *work) {
 
 	bmp.performReading();
 
-	msg_baro.sd = sensor._sd_logging;
-	msg_baro.stream = sensor._ble_stream;
+	msg_baro.consumer_mask = sensor.consumers;
 
 	msg_baro.data.id = ID_TEMP_BARO;
 	msg_baro.data.size = 2 * sizeof(float);

@@ -57,7 +57,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
     int ret;
     const sensor_msg* msg = (sensor_msg*)zbus_chan_const_msg(chan);
 
-	if (msg->sd) {
+	if (msg->consumer_mask & SENSOR_CONSUMER_SD) {
         /*if (!_prio_boost) {
             if (k_msgq_num_free_get(&sd_sensor_queue) < CONFIG_SENSOR_SD_SUB_QUEUE_SIZE / 2) {
                 k_thread_priority_set(thread_id, K_PRIO_PREEMPT(CONFIG_SENSOR_SD_THREAD_PRIO - 1));

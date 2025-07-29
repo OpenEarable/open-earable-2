@@ -38,12 +38,16 @@ public:
         return _running;
     }
 
-    void sd_logging(bool enable) {
-        _sd_logging = enable;
-    }
+    // void add_consumer(uint8_t consumer) {
+    //     consumers |= consumer;
+    // }
 
-    void ble_stream(bool enable) {
-        _ble_stream = enable;
+    // void remove_consumer(uint8_t consumer) {
+    //     consumers &= ~consumer;
+    // }
+
+    void set_consumers(uint8_t consumer_mask) {
+        consumers = consumer_mask;
     }
 
     /**
@@ -59,8 +63,7 @@ protected:
     k_timer sensor_timer;
     static k_msgq * sensor_queue;
 
-    bool _sd_logging = false;
-    bool _ble_stream = true;
+    uint8_t consumers = 0;
     bool _running = false;
 };
 

@@ -224,8 +224,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
 				struct sensor_msg audio_msg;
 	
-				audio_msg.sd = true;
-				audio_msg.stream = false;
+				audio_msg.consumer_mask = SENSOR_CONSUMER_SD;
 	
 				audio_msg.data.id = ID_MICRO;
 				audio_msg.data.size = BLOCK_SIZE_BYTES; // SENQUEUE_FRAME_SIZE;

@@ -91,8 +91,7 @@ void PPG::update_sensor(struct k_work *work) {
         PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
 
         for (int i = 0; i < num_samples; i++) {
-            msg_ppg.sd = sensor._sd_logging;
-	        msg_ppg.stream = sensor._ble_stream;
+            msg_ppg.consumer_mask = sensor.consumers;
 
             size_t size = sizeof(uint32_t);
             

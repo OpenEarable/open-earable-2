@@ -35,8 +35,7 @@ void IMU::update_sensor(struct k_work *work) {
 
 	size_t size =  3 * sizeof(float);
 	
-	msg_imu.sd = sensor._sd_logging;
-	msg_imu.stream = sensor._ble_stream;
+	msg_imu.consumer_mask = sensor.consumers;
 
 	msg_imu.data.id = ID_IMU;
 	msg_imu.data.size = 3 * size;
