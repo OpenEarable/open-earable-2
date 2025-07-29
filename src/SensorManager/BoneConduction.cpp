@@ -69,8 +69,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
         int to_write = MIN(6, num_samples - written);
         if (to_write <= 0) break;
 
-        msg_bc.sd = sensor._sd_logging;
-        msg_bc.stream = sensor._ble_stream;
+        msg_bc.consumer_mask = sensor.consumers;
 
         const int _size = 3 * sizeof(int16_t);
 
