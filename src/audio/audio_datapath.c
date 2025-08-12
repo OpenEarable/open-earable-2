@@ -252,6 +252,8 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
 			}
 
+			// Yield so block can get processed
+			// TODO: check if yield is still required or should be excecuted inside the if statement
 			k_yield();
         }
 

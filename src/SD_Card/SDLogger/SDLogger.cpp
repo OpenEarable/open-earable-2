@@ -317,6 +317,9 @@ int SDLogger::end() {
 
     k_msgq_purge(&sd_sensor_queue);
 
+    // lock mutex to make sure all write proccesses have ended
+    k_mutex_lock(&write_mutex, K_FOREVER);
+
     ret = flush();
     if (ret < 0) {
         LOG_ERR("Failed to flush file buffer.");
@@ -334,6 +337,8 @@ int SDLogger::end() {
     }
 
     is_open = false;
+
+    k_mutex_unlock(&write_mutex);
 
     k_poll_signal_reset(&logger_sig);
 

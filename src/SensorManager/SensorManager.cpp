@@ -142,10 +142,11 @@ void stop_sensor_manager() {
 	//k_thread_suspend(sensor_pub_id);
 	k_poll_signal_reset(&sensor_manager_sig);
 
-	_state = SUSPENDED;
-
 	// End SDLogger and close current log file
 	sdlogger.end();
+
+	// set suspended state only after the logger has been ended
+	_state = SUSPENDED;
 
 	//k_msgq_purge(&config_queue);
 }
