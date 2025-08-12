@@ -29,6 +29,17 @@
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Forward declaration for C++ function
+void anc_damping_send_data(float damping);
+
+#ifdef __cplusplus
+}
+#endif
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
@@ -239,7 +250,10 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 				float damping = 10.f * log10f(mse_inner / mse_outer);
 
-				LOG_INF("ANC damping: %f dB, mse_inner: %f, mse_outer: %f", damping, mse_inner, mse_outer);
+				//LOG_INF("ANC damping: %f dB, mse_inner: %f, mse_outer: %f", damping, mse_inner, mse_outer);
+
+				// Send ANC damping data via the sensor system
+				anc_damping_send_data(damping);
 			}
 
 			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {

@@ -116,9 +116,21 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
     { .name = "BAROMETER", .componentCount = BARO_PRESSURE_COUNT, .components = baroPressureComponents },
 };
 
+// ============= ANC Damping =============
+
+#define ANC_DAMPING_COUNT 1
+SensorComponent ancDampingComponents[ANC_DAMPING_COUNT] = {
+    { .name = "Damping", .unit = "dB", .parseType = PARSE_TYPE_FLOAT },
+};
+
+#define ANC_DAMPING_GROUP_COUNT 1
+SensorComponentGroup ancDampingGroups[ANC_DAMPING_GROUP_COUNT] = {
+    { .name = "ANC_DAMPING", .componentCount = ANC_DAMPING_COUNT, .components = ancDampingComponents },
+};
+
 // ============= Sensors =============
 
-#define SENSOR_COUNT 6
+#define SENSOR_COUNT 7
 SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "9-Axis IMU",
@@ -210,11 +222,26 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             },
         }, 
     },
+    {
+        .name = "ANC Damping",
+        .id = ID_ANC_DAMPING,
+        .groupCount = ANC_DAMPING_GROUP_COUNT,
+        .groups = ancDampingGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = 1,
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 1,
+                .frequencies = (float[]){1.0f},
+            },
+        },
+    },
 };
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO, ID_ANC_DAMPING },
 };
 
 #endif // _DEFAULT_SENSORS_H
