@@ -193,6 +193,11 @@ int _count = 0;
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
+float mse_inner = 0;
+float mse_outer = 0;
+
+float alpha = 0.001f; // 0.001f
+
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
 {
@@ -201,6 +206,8 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     //char pcm_raw_data[FRAME_SIZE_BYTES];
     size_t pcm_block_size;
     int ret;
+
+	int16_t anc_data[BLOCK_SIZE_BYTES / sizeof(int16_t)];
 
 	struct audio_rx_data audio_item;
 	//memcpy(audio_item.data, pcm_raw_data, FRAME_SIZE_BYTES);
@@ -220,6 +227,20 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 			unsigned int logger_signaled;
 			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
+
+			// Todo: check if anc active
+			if (true) {
+				memcpy(anc_data, tmp_pcm_raw_data[i], pcm_block_size);
+
+				for (int j = 0; j < BLOCK_SIZE_BYTES / sizeof(int16_t); j+=2) {
+					mse_inner = (float)anc_data[j] * anc_data[j] * alpha + mse_inner * (1 - alpha);
+					mse_outer = (float)anc_data[j + 1] * anc_data[j + 1] * alpha + mse_outer * (1 - alpha);
+				}
+
+				float damping = 10.f * log10f(mse_inner / mse_outer);
+
+				LOG_INF("ANC damping: %f dB, mse_inner: %f, mse_outer: %f", damping, mse_inner, mse_outer);
+			}
 
 			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
 				struct sensor_msg audio_msg;

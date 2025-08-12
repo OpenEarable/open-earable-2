@@ -21,6 +21,10 @@
 #include "openearable_common.h"
 #include "../drivers/ADAU1860.h"
 
+#include "audio_datapath.h"
+
+extern struct data_fifo fifo_rx;
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(hw_codec, CONFIG_MODULE_HW_CODEC_LOG_LEVEL);
 
@@ -53,12 +57,27 @@ static int settings_set_cb(const char *name, size_t len, settings_read_cb read_c
 
 SETTINGS_STATIC_HANDLER_DEFINE(audio, "audio", NULL, settings_set_cb, NULL, NULL);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern void init_fifo();
+
+#ifdef __cplusplus
+};
+#endif
+
 int hw_codec_set_audio_mode(enum audio_mode mode) {
     int ret;
 
 	audio_mode = mode;
 
 	settings_save_one("audio/mode", &mode, sizeof(mode));
+
+    init_fifo();
+
+	// run adaptive anc
+	ret = audio_datapath_aquire(&fifo_rx);
 
 	ret = dac.fdsp_bank_select((uint8_t) mode);
 	// TODO: make writing to bank work
