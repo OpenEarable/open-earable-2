@@ -15,6 +15,7 @@
 /* Memory address to store the channel intended used for this board */
 #define MEM_ADDR_UICR_CH (MEM_ADDR_UICR_SNR + sizeof(uint32_t))
 #define MEM_ADDR_UICR_SIRK (MEM_ADDR_UICR_CH + sizeof(uint32_t))
+#define MEM_ADDR_UICR_STAL (MEM_ADDR_UICR_SIRK + sizeof(uint32_t))
 
 uint8_t uicr_channel_get(void)
 {
@@ -64,6 +65,11 @@ int uicr_sirk_set(uint32_t sirk)
 	} else {
 		return -EIO;
 	}
+}
+
+uint8_t uicr_standalone_get(void)
+{
+	return *(uint8_t *)MEM_ADDR_UICR_STAL;
 }
 
 // Michael: Collision with MEM_ADDR_UICR_CH

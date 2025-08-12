@@ -153,7 +153,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 		//encoder_queue_get(&fifo_rx, tmp_pcm_raw_data, pcm_raw_data, FRAME_SIZE_BYTES);
 		ret = k_msgq_get(&encoder_queue, &pcm_raw_data, K_FOREVER);
 		if (ret) {
-			LOG_ERR("Failed to get message from msgq: %d", ret);
+			LOG_WRN("Failed to get message from msgq: %d", ret);
 			continue;
 		}
 
@@ -565,4 +565,9 @@ int audio_system_set_encoder_channel(uint8_t channel)
     encoder_channel = channel;
 	LOG_INF("Microphone channel set to %d", channel);
     return 0;
+}
+
+uint8_t audio_system_get_encoder_channel()
+{
+    return encoder_channel;
 }

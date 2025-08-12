@@ -1,7 +1,9 @@
 #ifndef _SENSOR_SCHEME_H
 #define _SENSOR_SCHEME_H
 
-#include <string>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/uuid.h>
@@ -41,16 +43,16 @@ struct FrequencyOptions {
 
 struct SensorConfigOptions {
     uint8_t availableOptions;
-    FrequencyOptions frequencyOptions;
+    struct FrequencyOptions frequencyOptions;
 };
 
 
 struct SensorScheme {
-    std::string name;
+    const char* name;
     uint8_t id;
     uint8_t groupCount;
-    SensorComponentGroup* groups;
-    SensorConfigOptions configOptions;
+    struct SensorComponentGroup* groups;
+    struct SensorConfigOptions configOptions;
 };
 
 struct ParseInfoScheme {
@@ -58,11 +60,16 @@ struct ParseInfoScheme {
     uint8_t* sensorIds;
 };
 
-int initParseInfoService(ParseInfoScheme* scheme, SensorScheme* sensorSchemes);
+int initParseInfoService(struct ParseInfoScheme* scheme, struct SensorScheme* sensorSchemes);
 
-SensorScheme* getSensorSchemeForId(uint8_t id);
+struct SensorScheme* getSensorSchemeForId(uint8_t id);
+struct ParseInfoScheme* getParseInfoScheme();
 
-float getSampleRateForSensor(uint8_t id, uint8_t frequencyIndex);
-float getSampleRateForSensor(SensorScheme* sensorScheme, uint8_t frequencyIndex);
+float getSampleRateForSensorId(uint8_t id, uint8_t frequencyIndex);
+float getSampleRateForSensor(struct SensorScheme* sensorScheme, uint8_t frequencyIndex);
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif // _SENSOR_SCHEME_H

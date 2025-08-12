@@ -7,8 +7,8 @@
 //#include <Wire.h>
 #include <TWIM.h>
 
-#define OUT_VOLUME_DEFAULT 0x60
-#define MAX_VOLUME_REG_VAL 0xB0
+#define OUT_VOLUME_DEFAULT 0x80
+#define MAX_VOLUME_REG_VAL 0xC0
 #define MIN_VOLUME_REG_VAL 0x20
 #define MAX_VOLUME_DB 24
 
@@ -35,7 +35,7 @@
 #define DAC_ROUTE_I2S 0
 #define DAC_ROUTE_DSP_CH(N) (32 + N)
 
-#define FDSP_USED_BANK_SIZE 2
+#define FDSP_USED_BANK_SIZE 5
 #define NOISE_GATE_ACTIVE
 
 typedef uint32_t safe_load_params[FDSP_NUM_PARAMS];
@@ -419,8 +419,6 @@ private:
     bool readReg(uint32_t reg, uint8_t * buffer, uint16_t len);
     void writeReg(uint32_t reg, uint8_t * buffer, uint16_t len);
 
-    void writeReg_u8(uint32_t reg, uint8_t &buffer);
-
     int setup_EQ();
     int setup_FDSP();
     int setup_DAC();
@@ -448,6 +446,9 @@ private:
     //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
 
     friend int cmd_dsp_noise_gate(const struct shell *shell, size_t argc, char **argv);
+
+    friend int32_t adau_read(void* user_data, uint8_t *rd_buf, uint32_t rd_len, uint8_t *wr_buf, uint32_t wr_len);
+    friend int32_t adau_write(void* user_data, uint8_t *wr_buf, uint32_t len);
 };
 
 extern ADAU1860 dac;

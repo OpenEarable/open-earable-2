@@ -1,4 +1,5 @@
 #include "SensorScheme.h"
+#include "sensor_service.h"
 
 #include <string>
 #include <cstring>
@@ -10,7 +11,14 @@
 #include <stdexcept>
 #include <unordered_map>
 
-LOG_MODULE_REGISTER(parse_info_service, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(parse_info_service, CONFIG_LOG_DEFAULT_LEVEL);
+
+static void enable_notifies_handler(struct k_work *work)
+{
+    temp_disable_notifies(false);
+}
+
+K_WORK_DELAYABLE_DEFINE(enable_notifies_work, enable_notifies_handler);
 
 static char* parseInfoScheme;
 static size_t parseInfoSchemeSize;
@@ -32,7 +40,13 @@ static ssize_t read_parse_info(struct bt_conn *conn,
                 void *buf,
                 uint16_t len,
                 uint16_t offset) {
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, parseInfoScheme, parseInfoSchemeSize);
+	temp_disable_notifies(true);
+    ssize_t ret = bt_gatt_attr_read(conn, attr, buf, len, offset, parseInfoScheme, parseInfoSchemeSize);
+    
+    // re-enable notifications after a delay
+    k_work_schedule(&enable_notifies_work, K_MSEC(500));
+
+    return ret;
 }
 
 static ssize_t read_sensor_scheme(struct bt_conn *conn,
@@ -175,7 +189,7 @@ ssize_t serializeSensorOptionsScheme(SensorConfigOptions* options, char* buffer,
 size_t getSensorSchemeSize(SensorScheme* scheme) {
     size_t size = 0;
     size += 1; // id
-    size += scheme->name.size() + 1; // name and name length
+    size += strlen(scheme->name) + 1; // name and name length
     size += 1; // groupCount
     for (size_t i = 0; i < scheme->groupCount; i++) {
         size += getSensorComponentGroupSize(&scheme->groups[i]);
@@ -197,10 +211,10 @@ ssize_t serializeSensorScheme(SensorScheme* scheme, char* buffer, size_t bufferS
     buffer++;
 
     // name
-    *buffer = scheme->name.size();
+    *buffer = strlen(scheme->name);
     buffer++;
-    memcpy(buffer, scheme->name.c_str(), scheme->name.size());
-    buffer += scheme->name.size();
+    memcpy(buffer, scheme->name, strlen(scheme->name));
+    buffer += strlen(scheme->name);
 
     // componentCount
     size_t componentCount = 0;
@@ -291,7 +305,7 @@ int initParseInfoService(ParseInfoScheme* scheme, SensorScheme* sensorSchemes) {
     return 0;
 }
 
-float getSampleRateForSensor(uint8_t id, uint8_t frequencyIndex) {
+float getSampleRateForSensorId(uint8_t id, uint8_t frequencyIndex) {
     SensorScheme* scheme = getSensorSchemeForId(id);
     if (scheme == NULL) {
         return -1;
@@ -300,7 +314,7 @@ float getSampleRateForSensor(uint8_t id, uint8_t frequencyIndex) {
     return getSampleRateForSensor(scheme, frequencyIndex);
 }
 
-float getSampleRateForSensor(SensorScheme* sensorScheme, uint8_t frequencyIndex) {
+float getSampleRateForSensor(struct SensorScheme* sensorScheme, uint8_t frequencyIndex) {
     if (!(sensorScheme->configOptions.availableOptions & FREQUENCIES_DEFINED)) {
         return -1;
     }
@@ -344,6 +358,10 @@ int initSensorSchemeForId(uint8_t id) {
     return 0;
 }
 
-SensorScheme* getSensorSchemeForId(uint8_t id) {
+struct SensorScheme* getSensorSchemeForId(uint8_t id) {
     return sensorSchemesMap[id];
+}
+
+struct ParseInfoScheme* getParseInfoScheme() {
+    return parseInfoSchemeStruct;
 }

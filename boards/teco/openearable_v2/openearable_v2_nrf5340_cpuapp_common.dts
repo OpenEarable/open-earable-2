@@ -51,11 +51,15 @@
 	 hfclkaudio-frequency = <12288000>;
  };
 
- /*
- &lfxo {
+ // Oscillator Parameters 32mHz / 8pF / 20ppm
+ &hfxo {
 	load-capacitors = "internal";
-	load-capacitance-picofarad = <8>;
-};*/
+	load-capacitance-femtofarad = <8000>;
+ };
+
+ &lfxo {
+	load-capacitors = "external";
+  };
  
  &adc {
 	 status = "okay";

@@ -6,10 +6,11 @@ CHIP=NRF53
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 --snr <serial_number> [--left|--right]"
+    echo "Usage: $0 --snr <serial_number> [--left|--right] [--standalone]"
     echo "  --snr: Device serial number (required)"
     echo "  --left: Flash left earable configuration"
     echo "  --right: Flash right earable configuration"
+    echo "  --standalone: Configure device for standalone mode"
     exit 1
 }
 
@@ -19,6 +20,7 @@ while [[ "$#" -gt 0 ]]; do
         --snr) SNR="$2"; shift ;;
         --left) LEFT=true ;;
         --right) RIGHT=true ;;
+        --standalone) STANDALONE=true ;;
         *) show_usage ;;
     esac
     shift
@@ -34,6 +36,12 @@ fi
 if ! [[ "$SNR" =~ ^[0-9]+$ ]]; then
     echo "Error: Serial number must be numeric"
     exit 1
+fi
+
+# Check if standalone was specified without left/right
+if [ "$STANDALONE" == true ] && [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
+    echo "Error: --standalone can only be used with --left or --right"
+    show_usage
 fi
 
 # Backup UICR if neither left nor right is specified
@@ -57,6 +65,12 @@ if [ "$LEFT" == true ]; then
     nrfjprog --memwr 0x00FF80F4 --val 0 -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
 elif [ "$RIGHT" == true ]; then
     nrfjprog --memwr 0x00FF80F4 --val 1 -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+fi
+
+# Set standalone mode configuration if requested
+if [ "$STANDALONE" == true ]; then
+    nrfjprog --memwr 0x00FF80FC --val 0 -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+    echo "Device configured for standalone mode"
 fi
 
 # Reset device

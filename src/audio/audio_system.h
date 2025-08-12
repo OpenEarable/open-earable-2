@@ -120,6 +120,8 @@ int audio_system_init(void);
  */
 int audio_system_set_encoder_channel(uint8_t channel);
 
+uint8_t audio_system_get_encoder_channel();
+
 #ifdef __cplusplus
 }
 #endif

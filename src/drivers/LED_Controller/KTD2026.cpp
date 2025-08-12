@@ -84,11 +84,12 @@ void KTD2026::pulse(const RGBColor& color, const int time_on_millis, const int t
 
         uint8_t flash_period = (period_millis >> 7) & 0x7F;
         uint8_t time_on = 250 * time_on_millis / period_millis;
+        uint8_t time_on_2 = 0x1; // reset value
         uint8_t t_rise_fall = (((time_fall_millis >> 7) & 0x0F) << 4) | ((time_rise_millis >> 7) & 0x0F);
 
         for (int i = 0; i < 3; i++) {
                 if (color[i] > 0) {
-                        channel_enable |= 2 << (2 * i);
+                        channel_enable |= 0x2 << (2 * i);
                         _color[i] = color[i] - 1;
                 }
         }
@@ -99,6 +100,42 @@ void KTD2026::pulse(const RGBColor& color, const int time_on_millis, const int t
         writeReg(registers::FP, &flash_period, sizeof(flash_period));
         writeReg(registers::RAMP, &t_rise_fall, sizeof(t_rise_fall));
         writeReg(registers::PWM1, &time_on, sizeof(time_on));
+        writeReg(registers::PWM2, &time_on_2, sizeof(time_on_2));
+}
+
+void KTD2026::pulse2(const RGBColor& color, const RGBColor& color2, const int time_on_millis, const int time_rise_millis, const int time_fall_millis, const int period_millis) {
+        uint8_t channel_enable = 0;
+
+        RGBColor _color = {0,0,0};
+
+        uint8_t flash_period = (period_millis >> 7) & 0x7F;
+        uint8_t time_on = 250 * time_on_millis / period_millis;
+        uint8_t t_rise_fall = (((time_fall_millis >> 7) & 0x0F) << 4) | ((time_rise_millis >> 7) & 0x0F);
+
+        for (int i = 0; i < 3; i++) {
+                if (color[i] > 0) {
+                        channel_enable |= 0x2 << (2 * i);
+                        _color[i] = color[i] - 1;
+                }
+        }
+
+        for (int i = 0; i < 3; i++) {
+                if (color2[i] > 0) {
+                        channel_enable |= 0x3 << (2 * i);
+                        _color[i] = color2[i] - 1;
+                }
+        }
+
+        writeReg(registers::I_R, _color, sizeof(RGBColor));
+        writeReg(registers::EN_CH, &channel_enable, sizeof(channel_enable));
+
+        uint8_t val = 0x2; // slot 3
+        writeReg(registers::CTRL, &val, sizeof(val));
+
+        writeReg(registers::FP, &flash_period, sizeof(flash_period));
+        writeReg(registers::RAMP, &t_rise_fall, sizeof(t_rise_fall));
+
+        writeReg(registers::PWM2, &time_on, sizeof(time_on));
 }
 
 /* Not working */

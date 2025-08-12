@@ -38,8 +38,8 @@ endchoice
 
 config FDSP
 	depends on EQAULIZER_DSP
-	default n
-	bool "Use DSP for EQ"
+	default y
+	bool "Use FDSP the fast DSP core. This is required for Transparancy mode and ANC."
 
 module = CS47L63
 module-str = cs47l63

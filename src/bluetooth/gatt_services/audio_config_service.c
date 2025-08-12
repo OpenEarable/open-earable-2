@@ -45,16 +45,30 @@ static ssize_t write_mic_select(struct bt_conn *conn, const struct bt_gatt_attr 
     return len;
 }
 
+static ssize_t read_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                              void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t mode = hw_codec_get_audio_mode();
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &mode, sizeof(mode));
+}
+
+static ssize_t read_mic_select(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                              void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t mic = audio_system_get_encoder_channel() == AUDIO_CH_L ? 0 : 1;
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &mic, sizeof(mic));
+}
+
 BT_GATT_SERVICE_DEFINE(audio_config_svc,
     BT_GATT_PRIMARY_SERVICE(BT_UUID_AUDIO_CONFIG_SERVICE),
     BT_GATT_CHARACTERISTIC(BT_UUID_AUDIO_MODE,
-                       BT_GATT_CHRC_WRITE,
-                       BT_GATT_PERM_WRITE,
-                       NULL, write_audio_mode, NULL),
+                       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
+                       BT_GATT_PERM_WRITE | BT_GATT_PERM_READ,
+                       read_audio_mode, write_audio_mode, NULL),
     BT_GATT_CHARACTERISTIC(BT_UUID_MIC_SELECT,
-                       BT_GATT_CHRC_WRITE,
-                       BT_GATT_PERM_WRITE,
-                       NULL, write_mic_select, NULL),
+                       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
+                       BT_GATT_PERM_WRITE | BT_GATT_PERM_READ,
+                       read_mic_select, write_mic_select, NULL),
 );
 
 int init_audio_config_service(void)

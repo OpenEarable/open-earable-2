@@ -70,23 +70,39 @@ int ADAU1860::begin() {
 
         k_msleep(35); // CM rise time (see datasheet)
 
-        uint8_t power_mode = 0x01 | 0x04; // Hibernate 1, Master enable
-        writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
+        //uint8_t power_mode = 0x01 | 0x04; // Hibernate 1, Master enable
+        //writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
 
         // Non self-boot
         uint8_t startup_dlycnt_byp = 1;
         writeReg(registers::PMU_CTRL2, &startup_dlycnt_byp, sizeof(startup_dlycnt_byp));
 
         // Power saving
-        uint8_t cm_startup_over = 1 << 4 | power_mode;
+        uint8_t cm_startup_over = 1 << 4;
         writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
 
         //uint8_t sai_clk_pwr = 0x01; // I2S_IN enable
         //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
 
         // bypass PLL
-        uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
+        uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
         writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+
+        uint8_t status2;
+        readReg(registers::STATUS2, &status2, sizeof(status2));
+        LOG_DBG("STATUS2: 0x%x", status2);
+
+        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+
+        while (!(status2 & (1 << 7))) {
+                readReg(registers::STATUS2, &status2, sizeof(status2));
+                LOG_DBG("STATUS2: 0x%x", status2);
+
+                // power up complete and PLL lock
+                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+
+                k_usleep(10);
+        }
 
         //uint8_t clk_ctrl13 = (0 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
         //writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
@@ -109,7 +125,7 @@ int ADAU1860::begin() {
         //k_msleep(1);
 
         // verify power up complete
-        uint8_t status2;
+        //uint8_t status2;
         readReg(registers::STATUS2, &status2, sizeof(status2));
         LOG_DBG("STATUS2: 0x%x", status2);
 
@@ -127,10 +143,9 @@ int ADAU1860::begin() {
                 k_usleep(10);
         }
 
-        // LOG_INF("DAC_CTRL: 0x%02X", status);
         // Power saving
-        // uint8_t cm_startup_over = 1 << 2 | 0x01; // Master block en | Hibernate 1 (SOC off, ADP on);
-        // writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
+        uint8_t power_mode = 0x40 | 0x01 | 0x04; // CM_Startup_over | Hibernate 1, Master enable
+        writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
 
         // SPT0_CTRL1 - reset val (32 BCLKs?)
         uint8_t spt0_ctrl1 = 0x10; // 1 << 4 (16 BCLKs)
@@ -160,11 +175,32 @@ int ADAU1860::begin() {
                 // uint8_t spt0_route1 = 40; // DMIC Channel 1
                 // writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));
 
-                uint8_t ascro0_route = 35; // DMIC Channel 0
+                uint8_t fdec_pwr = 0x03; // FDEC0_EN | FDEC1_EN
+                writeReg(registers::FDEC_PWR, &fdec_pwr, sizeof(fdec_pwr));
+
+                uint8_t fdec_ctrl1 = 0x24; // 192khz to 48kHz
+                writeReg(registers::FDEC_CTRL1, &fdec_ctrl1, sizeof(fdec_ctrl1));
+
+                uint8_t fdec_route0 = 39; // DMIC Channel 0
+                writeReg(registers::FDEC_ROUTE0, &fdec_route0, sizeof(fdec_route0));
+                
+                uint8_t fdec_route1 = 40; // DMIC Channel 1
+                writeReg(registers::FDEC_ROUTE1, &fdec_route1, sizeof(fdec_route1));
+
+                uint8_t ascro0_route = 39; // FDEC Channel 0
                 writeReg(registers::ASRCO_ROUTE0, &ascro0_route, sizeof(ascro0_route));
 
-                uint8_t ascro1_route = 36; // DMIC Channel 1
+                uint8_t ascro1_route = 40; // FDEC Channel 1
                 writeReg(registers::ASRCO_ROUTE1, &ascro1_route, sizeof(ascro1_route));
+
+                /*uint8_t fint_pwr = 0x01; // FINT0_EN
+                writeReg(registers::FINT_PWR, &fint_pwr, sizeof(fint_pwr));
+
+                uint8_t fint_ctrl1 = 0x42; // 48kHz to 192kHz
+                writeReg(registers::FINT_CTRL1, &fint_ctrl1, sizeof(fint_ctrl1));
+
+                uint8_t fint_route0 = 75; // EQ
+                writeReg(registers::FINT_ROUTE0, &fint_route0, sizeof(fint_route0));*/
 
                 uint8_t spt0_route0 = 32; // ASCRO 0
                 writeReg(registers::SPT0_ROUTE0, &spt0_route0, sizeof(spt0_route0));
@@ -180,7 +216,7 @@ int ADAU1860::begin() {
                 uint8_t dmic_ctrl1 = 0x34; // ... | 6.144 MHz
                 writeReg(registers::DMIC_CTRL1, &dmic_ctrl1, sizeof(dmic_ctrl1));
 
-                uint8_t dmic_ctrl2 = 0x02; // 48kHz
+                uint8_t dmic_ctrl2 = 0x04; // 192kHz
                 writeReg(registers::DMIC_CTRL2, &dmic_ctrl2, sizeof(dmic_ctrl2));
         } else {
                 // I2S_IN enable
@@ -220,14 +256,17 @@ int ADAU1860::setup_DAC() {
         uint8_t lvmode = 0x03; //HP_LVMODE_EN | HP_LVMODE_CM_EN
         writeReg(registers::HP_LVMODE_CTRL1, &lvmode, sizeof(lvmode));
 
-        uint8_t lvmode_ctrl2 = 0x31;
-        writeReg(registers::HP_LVMODE_CTRL2, &lvmode_ctrl2, sizeof(lvmode_ctrl2));
+        //uint8_t lvmode_ctrl2 = 0x31;
+        //writeReg(registers::HP_LVMODE_CTRL2, &lvmode_ctrl2, sizeof(lvmode_ctrl2));
 
         uint8_t lvmode_ctrl3 = 0x01;
         writeReg(registers::HP_LVMODE_CTRL3, &lvmode_ctrl3, sizeof(lvmode_ctrl3));
 
         uint8_t hpldo_ctrl = 0x01;
         writeReg(registers::HPLDO_CTRL, &hpldo_ctrl, sizeof(hpldo_ctrl));
+
+        uint8_t dac_ctrl1 = 0x04; // 192kz
+        writeReg(registers::DAC_CTRL1, &dac_ctrl1, sizeof(dac_ctrl1));
 
         // DAC_NOISE_CTRL1&2
         uint8_t dac_noise_1 = 0x10;
@@ -525,10 +564,6 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         }
 
         _i2c->release();
-}
-
-void ADAU1860::writeReg_u8(uint32_t reg, uint8_t &buffer) {
-        writeReg(reg, &buffer, sizeof(buffer));
 }
 
 #ifdef NOISE_GATE_ACTIVE

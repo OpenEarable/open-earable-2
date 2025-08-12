@@ -287,7 +287,7 @@ int PowerManager::begin() {
     
     if (reset_reas & RESET_RESETREAS_RESETPIN_Msk) {
         oe_boot_state.timer_reset = bat_state & (1 << 4);
-        power_on = true;
+        power_on |= oe_boot_state.timer_reset;
     }
 
     /*if (reset_reas & RESET_RESETREAS_DOG1_Msk) {
@@ -334,8 +334,6 @@ int PowerManager::begin() {
     if (charging) {
         power_manager.last_charging_state = 0;
         
-        k_work_schedule(&charge_ctrl_delayable, power_manager.chrg_interval);
-
         int ret = pm_device_runtime_enable(ls_1_8);
         if (ret != 0) {
             LOG_WRN("Error setting up load switch 1.8V.");
@@ -352,6 +350,8 @@ int PowerManager::begin() {
         oe_state.charging_state = POWER_CONNECTED;
 
         state_indicator.init(oe_state);
+
+        k_work_schedule(&charge_ctrl_delayable, K_NO_WAIT);
 
         while(!power_on && battery_controller.power_connected()) {
             //__WFE();

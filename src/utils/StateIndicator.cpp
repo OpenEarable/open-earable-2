@@ -41,7 +41,7 @@ enum mgmt_cb_return chuck_write_indication(uint32_t event, enum mgmt_cb_return p
 		LOG_INF("RESET received");
 	}*/
 
-	//LOG_INF("my_function called with event: %d", event);
+	//LOG_DBG("mcu mgr hook called with event: %d", event);
 
     /* Return OK status code to continue with acceptance to underlying handler */
     return MGMT_CB_OK;
@@ -123,6 +123,12 @@ void StateIndicator::set_pairing_state(enum pairing_state state) {
     set_state(_state);
 }
 
+void StateIndicator::set_sd_state(enum sd_state state) {
+    _state.sd_state = state;
+    // Update the LED state based on the new SD state
+    set_state(_state);
+}
+
 void StateIndicator::set_state(struct earable_state state) {
     _state = state;
 
@@ -158,25 +164,44 @@ void StateIndicator::set_state(struct earable_state state) {
         led_controller.blink(LED_ORANGE, 100, 2000);
         break;
     default:
-        switch (_state.pairing_state) {
-        case SET_PAIRING:
-            audio_channel channel;
-            channel_assignment_get(&channel);
-            if (channel == AUDIO_CH_L) {
-                led_controller.blink(LED_BLUE, 100, 200);
-            } else  if (channel == AUDIO_CH_R) {
-                led_controller.blink(LED_RED, 100, 200);
+        // Check if we're recording to SD card - this takes precedence over pairing state
+        switch (_state.sd_state) {
+        case SD_RECORDING:
+            // Use red pulsing to indicate active recording
+            if (_state.pairing_state == CONNECTED) {
+                // If connected, blink with green and magenta
+                led_controller.pulse2(LED_MAGENTA, LED_GREEN, 100, 0, 0, 2000);
+            } else {
+                // If not connected, blink magenta only
+                led_controller.pulse2(LED_MAGENTA, LED_OFF, 100, 0, 0, 2000);
             }
             break;
-        case BONDING:
-            led_controller.blink(LED_BLUE, 100, 500);
+        case SD_FAULT:
+            // Use red pulsing to indicate SD card fault
+            led_controller.blink(LED_RED, 100, 200);
             break;
-        case PAIRED:
-            led_controller.blink(LED_BLUE, 100, 2000);
-            break;
-        case CONNECTED:
-            led_controller.blink(LED_GREEN, 100, 2000);
-            break;
+        default:
+            // Not recording, show the pairing state
+            switch (_state.pairing_state) {
+            case SET_PAIRING:
+                audio_channel channel;
+                channel_assignment_get(&channel);
+                if (channel == AUDIO_CH_L) {
+                    led_controller.blink(LED_BLUE, 100, 200);
+                } else  if (channel == AUDIO_CH_R) {
+                    led_controller.blink(LED_RED, 100, 200);
+                }
+                break;
+            case BONDING:
+                led_controller.blink(LED_BLUE, 100, 500);
+                break;
+            case PAIRED:
+                led_controller.blink(LED_BLUE, 100, 2000);
+                break;
+            case CONNECTED:
+                led_controller.blink(LED_GREEN, 100, 2000);
+                break;
+            }
         }
     }
 }

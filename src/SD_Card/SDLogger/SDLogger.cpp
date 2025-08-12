@@ -6,6 +6,9 @@
 #include "SDLogger.h"
 #include "PowerManager.h"
 #include <errno.h>
+#include "audio_datapath.h"
+
+#include "StateIndicator.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sd_logger, CONFIG_LOG_DEFAULT_LEVEL);
@@ -28,7 +31,12 @@ ZBUS_LISTENER_DEFINE(sd_card_event_listener, sd_listener_callback);
 
 static struct k_thread thread_data;
 static k_tid_t thread_id;
-        
+
+struct ring_buf ring_buffer;
+struct k_mutex write_mutex;
+uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
+
+int count_max_buffer_fill = 0;
 
 struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt =
@@ -36,13 +44,14 @@ static struct k_poll_event logger_evt =
 
 SDLogger::SDLogger() {
     sd_card = &sdcard_manager;
+    k_mutex_init(&write_mutex);
 }
 
 SDLogger::~SDLogger() {
 
 }
 
-static bool _prio_boost = false;
+//static bool _prio_boost = false;
 
 void sensor_listener_cb(const struct zbus_channel *chan) {
     int ret;
@@ -66,9 +75,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
             }
         }*/
 
-        ret = k_msgq_put(&sd_sensor_queue, &msg->data, K_NO_WAIT);
-
-        //LOG_INF("free_space: %i ", k_msgq_num_free_get(&sd_sensor_queue));
+        sdlogger.write_sensor_data(msg->data);
 
 		if (ret) {
 			LOG_WRN("sd msg queue full");
@@ -84,7 +91,7 @@ void sd_listener_callback(const struct zbus_channel *chan)
     if (sdlogger.is_open && sd_msg_event->removed) {
         k_poll_signal_reset(&logger_sig);
 
-        power_manager.set_error_led();
+        state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("SD card removed mid recording. Stop recording.");
 
         // sdlogger.end();
@@ -92,27 +99,44 @@ void sd_listener_callback(const struct zbus_channel *chan)
     }
 }
 
+
 void SDLogger::sensor_sd_task() {
     int ret;
 
     while (1) {
         ret = k_poll(&logger_evt, 1, K_FOREVER);
 
-        int ret = k_msgq_get(&sd_sensor_queue, &sdlogger.msg, K_FOREVER);
-        if (ret != 0) {
-            LOG_ERR("Failed to get message from msgq: %d", ret);
-            continue;
-        }
-
         if (!sdcard_manager.is_mounted()) {
-            power_manager.set_error_led();
+            state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("SD Card not mounted!");
             return;
         }
+
+        uint32_t fill = ring_buf_size_get(&ring_buffer);
+
+        if (fill >= SD_BLOCK_SIZE) {
+            if (fill > count_max_buffer_fill) {
+                count_max_buffer_fill = fill;
+                //LOG_INF("Max buffer fill: %d bytes", count_max_buffer_fill);
+            }
+            //k_mutex_lock(&write_mutex, K_FOREVER);
+            uint32_t bytes_read;
+            uint8_t * data;
+            size_t write_size = SD_BLOCK_SIZE;
     
-        ret = sdlogger.write_sensor_data();
+            ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+            bytes_read = sdlogger.sd_card->write((char*)data, &write_size, false);
+            ring_buf_get_finish(&ring_buffer, bytes_read);
+
+            //k_mutex_unlock(&write_mutex);
+    
+            //fill -= bytes_read;
+        } else {
+            k_yield();
+        }
+
         if (ret < 0) {
-            power_manager.set_error_led();
+            state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to write sensor data: %d", ret);
         }
 
@@ -124,6 +148,10 @@ int SDLogger::init() {
     int ret;
 
     sd_card->init();
+
+    ring_buf_init(&ring_buffer, BUFFER_SIZE, buffer);
+
+    //set_ring_buffer(&ring_buffer);
 
     k_poll_signal_init(&logger_sig);
 
@@ -172,7 +200,7 @@ int SDLogger::begin(const std::string& filename) {
     if (!sd_card->is_mounted()) {
         ret = sd_card->mount();
         if (ret < 0) {
-            power_manager.set_error_led();
+            state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to mount sd card: %d", ret);
             return ret;
         }
@@ -183,18 +211,20 @@ int SDLogger::begin(const std::string& filename) {
     std::string full_filename = filename + ".oe";
     ret = sd_card->open_file(full_filename, true, false, true);
     if (ret < 0) {
-        power_manager.set_error_led();
+        state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("Failed to open file: %d", ret);
         return ret;
     }
 
     current_file = full_filename;
     is_open = true;
-    buffer_pos = 0;
+    //buffer_pos = 0;
+
+    ring_buf_reset(&ring_buffer);
 
     ret = write_header();
     if (ret < 0) {
-        power_manager.set_error_led();
+        state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("Failed to write header: %d", ret);
         return ret;
     }
@@ -215,47 +245,56 @@ int SDLogger::write_header() {
     return sd_card->write((char *) header_buffer, &header_size, false);
 }
 
-int SDLogger::write_sensor_data(const void* data, size_t length) {
-    const uint8_t* src = static_cast<const uint8_t*>(data);
-    
-    while (length > 0) {
-        size_t space = BUFFER_SIZE - buffer_pos;
-        size_t to_copy = std::min(length, space);
-        
-        memcpy(&buffer[buffer_pos], src, to_copy);
-        buffer_pos += to_copy;
-        src += to_copy;
-        length -= to_copy;
+int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* lengths, size_t block_count) {
+    k_mutex_lock(&write_mutex, K_FOREVER);
 
-        if (buffer_pos == BUFFER_SIZE) {
-            int ret = flush();
-            if (ret < 0) {
-                return ret;
-            }
+    // Calculate total length needed
+    size_t total_length = 0;
+    for (size_t i = 0; i < block_count; i++) {
+        total_length += lengths[i];
+    }
+
+    uint32_t left_space = ring_buf_space_get(&ring_buffer);
+    if (left_space < total_length) {
+        k_mutex_unlock(&write_mutex);
+        LOG_WRN("Not enough space in ring buffer: %d bytes needed, %d bytes available", total_length, left_space);
+        return -ENOSPC;
+    }
+    
+    for (size_t i = 0; i < block_count; i++) {
+        int written = ring_buf_put(&ring_buffer, (const uint8_t*)data_blocks[i], lengths[i]);
+        if (written < lengths[i]) {
+            k_mutex_unlock(&write_mutex);
+            LOG_ERR("Failed to write data block: %d bytes written, %d bytes requested", written, lengths[i]);
+            return -ENOSPC;
         }
     }
+
+    k_mutex_unlock(&write_mutex);
     
     return 0;
 }
 
-int SDLogger::write_sensor_data() {
-    const uint16_t data_size = sizeof(msg.id) + sizeof(msg.size) + sizeof(msg.time) + msg.size;
-    return write_sensor_data(&msg, data_size);
+int SDLogger::write_sensor_data(const sensor_data& msg) {
+    const size_t data_size = sizeof(msg.id) + sizeof(msg.size) + sizeof(msg.time) + msg.size;
+    const void* msg_ptr = &msg;
+    return write_sensor_data(&msg_ptr, &data_size, 1);
 }
 
 int SDLogger::flush() {
-    if (buffer_pos == 0) {
-        return 0;
-    }
-    // During normal writes, buffer_pos will be exactly BUFFER_SIZE
-    // During end(), buffer_pos may be any value and the filesystem handles any necessary block alignment
-    
-    size_t write_size = buffer_pos;
-    int ret = sd_card->write((char *) buffer, &write_size, false);
-    if (ret >= 0) {
-        buffer_pos = 0;
-    }
-    return ret;
+    uint32_t bytes_read;
+    uint8_t * data;
+    size_t write_size = SD_BLOCK_SIZE;
+
+    uint32_t fill = ring_buf_size_get(&ring_buffer);
+
+    ring_buf_get_claim(&ring_buffer, &data, fill);
+
+    bytes_read = sd_card->write((char*)ring_buffer.buffer, &write_size, false);
+
+    ring_buf_get_finish(&ring_buffer, bytes_read);
+
+    return bytes_read;
 }
 
 int SDLogger::end() {
@@ -271,6 +310,13 @@ int SDLogger::end() {
         return -ENODEV;
     }
 
+    // wait till sensor work queue is empty
+	while (k_msgq_num_used_get(&sd_sensor_queue) > 0) {
+		k_sleep(K_MSEC(10));
+	}
+
+    k_msgq_purge(&sd_sensor_queue);
+
     ret = flush();
     if (ret < 0) {
         LOG_ERR("Failed to flush file buffer.");
@@ -278,6 +324,8 @@ int SDLogger::end() {
     }
 
     LOG_INF("Close File ....");
+
+    LOG_DBG("Max buffer fill: %d bytes", count_max_buffer_fill);
 
     ret = sd_card->close_file();
     if (ret < 0) {

@@ -70,7 +70,7 @@ public:
     float read_battery_voltage_control();
     uint8_t write_battery_voltage_control(float volt);
     struct chrg_state read_termination_control();
-    uint8_t write_termination_control(float mA);
+    uint8_t write_termination_control(float mA, bool enable_termination = true);
     ilim_uvlo read_uvlo_ilim();
     uint8_t write_uvlo_ilim(ilim_uvlo param);
     void disable_ts();

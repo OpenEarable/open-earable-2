@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <data_fifo.h>
+#include <zephyr/sys/ring_buffer.h>
 
 #include "sw_codec_select.h"
 
@@ -99,6 +100,8 @@ void set_sensor_queue(struct k_msgq *queue);
 
 int audio_datapath_aquire(struct data_fifo *fifo_rx);
 int audio_datapath_release();
+
+//void set_ring_buffer(struct ring_buf *ring_buf);
 
 #ifdef __cplusplus
 }

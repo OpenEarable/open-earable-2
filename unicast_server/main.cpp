@@ -58,6 +58,10 @@ int main(void) {
 	ret = power_manager.begin();
 	ERR_CHK(ret);
 
+	uint8_t standalone = uicr_standalone_get();
+
+	LOG_INF("Standalone mode: %i", standalone);
+
 	/*sdcard_manager.init();
 
 	sdcard_manager.mount();*/
@@ -104,10 +108,10 @@ int main(void) {
 	ret = init_button_service();
 	ERR_CHK(ret);
 
-	ret = init_sensor_service();
+	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
 	ERR_CHK(ret);
 
-	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
+	ret = init_sensor_service();
 	ERR_CHK(ret);
 
 	// error test

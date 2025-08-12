@@ -27,6 +27,7 @@
 #include "sd_card_playback.h"
 
 #include "Equalizer.h"
+#include "sdlogger_wrapper.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -119,6 +120,9 @@ static const char *const pres_comp_state_names[] = {
 	"WAIT",
 	"LOCKED",
 };
+
+extern struct ring_buf ring_buffer;
+extern struct k_mutex write_mutex;
 
 static struct {
 	bool datapath_initialized;
@@ -224,19 +228,31 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				audio_msg.stream = false;
 	
 				audio_msg.data.id = ID_MICRO;
-				audio_msg.data.size = SENQUEUE_FRAME_SIZE;
-	
-				for (int n = 0; n < BLOCK_SIZE_BYTES / SENQUEUE_FRAME_SIZE; n++) {
-					audio_msg.data.time = time_stamp - (BLOCK_SIZE_BYTES - n * SENQUEUE_FRAME_SIZE) / sizeof(uint32_t) * 1e6 / 48000;
-	
-					memcpy(audio_msg.data.data, audio_item.data + (i * BLOCK_SIZE_BYTES) + (n * SENQUEUE_FRAME_SIZE), SENQUEUE_FRAME_SIZE);
-	
-					ret = k_msgq_put(sensor_queue, &audio_msg, K_NO_WAIT);
-					if (ret) {
-						LOG_WRN("sensor msg queue full");
-					}
-				}
+				audio_msg.data.size = BLOCK_SIZE_BYTES; // SENQUEUE_FRAME_SIZE;
+
+				/*k_mutex_lock(&write_mutex, K_FOREVER);
+
+				uint32_t data_size = sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time); // + audio_msg.data.size;
+
+				uint32_t bytes_written = ring_buf_put(&ring_buffer, (uint8_t *) &audio_msg.data, data_size);
+				bytes_written += ring_buf_put(&ring_buffer, audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
+
+				k_mutex_unlock(&write_mutex);*/
+
+				uint32_t data_size[2] = {sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time), BLOCK_SIZE_BYTES};
+
+				const void *data_ptrs[2] = {
+					&audio_msg.data,
+					audio_item.data + (i * BLOCK_SIZE_BYTES)
+				};
+
+				sdlogger_write_data(&data_ptrs, data_size, 2);
+
+				//sdlogger_write_data(&audio_msg.data, data_size);
+				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
 			}
+
+			k_yield();
         }
 
 		unsigned int signaled;
@@ -250,6 +266,11 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 		}
     }
 }
+
+/*void set_ring_buffer(struct ring_buf *buf)
+{
+	ring_buffer = buf;
+}*/
 
 void set_sensor_queue(struct k_msgq *queue)
 {
@@ -1185,7 +1206,18 @@ int audio_datapath_stop(void)
 // TODO: not clean with the argument --> move to init?
 int audio_datapath_aquire(struct data_fifo *fifo_rx) {
 	int ret = 0;
-	if (_count == 0) ret = audio_datapath_start(fifo_rx);
+	if (_count == 0) {
+		uint32_t alloced_cnt;
+		uint32_t locked_cnt;
+
+		ret = data_fifo_num_used_get(fifo_rx, &alloced_cnt, &locked_cnt);
+		if (alloced_cnt || locked_cnt || ret) {
+			LOG_WRN("FIFO is not empty, alloced: %d, locked: %d, ret: %d",
+				alloced_cnt, locked_cnt, ret);
+			data_fifo_empty(fifo_rx);
+		}
+		ret = audio_datapath_start(fifo_rx);
+	}
 	_count++;
 
 	return ret;

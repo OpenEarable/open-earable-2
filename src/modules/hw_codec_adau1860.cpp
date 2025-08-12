@@ -14,6 +14,7 @@
 #include <zephyr/device.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/zbus/zbus.h>
+#include <zephyr/settings/settings.h>
 
 #include "macros_common.h"
 #include "zbus_common.h"
@@ -35,8 +36,29 @@ static struct k_thread volume_msg_sub_thread_data;
 
 K_THREAD_STACK_DEFINE(volume_msg_sub_thread_stack, CONFIG_VOLUME_MSG_SUB_STACK_SIZE);
 
+static enum audio_mode audio_mode;
+
+static int settings_set_cb(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
+{
+    if (strcmp(name, "mode") == 0 && len == sizeof(audio_mode)) {
+        int rc = read_cb(cb_arg, &audio_mode, sizeof(audio_mode));
+        /*if (rc >= 0) {
+            hw_codec_set_audio_mode(audio_mode);
+        }*/
+		if (rc >= 0) return 0;
+		else return rc;
+    }
+    return -ENOENT;
+}
+
+SETTINGS_STATIC_HANDLER_DEFINE(audio, "audio", NULL, settings_set_cb, NULL, NULL);
+
 int hw_codec_set_audio_mode(enum audio_mode mode) {
     int ret;
+
+	audio_mode = mode;
+
+	settings_save_one("audio/mode", &mode, sizeof(mode));
 
 	ret = dac.fdsp_bank_select((uint8_t) mode);
 	// TODO: make writing to bank work
@@ -48,6 +70,10 @@ int hw_codec_set_audio_mode(enum audio_mode mode) {
 		return ret;
 	}
 	return ret;
+}
+
+enum audio_mode hw_codec_get_audio_mode() {
+	return audio_mode;
 }
 
 /**
@@ -302,6 +328,8 @@ int hw_codec_init(void)
 	if (ret) {
 		return ret;
 	}
+
+	hw_codec_set_audio_mode(audio_mode);
 
 	/* Run a soft reset on start to make sure all registers are default values */
 	/*ret = dac.soft_reset();

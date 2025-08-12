@@ -117,6 +117,8 @@ int hw_codec_stop_audio(void);
  */
 int hw_codec_set_audio_mode(enum audio_mode mode);
 
+enum audio_mode hw_codec_get_audio_mode();
+
 #ifdef __cplusplus
 }
 #endif

@@ -14,12 +14,18 @@
 #include "BoneConduction.h"
 #include "Microphone.h"
 
+#include "openearable_common.h"
+#include "StateIndicator.h"
+
 #include <SensorScheme.h>
 #include "../SD_Card/SDLogger/SDLogger.h"
 #include <string>
 #include <set>
 
+#include <sensor_service.h>
+
 #include <zephyr/logging/log.h>
+#include <sensor_service.h>
 LOG_MODULE_DECLARE(sensor_manager);
 
 std::set<int> ble_sensors = {};
@@ -173,7 +179,7 @@ static void config_work_handler(struct k_work *work) {
 		LOG_INF("No config available");
 	}
 
-    float sampleRate = getSampleRateForSensor(config.sensorId, config.sampleRateIndex);
+    float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
 		LOG_ERR("Invalid sample rate %f for sensor %i", sampleRate, config.sensorId);
 		return;
@@ -213,14 +219,20 @@ static void config_work_handler(struct k_work *work) {
 		sd_sensors.insert(config.sensorId);
 
 		if (!sdlogger.is_active()) {
+			const char *recording_name_prefix = get_sensor_recording_name();
+			LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
 			// Start SDLogger with timestamp-based filename
-			std::string filename = "sensor_log_" + std::to_string(micros());
-			sdlogger.begin(filename);
+			std::string filename = recording_name_prefix + std::to_string(micros());
+			int ret = sdlogger.begin(filename);
+			if (ret == 0) state_indicator.set_sd_state(SD_RECORDING);
 		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);
 
-		if (sd_sensors.empty()) sdlogger.end();
+		if (sd_sensors.empty()) {
+			sdlogger.end();
+			state_indicator.set_sd_state(SD_IDLE);
+		}
 	}
 
 	if (config.storageOptions & DATA_STREAMING) ble_sensors.insert(config.sensorId);
@@ -229,6 +241,8 @@ static void config_work_handler(struct k_work *work) {
 
 		// TODO: if (ble_sensors.empty()) ...
 	}
+
+	set_sensor_config_status(config);
 
 	if (active_sensors == 0) stop_sensor_manager();
 }
