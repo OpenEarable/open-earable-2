@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <math.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
@@ -187,7 +188,7 @@ static struct k_msgq * sensor_queue;
 //extern struct audio_data fifo_rx;
 
 //K_MSGQ_DEFINE(rx_queue, sizeof(struct audio_data), 16, 4);
-extern struct k_msgq_t encoder_queue;
+extern struct k_msgq encoder_queue;
 
 // Definition eines zbus-Kanals
 ZBUS_CHAN_DEFINE(audio_channel, struct audio_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY, ZBUS_MSG_INIT(0));
@@ -202,12 +203,30 @@ bool _record_to_sd = false;
 int _count = 0;
 
 extern struct k_poll_signal encoder_sig;
-extern struct k_poll_event logger_sig;
+extern struct k_poll_signal logger_sig;
 
 float mse_inner = 0;
 float mse_outer = 0;
 
-float alpha = 0.001f; // 0.001f
+//float alpha = 0.0001f;
+float alpha = 1e-5f;
+
+// 50Hz Hochpassfilter für ANC-Signale (fs=48kHz)
+// Butterworth 2nd order, fc=50Hz
+// Koeffizienten für 50Hz bei 48kHz Sampling Rate
+static float hp_b0 = 0.995382689587065;  // Koeffizienten für Butterworth Hochpass
+static float hp_b1 = -1.99076537917413f;
+static float hp_b2 = 0.995382689587065f;
+static float hp_a1 = -1.99074405950505f;
+static float hp_a2 = 0.990786698843211f;
+
+// Filterstates für Outer Mic (j)
+static float hp_outer_x1 = 0, hp_outer_x2 = 0;
+static float hp_outer_y1 = 0, hp_outer_y2 = 0;
+
+// Filterstates für Inner Mic (j+1)  
+static float hp_inner_x1 = 0, hp_inner_x2 = 0;
+static float hp_inner_y1 = 0, hp_inner_y2 = 0;
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
@@ -229,8 +248,6 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
         for (int i = 0; i < CONFIG_FIFO_FRAME_SPLIT_NUM; i++) {
             ret = data_fifo_pointer_last_filled_get(ctrl_blk.in.fifo, &tmp_pcm_raw_data[i], &pcm_block_size, K_FOREVER);
             ERR_CHK(ret);
-
-			uint64_t time_stamp = micros();
     
             memcpy(audio_item.data + (i * BLOCK_SIZE_BYTES), tmp_pcm_raw_data[i], pcm_block_size);
     
@@ -244,11 +261,35 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				memcpy(anc_data, tmp_pcm_raw_data[i], pcm_block_size);
 
 				for (int j = 0; j < BLOCK_SIZE_BYTES / sizeof(int16_t); j+=2) {
-					mse_inner = (float)anc_data[j] * anc_data[j] * alpha + mse_inner * (1 - alpha);
-					mse_outer = (float)anc_data[j + 1] * anc_data[j + 1] * alpha + mse_outer * (1 - alpha);
-				}
+					
+					// Konvertiere zu float für Filterung
+					float outer_sample = (float)anc_data[j];
+					float inner_sample = (float)anc_data[j + 1];
+					
+					// 50Hz Hochpassfilter für Outer Mic (anc_data[j])
+					float hp_outer_out = hp_b0 * outer_sample + hp_b1 * hp_outer_x1 + hp_b2 * hp_outer_x2
+									   - hp_a1 * hp_outer_y1 - hp_a2 * hp_outer_y2;
+					
+					// Update Outer Mic Filter States
+					hp_outer_x2 = hp_outer_x1;
+					hp_outer_x1 = outer_sample;
+					hp_outer_y2 = hp_outer_y1;
+					hp_outer_y1 = hp_outer_out;
+					
+					// 50Hz Hochpassfilter für Inner Mic (anc_data[j + 1])
+					float hp_inner_out = hp_b0 * inner_sample + hp_b1 * hp_inner_x1 + hp_b2 * hp_inner_x2
+									   - hp_a1 * hp_inner_y1 - hp_a2 * hp_inner_y2;
+					
+					// Update Inner Mic Filter States
+					hp_inner_x2 = hp_inner_x1;
+					hp_inner_x1 = inner_sample;
+					hp_inner_y2 = hp_inner_y1;
+					hp_inner_y1 = hp_inner_out;
 
-				float damping = 10.f * log10f(mse_inner / mse_outer);
+					// Calculate MSE for ANC damping mit gefilterten Signalen
+					mse_outer = hp_outer_out * hp_outer_out * alpha + mse_outer * (1 - alpha);
+					mse_inner = hp_inner_out * hp_inner_out * alpha + mse_inner * (1 - alpha);
+				}				float damping = 10.f * log10f(mse_inner / mse_outer);
 
 				//LOG_INF("ANC damping: %f dB, mse_inner: %f, mse_outer: %f", damping, mse_inner, mse_outer);
 
@@ -281,7 +322,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					audio_item.data + (i * BLOCK_SIZE_BYTES)
 				};
 
-				sdlogger_write_data(&data_ptrs, data_size, 2);
+				sdlogger_write_data(data_ptrs, data_size, 2);
 
 				//sdlogger_write_data(&audio_msg.data, data_size);
 				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
@@ -514,8 +555,6 @@ static void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 
 static void pres_comp_state_set(enum pres_comp_state new_state)
 {
-	int ret;
-
 	if (new_state == ctrl_blk.pres_comp.state) {
 		return;
 	}
@@ -525,6 +564,7 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
 	LOG_INF("Pres comp state: %s", pres_comp_state_names[new_state]);
 
 #if CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP
+	int ret;
 	if (new_state == PRES_STATE_LOCKED) {
 		ret = led_on(LED_APP_2_GREEN);
 	} else {
