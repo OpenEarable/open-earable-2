@@ -54,6 +54,7 @@ extern "C" {
 
 // Forward declaration for C++ function
 void anc_damping_send_data(float damping);
+void fxlms_weight_send_data(float weight);
 
 #ifdef __cplusplus
 }
@@ -225,10 +226,11 @@ extern struct k_poll_signal logger_sig;
 
 float mse_inner = 0;
 float mse_outer = 0;
-float error_signal = 0;
+float grad = 0;
 
 //float alpha = 0.0001f;
 float alpha = 1e-5f;
+float alpha2 = 1e-3f;
 
 // 50Hz Hochpassfilter für ANC-Signale (fs=48kHz)
 // Butterworth 2nd order, fc=50Hz
@@ -248,10 +250,10 @@ static float hp_inner_x1 = 0, hp_inner_x2 = 0;
 static float hp_inner_y1 = 0, hp_inner_y2 = 0;
 
 // FxLMS (Filtered-x Least Mean Squares) Variablen für adaptive ANC
-static float fxlms_mu = 0.001f;        // Lernrate (Step size)
-static float fxlms_w = 0.125f;         // Adaptiver Filter Koeffizient (Gain)
-static float fxlms_w_min = 0.0625f;      // Minimaler Gain-Wert
-static float fxlms_w_max = 0.25f;       // Maximaler Gain-Wert
+static float fxlms_mu = 0.05f;        // Lernrate (Step size)
+static float fxlms_w = 0.1f;         // Adaptiver Filter Koeffizient (Gain)
+static float fxlms_w_min = 0.0625f; //0.0625f;      // Minimaler Gain-Wert
+static float fxlms_w_max = 0.4f;       // Maximaler Gain-Wert
 static float fxlms_e_prev = 0.0f;      // Vorheriger Fehler
 static float fxlms_x_prev = 0.0f;      // Vorheriges Referenzsignal
 static float fxlms_last_outer_filtered = 0.0f;  // Letztes gefiltertes Outer-Signal
@@ -324,9 +326,17 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					//error_signal = (hp_inner_out - hp_outer_out) * alpha + mse_outer * (1 - alpha);
 					
 					// Speichere letztes gefiltertes Outer Signal für FxLMS
-					fxlms_last_outer_filtered = hp_outer_out;
-					fxlms_last_inner_filtered = hp_inner_out;
+					fxlms_last_outer_filtered = hp_outer_out / 2000.0f;
+					fxlms_last_inner_filtered = hp_inner_out / 2000.0f;
+
+					//grad = alpha2 * fxlms_mu * fxlms_last_inner_filtered * fxlms_last_outer_filtered + (1-alpha2) * grad;
+
+					//grad += fxlms_mu * fxlms_last_inner_filtered * fxlms_last_outer_filtered / ((float) BLOCK_SIZE_BYTES * 2.f * 2.f);
 				}
+
+				grad += fxlms_mu * fxlms_last_inner_filtered * fxlms_last_outer_filtered; // / FXLMS_UPDATE_INTERVAL;
+
+				LOG_INF("ANC grad: %f, mse_inner: %f, mse_outer: %f", grad, mse_inner, mse_outer);
 				
 				float damping = 10.f * log10f(mse_inner / mse_outer);
 
@@ -350,8 +360,10 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 						float x_filtered = fxlms_last_outer_filtered;  // Gefiltertes Referenzsignal
 						
 						// Gewichts-Update mit Lernrate
-						float weight_update = fxlms_mu * error_signal * x_filtered;
-						fxlms_w = fxlms_w - weight_update;
+						//float weight_update = fxlms_mu * error_signal * x_filtered;
+						fxlms_w = fxlms_w + grad / FXLMS_UPDATE_INTERVAL;
+
+						grad = 0;
 						
 						// Begrenze Gewicht auf sinnvolle Werte (0.1 bis 2.0)
 						if (fxlms_w < fxlms_w_min) fxlms_w = fxlms_w_min;
@@ -359,9 +371,12 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 						
 						// Konvertiere float Gewicht zu Q5.27 Format für DSP
 						uint32_t gain_q527 = (uint32_t)(fxlms_w * (1 << 27));
+
+						// Lade neuen Gain-Wert in DSP Mixer (Kanal 1 = Mikrofon)
+						fdsp_safe_load_mixer_gain(gain_q527);
 						
-						// Lade neuen Gain-Wert in DSP Mixer (Kanal 2 = Mikrofon)
-						//fdsp_safe_load_mixer_gain(gain_q527);
+						// Send FxLMS weight data via sensor system
+						fxlms_weight_send_data(fxlms_w);
 						
 						// Optional: Debug-Ausgabe
 						// LOG_DBG("FxLMS: damping=%.2f, error=%.3f, weight=%.3f, gain=0x%08x", 
@@ -371,6 +386,8 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 						fxlms_e_prev = error_signal;
 						fxlms_x_prev = x_filtered;
 					}
+				} else {
+					grad = 0; // Reset grad if not in ANC mode
 				}
 
 				// Send ANC damping data via the sensor system

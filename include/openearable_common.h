@@ -78,6 +78,7 @@ enum sensor_id {
 	ID_OPTTEMP=6,
 	ID_BONE_CONDUCTION=7,
 	ID_ANC_DAMPING=8,
+	ID_FXLMS_WEIGHT=9,
 };
 
 struct battery_data {

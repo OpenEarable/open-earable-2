@@ -169,6 +169,8 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 		return &(Microphone::sensor);
 	case ID_ANC_DAMPING:
 		return &(ANCDamping::sensor);
+	case ID_FXLMS_WEIGHT:
+		return &(ANCDamping::sensor);  // Uses same sensor class
 	default:
 		return NULL;
 	}

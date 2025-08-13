@@ -10,6 +10,7 @@ ANCDamping ANCDamping::sensor;
 struct k_msgq * ANCDamping::sensor_queue = NULL;
 
 static struct sensor_msg anc_damping_msg;
+static struct sensor_msg fxlms_weight_msg;
 
 const SampleRateSetting<1> ANCDamping::sample_rates = {
     { 0 },
@@ -61,7 +62,30 @@ void ANCDamping::send_damping_data(float damping_value) {
     }
 }
 
+void ANCDamping::send_fxlms_weight(float weight_value) {
+    if (sensor_queue == NULL || !sensor.is_running()) {
+        return;
+    }
+    
+    fxlms_weight_msg.sd = sensor._sd_logging;
+    fxlms_weight_msg.stream = sensor._ble_stream;
+    fxlms_weight_msg.data.id = ID_FXLMS_WEIGHT;
+    fxlms_weight_msg.data.size = sizeof(float);
+    fxlms_weight_msg.data.time = micros();
+    memcpy(fxlms_weight_msg.data.data, &weight_value, sizeof(float));
+
+    int ret = k_msgq_put(sensor_queue, &fxlms_weight_msg, K_NO_WAIT);
+    if (ret) {
+        LOG_WRN("FxLMS weight sensor msg queue full");
+    }
+}
+
 // C wrapper function for use in C code
 extern "C" void anc_damping_send_data(float damping) {
     ANCDamping::send_damping_data(damping);
+}
+
+// C wrapper function for FxLMS weight
+extern "C" void fxlms_weight_send_data(float weight) {
+    ANCDamping::send_fxlms_weight(weight);
 }

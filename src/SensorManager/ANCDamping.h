@@ -15,6 +15,7 @@ public:
     const static SampleRateSetting<1> sample_rates;
     
     static void send_damping_data(float damping_value);
+    static void send_fxlms_weight(float weight_value);
 
 private:
     bool _active = false;

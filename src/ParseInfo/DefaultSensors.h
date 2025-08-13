@@ -128,9 +128,21 @@ SensorComponentGroup ancDampingGroups[ANC_DAMPING_GROUP_COUNT] = {
     { .name = "ANC_DAMPING", .componentCount = ANC_DAMPING_COUNT, .components = ancDampingComponents },
 };
 
+// ============= FxLMS Weight =============
+
+#define FXLMS_WEIGHT_COUNT 1
+SensorComponent fxlmsWeightComponents[FXLMS_WEIGHT_COUNT] = {
+    { .name = "Weight", .unit = "gain", .parseType = PARSE_TYPE_FLOAT },
+};
+
+#define FXLMS_WEIGHT_GROUP_COUNT 1
+SensorComponentGroup fxlmsWeightGroups[FXLMS_WEIGHT_GROUP_COUNT] = {
+    { .name = "FXLMS_WEIGHT", .componentCount = FXLMS_WEIGHT_COUNT, .components = fxlmsWeightComponents },
+};
+
 // ============= Sensors =============
 
-#define SENSOR_COUNT 7
+#define SENSOR_COUNT 8
 SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "9-Axis IMU",
@@ -237,11 +249,26 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             },
         },
     },
+    {
+        .name = "FxLMS Weight",
+        .id = ID_FXLMS_WEIGHT,
+        .groupCount = FXLMS_WEIGHT_GROUP_COUNT,
+        .groups = fxlmsWeightGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = 1,
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 1,
+                .frequencies = (float[]){1.0f},
+            },
+        },
+    },
 };
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO, ID_ANC_DAMPING },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO, ID_ANC_DAMPING, ID_FXLMS_WEIGHT },
 };
 
 #endif // _DEFAULT_SENSORS_H
