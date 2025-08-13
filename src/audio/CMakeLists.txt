@@ -11,6 +11,7 @@ target_sources(app PRIVATE
 	       ${CMAKE_CURRENT_SOURCE_DIR}/sw_codec_select.c
 	       ${CMAKE_CURRENT_SOURCE_DIR}/le_audio_rx.c
 		   ${CMAKE_CURRENT_SOURCE_DIR}/sdlogger_wrapper.cpp
+		   ${CMAKE_CURRENT_SOURCE_DIR}/anc_fxlms_wrapper.cpp
 		   # ${CMAKE_CURRENT_SOURCE_DIR}/rx_publish.c
 		   # ${CMAKE_CURRENT_SOURCE_DIR}/pdm_mic.c
 		   # ${CMAKE_CURRENT_SOURCE_DIR}/Equalizer.cpp

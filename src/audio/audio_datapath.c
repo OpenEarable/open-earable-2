@@ -29,6 +29,24 @@
 
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
+#include "anc_fxlms_wrapper.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Forward declarations for hw_codec functions
+enum audio_mode {
+    AUDIO_MODE_NORMAL = 0,
+    AUDIO_MODE_TRANSPARENCY = 1,
+    AUDIO_MODE_ANC = 2
+};
+
+enum audio_mode hw_codec_get_audio_mode(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -207,6 +225,7 @@ extern struct k_poll_signal logger_sig;
 
 float mse_inner = 0;
 float mse_outer = 0;
+float error_signal = 0;
 
 //float alpha = 0.0001f;
 float alpha = 1e-5f;
@@ -227,6 +246,18 @@ static float hp_outer_y1 = 0, hp_outer_y2 = 0;
 // Filterstates für Inner Mic (j+1)  
 static float hp_inner_x1 = 0, hp_inner_x2 = 0;
 static float hp_inner_y1 = 0, hp_inner_y2 = 0;
+
+// FxLMS (Filtered-x Least Mean Squares) Variablen für adaptive ANC
+static float fxlms_mu = 0.001f;        // Lernrate (Step size)
+static float fxlms_w = 0.125f;         // Adaptiver Filter Koeffizient (Gain)
+static float fxlms_w_min = 0.0625f;      // Minimaler Gain-Wert
+static float fxlms_w_max = 0.25f;       // Maximaler Gain-Wert
+static float fxlms_e_prev = 0.0f;      // Vorheriger Fehler
+static float fxlms_x_prev = 0.0f;      // Vorheriges Referenzsignal
+static float fxlms_last_outer_filtered = 0.0f;  // Letztes gefiltertes Outer-Signal
+static float fxlms_last_inner_filtered = 0.0f;  // Letztes gefiltertes Inner-Signal
+static uint32_t fxlms_update_counter = 0;  // Counter für Update-Rate
+#define FXLMS_UPDATE_INTERVAL 48       // Update alle 48 Samples (1ms bei 48kHz)
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
@@ -289,9 +320,58 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					// Calculate MSE for ANC damping mit gefilterten Signalen
 					mse_outer = hp_outer_out * hp_outer_out * alpha + mse_outer * (1 - alpha);
 					mse_inner = hp_inner_out * hp_inner_out * alpha + mse_inner * (1 - alpha);
-				}				float damping = 10.f * log10f(mse_inner / mse_outer);
+
+					//error_signal = (hp_inner_out - hp_outer_out) * alpha + mse_outer * (1 - alpha);
+					
+					// Speichere letztes gefiltertes Outer Signal für FxLMS
+					fxlms_last_outer_filtered = hp_outer_out;
+					fxlms_last_inner_filtered = hp_inner_out;
+				}
+				
+				float damping = 10.f * log10f(mse_inner / mse_outer);
 
 				//LOG_INF("ANC damping: %f dB, mse_inner: %f, mse_outer: %f", damping, mse_inner, mse_outer);
+
+				// Adaptive ANC adjustment using FxLMS when in ANC mode
+				if (hw_codec_get_audio_mode() == AUDIO_MODE_ANC) {
+					// FxLMS-basierte Anpassung des Mikrofon-Gains
+					fxlms_update_counter++;
+					
+					if (fxlms_update_counter >= FXLMS_UPDATE_INTERVAL) {
+						fxlms_update_counter = 0;
+						
+						// Berechne Fehlersignal basierend auf ANC-Dämpfung
+						// Ziel: Maximiere Dämpfung (negativer damping Wert ist besser)
+						float error_signal = fxlms_last_inner_filtered; //damping + 20.0f;  // Ziel: -20dB Dämpfung
+						
+						// FxLMS Update Regel: w(n+1) = w(n) - μ * e(n) * x(n)
+						// x(n) ist das gefilterte Referenzsignal (letztes hp_outer_out)
+						// e(n) ist das Fehlersignal
+						float x_filtered = fxlms_last_outer_filtered;  // Gefiltertes Referenzsignal
+						
+						// Gewichts-Update mit Lernrate
+						float weight_update = fxlms_mu * error_signal * x_filtered;
+						fxlms_w = fxlms_w - weight_update;
+						
+						// Begrenze Gewicht auf sinnvolle Werte (0.1 bis 2.0)
+						if (fxlms_w < fxlms_w_min) fxlms_w = fxlms_w_min;
+						if (fxlms_w > fxlms_w_max) fxlms_w = fxlms_w_max;
+						
+						// Konvertiere float Gewicht zu Q5.27 Format für DSP
+						uint32_t gain_q527 = (uint32_t)(fxlms_w * (1 << 27));
+						
+						// Lade neuen Gain-Wert in DSP Mixer (Kanal 2 = Mikrofon)
+						//fdsp_safe_load_mixer_gain(gain_q527);
+						
+						// Optional: Debug-Ausgabe
+						// LOG_DBG("FxLMS: damping=%.2f, error=%.3f, weight=%.3f, gain=0x%08x", 
+						//         damping, error_signal, fxlms_w, gain_q527);
+						
+						// Speichere aktuelle Werte für nächste Iteration
+						fxlms_e_prev = error_signal;
+						fxlms_x_prev = x_filtered;
+					}
+				}
 
 				// Send ANC damping data via the sensor system
 				anc_damping_send_data(damping);
