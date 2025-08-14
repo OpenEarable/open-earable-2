@@ -322,6 +322,7 @@ int SDLogger::end() {
 
     ret = flush();
     if (ret < 0) {
+        k_mutex_unlock(&write_mutex);
         LOG_ERR("Failed to flush file buffer.");
         return ret;
     }
@@ -332,6 +333,7 @@ int SDLogger::end() {
 
     ret = sd_card->close_file();
     if (ret < 0) {
+        k_mutex_unlock(&write_mutex);
         k_poll_signal_reset(&logger_sig);
         return ret;
     }
