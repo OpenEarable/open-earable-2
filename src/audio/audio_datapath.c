@@ -244,41 +244,66 @@ float alpha2 = 1e-3f;
 // static float hp_a2 = 0.990786698843211f;
 
 // Koeffizienten für 20Hz bei 48kHz Sampling Rate
-static float hp_b0 = 0.998150511190452f; // Koeffizienten für Butterworth Hochpass
-static float hp_b1 = -1.99630102238090f;
-static float hp_b2 = 0.998150511190452f;
-static float hp_a1 = -1.99629760176912f;
-static float hp_a2 = 0.996304442992686f;
+static const float hp_b0 = 0.998150511190452f; // Koeffizienten für Butterworth Hochpass
+static const float hp_b1 = -1.99630102238090f;
+static const float hp_b2 = 0.998150511190452f;
+static const float hp_a1 = -1.99629760176912f;
+static const float hp_a2 = 0.996304442992686f;
 
 // Koeffizienten für 1000Hz bei 48kHz Sampling Rate
-static float lp_b0 = 0.00391612666054738f;
-static float lp_b1 = 0.00783225332109476f;
-static float lp_b2 = 0.00391612666054738f;
-static float lp_a1 = -1.81534108270457f;
-static float lp_a2 = 0.831005589346757f;
+static const float lp_b0 = 0.00391612666054738f;
+static const float lp_b1 = 0.00783225332109476f;
+static const float lp_b2 = 0.00391612666054738f;
+static const float lp_a1 = -1.81534108270457f;
+static const float lp_a2 = 0.831005589346757f;
 
-// Koeffizienten für 1000Hz bei 48kHz Sampling Rate
+// Koeffizienten für 8000Hz bei 48kHz Sampling Rate
 // static float lp_b0 = 0.0144014403465112f;  // Koeffizienten für Butterworth Tiefpass
 // static float lp_b1 = 0.0288028806930224f;
 // static float lp_b2 = 0.0144014403465112f;
 // static float lp_a1 = -1.63299316185545f;
 // static float lp_a2 = 0.690598923241497f;
 
-// Filterstates für Outer Mic (j)
-static float hp_outer_x1 = 0, hp_outer_x2 = 0;
-static float hp_outer_y1 = 0, hp_outer_y2 = 0;
+#define MAX_PCM_SAMPLES (BLOCK_SIZE_BYTES / 4)
 
-// Filterstates für Inner Mic (j+1)  
-static float hp_inner_x1 = 0, hp_inner_x2 = 0;
-static float hp_inner_y1 = 0, hp_inner_y2 = 0;
+static float outer_in[MAX_PCM_SAMPLES];
+static float inner_in[MAX_PCM_SAMPLES];
+static float outer_hp_out[MAX_PCM_SAMPLES];
+static float inner_hp_out[MAX_PCM_SAMPLES];
+static float outer_lp_out[MAX_PCM_SAMPLES];
+static float inner_lp_out[MAX_PCM_SAMPLES];
 
-// Filterstates für Outer Mic (j)
-static float lp_outer_x1 = 0, lp_outer_x2 = 0;
-static float lp_outer_y1 = 0, lp_outer_y2 = 0;
+// CMSIS biquad instances & states (1 stage each -> state size 4)
+/*static arm_biquad_cascade_df2T_instance_f32 hp_outer_inst;
+static arm_biquad_cascade_df2T_instance_f32 hp_inner_inst;
+static arm_biquad_cascade_df2T_instance_f32 lp_outer_inst;
+static arm_biquad_cascade_df2T_instance_f32 lp_inner_inst;
 
-// Filterstates für Inner Mic (j+1)  
-static float lp_inner_x1 = 0, lp_inner_x2 = 0;
-static float lp_inner_y1 = 0, lp_inner_y2 = 0;
+static float hp_outer_state[4];
+static float hp_inner_state[4];
+static float lp_outer_state[4];
+static float lp_inner_state[4];*/
+
+// --- States and coefficients ---
+static arm_biquad_cascade_stereo_df2T_instance_f32 hp_inst;
+static arm_biquad_cascade_stereo_df2T_instance_f32 lp_inst;
+
+static float hp_coeffs[5];
+static float lp_coeffs[5];
+static float hp_state[8]; // stereo: 4*numStages
+static float lp_state[8];
+
+static float stereo_in[2 * MAX_PCM_SAMPLES];
+static float stereo_tmp[2 * MAX_PCM_SAMPLES]; // HP output
+static float stereo_out[2 * MAX_PCM_SAMPLES]; // LP output
+
+// Coefficient arrays for CMSIS: one stage -> 5 floats per stage: b0 b1 b2 a1 a2
+static float hp_coeffs[5] = {
+	hp_b0, hp_b1, hp_b2, -hp_a1, -hp_a2
+};
+static float lp_coeffs[5] = {
+	lp_b0, lp_b1, lp_b2, -lp_a1, -lp_a2
+};
 
 // FxLMS (Filtered-x Least Mean Squares) Variablen für adaptive ANC
 static float fxlms_mu = 0.05f;        // Lernrate (Step size)
@@ -291,6 +316,22 @@ static float fxlms_last_outer_filtered = 0.0f;  // Letztes gefiltertes Outer-Sig
 static float fxlms_last_inner_filtered = 0.0f;  // Letztes gefiltertes Inner-Signal
 static uint32_t fxlms_update_counter = 0;  // Counter für Update-Rate
 #define FXLMS_UPDATE_INTERVAL 10       // Update alle 10 Samples (10ms bei 48kHz / 48 samples per block)
+
+// Call once before processing blocks to initialize the CMSIS biquads
+void anc_cmsis_init(void)
+{
+    // Init stereo biquads (1 stage each)
+    arm_biquad_cascade_stereo_df2T_init_f32(&hp_inst, 1, hp_coeffs, hp_state);
+    arm_biquad_cascade_stereo_df2T_init_f32(&lp_inst, 1, lp_coeffs, lp_state);
+
+    // Zero states (arm init usually zeros, but be explicit)
+    memset(hp_state, 0, sizeof(hp_state));
+    memset(lp_state, 0, sizeof(lp_state));
+
+    // Zero runtime metrics if desired
+    mse_outer = 0.0f;
+    mse_inner = 0.0f;
+}
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
@@ -326,70 +367,36 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 				float grad_accum = 0.0f;
 
-				for (int j = 0; j < pcm_block_size / sizeof(int16_t); j+=2) {
-					
-					// Konvertiere zu float für Filterung
-					float outer_sample = (float)anc_data[j] /  2000.0f;
-					float inner_sample = (float)anc_data[j + 1] / 2000.0f;
-					
-					// 50Hz Hochpassfilter für Outer Mic (anc_data[j])
-					float hp_outer_out = hp_b0 * outer_sample + hp_b1 * hp_outer_x1 + hp_b2 * hp_outer_x2
-									   - hp_a1 * hp_outer_y1 - hp_a2 * hp_outer_y2;
-					
-					// Update Outer Mic Filter States
-					hp_outer_x2 = hp_outer_x1;
-					hp_outer_x1 = outer_sample;
-					hp_outer_y2 = hp_outer_y1;
-					hp_outer_y1 = hp_outer_out;
-					
-					// 50Hz Hochpassfilter für Inner Mic (anc_data[j + 1])
-					float hp_inner_out = hp_b0 * inner_sample + hp_b1 * hp_inner_x1 + hp_b2 * hp_inner_x2
-									   - hp_a1 * hp_inner_y1 - hp_a2 * hp_inner_y2;
-					
-					// Update Inner Mic Filter States
-					hp_inner_x2 = hp_inner_x1;
-					hp_inner_x1 = inner_sample;
-					hp_inner_y2 = hp_inner_y1;
-					hp_inner_y1 = hp_inner_out;
+				const int frames = pcm_block_size / sizeof(int16_t) / 2; // Stereo -> 2 channels
 
-					float lp_outer_out = lp_b0 * hp_outer_out + lp_b1 * lp_outer_x1 + lp_b2 * lp_outer_x2
-									   - lp_a1 * lp_outer_y1 - lp_a2 * lp_outer_y2;
+				// Deinterleave + convert to float (scale by 1/2000.0f)
+				const float scale = 1.0f / 2000.0f;
 
-					lp_outer_x2 = lp_outer_x1;
-					lp_outer_x1 = hp_outer_out;
-					lp_outer_y2 = lp_outer_y1;
-					lp_outer_y1 = lp_outer_out;
-
-					float lp_inner_out = lp_b0 * hp_inner_out + lp_b1 * lp_inner_x1 + lp_b2 * lp_inner_x2
-									   - lp_a1 * lp_inner_y1 - lp_a2 * lp_inner_y2;
-
-					lp_inner_x2 = lp_inner_x1;
-					lp_inner_x1 = hp_inner_out;
-					lp_inner_y2 = lp_inner_y1;
-					lp_inner_y1 = lp_inner_out;
-
-					// Calculate MSE for ANC damping mit gefilterten Signalen
-					mse_outer = hp_outer_out * hp_outer_out * alpha + mse_outer * (1 - alpha);
-					mse_inner = hp_inner_out * hp_inner_out * alpha + mse_inner * (1 - alpha);
-
-					//error_signal = (hp_inner_out - hp_outer_out) * alpha + mse_outer * (1 - alpha);
-					
-					// Speichere letztes gefiltertes Outer Signal für FxLMS
-					fxlms_last_outer_filtered = lp_outer_out;
-					fxlms_last_inner_filtered = lp_inner_out;
-
-					//grad = alpha2 * fxlms_mu * fxlms_last_inner_filtered * fxlms_last_outer_filtered + (1-alpha2) * grad;
-
-					grad_accum += fxlms_mu * fxlms_last_inner_filtered * fxlms_last_outer_filtered;
-
-					// add zeros at (1 - z^-1)
-					//grad_accum += fxlms_mu * (fxlms_last_inner_filtered - lp_inner_y2) * fxlms_last_outer_filtered;
+				// Convert to float stereo (interleaved)
+				for (uint32_t i = 0; i < frames * 2; i++) {
+					stereo_in[i] = (float)anc_data[i] * scale;
 				}
 
-				//grad += fxlms_mu * (fxlms_last_inner_filtered - lp_inner_y2) * fxlms_last_outer_filtered; // / FXLMS_UPDATE_INTERVAL;
-				//grad += fxlms_mu * (fxlms_last_inner_filtered) * fxlms_last_outer_filtered; // / FXLMS_UPDATE_INTERVAL;
-				grad += grad_accum / ((float) pcm_block_size / 4.f); // Normalisiere grad auf Blockgröße
-				//grad += 0.0001f; // Kleine Korrektur, um Gradienten zu stabilisieren
+				// High-pass filter (stereo)
+				arm_biquad_cascade_stereo_df2T_f32(&hp_inst, stereo_in, stereo_tmp, frames);
+
+				// Low-pass filter (stereo)
+				arm_biquad_cascade_stereo_df2T_f32(&lp_inst, stereo_tmp, stereo_out, frames);
+
+				// Compute MSE / grad accumulation
+				for (uint32_t i = 0; i < frames; i++) {
+					float hp_outer = stereo_tmp[2 * i];
+					float hp_inner = stereo_tmp[2 * i + 1];
+
+					float lp_outer = stereo_out[2 * i];
+					float lp_inner = stereo_out[2 * i + 1];
+
+					mse_outer = hp_outer * hp_outer * alpha + mse_outer * (1.0f - alpha);
+					mse_inner = hp_inner * hp_inner * alpha + mse_inner * (1.0f - alpha);
+
+					grad_accum += fxlms_mu * (lp_inner - lp_state[3]) * lp_outer;
+				}
+				grad += grad_accum / frames; // Normalisiere grad auf Blockgröße
 
 				//LOG_INF("ANC grad: %f, mse_inner: %f, mse_outer: %f", grad, mse_inner, mse_outer);
 				
@@ -418,7 +425,8 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 						//float weight_update = fxlms_mu * error_signal * x_filtered;
 						fxlms_w = fxlms_w + grad / FXLMS_UPDATE_INTERVAL;
 
-						grad = 0;
+						// reset grad for next iteration
+						grad = 0.f;
 						
 						// Begrenze Gewicht auf sinnvolle Werte (0.1 bis 2.0)
 						if (fxlms_w < fxlms_w_min) fxlms_w = fxlms_w_min;
@@ -1458,6 +1466,7 @@ int audio_datapath_release() {
 
 int audio_datapath_init(void)
 {
+	anc_cmsis_init();
 	memset(&ctrl_blk, 0, sizeof(ctrl_blk));
 	audio_i2s_blk_comp_cb_register(audio_datapath_i2s_blk_complete);
 	audio_i2s_init();
