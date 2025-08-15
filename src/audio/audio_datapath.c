@@ -234,15 +234,6 @@ float grad = 0;
 float alpha = 1e-5f;
 float alpha2 = 1e-3f;
 
-// 50Hz Hochpassfilter für ANC-Signale (fs=48kHz)
-// Butterworth 2nd order, fc=50Hz
-// Koeffizienten für 50Hz bei 48kHz Sampling Rate
-// static float hp_b0 = 0.995382689587065;  // Koeffizienten für Butterworth Hochpass
-// static float hp_b1 = -1.99076537917413f;
-// static float hp_b2 = 0.995382689587065f;
-// static float hp_a1 = -1.99074405950505f;
-// static float hp_a2 = 0.990786698843211f;
-
 // Koeffizienten für 20Hz bei 48kHz Sampling Rate
 static const float hp_b0 = 0.998150511190452f; // Koeffizienten für Butterworth Hochpass
 static const float hp_b1 = -1.99630102238090f;
@@ -257,13 +248,6 @@ static const float lp_b2 = 0.00391612666054738f;
 static const float lp_a1 = -1.81534108270457f;
 static const float lp_a2 = 0.831005589346757f;
 
-// Koeffizienten für 8000Hz bei 48kHz Sampling Rate
-// static float lp_b0 = 0.0144014403465112f;  // Koeffizienten für Butterworth Tiefpass
-// static float lp_b1 = 0.0288028806930224f;
-// static float lp_b2 = 0.0144014403465112f;
-// static float lp_a1 = -1.63299316185545f;
-// static float lp_a2 = 0.690598923241497f;
-
 #define MAX_PCM_SAMPLES (BLOCK_SIZE_BYTES / 4)
 
 static float outer_in[MAX_PCM_SAMPLES];
@@ -272,17 +256,6 @@ static float outer_hp_out[MAX_PCM_SAMPLES];
 static float inner_hp_out[MAX_PCM_SAMPLES];
 static float outer_lp_out[MAX_PCM_SAMPLES];
 static float inner_lp_out[MAX_PCM_SAMPLES];
-
-// CMSIS biquad instances & states (1 stage each -> state size 4)
-/*static arm_biquad_cascade_df2T_instance_f32 hp_outer_inst;
-static arm_biquad_cascade_df2T_instance_f32 hp_inner_inst;
-static arm_biquad_cascade_df2T_instance_f32 lp_outer_inst;
-static arm_biquad_cascade_df2T_instance_f32 lp_inner_inst;
-
-static float hp_outer_state[4];
-static float hp_inner_state[4];
-static float lp_outer_state[4];
-static float lp_inner_state[4];*/
 
 // --- States and coefficients ---
 static arm_biquad_cascade_stereo_df2T_instance_f32 hp_inst;
