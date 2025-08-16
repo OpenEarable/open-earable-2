@@ -326,6 +326,11 @@ void anc_cmsis_init(void)
     mse_inner = 0.0f;
 }
 
+// === Globale/Static RLS-Parameter (oben im File) ===
+static float rls_lambda = 0.985f;   // Vergessensfaktor
+static float rls_P      = 0.1f;    // Initial-P (groß = schneller Start)
+static const float rls_P_min = 1e-8f; // Untergrenze gegen Zahlenunterlauf
+
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
 {
@@ -397,8 +402,24 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 					float e = lp_inner - lp_state[3];
 
-					grad_accum += fxlms_mu * e * w_out[i];
+					//grad_accum += fxlms_mu * e * w_out[i];
+
+					// Gefilterter Regressor (Filtered-x)
+					float phi = w_out[i];
+
+					// RLS-Update (skalar)
+					float denom = rls_lambda + rls_P * phi * phi;
+					float K     = (rls_P * phi) / denom;
+
+					grad_accum += K * e;
+
+					//fxlms_w += K * e;                            // Gain anpassen
+					rls_P     = (rls_P - K * phi * rls_P) / rls_lambda;
+
+					// Numerik absichern
+					if (rls_P < rls_P_min) rls_P = rls_P_min;
 				}
+
 				grad += grad_accum / frames; // Normalisiere grad auf Blockgröße
 
 				//LOG_INF("ANC grad: %f, mse_inner: %f, mse_outer: %f", grad, mse_inner, mse_outer);
@@ -414,16 +435,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					
 					if (fxlms_update_counter >= FXLMS_UPDATE_INTERVAL) {
 						fxlms_update_counter = 0;
-						
-						// Berechne Fehlersignal basierend auf ANC-Dämpfung
-						// Ziel: Maximiere Dämpfung (negativer damping Wert ist besser)
-						float error_signal = fxlms_last_inner_filtered; //damping + 20.0f;  // Ziel: -20dB Dämpfung
-						
-						// FxLMS Update Regel: w(n+1) = w(n) - μ * e(n) * x(n)
-						// x(n) ist das gefilterte Referenzsignal (letztes hp_outer_out)
-						// e(n) ist das Fehlersignal
-						float x_filtered = fxlms_last_outer_filtered;  // Gefiltertes Referenzsignal
-						
+
 						// Gewichts-Update mit Lernrate
 						//float weight_update = fxlms_mu * error_signal * x_filtered;
 						fxlms_w = fxlms_w + grad / FXLMS_UPDATE_INTERVAL;
@@ -447,14 +459,11 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 						// Optional: Debug-Ausgabe
 						// LOG_DBG("FxLMS: damping=%.2f, error=%.3f, weight=%.3f, gain=0x%08x", 
 						//         damping, error_signal, fxlms_w, gain_q527);
-						
-						// Speichere aktuelle Werte für nächste Iteration
-						fxlms_e_prev = error_signal;
-						fxlms_x_prev = x_filtered;
 					}
 				} else {
 					grad = 0; // Reset grad if not in ANC mode
 					fxlms_update_counter = 0;
+					rls_P = 0.1f; // Reset RLS P matrix for next ANC activation
 				}
 
 				// Send ANC damping data via the sensor system
