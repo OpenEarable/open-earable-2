@@ -295,16 +295,11 @@ static float w_coeffs[5] = {
 };
 
 // FxLMS (Filtered-x Least Mean Squares) Variablen für adaptive ANC
-static float fxlms_mu = 0.05f;        // Lernrate (Step size)
-static float fxlms_w = 0.1f;         // Adaptiver Filter Koeffizient (Gain)
-static float fxlms_w_min = 0.0625f / 4; //0.0625f;      // Minimaler Gain-Wert
-static float fxlms_w_max = 0.4f;       // Maximaler Gain-Wert
-static float fxlms_e_prev = 0.0f;      // Vorheriger Fehler
-static float fxlms_x_prev = 0.0f;      // Vorheriges Referenzsignal
-static float fxlms_last_outer_filtered = 0.0f;  // Letztes gefiltertes Outer-Signal
-static float fxlms_last_inner_filtered = 0.0f;  // Letztes gefiltertes Inner-Signal
+static float fxlms_w = 0.1f;               // Adaptiver Filter Koeffizient (Gain)
+static float fxlms_w_min = 0.0625f / 4;    // 0.0625f;      // Minimaler Gain-Wert
+static float fxlms_w_max = 0.5f;           // Maximaler Gain-Wert
 static uint32_t fxlms_update_counter = 0;  // Counter für Update-Rate
-#define FXLMS_UPDATE_INTERVAL 10       // Update alle 10 Samples (10ms bei 48kHz / 48 samples per block)
+#define FXLMS_UPDATE_INTERVAL 10           // Update alle 10 Samples (10ms bei 48kHz / 48 samples per block)
 
 // Call once before processing blocks to initialize the CMSIS biquads
 void anc_cmsis_init(void)
@@ -327,9 +322,11 @@ void anc_cmsis_init(void)
 }
 
 // === Globale/Static RLS-Parameter (oben im File) ===
-static float rls_lambda = 0.985f;   // Vergessensfaktor
+static float rls_lambda = 0.998f;   // Vergessensfaktor
 static float rls_P      = 0.1f;    // Initial-P (groß = schneller Start)
-static const float rls_P_min = 1e-8f; // Untergrenze gegen Zahlenunterlauf
+static const float rls_P_min = 1e-9f; // Untergrenze gegen Zahlenunterlauf
+
+//static const float grad_offset = 4e-5f; // offset for noise compensation
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
@@ -389,6 +386,10 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				// W-filter processing (reference path for FxLMS)
 				arm_biquad_cascade_df2T_f32(&w_inst, w_in, w_out, frames);
 
+				// Innerhalb des while(1)-Loops:
+				float phi_accum = 0.0f;
+				float cross_accum = 0.0f;
+
 				// Compute MSE / grad accumulation
 				for (uint32_t i = 0; i < frames; i++) {
 					float hp_outer = stereo_tmp[2 * i];
@@ -402,25 +403,20 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 					float e = lp_inner - lp_state[3];
 
-					//grad_accum += fxlms_mu * e * w_out[i];
-
 					// Gefilterter Regressor (Filtered-x)
 					float phi = w_out[i];
 
-					// RLS-Update (skalar)
-					float denom = rls_lambda + rls_P * phi * phi;
-					float K     = (rls_P * phi) / denom;
-
-					grad_accum += K * e;
-
-					//fxlms_w += K * e;                            // Gain anpassen
-					rls_P     = (rls_P - K * phi * rls_P) / rls_lambda;
-
-					// Numerik absichern
-					if (rls_P < rls_P_min) rls_P = rls_P_min;
+					// Akkumuliere für Block-RLS
+					phi_accum   += phi * phi;
+					cross_accum += phi * e;
 				}
 
-				grad += grad_accum / frames; // Normalisiere grad auf Blockgröße
+				// Am Blockende: ein RLS-Update
+				float denom = rls_lambda + rls_P * phi_accum;
+				float K     = (rls_P) / denom;       // hier skalar, da phi_accum gesammelt
+				fxlms_w    += K * cross_accum;       // Gewichtsanpassung
+				rls_P       = (rls_P - K * phi_accum * rls_P) / rls_lambda;
+				if (rls_P < rls_P_min) rls_P = rls_P_min;
 
 				//LOG_INF("ANC grad: %f, mse_inner: %f, mse_outer: %f", grad, mse_inner, mse_outer);
 				
@@ -438,10 +434,10 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 						// Gewichts-Update mit Lernrate
 						//float weight_update = fxlms_mu * error_signal * x_filtered;
-						fxlms_w = fxlms_w + grad / FXLMS_UPDATE_INTERVAL;
+						//fxlms_w = fxlms_w + grad / FXLMS_UPDATE_INTERVAL;
 
 						// reset grad for next iteration
-						grad = 0.f;
+						//grad = 0.f;
 						
 						// Begrenze Gewicht auf sinnvolle Werte (0.1 bis 2.0)
 						if (fxlms_w < fxlms_w_min) fxlms_w = fxlms_w_min;
@@ -461,7 +457,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 						//         damping, error_signal, fxlms_w, gain_q527);
 					}
 				} else {
-					grad = 0; // Reset grad if not in ANC mode
+					//grad = 0; // Reset grad if not in ANC mode
 					fxlms_update_counter = 0;
 					rls_P = 0.1f; // Reset RLS P matrix for next ANC activation
 				}
