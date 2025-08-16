@@ -248,6 +248,13 @@ static const float lp_b2 = 0.00391612666054738f;
 static const float lp_a1 = -1.81534108270457f;
 static const float lp_a2 = 0.831005589346757f;
 
+// Koeffizienten für 1000Hz bei 48kHz Sampling Rate
+static const float w_b0 = 0.178602278232574f;
+static const float w_b1 = -0.307930708165829f;
+static const float w_b2 = 0.132291354383769f;
+static const float w_a1 = -1.86053575950718f;
+static const float w_a2 = 0.870232305213529f;
+
 #define MAX_PCM_SAMPLES (BLOCK_SIZE_BYTES / 4)
 
 static float outer_in[MAX_PCM_SAMPLES];
@@ -260,15 +267,21 @@ static float inner_lp_out[MAX_PCM_SAMPLES];
 // --- States and coefficients ---
 static arm_biquad_cascade_stereo_df2T_instance_f32 hp_inst;
 static arm_biquad_cascade_stereo_df2T_instance_f32 lp_inst;
+static arm_biquad_cascade_df2T_instance_f32 w_inst;
 
-static float hp_coeffs[5];
-static float lp_coeffs[5];
+//static float hp_coeffs[5];
+//static float lp_coeffs[5];
+//static float w_coeffs[5];
 static float hp_state[8]; // stereo: 4*numStages
 static float lp_state[8];
+static float w_state[4]; // mono: 2*numStages
 
 static float stereo_in[2 * MAX_PCM_SAMPLES];
 static float stereo_tmp[2 * MAX_PCM_SAMPLES]; // HP output
 static float stereo_out[2 * MAX_PCM_SAMPLES]; // LP output
+
+static float w_in[MAX_PCM_SAMPLES];
+static float w_out[MAX_PCM_SAMPLES];
 
 // Coefficient arrays for CMSIS: one stage -> 5 floats per stage: b0 b1 b2 a1 a2
 static float hp_coeffs[5] = {
@@ -276,6 +289,9 @@ static float hp_coeffs[5] = {
 };
 static float lp_coeffs[5] = {
 	lp_b0, lp_b1, lp_b2, -lp_a1, -lp_a2
+};
+static float w_coeffs[5] = {
+	w_b0, w_b1, w_b2, -w_a1, -w_a2
 };
 
 // FxLMS (Filtered-x Least Mean Squares) Variablen für adaptive ANC
@@ -296,10 +312,14 @@ void anc_cmsis_init(void)
     // Init stereo biquads (1 stage each)
     arm_biquad_cascade_stereo_df2T_init_f32(&hp_inst, 1, hp_coeffs, hp_state);
     arm_biquad_cascade_stereo_df2T_init_f32(&lp_inst, 1, lp_coeffs, lp_state);
+    
+    // Init mono W-filter (1 stage)
+    arm_biquad_cascade_df2T_init_f32(&w_inst, 1, w_coeffs, w_state);
 
     // Zero states (arm init usually zeros, but be explicit)
     memset(hp_state, 0, sizeof(hp_state));
     memset(lp_state, 0, sizeof(lp_state));
+    memset(w_state, 0, sizeof(w_state));
 
     // Zero runtime metrics if desired
     mse_outer = 0.0f;
@@ -356,6 +376,14 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				// Low-pass filter (stereo)
 				arm_biquad_cascade_stereo_df2T_f32(&lp_inst, stereo_tmp, stereo_out, frames);
 
+				// Extract outer microphone (reference) for W-filter
+				for (uint32_t i = 0; i < frames; i++) {
+					w_in[i] = stereo_tmp[2 * i]; // Use high-passed outer microphone as reference
+				}
+
+				// W-filter processing (reference path for FxLMS)
+				arm_biquad_cascade_df2T_f32(&w_inst, w_in, w_out, frames);
+
 				// Compute MSE / grad accumulation
 				for (uint32_t i = 0; i < frames; i++) {
 					float hp_outer = stereo_tmp[2 * i];
@@ -367,7 +395,9 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					mse_outer = hp_outer * hp_outer * alpha + mse_outer * (1.0f - alpha);
 					mse_inner = hp_inner * hp_inner * alpha + mse_inner * (1.0f - alpha);
 
-					grad_accum += fxlms_mu * (lp_inner - lp_state[3]) * lp_outer;
+					float e = lp_inner - lp_state[3];
+
+					grad_accum += fxlms_mu * e * w_out[i];
 				}
 				grad += grad_accum / frames; // Normalisiere grad auf Blockgröße
 
@@ -424,6 +454,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					}
 				} else {
 					grad = 0; // Reset grad if not in ANC mode
+					fxlms_update_counter = 0;
 				}
 
 				// Send ANC damping data via the sensor system
