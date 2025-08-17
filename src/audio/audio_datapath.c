@@ -447,7 +447,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 						uint32_t gain_q527 = (uint32_t)(fxlms_w * (1 << 27));
 
 						// Lade neuen Gain-Wert in DSP Mixer (Kanal 1 = Mikrofon)
-						fdsp_safe_load_mixer_gain(gain_q527);
+						//fdsp_safe_load_mixer_gain(gain_q527);
 						
 						// Send FxLMS weight data via sensor system
 						fxlms_weight_send_data(fxlms_w);

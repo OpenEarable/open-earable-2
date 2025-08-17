@@ -36,14 +36,17 @@
 #define DAC_ROUTE_DSP_CH(N) (32 + N)
 
 #define FDSP_USED_BANK_SIZE 5
+#define FDSP_FEEDBACK_BANK_SIZE 2
 #define NOISE_GATE_ACTIVE
 
 typedef uint32_t safe_load_params[FDSP_NUM_PARAMS];
 
 enum sl_address {
-    BIQ_0 = 0,
+    BIQ_0 = 1,
 # ifdef NOISE_GATE_ACTIVE
-    EXPANDER = FDSP_USED_BANK_SIZE,
+    EXPANDER = BIQ_0 + FDSP_USED_BANK_SIZE,
+    BIQ_1,
+    LIMITER_2 = BIQ_1 + FDSP_FEEDBACK_BANK_SIZE,
     VOLUME,
 # else
     VOLUME = FDSP_USED_BANK_SIZE,
