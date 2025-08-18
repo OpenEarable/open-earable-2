@@ -255,6 +255,12 @@ static const float w_b2 = 0.132291354383769f;
 static const float w_a1 = -1.86053575950718f;
 static const float w_a2 = 0.870232305213529f;
 
+static const float w_inner_b0 = 4.24433681402170e-05;
+static const float w_inner_b1 = 8.48867362804341e-05;
+static const float w_inner_b2 = 4.24433681402170e-05;
+static const float w_inner_a1 = -1.98148850914457f;
+static const float w_inner_a2 = 0.981658282617134f;
+
 #define MAX_PCM_SAMPLES (BLOCK_SIZE_BYTES / 4)
 
 static float outer_in[MAX_PCM_SAMPLES];
@@ -360,8 +366,6 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 			if (true) {
 				memcpy(anc_data, tmp_pcm_raw_data[i], pcm_block_size);
 
-				float grad_accum = 0.0f;
-
 				const int frames = pcm_block_size / sizeof(int16_t) / 2; // Stereo -> 2 channels
 
 				// Deinterleave + convert to float (scale by 1/2000.0f)
@@ -432,13 +436,6 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					if (fxlms_update_counter >= FXLMS_UPDATE_INTERVAL) {
 						fxlms_update_counter = 0;
 
-						// Gewichts-Update mit Lernrate
-						//float weight_update = fxlms_mu * error_signal * x_filtered;
-						//fxlms_w = fxlms_w + grad / FXLMS_UPDATE_INTERVAL;
-
-						// reset grad for next iteration
-						//grad = 0.f;
-						
 						// Begrenze Gewicht auf sinnvolle Werte (0.1 bis 2.0)
 						if (fxlms_w < fxlms_w_min) fxlms_w = fxlms_w_min;
 						if (fxlms_w > fxlms_w_max) fxlms_w = fxlms_w_max;
@@ -447,7 +444,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 						uint32_t gain_q527 = (uint32_t)(fxlms_w * (1 << 27));
 
 						// Lade neuen Gain-Wert in DSP Mixer (Kanal 1 = Mikrofon)
-						fdsp_safe_load_mixer_gain(gain_q527);
+						//fdsp_safe_load_mixer_gain(gain_q527);
 						
 						// Send FxLMS weight data via sensor system
 						fxlms_weight_send_data(fxlms_w);
