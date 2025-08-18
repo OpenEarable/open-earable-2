@@ -49,7 +49,6 @@ enum sl_address {
     BIQ_1 = 13,
     LIMITER_2 = BIQ_1 + FDSP_FEEDBACK_BANK_SIZE,
     MIXER,
-    LIMITER_MASTER,
 };
 
 class ADAU1860 {
