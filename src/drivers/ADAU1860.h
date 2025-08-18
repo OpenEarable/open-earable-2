@@ -43,15 +43,11 @@ typedef uint32_t safe_load_params[FDSP_NUM_PARAMS];
 
 enum sl_address {
     BIQ_0 = 1,
-# ifdef NOISE_GATE_ACTIVE
     EXPANDER = BIQ_0 + FDSP_USED_BANK_SIZE,
-    BIQ_1,
-    LIMITER_2 = BIQ_1 + FDSP_FEEDBACK_BANK_SIZE,
     VOLUME,
-# else
-    VOLUME = FDSP_USED_BANK_SIZE,
-#endif
     MUTE,
+    BIQ_1 = 13,
+    LIMITER_2 = BIQ_1 + FDSP_FEEDBACK_BANK_SIZE,
     MIXER,
     LIMITER_MASTER,
 };
