@@ -46,9 +46,9 @@ enum sl_address {
     EXPANDER = BIQ_0 + FDSP_USED_BANK_SIZE,
     VOLUME,
     MUTE,
-    BIQ_1 = 13,
+    BIQ_1 = 14,
     LIMITER_2 = BIQ_1 + FDSP_FEEDBACK_BANK_SIZE,
-    MIXER,
+    MIXER = 18,
 };
 
 class ADAU1860 {

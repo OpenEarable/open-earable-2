@@ -231,15 +231,22 @@ float mse_outer = 0;
 float grad = 0;
 
 //float alpha = 0.0001f;
-float alpha = 1e-5f;
-float alpha2 = 1e-3f;
+float alpha = 1e-3f;
+//float alpha2 = 1e-3f;
 
 // Koeffizienten für 20Hz bei 48kHz Sampling Rate
-static const float hp_b0 = 0.998150511190452f; // Koeffizienten für Butterworth Hochpass
+/*static const float hp_b0 = 0.998150511190452f; // Koeffizienten für Butterworth Hochpass
 static const float hp_b1 = -1.99630102238090f;
 static const float hp_b2 = 0.998150511190452f;
 static const float hp_a1 = -1.99629760176912f;
-static const float hp_a2 = 0.996304442992686f;
+static const float hp_a2 = 0.996304442992686f;*/
+
+// lowpass 100Hz
+static const float hp_b0 = 4.24433681402170e-05; // Koeffizienten für Butterworth Hochpass
+static const float hp_b1 = 8.48867362804341e-05;
+static const float hp_b2 = 4.24433681402170e-05;
+static const float hp_a1 = -1.98148850914457;
+static const float hp_a2 = 0.981658282617134;
 
 // Koeffizienten für 1000Hz bei 48kHz Sampling Rate
 static const float lp_b0 = 0.00391612666054738f;
@@ -262,13 +269,6 @@ static const float w_inner_a1 = -1.98148850914457f;
 static const float w_inner_a2 = 0.981658282617134f;
 
 #define MAX_PCM_SAMPLES (BLOCK_SIZE_BYTES / 4)
-
-static float outer_in[MAX_PCM_SAMPLES];
-static float inner_in[MAX_PCM_SAMPLES];
-static float outer_hp_out[MAX_PCM_SAMPLES];
-static float inner_hp_out[MAX_PCM_SAMPLES];
-static float outer_lp_out[MAX_PCM_SAMPLES];
-static float inner_lp_out[MAX_PCM_SAMPLES];
 
 // --- States and coefficients ---
 static arm_biquad_cascade_stereo_df2T_instance_f32 hp_inst;
@@ -305,7 +305,9 @@ static float fxlms_w = 0.1f;               // Adaptiver Filter Koeffizient (Gain
 static float fxlms_w_min = 0.0625f / 4;    // 0.0625f;      // Minimaler Gain-Wert
 static float fxlms_w_max = 0.5f;           // Maximaler Gain-Wert
 static uint32_t fxlms_update_counter = 0;  // Counter für Update-Rate
-#define FXLMS_UPDATE_INTERVAL 10           // Update alle 10 Samples (10ms bei 48kHz / 48 samples per block)
+static uint32_t damping_update_counter = 0;  // Counter für Update-Rate
+#define FXLMS_UPDATE_INTERVAL 10
+#define DAMPING_UPDATE_INTERVAL 5           // Update alle 5 Samples (5ms bei 48kHz / 48 samples per block)
 
 // Call once before processing blocks to initialize the CMSIS biquads
 void anc_cmsis_init(void)
@@ -402,8 +404,8 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					float lp_outer = stereo_out[2 * i];
 					float lp_inner = stereo_out[2 * i + 1];
 
-					mse_outer = hp_outer * hp_outer * alpha + mse_outer * (1.0f - alpha);
-					mse_inner = hp_inner * hp_inner * alpha + mse_inner * (1.0f - alpha);
+					mse_outer = stereo_in[2 * i] * stereo_in[2 * i] * alpha + mse_outer * (1.0f - alpha);
+					mse_inner = stereo_in[2 * i + 1] * stereo_in[2 * i + 1] * alpha + mse_inner * (1.0f - alpha);
 
 					float e = lp_inner - lp_state[3];
 
@@ -422,9 +424,9 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				rls_P       = (rls_P - K * phi_accum * rls_P) / rls_lambda;
 				if (rls_P < rls_P_min) rls_P = rls_P_min;
 
-				//LOG_INF("ANC grad: %f, mse_inner: %f, mse_outer: %f", grad, mse_inner, mse_outer);
+				LOG_INF("ANC grad: %f, mse_inner: %f, mse_outer: %f", grad, mse_inner, mse_outer);
 				
-				float damping = 10.f * log10f(mse_inner / mse_outer);
+				float damping = w_in[2 * (frames - 1) + 1]; //10.f * log10f(mse_inner); //10.f * log10f(mse_inner / mse_outer);
 
 				//LOG_INF("ANC damping: %f dB, mse_inner: %f, mse_outer: %f", damping, mse_inner, mse_outer);
 
@@ -459,8 +461,14 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					rls_P = 0.1f; // Reset RLS P matrix for next ANC activation
 				}
 
-				// Send ANC damping data via the sensor system
-				anc_damping_send_data(damping);
+				damping_update_counter++;
+
+				if (damping_update_counter >= DAMPING_UPDATE_INTERVAL) {
+					damping_update_counter = 0;
+
+					// Send ANC damping data via the sensor system
+					anc_damping_send_data(damping);
+				}
 			}
 
 			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
@@ -480,7 +488,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				};
 
 				sdlogger_write_data(data_ptrs, data_size, 2);
-
+				
 				//sdlogger_write_data(&audio_msg.data, data_size);
 				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
 			}
