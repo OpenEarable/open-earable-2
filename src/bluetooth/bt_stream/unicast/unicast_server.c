@@ -79,6 +79,7 @@
 
 static uint8_t device_identifier[] = {
 	BT_BYTES_LIST_LE64(0x0),
+	BT_BYTES_LIST_LE16(0x0),
 	0x00, /* Metadata length */
 };
  
@@ -605,15 +606,11 @@ static uint8_t device_identifier[] = {
 		 return ret;
 	 }
 
-	//uint32_t sirk = uicr_sirk_get();
+	enum audio_channel channel;
+	channel_assignment_get(&channel);
 
-	//if (sirk == 0xFFFFFFFF) {
-	uint64_t test = oe_boot_state.device_id;
-
-	for (int i = 0; i < sizeof(uint64_t); i++) {
-		device_identifier[i] = test & 0xFFU;
-		test >>= 8;
-	}
+	memcpy(device_identifier, &oe_boot_state.device_id, sizeof(oe_boot_state.device_id));
+	memcpy(device_identifier + sizeof(uint64_t), &channel, sizeof(uint8_t));
 
 	ret = bt_mgmt_adv_buffer_put(adv_buf, &adv_buf_cnt, adv_buf_vacant,
 			ARRAY_SIZE(device_identifier), BT_DATA_MANUFACTURER_DATA, (void *)device_identifier);
@@ -621,7 +618,6 @@ static uint8_t device_identifier[] = {
 	if (ret) {
 		return ret;
 	}
-	//}
  
 	 return adv_buf_cnt;
  }
