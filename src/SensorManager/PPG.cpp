@@ -90,25 +90,37 @@ void PPG::update_sensor(struct k_work *work) {
 
         PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
 
-        for (int i = 0; i < num_samples; i++) {
+        int written = 0;
+        const int _size = 4 * sizeof(uint32_t); // red, ir, green, ambient
+
+        while (written < num_samples) {
+            int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
+            if (to_write <= 0) break;
+
             msg_ppg.sd = sensor._sd_logging;
-	        msg_ppg.stream = sensor._ble_stream;
+            msg_ppg.stream = sensor._ble_stream;
 
-            size_t size = sizeof(uint32_t);
-            
             msg_ppg.data.id = ID_PPG;
-            msg_ppg.data.size = 4 * size;
-            msg_ppg.data.time = _time_stamp - (num_samples - i) * PPG::sensor.t_sample_us;
+            msg_ppg.data.size = to_write * _size;
+            msg_ppg.data.time = _time_stamp - (num_samples - written) * PPG::sensor.t_sample_us;
 
-            memcpy(msg_ppg.data.data + 0 * size, &sensor.data_buffer[i][red], size);
-            memcpy(msg_ppg.data.data + 1 * size, &sensor.data_buffer[i][ir], size);
-            memcpy(msg_ppg.data.data + 2 * size, &sensor.data_buffer[i][green], size);
-            memcpy(msg_ppg.data.data + 3 * size, &sensor.data_buffer[i][ambient], size);
+            if (to_write > 1) {
+                uint16_t t_diff = PPG::sensor.t_sample_us;
+                memcpy(&msg_ppg.data.data, &t_diff, sizeof(uint16_t));
+                
+                for (int i = 0; i < to_write; i++) {
+                    memcpy(&msg_ppg.data.data[i * _size] + sizeof(uint16_t), &sensor.data_buffer[written + i], _size);
+                }
+            } else {
+                memcpy(&msg_ppg.data.data, &sensor.data_buffer[written], _size);
+            }
 
             int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
             if (ret) {
                 LOG_WRN("sensor msg queue full");
             }
+
+            written += to_write;
         }
     }
 }
