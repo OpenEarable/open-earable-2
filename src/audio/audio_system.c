@@ -20,6 +20,7 @@
 #include "hw_codec.h"
 #include "audio_usb.h"
 #include "streamctrl.h"
+#include "bank_controller.h"
 
 #include "openearable_common.h"
 //#include "pdm_mic.h"
@@ -523,6 +524,13 @@ int audio_system_init(void)
 	}
 #endif
 	k_poll_signal_init(&encoder_sig);
+
+	// Initialize bank controller
+	ret = bank_controller_init();
+	if (ret) {
+		LOG_ERR("Failed to initialize bank controller: %d", ret);
+		return ret;
+	}
 
 	return 0;
 }
