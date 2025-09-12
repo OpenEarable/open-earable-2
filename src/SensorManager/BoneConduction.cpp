@@ -66,34 +66,35 @@ void BoneConduction::update_sensor(struct k_work *work) {
     int written = 0;
 
     const int _size = 3 * sizeof(int16_t);
-    const int _subsequent_packet_size = _size + sizeof(uint16_t); // with time diff
 
     while (written < num_samples) {
-        int max_data_per_packet = ((SENSOR_DATA_FIXED_LENGTH - _size) / _subsequent_packet_size) + 1; // first packet without time diff
-        int to_write = MIN(max_data_per_packet, num_samples - written);
+        int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
         if (to_write <= 0) break;
 
         msg_bc.sd = sensor._sd_logging;
         msg_bc.stream = sensor._ble_stream;
 
         msg_bc.data.id = ID_BONE_CONDUCTION;
-        msg_bc.data.size = _size + (to_write - 1) * _subsequent_packet_size;
+        msg_bc.data.size = to_write * _size;
         msg_bc.data.time = _time_stamp - (num_samples - written) * BoneConduction::sensor.t_sample_us;
 
-        memcpy(&msg_bc.data.data, &sensor.fifo_acc_data[written], _size);
-        written++;
-
-        for (int i = 1; i < to_write; i++) {
-            uint16_t t_diff = BoneConduction::sensor.t_sample_us * i;
-            memcpy(&msg_bc.data.data[i * _subsequent_packet_size - sizeof(uint16_t)], &t_diff, sizeof(uint16_t));
-            memcpy(&msg_bc.data.data[i * _subsequent_packet_size], &sensor.fifo_acc_data[written], _size);
-            written++;
+        if (to_write > 1) {
+            uint16_t t_diff = BoneConduction::sensor.t_sample_us;
+            memcpy(&msg_bc.data.data, &t_diff, sizeof(uint16_t));
+            
+            for (int i = 0; i < to_write; i++) {
+                memcpy(&msg_bc.data.data[i * _size] + sizeof(uint16_t), &sensor.fifo_acc_data[written + i], _size);
+            }
+        } else {
+            memcpy(&msg_bc.data.data, &sensor.fifo_acc_data[written], _size);
         }
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
         if (ret) {
             LOG_WRN("sensor msg queue full");
         }
+
+        written += to_write;
     }
 }
 
