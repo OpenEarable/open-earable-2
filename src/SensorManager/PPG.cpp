@@ -101,16 +101,15 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.stream = sensor._ble_stream;
 
             msg_ppg.data.id = ID_PPG;
-            msg_ppg.data.size = to_write * _size;
+            msg_ppg.data.size = to_write * _size + sizeof(uint16_t);
             msg_ppg.data.time = _time_stamp - (num_samples - written) * PPG::sensor.t_sample_us;
 
             if (to_write > 1) {
                 uint16_t t_diff = PPG::sensor.t_sample_us;
-                memcpy(&msg_ppg.data.data, &t_diff, sizeof(uint16_t));
-                
                 for (int i = 0; i < to_write; i++) {
-                    memcpy(&msg_ppg.data.data[i * _size] + sizeof(uint16_t), &sensor.data_buffer[written + i], _size);
+                    memcpy(&msg_ppg.data.data[i * _size], &sensor.data_buffer[written + i], _size);
                 }
+                memcpy(&msg_ppg.data.data[msg_ppg.data.size - sizeof(uint16_t)], &t_diff, sizeof(uint16_t));
             } else {
                 memcpy(&msg_ppg.data.data, &sensor.data_buffer[written], _size);
             }
