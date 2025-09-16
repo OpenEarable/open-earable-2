@@ -140,7 +140,7 @@ int ADAU1860::begin() {
                 return ret;
         }
 
-        k_msleep(1); // wait for DAC to power up
+        //k_msleep(1); // wait for DAC to power up
 
         // adi_lark_clk_startup_pll
 
@@ -154,20 +154,24 @@ int ADAU1860::begin() {
                 .log_write = adau_log,
         };
 
-        err = adi_lark_pmu_set_chip_power_mode(&device, API_LARK_PWR_MODE_HIBERNATE0); //API_LARK_PWR_MODE_ACTIVE
+        /*err = adi_lark_pmu_set_chip_power_mode(&device, API_LARK_PWR_MODE_HIBERNATE0); //API_LARK_PWR_MODE_ACTIVE
         LARK_ERROR_RETURN(err);
         err = adi_lark_pmu_enable_master_block(&device, 1);
         LARK_ERROR_RETURN(err);
         err = adi_lark_pmu_enable_cm_pin_fast_charge(&device, 1);
-        LARK_ERROR_RETURN(err);
+        LARK_ERROR_RETURN(err);*/
 
         k_msleep(35); // see datasheet for CM rise time
 
+        // Non self-boot
         err = adi_lark_pmu_enable_dlycnt_byp(&device, 1);
         LARK_ERROR_RETURN(err);
+
+        // Power saving
         err = adi_lark_pmu_enable_cm_pin_fast_charge(&device, 0);
         LARK_ERROR_RETURN(err);
 
+        // bypass PLL and set MCLK to 24.576 MHz
         err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_24P576, true);
         LARK_ERROR_RETURN(err);
         err = adi_lark_clk_enable_pll_power_on(&device, false);
@@ -207,75 +211,12 @@ int ADAU1860::begin() {
         err = adi_lark_fdsp_enable_run(&device, 0);
         LARK_ERROR_RETURN(err);*/
 
-        //k_msleep(1);
-
-        //last_i2c = micros();
-
-        /*uint8_t status = 0x1;
-        writeReg(registers::RESETS, &status, sizeof(status));*/
-
-        /*k_msleep(35); // CM rise time (see datasheet)
-
-        //uint8_t power_mode = 0x01 | 0x04; // Hibernate 1, Master enable
-        //writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
-
-        // Non self-boot
-        uint8_t startup_dlycnt_byp = 1;
-        writeReg(registers::PMU_CTRL2, &startup_dlycnt_byp, sizeof(startup_dlycnt_byp));
-
-        // Power saving
-        uint8_t cm_startup_over = 1 << 4 | power_mode;
-        writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
-
-        //uint8_t sai_clk_pwr = 0x01; // I2S_IN enable
-        //writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));*/
-
-        // bypass PLL
-        /*uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz) // | 0x3;
-        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
-
-        uint8_t status2;
-        readReg(registers::STATUS2, &status2, sizeof(status2));
-        LOG_DBG("STATUS2: 0x%x", status2);
-
-        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-
-        while (!(status2 & (1 << 7))) {
-                readReg(registers::STATUS2, &status2, sizeof(status2));
-                LOG_DBG("STATUS2: 0x%x", status2);
-
-                // power up complete and PLL lock
-                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-
-                k_usleep(10);
-        }
-
-        //uint8_t clk_ctrl13 = (0 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
-        //writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
-
-        //uint8_t clk_ctrl1 = (0x3 << 6) | (1 << 3); //MCLK/XTAL
-        //writeReg(registers::CLK_CTRL1, &clk_ctrl1, sizeof(clk_ctrl1));
-
-        uint8_t clk_ctrl12 = 0x01; // frequency multiplier enabled
-        writeReg(registers::CLK_CTRL12, &clk_ctrl12, sizeof(clk_ctrl12));
-
-        clk_ctrl13 &= ~(1 << 7);
-        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));*/
-
-        // uint8_t pll_ctrl = 0x2; // XTAL_EN = 1, PLL_EN = 0
-        // writeReg(registers::PLL_PGA_PWR, &pll_ctrl, sizeof(pll_ctrl));
-
-        // uint8_t asrc_pwr = 0x1; // ASRCI0_EN 
-        // writeReg(registers::ASRC_PWR, &asrc_pwr, sizeof(asrc_pwr));
-
-        //k_msleep(1);
-
         uint8_t fm_locked;
 
         //adi_lark_clk_get_2x_locked_status(&device, &fm_locked);
 
         // verify power up complete
-        //uint8_t status2;
+        uint8_t status2;
         readReg(registers::STATUS2, &status2, sizeof(status2));
         LOG_DBG("STATUS2: 0x%x", status2);
 
@@ -293,9 +234,11 @@ int ADAU1860::begin() {
                 k_usleep(10);
         }
 
+        
+
         // Power saving
-        // uint8_t cm_startup_over = 1 << 2 | 0x01; // Master block en | Hibernate 1 (SOC off, ADP on);
-        // writeReg(registers::CHIP_PWR, &cm_startup_over, sizeof(cm_startup_over));
+        uint8_t power_mode = 0x40 | 0x01 | 0x04; // CM_Startup_over | Hibernate 1, Master enable
+        writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
 
         /* Select I2S0 as input source, and set divider as 1. */
         //ret = adi_lark_fdsp_set_rate(&device, API_LARK_FDSP_RATE_SRC_DMIC0_1, 1);
