@@ -10,6 +10,7 @@
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
+#include <zephyr/shell/shell_rtt.h>
 
 //#include "../src/modules/sd_card.h"
 
@@ -57,10 +58,6 @@ int main(void) {
 
 	ret = power_manager.begin();
 	ERR_CHK(ret);
-
-	uint8_t standalone = uicr_standalone_get();
-
-	LOG_INF("Standalone mode: %i", standalone);
 
 	/*sdcard_manager.init();
 
@@ -114,7 +111,13 @@ int main(void) {
 	ret = init_sensor_service();
 	ERR_CHK(ret);
 
-	
+	const struct shell *shell = shell_backend_rtt_get_ptr();
+	if (shell) {
+		/* Execute shell commands */
+		shell_execute_cmd(shell, "audio_system start");
+		k_msleep(100); /* Give audio system time to initialize */
+		shell_execute_cmd(shell, "test nrf_tone_start 100 0 0.5");
+	}
 
 	// error test
 	//long *a = nullptr;
