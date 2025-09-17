@@ -114,6 +114,8 @@ int main(void) {
 	ret = init_sensor_service();
 	ERR_CHK(ret);
 
+	
+
 	// error test
 	//long *a = nullptr;
 	//*a = 10;

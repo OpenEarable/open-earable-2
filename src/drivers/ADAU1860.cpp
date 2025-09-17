@@ -12,6 +12,29 @@ LOG_MODULE_REGISTER(ADAU1860, 3);
 #include "Lark-eq.c"
 #include "Lark-fdsp.c"
 
+/* --- Deine eingebetteten Segmente (aus ELF erzeugt, siehe unten) --- */
+#include "xtensa/reset.h"       /* erzeugt: const uint8_t seg_reset[]; const unsigned int seg_reset_len; */
+#include "xtensa/textdata.h"    /* erzeugt: const uint8_t seg_vectors[]; const unsigned int seg_vectors_len; */
+#include "xtensa/vectors.h"        /* erzeugt: const uint8_t seg_textdata[]; const unsigned int seg_textdata_len; */
+
+/* Entry/Startadresse aus: xt-objdump -f HifiTest  -> start address 0x... */
+#define APP_ENTRY 0x50000000  /* <-- ANPASSEN an dein ELF */
+
+/* Ein Image-Segment (= zusammenhängender Block) für den HiFi3z */
+typedef struct {
+    uint32_t addr;          /* Zieladresse im HiFi3z (Byte-Adresse, VMA) */
+    uint8_t *data;    /* Zeiger auf Nutzdaten */
+    uint32_t len;           /* Länge in Bytes */
+} lark_sdk_seg_t;
+
+const int nseg = 3;
+
+const lark_sdk_seg_t segs[] = {
+        { .addr = 0x50000000u, .data = reset_bin,   .len = reset_bin_len   }, /* Reset */
+        { .addr = 0x60000000u, .data = vectors_bin,   .len = vectors_bin_len   }, /* Vektoren */
+        { .addr = 0x600004A0u, .data = textdata_bin,  .len = textdata_bin_len  }, /* .text + .rodata + .data */
+};
+
 ADAU1860 dac(&I2C2);
 
 static struct k_work_delayable ascr_lock_work;
@@ -213,7 +236,7 @@ int ADAU1860::begin() {
 
         uint8_t fm_locked;
 
-        //adi_lark_clk_get_2x_locked_status(&device, &fm_locked);
+        adi_lark_clk_get_2x_locked_status(&device, &fm_locked);
 
         // verify power up complete
         uint8_t status2;
@@ -234,11 +257,15 @@ int ADAU1860::begin() {
                 k_usleep(10);
         }
 
-        
-
         // Power saving
-        uint8_t power_mode = 0x40 | 0x01 | 0x04; // CM_Startup_over | Hibernate 1, Master enable
-        writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
+        //uint8_t power_mode = 0x40 | 0x11 | 0x04; // CM_Startup_over | active mode, Master enable
+        //writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
+
+        err = adi_lark_pmu_set_chip_power_mode(&device, API_LARK_PWR_MODE_ACTIVE); //API_LARK_PWR_MODE_ACTIVE
+        LARK_ERROR_RETURN(err);
+
+        err = adi_lark_pmu_enable_master_block(&device, 1);
+        LARK_ERROR_RETURN(err);
 
         /* Select I2S0 as input source, and set divider as 1. */
         //ret = adi_lark_fdsp_set_rate(&device, API_LARK_FDSP_RATE_SRC_DMIC0_1, 1);
@@ -330,9 +357,48 @@ int ADAU1860::begin() {
         setup_EQ();
         dac_route = DAC_ROUTE_EQ;
 
+        // config tensilica
+
+        adi_lark_tdsp_enable_run(&device, false);
+        if (err) {
+                LARK_ERROR_REPORT(err, "Error disabling DSP");
+        }
+
+        err = adi_lark_tdsp_reset(&device);
+        if (err) {
+                LARK_ERROR_REPORT(err, "Error resetting DSP");
+        }
+
+        
+        for (int i=0; i<nseg; i++) {
+                err = adi_lark_hal_mem_write(&device, segs[i].addr, segs[i].data, segs[i].len);
+                if (err) {
+                        LOG_INF("error %d writing segment %d to 0x%x (%d bytes)", err, i, segs[i].addr, segs[i].len);
+                }
+        }
+
+        
+        err = adi_lark_tdsp_set_alt_vec(&device, true, APP_ENTRY);
+        if (err) {
+                LARK_ERROR_REPORT(err, "Error starting DSP");
+        } 
+
+        
+        err = adi_lark_tdsp_enable_run(&device, true);
+        if (err) {
+                LARK_ERROR_REPORT(err, "Error starting DSP");
+        } 
+        
+        err = adi_lark_tdsp_reset(&device);
+        if (err) {
+                LARK_ERROR_REPORT(err, "Error starting DSP");
+        }
+
 #if CONFIG_FDSP
         setup_FDSP();
         dac_route = DAC_ROUTE_DSP_CH(0);
+
+        err = adi_lark_tdsp_reset(&device);
 #endif
 #endif
         writeReg(registers::DAC_ROUTE0, &dac_route, sizeof(dac_route));
