@@ -305,7 +305,7 @@ int ADAU1860::begin() {
                 uint8_t fdec_ctrl1 = 0x24; // 192khz to 48kHz
                 writeReg(registers::FDEC_CTRL1, &fdec_ctrl1, sizeof(fdec_ctrl1));
 
-                uint8_t fdec_route0 = 39; // DMIC Channel 0
+                uint8_t fdec_route0 = 16; // DMIC Channel 0
                 writeReg(registers::FDEC_ROUTE0, &fdec_route0, sizeof(fdec_route0));
                 
                 uint8_t fdec_route1 = 40; // DMIC Channel 1

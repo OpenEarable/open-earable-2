@@ -221,6 +221,8 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 			unsigned int logger_signaled;
 			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
 
+			LOG_INF("%i", *((int16_t*) (audio_item.data + (i * BLOCK_SIZE_BYTES))));
+
 			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
 				struct sensor_msg audio_msg;
 	
