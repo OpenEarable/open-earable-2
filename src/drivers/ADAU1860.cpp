@@ -13,12 +13,12 @@ LOG_MODULE_REGISTER(ADAU1860, 3);
 #include "Lark-fdsp.c"
 
 /* --- Deine eingebetteten Segmente (aus ELF erzeugt, siehe unten) --- */
-#include "xtensa/reset.h"       /* erzeugt: const uint8_t seg_reset[]; const unsigned int seg_reset_len; */
+//#include "xtensa/reset.h"       /* erzeugt: const uint8_t seg_reset[]; const unsigned int seg_reset_len; */
 #include "xtensa/textdata.h"    /* erzeugt: const uint8_t seg_vectors[]; const unsigned int seg_vectors_len; */
 #include "xtensa/vectors.h"        /* erzeugt: const uint8_t seg_textdata[]; const unsigned int seg_textdata_len; */
 
 /* Entry/Startadresse aus: xt-objdump -f HifiTest  -> start address 0x... */
-#define APP_ENTRY 0x50000000  /* <-- ANPASSEN an dein ELF */
+#define APP_ENTRY 0x60000400u  /* <-- ANPASSEN an dein ELF */
 
 /* Ein Image-Segment (= zusammenhängender Block) für den HiFi3z */
 typedef struct {
@@ -27,12 +27,12 @@ typedef struct {
     uint32_t len;           /* Länge in Bytes */
 } lark_sdk_seg_t;
 
-const int nseg = 3;
+const int nseg = 2;
 
 const lark_sdk_seg_t segs[] = {
-        { .addr = 0x50000000u, .data = reset_bin,   .len = reset_bin_len   }, /* Reset */
+        //{ .addr = 0x50000000u, .data = reset_bin,   .len = reset_bin_len   }, /* Reset */
         { .addr = 0x60000000u, .data = vectors_bin,   .len = vectors_bin_len   }, /* Vektoren */
-        { .addr = 0x600004A0u, .data = textdata_bin,  .len = textdata_bin_len  }, /* .text + .rodata + .data */
+        { .addr = 0x60000400u, .data = textdata_bin,  .len = textdata_bin_len  }, /* .text + .rodata + .data */
 };
 
 ADAU1860 dac(&I2C2);
@@ -359,6 +359,27 @@ int ADAU1860::begin() {
 
         // config tensilica
 
+        /* set data sync */
+        err = adi_lark_ds_clear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_ds_enable_multi_out_chnls_resync(&device, (1 << 0), true);
+        LARK_ERROR_RETURN(err);
+
+        /* enable Data Sync Channel interrupt to ADC*/
+        err = adi_lark_ds_enable_chnl_int(&device, API_LARK_DS_INT_ASCRI, true);
+        LARK_ERROR_RETURN(err);
+
+        /* TDSP0 0 at ADC01 Rate*/
+        err = adi_lark_ds_select_rdy2out_chnl(&device, 0, API_LARK_DS_RDY2OUT_ASCRI);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_ds_enable_autoclear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI, true);
+        LARK_ERROR_RETURN(err);
+
+        err = adi_lark_ds_enable_tie_ltif(&device, true);
+        if (err) {
+                LARK_ERROR_REPORT(err, "Error enabling tie ltif");
+        }
+
         adi_lark_tdsp_enable_run(&device, false);
         if (err) {
                 LARK_ERROR_REPORT(err, "Error disabling DSP");
@@ -394,11 +415,13 @@ int ADAU1860::begin() {
                 LARK_ERROR_REPORT(err, "Error starting DSP");
         }
 
+        //adi_lark_hal_mem_read(&device, PC_ADDR, &pc, 4);
+
 #if CONFIG_FDSP
         setup_FDSP();
         dac_route = DAC_ROUTE_DSP_CH(0);
 
-        err = adi_lark_tdsp_reset(&device);
+        //err = adi_lark_tdsp_reset(&device);
 #endif
 #endif
         writeReg(registers::DAC_ROUTE0, &dac_route, sizeof(dac_route));
