@@ -305,7 +305,7 @@ int ADAU1860::begin() {
                 uint8_t fdec_ctrl1 = 0x24; // 192khz to 48kHz
                 writeReg(registers::FDEC_CTRL1, &fdec_ctrl1, sizeof(fdec_ctrl1));
 
-                uint8_t fdec_route0 = 16; // DMIC Channel 0
+                uint8_t fdec_route0 = 39; // DMIC Channel 0
                 writeReg(registers::FDEC_ROUTE0, &fdec_route0, sizeof(fdec_route0));
                 
                 uint8_t fdec_route1 = 40; // DMIC Channel 1
@@ -357,8 +357,6 @@ int ADAU1860::begin() {
         setup_EQ();
         dac_route = DAC_ROUTE_EQ;
 
-        // config tensilica
-
         /* set data sync */
         err = adi_lark_ds_clear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI);
         LARK_ERROR_RETURN(err);
@@ -375,53 +373,30 @@ int ADAU1860::begin() {
         err = adi_lark_ds_enable_autoclear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI, true);
         LARK_ERROR_RETURN(err);
 
+        /* Tie LTIF to Data Sync Channel */
         err = adi_lark_ds_enable_tie_ltif(&device, true);
-        if (err) {
-                LARK_ERROR_REPORT(err, "Error enabling tie ltif");
-        }
+        LARK_ERROR_RETURN(err);
 
         adi_lark_tdsp_enable_run(&device, false);
-        if (err) {
-                LARK_ERROR_REPORT(err, "Error disabling DSP");
-        }
-
-        err = adi_lark_tdsp_reset(&device);
-        if (err) {
-                LARK_ERROR_REPORT(err, "Error resetting DSP");
-        }
-
+        LARK_ERROR_RETURN(err);
         
         for (int i=0; i<nseg; i++) {
                 err = adi_lark_hal_mem_write(&device, segs[i].addr, segs[i].data, segs[i].len);
-                if (err) {
-                        LOG_INF("error %d writing segment %d to 0x%x (%d bytes)", err, i, segs[i].addr, segs[i].len);
-                }
+                LARK_ERROR_RETURN(err);
         }
-
         
         err = adi_lark_tdsp_set_alt_vec(&device, true, APP_ENTRY);
-        if (err) {
-                LARK_ERROR_REPORT(err, "Error starting DSP");
-        } 
-
+        LARK_ERROR_RETURN(err);
         
         err = adi_lark_tdsp_enable_run(&device, true);
-        if (err) {
-                LARK_ERROR_REPORT(err, "Error starting DSP");
-        } 
+        LARK_ERROR_RETURN(err);
         
         err = adi_lark_tdsp_reset(&device);
-        if (err) {
-                LARK_ERROR_REPORT(err, "Error starting DSP");
-        }
-
-        //adi_lark_hal_mem_read(&device, PC_ADDR, &pc, 4);
+        LARK_ERROR_RETURN(err);
 
 #if CONFIG_FDSP
         setup_FDSP();
         dac_route = DAC_ROUTE_DSP_CH(0);
-
-        //err = adi_lark_tdsp_reset(&device);
 #endif
 #endif
         writeReg(registers::DAC_ROUTE0, &dac_route, sizeof(dac_route));
