@@ -357,42 +357,7 @@ int ADAU1860::begin() {
         setup_EQ();
         dac_route = DAC_ROUTE_EQ;
 
-        /* set data sync */
-        err = adi_lark_ds_clear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_ds_enable_multi_out_chnls_resync(&device, (1 << 0), true);
-        LARK_ERROR_RETURN(err);
-
-        /* enable Data Sync Channel interrupt to ADC*/
-        err = adi_lark_ds_enable_chnl_int(&device, API_LARK_DS_INT_ASCRI, true);
-        LARK_ERROR_RETURN(err);
-
-        /* TDSP0 0 at ADC01 Rate*/
-        err = adi_lark_ds_select_rdy2out_chnl(&device, 0, API_LARK_DS_RDY2OUT_ASCRI);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_ds_enable_autoclear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI, true);
-        LARK_ERROR_RETURN(err);
-
-        /* Tie LTIF to Data Sync Channel */
-        err = adi_lark_ds_enable_tie_ltif(&device, true);
-        LARK_ERROR_RETURN(err);
-
-        adi_lark_tdsp_enable_run(&device, false);
-        LARK_ERROR_RETURN(err);
-        
-        for (int i=0; i<nseg; i++) {
-                err = adi_lark_hal_mem_write(&device, segs[i].addr, segs[i].data, segs[i].len);
-                LARK_ERROR_RETURN(err);
-        }
-        
-        err = adi_lark_tdsp_set_alt_vec(&device, true, APP_ENTRY);
-        LARK_ERROR_RETURN(err);
-        
-        err = adi_lark_tdsp_enable_run(&device, true);
-        LARK_ERROR_RETURN(err);
-        
-        err = adi_lark_tdsp_reset(&device);
-        LARK_ERROR_RETURN(err);
+        setup_Tensilica();
 
 #if CONFIG_FDSP
         setup_FDSP();
@@ -525,6 +490,49 @@ int ADAU1860::setup_FDSP() {
         writeReg(registers::FDSP_RUN, &fdsp_run, sizeof(fdsp_run));
 
         return 0;
+}
+
+int ADAU1860::setup_Tensilica() {
+        int err;
+        
+        /* set data sync */
+        err = adi_lark_ds_clear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_ds_enable_multi_out_chnls_resync(&device, (1 << 0), true);
+        LARK_ERROR_RETURN(err);
+
+        /* enable Data Sync Channel interrupt to ADC*/
+        err = adi_lark_ds_enable_chnl_int(&device, API_LARK_DS_INT_ASCRI, true);
+        LARK_ERROR_RETURN(err);
+
+        /* TDSP0 0 at ADC01 Rate*/
+        err = adi_lark_ds_select_rdy2out_chnl(&device, 0, API_LARK_DS_RDY2OUT_ASCRI);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_ds_enable_autoclear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI, true);
+        LARK_ERROR_RETURN(err);
+
+        /* Tie LTIF to Data Sync Channel */
+        err = adi_lark_ds_enable_tie_ltif(&device, true);
+        LARK_ERROR_RETURN(err);
+
+        adi_lark_tdsp_enable_run(&device, false);
+        LARK_ERROR_RETURN(err);
+        
+        for (int i=0; i<nseg; i++) {
+                err = adi_lark_hal_mem_write(&device, segs[i].addr, segs[i].data, segs[i].len);
+                LARK_ERROR_RETURN(err);
+        }
+        
+        err = adi_lark_tdsp_set_alt_vec(&device, true, APP_ENTRY);
+        LARK_ERROR_RETURN(err);
+        
+        err = adi_lark_tdsp_enable_run(&device, true);
+        LARK_ERROR_RETURN(err);
+        
+        err = adi_lark_tdsp_reset(&device);
+        LARK_ERROR_RETURN(err);
+
+        return API_LARK_ERROR_OK;
 }
 
 int ADAU1860::end() {

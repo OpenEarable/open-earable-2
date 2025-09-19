@@ -427,6 +427,7 @@ private:
 
     int setup_EQ();
     int setup_FDSP();
+    int setup_Tensilica();
     int setup_DAC();
 
     int fdsp_mute(bool active);
