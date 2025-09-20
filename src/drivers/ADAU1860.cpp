@@ -496,19 +496,19 @@ int ADAU1860::setup_Tensilica() {
         int err;
         
         /* set data sync */
-        err = adi_lark_ds_clear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI);
+        err = adi_lark_ds_clear_chnl_int_status(&device, API_LARK_DS_INT_EQ);
         LARK_ERROR_RETURN(err);
         err = adi_lark_ds_enable_multi_out_chnls_resync(&device, (1 << 0), true);
         LARK_ERROR_RETURN(err);
 
-        /* enable Data Sync Channel interrupt to ADC*/
-        err = adi_lark_ds_enable_chnl_int(&device, API_LARK_DS_INT_ASCRI, true);
+        /* enable Data Sync Channel interrupt to EQ*/
+        err = adi_lark_ds_enable_chnl_int(&device, API_LARK_DS_INT_EQ, true);
         LARK_ERROR_RETURN(err);
 
         /* TDSP0 0 at ADC01 Rate*/
-        err = adi_lark_ds_select_rdy2out_chnl(&device, 0, API_LARK_DS_RDY2OUT_ASCRI);
+        err = adi_lark_ds_select_rdy2out_chnl(&device, 0, API_LARK_DS_RDY2OUT_EQ);
         LARK_ERROR_RETURN(err);
-        err = adi_lark_ds_enable_autoclear_chnl_int_status(&device, API_LARK_DS_INT_ASCRI, true);
+        err = adi_lark_ds_enable_autoclear_chnl_int_status(&device, API_LARK_DS_INT_EQ, true);
         LARK_ERROR_RETURN(err);
 
         /* Tie LTIF to Data Sync Channel */
