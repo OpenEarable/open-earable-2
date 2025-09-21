@@ -495,46 +495,56 @@ int ADAU1860::setup_FDSP() {
 int ADAU1860::setup_Tensilica() {
         int err;
 
-        static adi_lark_ffsram_fifo_info_t fifo_info = {
-                .block_id = 2,
-                .channel_id = 0,
-                .base_offset_of_256B = 0,
-                .len_of_256B = 31,      // 31*256B ~= 7936B
-                .width = 32
+        static adi_lark_ffsram_fifo_info_t fifo_eq = {
+                .block_id = 2, .channel_id = 0, .base_offset_of_256B = 0, .len_of_256B = 31, .width = 32
+        };
+        static adi_lark_ffsram_fifo_info_t fifo_mic0 = {
+                .block_id = 2, .channel_id = 1, .base_offset_of_256B = 0, .len_of_256B = 31, .width = 32
         };
         
         /* ---------- Data Sync: RDY→DMA (Eingänge) ---------- */
         /* ch0 ← FDEC0, ch1 ← FDEC1, ch2 ← EQ */
-        LARK_ERROR_RETURN( adi_lark_ds_select_rdy2dma_chnl(&device, 0, API_LARK_DS_INPUT_FDEC0) );
+        /*LARK_ERROR_RETURN( adi_lark_ds_select_rdy2dma_chnl(&device, 0, API_LARK_DS_INPUT_FDEC0) );
         LARK_ERROR_RETURN( adi_lark_ds_select_rdy2dma_chnl(&device, 1, API_LARK_DS_INPUT_FDEC1) );
-        LARK_ERROR_RETURN( adi_lark_ds_select_rdy2dma_chnl(&device, 2, API_LARK_DS_INPUT_EQ)   );
+        LARK_ERROR_RETURN( adi_lark_ds_select_rdy2dma_chnl(&device, 2, API_LARK_DS_INPUT_EQ)   );*/
 
         /* DMA-Requests für alle drei Kanäle aktivieren */
-        uint32_t dma_mask_in = (1u<<0) | (1u<<1) | (1u<<2);
-        LARK_ERROR_RETURN( adi_lark_ds_enable_multi_chnls_dmareq(&device, dma_mask_in, true) );
+        //uint32_t dma_mask_in = (1u<<0) | (1u<<1) | (1u<<2);
+        //LARK_ERROR_RETURN( adi_lark_ds_enable_multi_chnls_dmareq(&device, dma_mask_in, true) );
 
         /* ---------- Data Sync: OUT (FIFO→TDSP0 Channel 0) ---------- */
         /* TDSP0@48k resyncen und RDY→OUT Quelle wählen (hier egal welche Ready-Quelle du für OUT nimmst,
         wichtig ist die FIFO→TDSP0-Kopplung; typischerweise EQ oder FDEC0/FDEC1 – es ist nur der Taktanker) */
-        LARK_ERROR_RETURN( adi_lark_ds_enable_multi_out_chnls_resync(&device, (1u<<0), true) );
-        LARK_ERROR_RETURN( adi_lark_ds_select_rdy2out_chnl(&device, 0, API_LARK_DS_RDY2OUT_EQ) );
+        // beide OUT-Kanäle resyncen (Bit0=TDSP0 ch0, Bit1=TDSP1 ch0 — je nach SDK Mapping):
+        LARK_ERROR_RETURN( adi_lark_ds_enable_multi_out_chnls_resync(&device, (1u<<0) | (1u<<1), true) );
+
+        // Rate/Ready-Quelle wählen (nur Taktanker für OUT):
+        LARK_ERROR_RETURN( adi_lark_ds_select_rdy2out_chnl(&device, 0, API_LARK_DS_RDY2OUT_EQ    ) ); // TDSP0 ch0
+        LARK_ERROR_RETURN( adi_lark_ds_select_rdy2out_chnl(&device, 1, API_LARK_DS_RDY2OUT_FDEC01) ); // TDSP1 ch0
 
         /* (Optional) Auto-Clear für den gewählten OUT-Int-Kanal */
-        LARK_ERROR_RETURN( adi_lark_ds_enable_autoclear_chnl_int_status(&device, API_LARK_DS_INT_EQ, true) );
+        //LARK_ERROR_RETURN( adi_lark_ds_enable_autoclear_chnl_int_status(&device, API_LARK_DS_INT_EQ, true) );
 
         /* ---------- FIFO → TDSP0 binden ---------- */
-        /* fifo_info initialisieren hast du schon; hier nur Ziel setzen und FIFO freigeben */
-        LARK_ERROR_RETURN( adi_lark_ffsram_init(&device, &fifo_info) );
-        /* FIFO-Ziel: TDSP0 Channel 0 */
-        LARK_ERROR_RETURN( adi_lark_ds_select_fifo_chnl_dst(&device, fifo_info.block_id * 4 + fifo_info.channel_id, 0 /* TDSP0 ch0 */) );
-        /* FIFO read enable */
-        LARK_ERROR_RETURN( adi_lark_ds_enable_fifo_chnl_read(&device, fifo_info.block_id * 4 + fifo_info.channel_id, true) );
-        /* FIFO einschalten */
-        LARK_ERROR_RETURN( adi_lark_ffsram_enable_fifo(&device, &fifo_info, true) );
+        uint32_t fifo_eq_id   = fifo_eq.block_id   * 4 + fifo_eq.channel_id;   // (2*4 + 0) = 8
+        uint32_t fifo_mic0_id = fifo_mic0.block_id * 4 + fifo_mic0.channel_id; // (2*4 + 1) = 9
+
+        LARK_ERROR_RETURN( adi_lark_ffsram_init(&device, &fifo_eq) );
+        LARK_ERROR_RETURN( adi_lark_ffsram_init(&device, &fifo_mic0) );
+
+        // FIFO → TDSP0 ch0 bzw. → TDSP1 ch0
+        LARK_ERROR_RETURN( adi_lark_ds_select_fifo_chnl_dst(&device, fifo_eq_id,   0 /*TDSP0 ch0*/) );
+        LARK_ERROR_RETURN( adi_lark_ds_select_fifo_chnl_dst(&device, fifo_mic0_id, 1 /*TDSP1 ch0*/) );
+
+        // FIFO Read enable + FIFO enable
+        LARK_ERROR_RETURN( adi_lark_ds_enable_fifo_chnl_read(&device, fifo_eq_id,   true) );
+        LARK_ERROR_RETURN( adi_lark_ds_enable_fifo_chnl_read(&device, fifo_mic0_id, true) );
+        LARK_ERROR_RETURN( adi_lark_ffsram_enable_fifo(&device, &fifo_eq,   true) );
+        LARK_ERROR_RETURN( adi_lark_ffsram_enable_fifo(&device, &fifo_mic0, true) );
 
         /* ---------- TDSP / DAC ---------- */
         /* DAC auf TDSP0 routen (Stereo ggf. beide Kanäle mappen, hier beispielhaft ch0) */
-        LARK_ERROR_RETURN( adi_lark_dac_select_input_route(&device, API_LARK_DAC_ROUTE_TDSP0) );
+        //LARK_ERROR_RETURN( adi_lark_dac_select_input_route(&device, API_LARK_DAC_ROUTE_TDSP0) );
 
         adi_lark_tdsp_enable_run(&device, false);
         LARK_ERROR_RETURN(err);

@@ -46,7 +46,7 @@ enum sl_address {
     BIQ_0 = 0,
 # ifdef NOISE_GATE_ACTIVE
     EXPANDER = FDSP_USED_BANK_SIZE,
-    VOLUME,
+    VOLUME = 9,
 # else
     VOLUME = FDSP_USED_BANK_SIZE,
 #endif
