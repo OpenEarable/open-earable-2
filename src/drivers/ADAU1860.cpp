@@ -154,8 +154,6 @@ int ADAU1860::begin() {
 
         _i2c->begin();
 
-        //k_msleep(1);
-
         // pull-up PD pin
         ret = gpio_pin_configure_dt(&dac_enable_pin, GPIO_OUTPUT_ACTIVE);
 	if (ret != 0) {
@@ -205,34 +203,6 @@ int ADAU1860::begin() {
         LARK_ERROR_RETURN(err);
         err = adi_lark_clk_enable_2x_output(&device, true);
         LARK_ERROR_RETURN(err);
-
-        //err = adi_lark_clk_config_pll(&device, pll_src, pll_type, sync_src, prescaler, multiplier, numerator, denominator);
-        //LARK_ERROR_RETURN(err);
-        //err = adi_lark_clk_enable_pll_power_on(&device, true);
-        //LARK_ERROR_RETURN(err);
-        //err = adi_lark_clk_update_pll(&device);
-        //LARK_ERROR_RETURN(err);
-
-        /*err = adi_lark_clk_enable_xtal_power_on(&device, 1);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_clk_config_pll(&device, API_LARK_CLK_PLL_SOURCE_MCLKIN, API_LARK_CLK_PLL_TYPE_INTEGER, API_LARK_CLK_SYNC_SOURCE_INTERNAL, 0x00, 0x02, 0x00, 0x00);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_clk_update_pll(&device);
-        LARK_ERROR_RETURN(err);*/
-
-        /*err = adi_lark_clk_enable_xtal_power_on(&device, 1);
-        LARK_ERROR_RETURN(err);
-
-        err = adi_lark_clk_enable_pll_power_on(&device, 0);
-        LARK_ERROR_RETURN(err);
-
-        err = adi_lark_clk_enable_pll_power_on(&device, 1);
-        LARK_ERROR_RETURN(err);*/
-
-        /*err = adi_lark_fdsp_enable_power_on(&device, 1);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_fdsp_enable_run(&device, 0);
-        LARK_ERROR_RETURN(err);*/
 
         uint8_t fm_locked;
 
