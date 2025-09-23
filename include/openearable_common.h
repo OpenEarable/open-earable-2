@@ -92,9 +92,15 @@ struct sensor_data {
     uint8_t data[SENSOR_DATA_FIXED_LENGTH];
 } __attribute__((packed));
 
+enum sensor_consumer {
+	// only use numbers where single bits are set
+	// don't use 0x10
+	SENSOR_CONSUMER_BLE = 0x01,
+	SENSOR_CONSUMER_SD = 0x02,
+};
+
 struct sensor_msg {
-	bool sd;
-	bool stream;
+	uint8_t consumer_mask;
 	struct sensor_data data;
 };
 

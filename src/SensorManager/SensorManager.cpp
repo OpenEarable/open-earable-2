@@ -202,8 +202,7 @@ static void config_work_handler(struct k_work *work) {
 		}
 	}
 
-	sensor->sd_logging(config.storageOptions & DATA_STORAGE);
-	sensor->ble_stream(config.storageOptions & DATA_STREAMING);
+	sensor->set_consumers(config.storageOptions);
 
 	if (config.storageOptions & (DATA_STORAGE | DATA_STREAMING)) {
 		if (sensor->init(&sensor_queue)) {

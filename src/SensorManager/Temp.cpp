@@ -59,8 +59,7 @@ void Temp::update_sensor(struct k_work *work) {
         return;
     }
 
-    msg_temp.sd = sensor._sd_logging;
-    msg_temp.stream = sensor._ble_stream;
+    msg_temp.consumer_mask = sensor.consumers;
 
     msg_temp.data.id = ID_OPTTEMP;
     msg_temp.data.size = sizeof(float);

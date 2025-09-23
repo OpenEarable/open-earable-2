@@ -241,7 +241,7 @@ void sensor_queue_listener_cb(const struct zbus_channel *chan) {
     
     msg = (struct sensor_msg *)zbus_chan_const_msg(&sensor_chan);
 
-	if (msg->stream) {
+	if (msg->consumer_mask & SENSOR_CONSUMER_BLE) {
 		ret = k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
 
 		if (ret) {
