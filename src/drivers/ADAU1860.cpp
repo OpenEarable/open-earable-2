@@ -193,7 +193,7 @@ int ADAU1860::begin() {
         LARK_ERROR_RETURN(err);
 
         // bypass PLL and set MCLK to 24.576 MHz
-        err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_24P576, true);
+        /*err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_24P576, true);
         LARK_ERROR_RETURN(err);
         err = adi_lark_clk_enable_pll_power_on(&device, false);
         LARK_ERROR_RETURN(err);
@@ -235,7 +235,150 @@ int ADAU1860::begin() {
         LARK_ERROR_RETURN(err);
 
         err = adi_lark_pmu_enable_master_block(&device, 1);
+        LARK_ERROR_RETURN(err);*/
+
+        // bypass PLL
+        //uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
+        //writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+
+        err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_98P304, true);
         LARK_ERROR_RETURN(err);
+
+        uint8_t status2;
+        readReg(registers::STATUS2, &status2, sizeof(status2));
+        LOG_DBG("STATUS2: 0x%x", status2);
+
+        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+
+        while (!(status2 & (1 << 7))) {
+                readReg(registers::STATUS2, &status2, sizeof(status2));
+                LOG_DBG("STATUS2: 0x%x", status2);
+
+                // power up complete and PLL lock
+                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+
+                k_usleep(10);
+        }
+
+        /* change dldo voltage output to 1.1v to support 98MHz clock */
+        err = adi_lark_pmu_set_dldo_output_voltage(&device, API_LARK_PMU_DLDO_OUTPUT_1P1V);
+        LARK_ERROR_RETURN(err);
+
+
+        /* Wait until DVDD is settle at 1.1V
+        * If DVDD is configured to 0.9, DVDD_Done flag
+        * will never be set to 1 as it is not going to change
+        * any value*/
+
+        uint32_t DVDD_DONE = 0;
+        do
+        {
+                err = adi_lark_hal_bf_read(&device, BF_STARTUP_DLYCNT_DONE_INFO, &DVDD_DONE);
+                LARK_ERROR_RETURN(err);
+
+        } while(!DVDD_DONE);
+
+        err = adi_lark_clk_startup_pll(&device, API_LARK_CLK_XTAL_MODE_XTAL, API_LARK_CLK_PLL_SOURCE_MCLKIN, API_LARK_CLK_SYNC_SOURCE_INTERNAL, 24576000, 98304000);
+        LARK_ERROR_RETURN(err);
+        
+
+        uint32_t PLL_LOCKED = 0;
+        do
+        {
+                err = adi_lark_hal_bf_read(&device, BF_IRQ1_PLL_LOCKED_INFO, &PLL_LOCKED);
+                LARK_ERROR_RETURN(err);
+
+        } while(!PLL_LOCKED);
+
+        err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_98P304, false);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_clk_set_ffsram_clk_rate(&device, API_LARK_FFSRAM_CLK_RATE_BUSCLK_OVER_1);
+        LARK_ERROR_RETURN(err);
+
+        /*uint8_t clk_ctrl12 = 0x01; // frequency multiplier enabled
+        writeReg(registers::CLK_CTRL12, &clk_ctrl12, sizeof(clk_ctrl12));
+
+        clk_ctrl13 &= ~(1 << 7);
+        writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
+
+        // verify power up complete
+        //uint8_t status2;
+        readReg(registers::STATUS2, &status2, sizeof(status2));
+        LOG_DBG("STATUS2: 0x%x", status2);
+
+        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+        if (!(status2 & (1 << 1))) LOG_WRN("FM not ready");
+
+        while (!(status2 & (1 << 7)) || !(status2 & (1 << 1))) {
+                readReg(registers::STATUS2, &status2, sizeof(status2));
+                LOG_DBG("STATUS2: 0x%x", status2);
+
+                // power up complete and PLL lock
+                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
+                if (!(status2 & (1 << 1))) LOG_WRN("FM not ready");
+
+                k_usleep(10);
+        }*/
+
+        err = adi_lark_pmu_set_chip_power_mode(&device, API_LARK_PWR_MODE_ACTIVE); //API_LARK_PWR_MODE_ACTIVE
+        LARK_ERROR_RETURN(err);
+
+        err = adi_lark_pmu_enable_master_block(&device, 1);
+        LARK_ERROR_RETURN(err);
+
+#ifdef PLL
+
+        /* change dldo voltage output to 1.1v to support 98MHz clock */
+        err = adi_lark_pmu_set_dldo_output_voltage(&device, API_LARK_PMU_DLDO_OUTPUT_1P1V);
+        LARK_ERROR_RETURN(err);
+
+
+        /* Wait until DVDD is settle at 1.1V
+        * If DVDD is configured to 0.9, DVDD_Done flag
+        * will never be set to 1 as it is not going to change
+        * any value*/
+
+        uint32_t DVDD_DONE = 0;
+        do
+        {
+                err = adi_lark_hal_bf_read(&device, BF_STARTUP_DLYCNT_DONE_INFO, &DVDD_DONE);
+                LARK_ERROR_RETURN(err);
+
+        } while(!DVDD_DONE);
+
+
+        /* power up device and audio block */
+        err = adi_lark_pmu_set_chip_power_mode(&device, API_LARK_PWR_MODE_ACTIVE);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_pmu_enable_master_block(&device, 1);
+        LARK_ERROR_RETURN(err);
+
+        /* set pll, bus clock and ffsram clock */
+        err = adi_lark_clk_startup_pll(&device, API_LARK_CLK_XTAL_MODE_XTAL, API_LARK_CLK_PLL_SOURCE_MCLKIN, API_LARK_CLK_SYNC_SOURCE_INTERNAL, 24576000, 98304000);
+        LARK_ERROR_RETURN(err);
+        err = adi_lark_clk_set_ffsram_clk_rate(&device, API_LARK_FFSRAM_CLK_RATE_BUSCLK_OVER_1);
+        LARK_ERROR_RETURN(err);
+
+        /* Wait until PLL is locked
+        * As we are using a MMCLK of 98.304MHz using the PLL
+        * from the XTAL we need to wait until locks*/
+
+        uint32_t PLL_LOCKED = 0;
+        do
+        {
+                err = adi_lark_hal_bf_read(&device, BF_IRQ1_PLL_LOCKED_INFO, &PLL_LOCKED);
+                LARK_ERROR_RETURN(err);
+
+        } while(!PLL_LOCKED);
+
+        err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_98P304, false);
+        LARK_ERROR_RETURN(err);
+
+#endif
+
+        // Power saving
+        /*uint8_t power_mode = 0x40 | 0x11 | 0x04; // CM_Startup_over | Active Mode, Master enable
+        writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));*/
 
         /* Select I2S0 as input source, and set divider as 1. */
         //ret = adi_lark_fdsp_set_rate(&device, API_LARK_FDSP_RATE_SRC_DMIC0_1, 1);
