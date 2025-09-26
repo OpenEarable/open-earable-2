@@ -253,6 +253,9 @@ int SDLogger::begin(const std::string& filename) {
 
     k_poll_signal_raise(&logger_sig, 0);
 
+    unsynced_bytes = 0;
+    last_sync_us = micros();
+
     return 0;
 }
 
@@ -306,13 +309,15 @@ int SDLogger::write_sensor_data(const sensor_data& msg) {
 int SDLogger::flush() {
     uint32_t bytes_read;
     uint8_t * data;
-    size_t write_size = SD_BLOCK_SIZE;
-
     uint32_t fill = ring_buf_size_get(&ring_buffer);
+    if (fill == 0) return 0;
 
-    ring_buf_get_claim(&ring_buffer, &data, fill);
+    // Claim exactly what’s available
+    uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill);
+    if (claimed == 0) return 0;
 
-    bytes_read = sd_card->write((char*)ring_buffer.buffer, &write_size, false);
+    size_t write_size = claimed;
+    bytes_read = sd_card->write((char*)data, &write_size, false);
 
     ring_buf_get_finish(&ring_buffer, bytes_read);
 
@@ -344,7 +349,10 @@ int SDLogger::end() {
         LOG_ERR("Failed to flush file buffer.");
         return ret;
     }
-
+    int sret = sd_card->sync();
+    if (sret) {
+        LOG_WRN("Final fs_sync failed: %d", sret);
+    }
     LOG_INF("Close File ....");
 
     LOG_DBG("Max buffer fill: %d bytes", count_max_buffer_fill);
