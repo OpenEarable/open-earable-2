@@ -677,7 +677,7 @@ int SDCardManager::rm(std::string path) {
 }
 
 int SDCardManager::sync() {
-	if (!this->mounted) {
+	if (!this->mounted || !this->tracked_file.is_open) {
 		return -ENODEV;
 	}
 

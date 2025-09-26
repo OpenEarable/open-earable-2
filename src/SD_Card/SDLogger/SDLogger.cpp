@@ -93,6 +93,9 @@ void sd_listener_callback(const struct zbus_channel *chan)
 
         state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("SD card removed mid recording. Stop recording.");
+        (void)sdlogger.flush();
+        (void)sdlogger.sd_card->sync();
+        (void)sdlogger.sd_card->close_file();
 
         // sdlogger.end();
         sdlogger.is_open = false;
@@ -126,7 +129,26 @@ void SDLogger::sensor_sd_task() {
     
             ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
             bytes_read = sdlogger.sd_card->write((char*)data, &write_size, false);
+            uint64_t end_us = micros();
             ring_buf_get_finish(&ring_buffer, bytes_read);
+
+            if (bytes_read > 0) {
+                sdlogger.unsynced_bytes += bytes_read;
+                uint64_t now = end_us;
+                bool size_gate = (sdlogger.unsynced_bytes >= SYNC_EVERY_BYTES);
+                bool time_gate = ((now - sdlogger.last_sync_us) >= (uint64_t)SYNC_EVERY_MS * 1000);
+
+                // Optional: only sync when ring is not near full to reduce contention
+                if ((size_gate || time_gate) && ring_buf_size_get(&ring_buffer) < (BUFFER_SIZE / 4)) {
+                    int sret = sdlogger.sd_card->sync();
+                    if (sret == 0) {
+                        sdlogger.unsynced_bytes = 0;
+                        sdlogger.last_sync_us = now;
+                    } else {
+                        LOG_WRN("fs_sync deferred: %d", sret);
+                    }
+                }
+            }
 
             //k_mutex_unlock(&write_mutex);
     
