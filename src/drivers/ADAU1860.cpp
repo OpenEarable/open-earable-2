@@ -752,9 +752,7 @@ int ADAU1860::fdsp_bank_select(uint8_t bank) {
         val |= (bank & 0x03); // set bank bits
         writeReg(registers::FDSP_CTRL1, &bank, sizeof(bank));
 
-        k_msleep(100); // wait for bank switch
-
-        int err = adi_lark_int_trig_tdsp_sw_irq(&device, 1);
+        adi_lark_tdsp_reset(&device);
 
         return 0;
 }
