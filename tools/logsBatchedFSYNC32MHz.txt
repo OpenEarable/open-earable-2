@@ -1,0 +1,2149 @@
+HL [00:05:07.066,345] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:05:07.066,375] <inf> power_manager: charging state: charging
+HL [00:05:07.069,549] <dbg> power_manager: fuel_gauge_work_handler: Voltage: 3.719 V
+HL [00:05:07.069,549] <dbg> power_manager: fuel_gauge_work_handler: Charging current: 113.000 mA
+HL [00:05:07.069,549] <dbg> power_manager: fuel_gauge_work_handler: Target current: 110.000 mA
+HL [00:05:07.070,678] <dbg> power_manager: fuel_gauge_work_handler: State of charge: 36.000 %
+HL [00:05:11.838,348] <dbg> power_manager: fuel_gauge_callback: Fuel Gauge GPOUT Interrupt
+HL [00:05:11.838,378] <dbg> power_manager: fuel_gauge_callback: Fuel Gauge GPOUT Interrupt
+HL [00:05:11.842,559] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:05:11.842,559] <inf> power_manager: charging state: charging
+HL [00:05:11.845,581] <dbg> power_manager: fuel_gauge_work_handler: Voltage: 3.720 V
+HL [00:05:11.845,611] <dbg> power_manager: fuel_gauge_work_handler: Charging current: 113.000 mA
+HL [00:05:11.845,611] <dbg> power_manager: fuel_gauge_work_handler: Target current: 110.000 mA
+HL [00:05:11.846,679] <dbg> power_manager: fuel_gauge_work_handler: State of charge: 37.000 %
+HL [00:05:15.542,633] <inf> sensor_manager: Setup sensor ID 0 with samplerateIndex 5
+HL [00:05:15.819,854] <inf> sensor_manager: Starting SDLogger with recording name prefix: sensor_log_
+HL [00:05:15.819,885] <inf> sd_logger: OPEN FILE: sensor_log_315819854
+HL [00:05:15.872,772] <inf> sensor_manager: Setup sensor ID 4 with samplerateIndex 15
+HL [00:05:15.941,925] <inf> sd_logger: SD write: 4096 B in 6226 us, ~657 KB/s, buf 44/32768
+HL [00:05:15.962,799] <inf> sensor_manager: Setup sensor ID 6 with samplerateIndex 7
+HL [00:05:15.964,050] <wrn> MLX90632: Sensor EEPROM version (usually 0x205): 0x8505
+HL [00:05:16.042,053] <inf> sd_logger: SD write: 4096 B in 5646 us, ~725 KB/s, buf 40/32768
+HL [00:05:16.066,162] <wrn> MLX90632: Found a cycle position that was not 1 or 2
+HL [00:05:16.112,823] <inf> sensor_manager: Setup sensor ID 1 with samplerateIndex 17
+HL [00:05:16.152,130] <inf> sd_logger: SD write: 4096 B in 5615 us, ~729 KB/s, buf 42/32768
+HL [00:05:16.172,821] <inf> sensor_manager: Setup sensor ID 7 with samplerateIndex 9
+HL [00:05:16.173,431] <inf> BMA580: Chip ID :0xC4
+HL [00:05:16.174,499] <inf> BMA580: Accel enabled
+HL [00:05:16.176,116] <inf> BMA580: Chip ID :0xC4
+HL [00:05:16.177,673] <inf> BMA580: Accel enabled
+HL [00:05:16.232,849] <inf> sensor_manager: Setup sensor ID 2 with samplerateIndex 0
+HL [00:05:16.247,558] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 8/32768
+HL [00:05:16.261,535] <inf> sd_logger: SD write: 4096 B in 6805 us, ~601 KB/s, buf 0/32768
+HL [00:05:16.278,930] <inf> sd_logger: SD write: 4096 B in 7324 us, ~559 KB/s, buf 34/32768
+HL [00:05:16.292,846] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 214/32768
+HL [00:05:16.309,265] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 184/32768
+HL [00:05:16.328,887] <inf> sd_logger: SD write: 4096 B in 9307 us, ~440 KB/s, buf 156/32768
+HL [00:05:16.343,841] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 28/32768
+HL [00:05:16.360,137] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 6/32768
+HL [00:05:16.375,793] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 174/32768
+HL [00:05:16.388,977] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 28/32768
+HL [00:05:16.405,334] <inf> sd_logger: SD write: 4096 B in 6652 us, ~615 KB/s, buf 138/32768
+HL [00:05:16.422,760] <inf> sd_logger: SD write: 4096 B in 6104 us, ~671 KB/s, buf 220/32768
+HL [00:05:16.439,300] <inf> sd_logger: SD write: 4096 B in 7691 us, ~532 KB/s, buf 90/32768
+HL [00:05:16.458,160] <inf> sd_logger: SD write: 4096 B in 9186 us, ~445 KB/s, buf 90/32768
+HL [00:05:16.470,703] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 54/32768
+HL [00:05:16.487,121] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 192/32768
+HL [00:05:16.505,035] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 146/32768
+HL [00:05:16.520,904] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 42/32768
+HL [00:05:16.534,088] <inf> sd_logger: SD write: 4096 B in 6440 us, ~636 KB/s, buf 52/32768
+HL [00:05:16.551,300] <inf> sd_logger: SD write: 4096 B in 6745 us, ~607 KB/s, buf 70/32768
+HL [00:05:16.567,810] <inf> sd_logger: SD write: 4096 B in 6257 us, ~654 KB/s, buf 88/32768
+HL [00:05:16.590,942] <inf> sd_logger: SD write: 4096 B in 10285 us, ~398 KB/s, buf 206/32768
+HL [00:05:16.602,355] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 48/32768
+HL [00:05:16.618,316] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 30/32768
+HL [00:05:16.632,751] <inf> sd_logger: SD write: 4096 B in 6165 us, ~664 KB/s, buf 168/32768
+HL [00:05:16.649,444] <inf> sd_logger: SD write: 4096 B in 5859 us, ~699 KB/s, buf 140/32768
+HL [00:05:16.666,748] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 38/32768
+HL [00:05:16.680,358] <inf> sd_logger: SD write: 4096 B in 6713 us, ~610 KB/s, buf 2/32768
+HL [00:05:16.702,087] <inf> sd_logger: SD write: 4096 B in 10162 us, ~403 KB/s, buf 38/32768
+HL [00:05:16.717,529] <inf> sd_logger: SD write: 4096 B in 8942 us, ~458 KB/s, buf 170/32768
+HL [00:05:16.732,696] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 216/32768
+HL [00:05:16.747,253] <inf> sd_logger: SD write: 4096 B in 7050 us, ~580 KB/s, buf 6/32768
+HL [00:05:16.762,512] <inf> sd_logger: SD write: 4096 B in 6897 us, ~593 KB/s, buf 56/32768
+HL [00:05:16.778,503] <inf> sd_logger: SD write: 4096 B in 5859 us, ~699 KB/s, buf 74/32768
+HL [00:05:16.796,020] <inf> sd_logger: SD write: 4096 B in 6317 us, ~648 KB/s, buf 92/32768
+HL [00:05:16.813,140] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 16/32768
+HL [00:05:16.830,902] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 48/32768
+HL [00:05:16.847,930] <inf> sd_logger: SD write: 4096 B in 9002 us, ~455 KB/s, buf 30/32768
+--- 1 messages dropped ---
+HL [00:05:16.892,395] <inf> sd_logger: SD write: 4096 B in 6745 us, ~607 KB/s, buf 22/32768
+--- 3 messages dropped ---
+HL [00:05:16.976,837] <inf> sd_logger: SD write: 4096 B in 9247 us, ~442 KB/s, buf 118/32768
+--- 4 messages dropped ---
+HL [00:05:17.020,874] <inf> sd_logger: SD write: 4096 B in 7142 us, ~573 KB/s, buf 140/32768
+--- 4 messages dropped ---
+HL [00:05:17.071,807] <dbg> power_manager: fuel_gauge_work_handler: State of charge: 37.000 %
+--- 5 messages dropped ---
+HL [00:05:17.102,813] <inf> sd_logger: SD write: 4096 B in 7781 us, ~526 KB/s, buf 158/32768
+--- 2 messages dropped ---
+HL [00:05:17.151,184] <inf> sd_logger: SD write: 4096 B in 7447 us, ~550 KB/s, buf 144/32768
+--- 5 messages dropped ---
+HL [00:05:17.247,680] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 48/32768
+--- 4 messages dropped ---
+HL [00:05:17.343,536] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 92/32768
+--- 5 messages dropped ---
+HL [00:05:17.423,797] <inf> sd_logger: SD write: 4096 B in 6195 us, ~661 KB/s, buf 46/32768
+--- 2 messages dropped ---
+HL [00:05:17.506,713] <inf> sd_logger: SD write: 4096 B in 7232 us, ~566 KB/s, buf 32/32768
+--- 6 messages dropped ---
+HL [00:05:17.585,388] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 26/32768
+--- 1 messages dropped ---
+HL [00:05:17.622,253] <inf> sd_logger: SD write: 4096 B in 9674 us, ~423 KB/s, buf 16/32768
+--- 2 messages dropped ---
+HL [00:05:17.666,046] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 12/32768
+--- 4 messages dropped ---
+HL [00:05:17.751,525] <inf> sd_logger: SD write: 4096 B in 8850 us, ~462 KB/s, buf 332/32768
+--- 2 messages dropped ---
+HL [00:05:17.826,934] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 106/32768
+--- 5 messages dropped ---
+HL [00:05:17.891,265] <inf> sd_logger: SD write: 4096 B in 6713 us, ~610 KB/s, buf 24/32768
+--- 3 messages dropped ---
+HL [00:05:17.957,275] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 72/32768
+--- 5 messages dropped ---
+HL [00:05:18.066,955] <inf> sd_logger: SD write: 4096 B in 6409 us, ~639 KB/s, buf 190/32768
+--- 2 messages dropped ---
+HL [00:05:18.100,982] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 164/32768
+--- 3 messages dropped ---
+HL [00:05:18.166,625] <inf> sd_logger: SD write: 4096 B in 7049 us, ~581 KB/s, buf 118/32768
+--- 2 messages dropped ---
+HL [00:05:18.214,965] <inf> sd_logger: SD write: 4096 B in 7263 us, ~563 KB/s, buf 32/32768
+HL [00:05:18.231,689] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 46/32768
+--- 2 messages dropped ---
+HL [00:05:18.298,156] <inf> sd_logger: SD write: 4096 B in 7447 us, ~550 KB/s, buf 106/32768
+--- 4 messages dropped ---
+HL [00:05:18.362,701] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 78/32768
+--- 2 messages dropped ---
+HL [00:05:18.415,496] <inf> sd_logger: SD write: 4096 B in 7995 us, ~512 KB/s, buf 18/32768
+--- 4 messages dropped ---
+HL [00:05:18.494,506] <inf> sd_logger: SD write: 4096 B in 6317 us, ~648 KB/s, buf 30/32768
+--- 1 messages dropped ---
+HL [00:05:18.545,776] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 64/32768
+--- 6 messages dropped ---
+HL [00:05:18.643,768] <inf> sd_logger: SD write: 4096 B in 7232 us, ~566 KB/s, buf 112/32768
+--- 1 messages dropped ---
+HL [00:05:18.677,459] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 34/32768
+--- 3 messages dropped ---
+HL [00:05:18.742,095] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 164/32768
+--- 1 messages dropped ---
+HL [00:05:18.777,587] <inf> sd_logger: SD write: 4096 B in 11017 us, ~371 KB/s, buf 192/32768
+--- 2 messages dropped ---
+HL [00:05:18.823,486] <inf> sd_logger: SD write: 4096 B in 6867 us, ~596 KB/s, buf 18/32768
+--- 1 messages dropped ---
+HL [00:05:18.872,436] <inf> sd_logger: SD write: 4096 B in 8606 us, ~475 KB/s, buf 78/32768
+--- 1 messages dropped ---
+HL [00:05:18.903,411] <inf> sd_logger: SD write: 4096 B in 5860 us, ~698 KB/s, buf 186/32768
+--- 3 messages dropped ---
+HL [00:05:18.986,206] <inf> sd_logger: SD write: 4096 B in 6439 us, ~636 KB/s, buf 130/32768
+--- 4 messages dropped ---
+HL [00:05:19.060,089] <inf> sd_logger: SD write: 4096 B in 14038 us, ~291 KB/s, buf 42/32768
+--- 2 messages dropped ---
+HL [00:05:19.089,477] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 180/32768
+--- 2 messages dropped ---
+HL [00:05:19.136,627] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 20/32768
+HL [00:05:19.152,008] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 62/32768
+--- 3 messages dropped ---
+HL [00:05:19.219,909] <inf> sd_logger: SD write: 4096 B in 7202 us, ~568 KB/s, buf 136/32768
+--- 1 messages dropped ---
+HL [00:05:19.268,585] <inf> sd_logger: SD write: 4096 B in 7416 us, ~552 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:05:19.304,321] <inf> sd_logger: SD write: 4096 B in 9826 us, ~416 KB/s, buf 128/32768
+--- 1 messages dropped ---
+HL [00:05:19.350,189] <inf> sd_logger: SD write: 4096 B in 7630 us, ~536 KB/s, buf 114/32768
+--- 2 messages dropped ---
+HL [00:05:19.384,765] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 64/32768
+--- 2 messages dropped ---
+HL [00:05:19.431,457] <inf> sd_logger: SD write: 4096 B in 6836 us, ~599 KB/s, buf 104/32768
+--- 3 messages dropped ---
+HL [00:05:19.501,129] <inf> sd_logger: SD write: 4096 B in 7629 us, ~536 KB/s, buf 178/32768
+--- 3 messages dropped ---
+HL [00:05:19.565,704] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 106/32768
+HL [00:05:19.582,031] <inf> sd_logger: SD write: 4096 B in 7447 us, ~550 KB/s, buf 92/32768
+--- 4 messages dropped ---
+HL [00:05:19.662,475] <inf> sd_logger: SD write: 4096 B in 5890 us, ~695 KB/s, buf 32/32768
+--- 4 messages dropped ---
+HL [00:05:19.745,971] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 24/32768
+--- 3 messages dropped ---
+HL [00:05:19.810,424] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 102/32768
+--- 1 messages dropped ---
+HL [00:05:19.847,198] <inf> sd_logger: SD write: 4096 B in 8972 us, ~456 KB/s, buf 792/32768
+--- 3 messages dropped ---
+HL [00:05:19.908,721] <inf> sd_logger: SD write: 4096 B in 5951 us, ~688 KB/s, buf 12/32768
+--- 4 messages dropped ---
+HL [00:05:19.996,154] <inf> sd_logger: SD write: 4096 B in 8697 us, ~470 KB/s, buf 164/32768
+--- 3 messages dropped ---
+HL [00:05:20.093,872] <inf> sd_logger: SD write: 4096 B in 8392 us, ~488 KB/s, buf 124/32768
+--- 4 messages dropped ---
+HL [00:05:20.142,181] <inf> sd_logger: SD write: 4096 B in 6195 us, ~661 KB/s, buf 130/32768
+--- 1 messages dropped ---
+HL [00:05:20.190,429] <inf> sd_logger: SD write: 4096 B in 6562 us, ~624 KB/s, buf 2/32768
+--- 3 messages dropped ---
+HL [00:05:20.273,559] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 190/32768
+--- 4 messages dropped ---
+HL [00:05:20.320,312] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 112/32768
+--- 2 messages dropped ---
+HL [00:05:20.373,168] <inf> sd_logger: SD write: 4096 B in 8728 us, ~469 KB/s, buf 12/32768
+HL [00:05:20.387,481] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 8/32768
+HL [00:05:20.403,076] <inf> sd_logger: SD write: 4096 B in 7630 us, ~536 KB/s, buf 80/32768
+--- 2 messages dropped ---
+HL [00:05:20.452,178] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 112/32768
+--- 2 messages dropped ---
+HL [00:05:20.517,395] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 118/32768
+--- 2 messages dropped ---
+HL [00:05:20.550,292] <inf> sd_logger: SD write: 4096 B in 8545 us, ~479 KB/s, buf 8/32768
+--- 2 messages dropped ---
+HL [00:05:20.614,807] <inf> sd_logger: SD write: 4096 B in 6409 us, ~639 KB/s, buf 172/32768
+--- 4 messages dropped ---
+HL [00:05:20.681,549] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 152/32768
+--- 2 messages dropped ---
+HL [00:05:20.778,442] <inf> sd_logger: SD write: 4096 B in 6012 us, ~681 KB/s, buf 178/32768
+--- 3 messages dropped ---
+HL [00:05:20.813,934] <inf> sd_logger: SD write: 4096 B in 8484 us, ~482 KB/s, buf 132/32768
+--- 3 messages dropped ---
+HL [00:05:20.860,870] <inf> sd_logger: SD write: 4096 B in 6225 us, ~657 KB/s, buf 120/32768
+--- 3 messages dropped ---
+HL [00:05:20.943,756] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 154/32768
+--- 5 messages dropped ---
+HL [00:05:21.027,954] <inf> sd_logger: SD write: 4096 B in 9277 us, ~441 KB/s, buf 146/32768
+--- 1 messages dropped ---
+HL [00:05:21.093,566] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 66/32768
+--- 4 messages dropped ---
+HL [00:05:21.141,906] <inf> sd_logger: SD write: 4096 B in 8423 us, ~486 KB/s, buf 162/32768
+--- 3 messages dropped ---
+HL [00:05:21.207,855] <inf> sd_logger: SD write: 4096 B in 6439 us, ~636 KB/s, buf 80/32768
+--- 1 messages dropped ---
+HL [00:05:21.258,728] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 12/32768
+--- 5 messages dropped ---
+HL [00:05:21.342,376] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 182/32768
+--- 2 messages dropped ---
+HL [00:05:21.388,275] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 96/32768
+--- 3 messages dropped ---
+HL [00:05:21.457,550] <inf> sd_logger: SD write: 4096 B in 6501 us, ~630 KB/s, buf 194/32768
+--- 1 messages dropped ---
+HL [00:05:21.506,683] <inf> sd_logger: SD write: 4096 B in 7294 us, ~561 KB/s, buf 20/32768
+--- 3 messages dropped ---
+HL [00:05:21.556,182] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 48/32768
+--- 3 messages dropped ---
+HL [00:05:21.635,711] <inf> sd_logger: SD write: 4096 B in 6195 us, ~661 KB/s, buf 82/32768
+--- 1 messages dropped ---
+HL [00:05:21.654,113] <inf> sd_logger: SD write: 4096 B in 7629 us, ~536 KB/s, buf 68/32768
+--- 4 messages dropped ---
+HL [00:05:21.735,321] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 6/32768
+--- 3 messages dropped ---
+HL [00:05:21.821,075] <inf> sd_logger: SD write: 4096 B in 10681 us, ~383 KB/s, buf 88/32768
+--- 4 messages dropped ---
+HL [00:05:21.899,169] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 110/32768
+--- 1 messages dropped ---
+HL [00:05:21.936,950] <inf> sd_logger: SD write: 4096 B in 11566 us, ~354 KB/s, buf 42/32768
+--- 4 messages dropped ---
+HL [00:05:22.016,357] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 30/32768
+--- 3 messages dropped ---
+HL [00:05:22.085,418] <inf> sd_logger: SD write: 4096 B in 10620 us, ~385 KB/s, buf 40/32768
+--- 2 messages dropped ---
+HL [00:05:22.117,523] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 0/32768
+--- 3 messages dropped ---
+HL [00:05:22.182,312] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 4/32768
+--- 2 messages dropped ---
+HL [00:05:22.247,863] <inf> sd_logger: SD write: 4096 B in 8423 us, ~486 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:05:22.282,806] <inf> sd_logger: SD write: 4096 B in 9307 us, ~440 KB/s, buf 108/32768
+--- 3 messages dropped ---
+HL [00:05:22.347,229] <inf> sd_logger: SD write: 4096 B in 8789 us, ~466 KB/s, buf 76/32768
+--- 2 messages dropped ---
+HL [00:05:22.426,391] <inf> sd_logger: SD write: 4096 B in 5982 us, ~684 KB/s, buf 64/32768
+--- 4 messages dropped ---
+HL [00:05:22.495,880] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 22/32768
+--- 3 messages dropped ---
+HL [00:05:22.543,640] <inf> sd_logger: SD write: 4096 B in 6501 us, ~630 KB/s, buf 210/32768
+--- 2 messages dropped ---
+HL [00:05:22.597,229] <inf> sd_logger: SD write: 4096 B in 9644 us, ~424 KB/s, buf 190/32768
+--- 2 messages dropped ---
+HL [00:05:22.644,897] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 32/32768
+--- 3 messages dropped ---
+HL [00:05:22.725,708] <inf> sd_logger: SD write: 4096 B in 8210 us, ~498 KB/s, buf 46/32768
+--- 2 messages dropped ---
+HL [00:05:22.757,720] <inf> sd_logger: SD write: 4096 B in 7324 us, ~559 KB/s, buf 88/32768
+--- 4 messages dropped ---
+HL [00:05:22.848,236] <inf> sd_logger: SD write: 4096 B in 15747 us, ~260 KB/s, buf 28/32768
+--- 3 messages dropped ---
+HL [00:05:22.911,743] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 18/32768
+--- 3 messages dropped ---
+HL [00:05:22.997,375] <inf> sd_logger: SD write: 4096 B in 11962 us, ~342 KB/s, buf 6/32768
+--- 2 messages dropped ---
+HL [00:05:23.023,376] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 24/32768
+--- 5 messages dropped ---
+HL [00:05:23.140,228] <inf> sd_logger: SD write: 4096 B in 9735 us, ~420 KB/s, buf 38/32768
+--- 2 messages dropped ---
+HL [00:05:23.186,492] <inf> sd_logger: SD write: 4096 B in 6591 us, ~621 KB/s, buf 112/32768
+--- 2 messages dropped ---
+HL [00:05:23.220,214] <inf> sd_logger: SD write: 4096 B in 6867 us, ~596 KB/s, buf 130/32768
+--- 1 messages dropped ---
+HL [00:05:23.250,671] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 12/32768
+--- 2 messages dropped ---
+HL [00:05:23.301,544] <inf> sd_logger: SD write: 4096 B in 6592 us, ~621 KB/s, buf 72/32768
+--- 3 messages dropped ---
+HL [00:05:23.366,851] <inf> sd_logger: SD write: 4096 B in 7141 us, ~573 KB/s, buf 90/32768
+--- 1 messages dropped ---
+HL [00:05:23.417,083] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 54/32768
+--- 2 messages dropped ---
+HL [00:05:23.448,425] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 92/32768
+--- 5 messages dropped ---
+HL [00:05:23.564,605] <inf> sd_logger: SD write: 4096 B in 8210 us, ~498 KB/s, buf 54/32768
+--- 4 messages dropped ---
+HL [00:05:23.646,453] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 152/32768
+--- 4 messages dropped ---
+HL [00:05:23.743,804] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 186/32768
+--- 2 messages dropped ---
+HL [00:05:23.762,542] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 142/32768
+HL [00:05:23.778,564] <inf> sd_logger: SD write: 4096 B in 8484 us, ~482 KB/s, buf 14/32768
+--- 2 messages dropped ---
+HL [00:05:23.825,378] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 10/32768
+--- 3 messages dropped ---
+HL [00:05:23.891,082] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 122/32768
+--- 4 messages dropped ---
+HL [00:05:23.973,480] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 144/32768
+--- 1 messages dropped ---
+HL [00:05:24.007,080] <inf> sd_logger: SD write: 4096 B in 7691 us, ~532 KB/s, buf 126/32768
+--- 4 messages dropped ---
+HL [00:05:24.087,738] <inf> sd_logger: SD write: 4096 B in 6409 us, ~639 KB/s, buf 192/32768
+--- 1 messages dropped ---
+HL [00:05:24.123,199] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 114/32768
+--- 5 messages dropped ---
+HL [00:05:24.237,731] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 180/32768
+--- 5 messages dropped ---
+HL [00:05:24.320,495] <inf> sd_logger: SD write: 4096 B in 9125 us, ~448 KB/s, buf 16/32768
+--- 1 messages dropped ---
+HL [00:05:24.352,142] <inf> sd_logger: SD write: 4096 B in 6836 us, ~599 KB/s, buf 30/32768
+--- 1 messages dropped ---
+HL [00:05:24.383,056] <inf> sd_logger: SD write: 4096 B in 6714 us, ~610 KB/s, buf 88/32768
+--- 3 messages dropped ---
+HL [00:05:24.466,674] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 94/32768
+--- 2 messages dropped ---
+HL [00:05:24.498,291] <inf> sd_logger: SD write: 4096 B in 6530 us, ~627 KB/s, buf 0/32768
+--- 4 messages dropped ---
+HL [00:05:24.618,316] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 106/32768
+--- 3 messages dropped ---
+HL [00:05:24.647,033] <inf> sd_logger: SD write: 4096 B in 6684 us, ~612 KB/s, buf 60/32768
+--- 4 messages dropped ---
+HL [00:05:24.728,302] <inf> sd_logger: SD write: 4096 B in 5920 us, ~691 KB/s, buf 36/32768
+--- 6 messages dropped ---
+HL [00:05:24.846,740] <inf> sd_logger: SD write: 4096 B in 7599 us, ~539 KB/s, buf 24/32768
+--- 3 messages dropped ---
+HL [00:05:24.912,292] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 10/32768
+--- 1 messages dropped ---
+HL [00:05:24.945,190] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 0/32768
+--- 4 messages dropped ---
+HL [00:05:25.026,977] <inf> sd_logger: SD write: 4096 B in 7508 us, ~545 KB/s, buf 110/32768
+--- 3 messages dropped ---
+HL [00:05:25.094,635] <inf> sd_logger: SD write: 4096 B in 9948 us, ~411 KB/s, buf 4/32768
+--- 3 messages dropped ---
+HL [00:05:25.157,012] <inf> sd_logger: SD write: 4096 B in 8453 us, ~484 KB/s, buf 10/32768
+--- 4 messages dropped ---
+HL [00:05:25.241,027] <inf> sd_logger: SD write: 4096 B in 8575 us, ~477 KB/s, buf 38/32768
+--- 2 messages dropped ---
+HL [00:05:25.288,482] <inf> sd_logger: SD write: 4096 B in 8057 us, ~508 KB/s, buf 4/32768
+--- 5 messages dropped ---
+HL [00:05:25.388,732] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 196/32768
+--- 1 messages dropped ---
+HL [00:05:25.422,088] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 196/32768
+--- 4 messages dropped ---
+HL [00:05:25.509,338] <inf> sd_logger: SD write: 4096 B in 11047 us, ~370 KB/s, buf 196/32768
+--- 1 messages dropped ---
+HL [00:05:25.537,658] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 142/32768
+--- 1 messages dropped ---
+HL [00:05:25.570,648] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 14/32768
+--- 3 messages dropped ---
+HL [00:05:25.640,960] <inf> sd_logger: SD write: 4096 B in 9308 us, ~440 KB/s, buf 322/32768
+--- 3 messages dropped ---
+HL [00:05:25.737,640] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 122/32768
+--- 4 messages dropped ---
+HL [00:05:25.789,611] <inf> sd_logger: SD write: 4096 B in 8178 us, ~500 KB/s, buf 170/32768
+--- 2 messages dropped ---
+HL [00:05:25.837,554] <inf> sd_logger: SD write: 4096 B in 8239 us, ~497 KB/s, buf 4/32768
+--- 2 messages dropped ---
+HL [00:05:25.886,077] <inf> sd_logger: SD write: 4096 B in 7751 us, ~528 KB/s, buf 106/32768
+--- 3 messages dropped ---
+HL [00:05:25.954,010] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 14/32768
+--- 7 messages dropped ---
+HL [00:05:26.099,487] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 100/32768
+--- 2 messages dropped ---
+HL [00:05:26.152,404] <inf> sd_logger: SD write: 4096 B in 11108 us, ~368 KB/s, buf 36/32768
+--- 2 messages dropped ---
+HL [00:05:26.182,952] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 4/32768
+--- 1 messages dropped ---
+HL [00:05:26.215,606] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 178/32768
+--- 3 messages dropped ---
+HL [00:05:26.278,503] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 158/32768
+--- 5 messages dropped ---
+HL [00:05:26.393,890] <inf> sd_logger: SD write: 4096 B in 6530 us, ~627 KB/s, buf 108/32768
+--- 3 messages dropped ---
+HL [00:05:26.460,449] <inf> sd_logger: SD write: 4096 B in 7904 us, ~518 KB/s, buf 68/32768
+--- 4 messages dropped ---
+HL [00:05:26.526,763] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 46/32768
+--- 2 messages dropped ---
+HL [00:05:26.596,618] <inf> sd_logger: SD write: 4096 B in 11200 us, ~365 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:05:26.625,885] <inf> sd_logger: SD write: 4096 B in 7569 us, ~541 KB/s, buf 180/32768
+--- 2 messages dropped ---
+HL [00:05:26.694,641] <inf> sd_logger: SD write: 4096 B in 9400 us, ~435 KB/s, buf 6/32768
+--- 3 messages dropped ---
+HL [00:05:26.739,837] <inf> sd_logger: SD write: 4096 B in 6562 us, ~624 KB/s, buf 136/32768
+--- 5 messages dropped ---
+HL [00:05:26.839,355] <inf> sd_logger: SD write: 4096 B in 6805 us, ~601 KB/s, buf 198/32768
+--- 2 messages dropped ---
+HL [00:05:26.887,512] <inf> sd_logger: SD write: 4096 B in 7263 us, ~563 KB/s, buf 2/32768
+--- 2 messages dropped ---
+HL [00:05:26.936,462] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 168/32768
+--- 4 messages dropped ---
+HL [00:05:27.018,951] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 8/32768
+HL [00:05:27.031,402] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 84/32768
+--- 5 messages dropped ---
+HL [00:05:27.070,831] <dbg> power_manager: fuel_gauge_work_handler: Charging current: 113.000 mA
+--- 3 messages dropped ---
+HL [00:05:27.114,257] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 30/32768
+--- 1 messages dropped ---
+HL [00:05:27.146,423] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 62/32768
+--- 4 messages dropped ---
+HL [00:05:27.229,248] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 160/32768
+--- 2 messages dropped ---
+HL [00:05:27.264,587] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 24/32768
+--- 3 messages dropped ---
+HL [00:05:27.329,956] <inf> sd_logger: SD write: 4096 B in 8728 us, ~469 KB/s, buf 122/32768
+--- 2 messages dropped ---
+HL [00:05:27.411,010] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 156/32768
+--- 3 messages dropped ---
+HL [00:05:27.460,754] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 134/32768
+--- 6 messages dropped ---
+HL [00:05:27.560,760] <inf> sd_logger: SD write: 4096 B in 8545 us, ~479 KB/s, buf 38/32768
+--- 2 messages dropped ---
+HL [00:05:27.608,428] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 64/32768
+--- 3 messages dropped ---
+HL [00:05:27.676,788] <inf> sd_logger: SD write: 4096 B in 7599 us, ~539 KB/s, buf 138/32768
+--- 2 messages dropped ---
+HL [00:05:27.725,799] <inf> sd_logger: SD write: 4096 B in 9521 us, ~430 KB/s, buf 130/32768
+--- 3 messages dropped ---
+HL [00:05:27.788,513] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 44/32768
+--- 2 messages dropped ---
+HL [00:05:27.842,742] <inf> sd_logger: SD write: 4096 B in 7751 us, ~528 KB/s, buf 20/32768
+--- 1 messages dropped ---
+HL [00:05:27.890,380] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 58/32768
+--- 8 messages dropped ---
+HL [00:05:28.021,606] <inf> sd_logger: SD write: 4096 B in 8117 us, ~504 KB/s, buf 214/32768
+--- 1 messages dropped ---
+HL [00:05:28.053,497] <inf> sd_logger: SD write: 4096 B in 7202 us, ~568 KB/s, buf 40/32768
+--- 4 messages dropped ---
+HL [00:05:28.139,526] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 200/32768
+--- 2 messages dropped ---
+HL [00:05:28.185,424] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 52/32768
+--- 1 messages dropped ---
+HL [00:05:28.220,733] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 190/32768
+--- 7 messages dropped ---
+HL [00:05:28.351,043] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 40/32768
+HL [00:05:28.369,140] <inf> sd_logger: SD write: 4096 B in 7629 us, ~536 KB/s, buf 224/32768
+HL [00:05:28.385,589] <inf> sd_logger: SD write: 4096 B in 7416 us, ~552 KB/s, buf 8/32768
+--- 2 messages dropped ---
+HL [00:05:28.451,324] <inf> sd_logger: SD write: 4096 B in 8057 us, ~508 KB/s, buf 28/32768
+--- 4 messages dropped ---
+HL [00:05:28.516,479] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 68/32768
+--- 2 messages dropped ---
+HL [00:05:28.582,519] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 42/32768
+--- 3 messages dropped ---
+HL [00:05:28.648,590] <inf> sd_logger: SD write: 4096 B in 7385 us, ~554 KB/s, buf 142/32768
+--- 4 messages dropped ---
+HL [00:05:28.731,719] <inf> sd_logger: SD write: 4096 B in 8453 us, ~484 KB/s, buf 174/32768
+--- 3 messages dropped ---
+HL [00:05:28.801,574] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 1212/32768
+--- 4 messages dropped ---
+HL [00:05:28.864,196] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 12/32768
+--- 5 messages dropped ---
+HL [00:05:28.959,808] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 134/32768
+HL [00:05:28.976,562] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 38/32768
+--- 4 messages dropped ---
+HL [00:05:29.078,277] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 38/32768
+--- 2 messages dropped ---
+HL [00:05:29.111,022] <inf> sd_logger: SD write: 4096 B in 6805 us, ~601 KB/s, buf 158/32768
+--- 1 messages dropped ---
+HL [00:05:29.144,409] <inf> sd_logger: SD write: 4096 B in 8271 us, ~495 KB/s, buf 2/32768
+--- 1 messages dropped ---
+HL [00:05:29.177,337] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 222/32768
+--- 5 messages dropped ---
+HL [00:05:29.277,832] <inf> sd_logger: SD write: 4096 B in 7537 us, ~543 KB/s, buf 172/32768
+--- 1 messages dropped ---
+HL [00:05:29.310,913] <inf> sd_logger: SD write: 4096 B in 10712 us, ~382 KB/s, buf 100/32768
+--- 1 messages dropped ---
+HL [00:05:29.342,315] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 18/32768
+--- 3 messages dropped ---
+HL [00:05:29.407,745] <inf> sd_logger: SD write: 4096 B in 7141 us, ~573 KB/s, buf 10/32768
+--- 1 messages dropped ---
+HL [00:05:29.473,754] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 144/32768
+--- 6 messages dropped ---
+HL [00:05:29.557,403] <inf> sd_logger: SD write: 4096 B in 7691 us, ~532 KB/s, buf 16/32768
+--- 2 messages dropped ---
+HL [00:05:29.621,276] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 160/32768
+--- 3 messages dropped ---
+HL [00:05:29.669,342] <inf> sd_logger: SD write: 4096 B in 6928 us, ~591 KB/s, buf 4/32768
+--- 1 messages dropped ---
+HL [00:05:29.735,473] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 112/32768
+--- 3 messages dropped ---
+HL [00:05:29.769,805] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 2/32768
+--- 5 messages dropped ---
+HL [00:05:29.870,849] <inf> sd_logger: SD write: 4096 B in 7691 us, ~532 KB/s, buf 72/32768
+--- 1 messages dropped ---
+HL [00:05:29.900,207] <inf> sd_logger: SD write: 4096 B in 7050 us, ~580 KB/s, buf 14/32768
+--- 3 messages dropped ---
+HL [00:05:29.965,362] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 8/32768
+--- 2 messages dropped ---
+HL [00:05:30.034,973] <inf> sd_logger: SD write: 4096 B in 7812 us, ~524 KB/s, buf 68/32768
+--- 2 messages dropped ---
+HL [00:05:30.100,585] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 212/32768
+--- 3 messages dropped ---
+HL [00:05:30.133,087] <inf> sd_logger: SD write: 4096 B in 8698 us, ~470 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:05:30.197,357] <inf> sd_logger: SD write: 4096 B in 6225 us, ~657 KB/s, buf 154/32768
+--- 4 messages dropped ---
+HL [00:05:30.262,817] <inf> sd_logger: SD write: 4096 B in 7019 us, ~583 KB/s, buf 18/32768
+--- 1 messages dropped ---
+HL [00:05:30.310,516] <inf> sd_logger: SD write: 4096 B in 7293 us, ~561 KB/s, buf 140/32768
+--- 2 messages dropped ---
+HL [00:05:30.345,825] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 158/32768
+--- 2 messages dropped ---
+HL [00:05:30.395,416] <inf> sd_logger: SD write: 4096 B in 8178 us, ~500 KB/s, buf 44/32768
+--- 3 messages dropped ---
+HL [00:05:30.462,554] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 200/32768
+HL [00:05:30.479,217] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 26/32768
+--- 2 messages dropped ---
+HL [00:05:30.541,290] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 106/32768
+--- 1 messages dropped ---
+HL [00:05:30.559,417] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 92/32768
+--- 3 messages dropped ---
+HL [00:05:30.625,793] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 42/32768
+--- 1 messages dropped ---
+HL [00:05:30.660,339] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 74/32768
+--- 3 messages dropped ---
+HL [00:05:30.726,684] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 176/32768
+--- 2 messages dropped ---
+HL [00:05:30.791,717] <inf> sd_logger: SD write: 4096 B in 7599 us, ~539 KB/s, buf 38/32768
+--- 2 messages dropped ---
+HL [00:05:30.840,148] <inf> sd_logger: SD write: 4096 B in 6989 us, ~586 KB/s, buf 64/32768
+--- 1 messages dropped ---
+HL [00:05:30.871,917] <inf> sd_logger: SD write: 4096 B in 7751 us, ~528 KB/s, buf 148/32768
+--- 5 messages dropped ---
+HL [00:05:30.955,902] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 98/32768
+--- 1 messages dropped ---
+HL [00:05:30.988,677] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 80/32768
+--- 1 messages dropped ---
+HL [00:05:31.025,115] <inf> sd_logger: SD write: 4096 B in 9033 us, ~453 KB/s, buf 66/32768
+--- 1 messages dropped ---
+HL [00:05:31.071,166] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 20/32768
+--- 5 messages dropped ---
+HL [00:05:31.154,571] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 234/32768
+--- 3 messages dropped ---
+HL [00:05:31.253,417] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 174/32768
+--- 2 messages dropped ---
+HL [00:05:31.269,866] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 96/32768
+--- 2 messages dropped ---
+HL [00:05:31.333,526] <inf> sd_logger: SD write: 4096 B in 6562 us, ~624 KB/s, buf 24/32768
+--- 4 messages dropped ---
+HL [00:05:31.397,735] <inf> sd_logger: SD write: 4096 B in 6531 us, ~627 KB/s, buf 110/32768
+--- 1 messages dropped ---
+HL [00:05:31.434,204] <inf> sd_logger: SD write: 4096 B in 9125 us, ~448 KB/s, buf 50/32768
+--- 5 messages dropped ---
+HL [00:05:31.545,227] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 178/32768
+--- 5 messages dropped ---
+HL [00:05:31.625,762] <inf> sd_logger: SD write: 4096 B in 6592 us, ~621 KB/s, buf 56/32768
+--- 1 messages dropped ---
+HL [00:05:31.659,637] <inf> sd_logger: SD write: 4096 B in 6530 us, ~627 KB/s, buf 74/32768
+--- 1 messages dropped ---
+HL [00:05:31.693,176] <inf> sd_logger: SD write: 4096 B in 8789 us, ~466 KB/s, buf 144/32768
+--- 5 messages dropped ---
+HL [00:05:31.789,489] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 68/32768
+--- 1 messages dropped ---
+HL [00:05:31.841,857] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 160/32768
+--- 4 messages dropped ---
+HL [00:05:31.904,479] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 76/32768
+--- 1 messages dropped ---
+HL [00:05:31.988,830] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 0/32768
+--- 4 messages dropped ---
+HL [00:05:32.021,636] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 98/32768
+--- 1 messages dropped ---
+HL [00:05:32.053,894] <inf> sd_logger: SD write: 4096 B in 6592 us, ~621 KB/s, buf 14/32768
+HL [00:05:32.079,986] <wrn> audio_datapath: I2S RX overrun. Single msg
+--- 3 messages dropped ---
+HL [00:05:32.165,954] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 152/32768
+--- 1 messages dropped ---
+HL [00:05:32.200,256] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 134/32768
+--- 3 messages dropped ---
+HL [00:05:32.262,725] <inf> sd_logger: SD write: 4096 B in 6683 us, ~612 KB/s, buf 16/32768
+--- 1 messages dropped ---
+HL [00:05:32.314,239] <inf> sd_logger: SD write: 4096 B in 6408 us, ~639 KB/s, buf 44/32768
+--- 4 messages dropped ---
+HL [00:05:32.379,241] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 10/32768
+--- 2 messages dropped ---
+HL [00:05:32.460,449] <inf> sd_logger: SD write: 4096 B in 6287 us, ~651 KB/s, buf 50/32768
+--- 5 messages dropped ---
+HL [00:05:32.530,059] <inf> sd_logger: SD write: 4096 B in 10223 us, ~400 KB/s, buf 26/32768
+--- 1 messages dropped ---
+HL [00:05:32.578,247] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 124/32768
+--- 1 messages dropped ---
+HL [00:05:32.596,008] <inf> sd_logger: SD write: 4096 B in 8941 us, ~458 KB/s, buf 92/32768
+--- 3 messages dropped ---
+HL [00:05:32.679,229] <inf> sd_logger: SD write: 4096 B in 10132 us, ~404 KB/s, buf 126/32768
+--- 2 messages dropped ---
+HL [00:05:32.727,783] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 12/32768
+--- 2 messages dropped ---
+HL [00:05:32.775,390] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 156/32768
+--- 2 messages dropped ---
+HL [00:05:32.810,607] <inf> sd_logger: SD write: 4096 B in 9247 us, ~442 KB/s, buf 118/32768
+--- 3 messages dropped ---
+HL [00:05:32.894,195] <inf> sd_logger: SD write: 4096 B in 9460 us, ~432 KB/s, buf 22/32768
+--- 2 messages dropped ---
+HL [00:05:32.924,468] <inf> sd_logger: SD write: 4096 B in 7629 us, ~536 KB/s, buf 40/32768
+--- 3 messages dropped ---
+HL [00:05:32.990,875] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 180/32768
+--- 1 messages dropped ---
+HL [00:05:33.078,613] <inf> sd_logger: SD write: 4096 B in 9796 us, ~418 KB/s, buf 820/32768
+--- 3 messages dropped ---
+HL [00:05:33.088,348] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 182/32768
+--- 3 messages dropped ---
+HL [00:05:33.153,228] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 50/32768
+HL [00:05:33.169,128] <inf> sd_logger: SD write: 4096 B in 6073 us, ~674 KB/s, buf 78/32768
+HL [00:05:33.187,530] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 92/32768
+HL [00:05:33.207,427] <inf> sd_logger: SD write: 4096 B in 10223 us, ~400 KB/s, buf 184/32768
+--- 1 messages dropped ---
+HL [00:05:33.252,899] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 132/32768
+--- 2 messages dropped ---
+HL [00:05:33.301,177] <inf> sd_logger: SD write: 4096 B in 6104 us, ~671 KB/s, buf 8/32768
+--- 1 messages dropped ---
+HL [00:05:33.318,786] <inf> sd_logger: SD write: 4096 B in 7873 us, ~520 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:05:33.366,973] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 48/32768
+--- 1 messages dropped ---
+HL [00:05:33.398,254] <inf> sd_logger: SD write: 4096 B in 7049 us, ~581 KB/s, buf 126/32768
+--- 4 messages dropped ---
+HL [00:05:33.497,619] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 188/32768
+--- 3 messages dropped ---
+HL [00:05:33.562,255] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 32/32768
+--- 3 messages dropped ---
+HL [00:05:33.613,098] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 0/32768
+--- 3 messages dropped ---
+HL [00:05:33.678,771] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 52/32768
+--- 2 messages dropped ---
+HL [00:05:33.742,279] <inf> sd_logger: SD write: 4096 B in 6226 us, ~657 KB/s, buf 118/32768
+--- 5 messages dropped ---
+HL [00:05:33.841,796] <inf> sd_logger: SD write: 4096 B in 8576 us, ~477 KB/s, buf 208/32768
+--- 1 messages dropped ---
+HL [00:05:33.857,452] <inf> sd_logger: SD write: 4096 B in 7691 us, ~532 KB/s, buf 20/32768
+--- 1 messages dropped ---
+HL [00:05:33.907,226] <inf> sd_logger: SD write: 4096 B in 7812 us, ~524 KB/s, buf 10/32768
+--- 2 messages dropped ---
+HL [00:05:33.955,017] <inf> sd_logger: SD write: 4096 B in 6928 us, ~591 KB/s, buf 190/32768
+--- 2 messages dropped ---
+HL [00:05:34.007,232] <inf> sd_logger: SD write: 4096 B in 8575 us, ~477 KB/s, buf 30/32768
+--- 2 messages dropped ---
+HL [00:05:34.053,436] <inf> sd_logger: SD write: 4096 B in 6286 us, ~651 KB/s, buf 172/32768
+--- 2 messages dropped ---
+HL [00:05:34.088,287] <inf> sd_logger: SD write: 4096 B in 8056 us, ~508 KB/s, buf 214/32768
+--- 3 messages dropped ---
+HL [00:05:34.171,661] <inf> sd_logger: SD write: 4096 B in 8392 us, ~488 KB/s, buf 100/32768
+--- 3 messages dropped ---
+HL [00:05:34.236,328] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 22/32768
+--- 4 messages dropped ---
+HL [00:05:34.301,910] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 92/32768
+--- 3 messages dropped ---
+HL [00:05:34.366,149] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 190/32768
+--- 2 messages dropped ---
+HL [00:05:34.447,052] <inf> sd_logger: SD write: 4096 B in 7050 us, ~580 KB/s, buf 34/32768
+--- 3 messages dropped ---
+HL [00:05:34.480,346] <inf> sd_logger: SD write: 4096 B in 7141 us, ~573 KB/s, buf 162/32768
+HL [00:05:34.495,208] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 54/32768
+--- 2 messages dropped ---
+HL [00:05:34.547,241] <inf> sd_logger: SD write: 4096 B in 7813 us, ~524 KB/s, buf 44/32768
+--- 3 messages dropped ---
+HL [00:05:34.631,561] <inf> sd_logger: SD write: 4096 B in 11413 us, ~358 KB/s, buf 34/32768
+--- 3 messages dropped ---
+HL [00:05:34.710,540] <inf> sd_logger: SD write: 4096 B in 7508 us, ~545 KB/s, buf 66/32768
+--- 5 messages dropped ---
+HL [00:05:34.776,519] <inf> sd_logger: SD write: 4096 B in 8454 us, ~484 KB/s, buf 66/32768
+HL [00:05:34.792,663] <inf> sd_logger: SD write: 4096 B in 7690 us, ~532 KB/s, buf 34/32768
+HL [00:05:34.809,936] <inf> sd_logger: SD write: 4096 B in 7904 us, ~518 KB/s, buf 48/32768
+HL [00:05:34.828,002] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 172/32768
+--- 3 messages dropped ---
+HL [00:05:34.893,554] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 210/32768
+--- 1 messages dropped ---
+HL [00:05:34.975,372] <inf> sd_logger: SD write: 4096 B in 7385 us, ~554 KB/s, buf 174/32768
+--- 3 messages dropped ---
+HL [00:05:35.006,072] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 42/32768
+--- 1 messages dropped ---
+HL [00:05:35.056,213] <inf> sd_logger: SD write: 4096 B in 7202 us, ~568 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:05:35.074,218] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 70/32768
+--- 1 messages dropped ---
+HL [00:05:35.103,332] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 50/32768
+--- 2 messages dropped ---
+HL [00:05:35.158,721] <inf> sd_logger: SD write: 4096 B in 11413 us, ~358 KB/s, buf 154/32768
+--- 1 messages dropped ---
+HL [00:05:35.204,193] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 70/32768
+--- 2 messages dropped ---
+HL [00:05:35.239,044] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 144/32768
+--- 2 messages dropped ---
+HL [00:05:35.285,491] <inf> sd_logger: SD write: 4096 B in 6897 us, ~593 KB/s, buf 182/32768
+--- 4 messages dropped ---
+HL [00:05:35.367,889] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 194/32768
+--- 4 messages dropped ---
+HL [00:05:35.449,096] <inf> sd_logger: SD write: 4096 B in 7110 us, ~576 KB/s, buf 156/32768
+--- 4 messages dropped ---
+HL [00:05:35.532,928] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 44/32768
+--- 2 messages dropped ---
+HL [00:05:35.597,503] <inf> sd_logger: SD write: 4096 B in 6562 us, ~624 KB/s, buf 190/32768
+--- 2 messages dropped ---
+HL [00:05:35.629,333] <inf> sd_logger: SD write: 4096 B in 7263 us, ~563 KB/s, buf 176/32768
+--- 3 messages dropped ---
+HL [00:05:35.714,233] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 172/32768
+--- 3 messages dropped ---
+HL [00:05:35.781,982] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 10/32768
+--- 3 messages dropped ---
+HL [00:05:35.830,474] <inf> sd_logger: SD write: 4096 B in 9369 us, ~437 KB/s, buf 102/32768
+--- 4 messages dropped ---
+HL [00:05:35.927,368] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 24/32768
+--- 9 messages dropped ---
+HL [00:05:36.076,599] <inf> sd_logger: SD write: 4096 B in 8636 us, ~474 KB/s, buf 198/32768
+--- 2 messages dropped ---
+HL [00:05:36.124,755] <inf> sd_logger: SD write: 4096 B in 8515 us, ~481 KB/s, buf 138/32768
+HL [00:05:36.140,411] <inf> sd_logger: SD write: 4096 B in 7324 us, ~559 KB/s, buf 152/32768
+--- 2 messages dropped ---
+HL [00:05:36.208,221] <inf> sd_logger: SD write: 4096 B in 10864 us, ~377 KB/s, buf 172/32768
+--- 2 messages dropped ---
+HL [00:05:36.239,227] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 94/32768
+--- 2 messages dropped ---
+HL [00:05:36.286,621] <inf> sd_logger: SD write: 4096 B in 7599 us, ~539 KB/s, buf 192/32768
+--- 1 messages dropped ---
+HL [00:05:36.336,425] <inf> sd_logger: SD write: 4096 B in 7447 us, ~550 KB/s, buf 18/32768
+--- 4 messages dropped ---
+HL [00:05:36.401,702] <inf> sd_logger: SD write: 4096 B in 8606 us, ~475 KB/s, buf 138/32768
+--- 1 messages dropped ---
+HL [00:05:36.448,486] <inf> sd_logger: SD write: 4096 B in 6195 us, ~661 KB/s, buf 30/32768
+--- 2 messages dropped ---
+HL [00:05:36.487,030] <inf> sd_logger: SD write: 4096 B in 10102 us, ~405 KB/s, buf 188/32768
+--- 2 messages dropped ---
+HL [00:05:36.532,592] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 38/32768
+HL [00:05:36.549,285] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 24/32768
+--- 1 messages dropped ---
+HL [00:05:36.582,916] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 6/32768
+--- 2 messages dropped ---
+HL [00:05:36.634,429] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 204/32768
+--- 2 messages dropped ---
+HL [00:05:36.698,455] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 196/32768
+--- 1 messages dropped ---
+HL [00:05:36.713,439] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 8/32768
+--- 4 messages dropped ---
+HL [00:05:36.800,323] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 88/32768
+--- 2 messages dropped ---
+HL [00:05:36.883,728] <inf> sd_logger: SD write: 4096 B in 9827 us, ~416 KB/s, buf 12/32768
+--- 2 messages dropped ---
+HL [00:05:36.897,705] <inf> sd_logger: SD write: 4096 B in 6714 us, ~610 KB/s, buf 26/32768
+--- 2 messages dropped ---
+HL [00:05:36.949,829] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 170/32768
+--- 1 messages dropped ---
+HL [00:05:36.999,938] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 106/32768
+--- 2 messages dropped ---
+HL [00:05:37.032,073] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 164/32768
+--- 1 messages dropped ---
+HL [00:05:37.067,749] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+--- 4 messages dropped ---
+HL [00:05:37.071,166] <dbg> power_manager: fuel_gauge_work_handler: Target current: 110.000 mA
+--- 2 messages dropped ---
+HL [00:05:37.095,916] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 138/32768
+--- 1 messages dropped ---
+HL [00:05:37.130,371] <inf> sd_logger: SD write: 4096 B in 7263 us, ~563 KB/s, buf 198/32768
+--- 2 messages dropped ---
+HL [00:05:37.180,572] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 146/32768
+--- 1 messages dropped ---
+HL [00:05:37.230,102] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 184/32768
+--- 3 messages dropped ---
+HL [00:05:37.281,066] <inf> sd_logger: SD write: 4096 B in 8728 us, ~469 KB/s, buf 548/32768
+--- 4 messages dropped ---
+HL [00:05:37.377,532] <inf> sd_logger: SD write: 4096 B in 8483 us, ~482 KB/s, buf 92/32768
+--- 3 messages dropped ---
+HL [00:05:37.426,391] <inf> sd_logger: SD write: 4096 B in 7447 us, ~550 KB/s, buf 198/32768
+--- 2 messages dropped ---
+HL [00:05:37.475,585] <inf> sd_logger: SD write: 4096 B in 6713 us, ~610 KB/s, buf 10/32768
+--- 2 messages dropped ---
+HL [00:05:37.524,078] <inf> sd_logger: SD write: 4096 B in 7141 us, ~573 KB/s, buf 22/32768
+--- 2 messages dropped ---
+HL [00:05:37.576,202] <inf> sd_logger: SD write: 4096 B in 7324 us, ~559 KB/s, buf 192/32768
+--- 2 messages dropped ---
+HL [00:05:37.622,558] <inf> sd_logger: SD write: 4096 B in 6683 us, ~612 KB/s, buf 76/32768
+--- 1 messages dropped ---
+HL [00:05:37.677,276] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 942/32768
+--- 4 messages dropped ---
+HL [00:05:37.739,135] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 206/32768
+--- 2 messages dropped ---
+HL [00:05:37.790,893] <inf> sd_logger: SD write: 4096 B in 11780 us, ~347 KB/s, buf 74/32768
+--- 4 messages dropped ---
+HL [00:05:37.868,438] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 20/32768
+--- 2 messages dropped ---
+HL [00:05:37.919,219] <inf> sd_logger: SD write: 4096 B in 6683 us, ~612 KB/s, buf 8/32768
+--- 1 messages dropped ---
+HL [00:05:37.968,353] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 88/32768
+--- 3 messages dropped ---
+HL [00:05:38.033,477] <inf> sd_logger: SD write: 4096 B in 8393 us, ~488 KB/s, buf 88/32768
+--- 2 messages dropped ---
+HL [00:05:38.066,009] <inf> sd_logger: SD write: 4096 B in 7813 us, ~524 KB/s, buf 148/32768
+--- 2 messages dropped ---
+HL [00:05:38.130,950] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 6/32768
+--- 3 messages dropped ---
+HL [00:05:38.178,741] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 52/32768
+--- 2 messages dropped ---
+HL [00:05:38.230,529] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 48/32768
+--- 3 messages dropped ---
+HL [00:05:38.296,386] <inf> sd_logger: SD write: 4096 B in 8484 us, ~482 KB/s, buf 60/32768
+--- 1 messages dropped ---
+HL [00:05:38.332,061] <inf> sd_logger: SD write: 4096 B in 9247 us, ~442 KB/s, buf 152/32768
+--- 4 messages dropped ---
+HL [00:05:38.411,376] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 28/32768
+--- 1 messages dropped ---
+HL [00:05:38.441,192] <inf> sd_logger: SD write: 4096 B in 6287 us, ~651 KB/s, buf 176/32768
+--- 5 messages dropped ---
+HL [00:05:38.557,525] <inf> sd_logger: SD write: 4096 B in 6165 us, ~664 KB/s, buf 6/32768
+--- 3 messages dropped ---
+HL [00:05:38.608,856] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 40/32768
+--- 4 messages dropped ---
+HL [00:05:38.690,063] <inf> sd_logger: SD write: 4096 B in 7141 us, ~573 KB/s, buf 74/32768
+--- 2 messages dropped ---
+HL [00:05:38.742,675] <inf> sd_logger: SD write: 4096 B in 7812 us, ~524 KB/s, buf 180/32768
+--- 1 messages dropped ---
+HL [00:05:38.773,071] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 108/32768
+--- 2 messages dropped ---
+HL [00:05:38.824,615] <inf> sd_logger: SD write: 4096 B in 8789 us, ~466 KB/s, buf 12/32768
+--- 5 messages dropped ---
+HL [00:05:38.920,410] <inf> sd_logger: SD write: 4096 B in 6501 us, ~630 KB/s, buf 46/32768
+--- 1 messages dropped ---
+HL [00:05:38.955,444] <inf> sd_logger: SD write: 4096 B in 8393 us, ~488 KB/s, buf 106/32768
+--- 4 messages dropped ---
+HL [00:05:39.038,543] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 42/32768
+--- 2 messages dropped ---
+HL [00:05:39.085,327] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 62/32768
+--- 1 messages dropped ---
+HL [00:05:39.122,192] <inf> sd_logger: SD write: 4096 B in 10193 us, ~401 KB/s, buf 214/32768
+HL [00:05:39.135,925] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 44/32768
+--- 4 messages dropped ---
+HL [00:05:39.215,606] <inf> sd_logger: SD write: 4096 B in 6195 us, ~661 KB/s, buf 40/32768
+--- 1 messages dropped ---
+HL [00:05:39.251,647] <inf> sd_logger: SD write: 4096 B in 9796 us, ~418 KB/s, buf 132/32768
+--- 3 messages dropped ---
+HL [00:05:39.315,795] <inf> sd_logger: SD write: 4096 B in 7691 us, ~532 KB/s, buf 154/32768
+--- 3 messages dropped ---
+HL [00:05:39.399,383] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 38/32768
+--- 3 messages dropped ---
+HL [00:05:39.447,387] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 200/32768
+--- 1 messages dropped ---
+HL [00:05:39.480,194] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 196/32768
+--- 2 messages dropped ---
+HL [00:05:39.530,181] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 112/32768
+--- 1 messages dropped ---
+HL [00:05:39.564,361] <inf> sd_logger: SD write: 4096 B in 9186 us, ~445 KB/s, buf 72/32768
+--- 4 messages dropped ---
+HL [00:05:39.649,902] <inf> sd_logger: SD write: 4096 B in 9857 us, ~415 KB/s, buf 56/32768
+--- 1 messages dropped ---
+HL [00:05:39.676,818] <inf> sd_logger: SD write: 4096 B in 5921 us, ~691 KB/s, buf 114/32768
+--- 4 messages dropped ---
+HL [00:05:39.779,663] <inf> sd_logger: SD write: 4096 B in 9827 us, ~416 KB/s, buf 162/32768
+--- 5 messages dropped ---
+HL [00:05:39.858,917] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 60/32768
+--- 1 messages dropped ---
+HL [00:05:39.910,522] <inf> sd_logger: SD write: 4096 B in 9827 us, ~416 KB/s, buf 240/32768
+--- 3 messages dropped ---
+HL [00:05:39.975,646] <inf> sd_logger: SD write: 4096 B in 7813 us, ~524 KB/s, buf 98/32768
+--- 3 messages dropped ---
+HL [00:05:40.023,132] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 12/32768
+HL [00:05:40.041,503] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 196/32768
+--- 4 messages dropped ---
+HL [00:05:40.123,016] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 44/32768
+HL [00:05:40.138,916] <inf> sd_logger: SD write: 4096 B in 7568 us, ~541 KB/s, buf 6/32768
+--- 3 messages dropped ---
+HL [00:05:40.202,941] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 82/32768
+--- 2 messages dropped ---
+HL [00:05:40.269,805] <inf> sd_logger: SD write: 4096 B in 7812 us, ~524 KB/s, buf 186/32768
+--- 2 messages dropped ---
+HL [00:05:40.318,939] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 44/32768
+--- 1 messages dropped ---
+HL [00:05:40.352,935] <inf> sd_logger: SD write: 4096 B in 8575 us, ~477 KB/s, buf 2/32768
+--- 3 messages dropped ---
+HL [00:05:40.399,322] <inf> sd_logger: SD write: 4096 B in 6469 us, ~633 KB/s, buf 56/32768
+--- 1 messages dropped ---
+HL [00:05:40.437,835] <inf> sd_logger: SD write: 4096 B in 10254 us, ~399 KB/s, buf 282/32768
+--- 5 messages dropped ---
+HL [00:05:40.532,348] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 36/32768
+--- 3 messages dropped ---
+HL [00:05:40.612,609] <inf> sd_logger: SD write: 4096 B in 6591 us, ~621 KB/s, buf 56/32768
+--- 2 messages dropped ---
+HL [00:05:40.663,116] <inf> sd_logger: SD write: 4096 B in 8117 us, ~504 KB/s, buf 72/32768
+--- 3 messages dropped ---
+HL [00:05:40.727,447] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 122/32768
+--- 1 messages dropped ---
+HL [00:05:40.777,191] <inf> sd_logger: SD write: 4096 B in 7324 us, ~559 KB/s, buf 136/32768
+--- 5 messages dropped ---
+HL [00:05:40.845,062] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 72/32768
+--- 4 messages dropped ---
+HL [00:05:40.925,811] <inf> sd_logger: SD write: 4096 B in 6897 us, ~593 KB/s, buf 184/32768
+--- 2 messages dropped ---
+HL [00:05:40.972,473] <inf> sd_logger: SD write: 4096 B in 6592 us, ~621 KB/s, buf 32/32768
+--- 3 messages dropped ---
+HL [00:05:41.041,900] <inf> sd_logger: SD write: 4096 B in 7813 us, ~524 KB/s, buf 184/32768
+--- 1 messages dropped ---
+HL [00:05:41.071,197] <inf> sd_logger: SD write: 4096 B in 6408 us, ~639 KB/s, buf 144/32768
+--- 5 messages dropped ---
+HL [00:05:41.188,415] <inf> sd_logger: SD write: 4096 B in 6287 us, ~651 KB/s, buf 12/32768
+--- 2 messages dropped ---
+HL [00:05:41.271,362] <inf> sd_logger: SD write: 4096 B in 8454 us, ~484 KB/s, buf 54/32768
+--- 4 messages dropped ---
+HL [00:05:41.303,070] <inf> sd_logger: SD write: 4096 B in 7294 us, ~561 KB/s, buf 68/32768
+--- 4 messages dropped ---
+HL [00:05:41.383,087] <inf> sd_logger: SD write: 4096 B in 6714 us, ~610 KB/s, buf 166/32768
+--- 1 messages dropped ---
+HL [00:05:41.421,508] <inf> sd_logger: SD write: 4096 B in 11749 us, ~348 KB/s, buf 166/32768
+HL [00:05:41.434,753] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 70/32768
+--- 1 messages dropped ---
+HL [00:05:41.483,032] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 142/32768
+--- 3 messages dropped ---
+HL [00:05:41.547,943] <inf> sd_logger: SD write: 4096 B in 8149 us, ~502 KB/s, buf 180/32768
+--- 2 messages dropped ---
+HL [00:05:41.598,846] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 130/32768
+--- 2 messages dropped ---
+HL [00:05:41.664,031] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 96/32768
+--- 4 messages dropped ---
+HL [00:05:41.712,615] <inf> sd_logger: SD write: 4096 B in 6836 us, ~599 KB/s, buf 60/32768
+--- 1 messages dropped ---
+HL [00:05:41.826,324] <inf> sd_logger: SD write: 4096 B in 6439 us, ~636 KB/s, buf 86/32768
+--- 6 messages dropped ---
+HL [00:05:41.858,978] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 186/32768
+--- 3 messages dropped ---
+HL [00:05:41.928,833] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 86/32768
+--- 1 messages dropped ---
+HL [00:05:41.958,160] <inf> sd_logger: SD write: 4096 B in 6408 us, ~639 KB/s, buf 182/32768
+--- 3 messages dropped ---
+HL [00:05:42.042,358] <inf> sd_logger: SD write: 4096 B in 7415 us, ~552 KB/s, buf 124/32768
+--- 1 messages dropped ---
+HL [00:05:42.057,769] <inf> sd_logger: SD write: 4096 B in 6989 us, ~586 KB/s, buf 92/32768
+--- 5 messages dropped ---
+HL [00:05:42.156,738] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 50/32768
+--- 1 messages dropped ---
+HL [00:05:42.188,934] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 134/32768
+--- 2 messages dropped ---
+HL [00:05:42.239,868] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 102/32768
+--- 4 messages dropped ---
+HL [00:05:42.320,434] <inf> sd_logger: SD write: 4096 B in 6683 us, ~612 KB/s, buf 26/32768
+--- 4 messages dropped ---
+HL [00:05:42.404,907] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 18/32768
+--- 2 messages dropped ---
+HL [00:05:42.484,405] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 6/32768
+--- 2 messages dropped ---
+HL [00:05:42.500,885] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 104/32768
+--- 2 messages dropped ---
+HL [00:05:42.568,908] <inf> sd_logger: SD write: 4096 B in 7141 us, ~573 KB/s, buf 86/32768
+--- 2 messages dropped ---
+HL [00:05:42.601,593] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 32/32768
+--- 4 messages dropped ---
+HL [00:05:42.685,333] <inf> sd_logger: SD write: 4096 B in 7599 us, ~539 KB/s, buf 192/32768
+--- 2 messages dropped ---
+HL [00:05:42.734,649] <inf> sd_logger: SD write: 4096 B in 7751 us, ~528 KB/s, buf 180/32768
+--- 2 messages dropped ---
+HL [00:05:42.801,208] <inf> sd_logger: SD write: 4096 B in 7629 us, ~536 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:05:42.817,565] <dbg> power_manager: fuel_gauge_callback: Fuel Gauge GPOUT Interrupt
+--- 4 messages dropped ---
+HL [00:05:42.825,286] <dbg> power_manager: fuel_gauge_work_handler: Target current: 110.000 mA
+--- 3 messages dropped ---
+HL [00:05:42.867,645] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 116/32768
+--- 2 messages dropped ---
+HL [00:05:42.915,191] <inf> sd_logger: SD write: 4096 B in 7324 us, ~559 KB/s, buf 102/32768
+--- 2 messages dropped ---
+HL [00:05:42.967,956] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 162/32768
+--- 5 messages dropped ---
+HL [00:05:43.053,436] <inf> sd_logger: SD write: 4096 B in 11475 us, ~356 KB/s, buf 222/32768
+--- 1 messages dropped ---
+HL [00:05:43.081,756] <inf> sd_logger: SD write: 4096 B in 6989 us, ~586 KB/s, buf 184/32768
+--- 3 messages dropped ---
+HL [00:05:43.145,812] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 2/32768
+--- 3 messages dropped ---
+HL [00:05:43.213,684] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 30/32768
+--- 1 messages dropped ---
+HL [00:05:43.246,734] <inf> sd_logger: SD write: 4096 B in 8819 us, ~464 KB/s, buf 114/32768
+--- 2 messages dropped ---
+HL [00:05:43.299,285] <inf> sd_logger: SD write: 4096 B in 7598 us, ~539 KB/s, buf 154/32768
+--- 2 messages dropped ---
+HL [00:05:43.347,717] <inf> sd_logger: SD write: 4096 B in 8393 us, ~488 KB/s, buf 22/32768
+--- 2 messages dropped ---
+HL [00:05:43.413,024] <inf> sd_logger: SD write: 4096 B in 8178 us, ~500 KB/s, buf 14/32768
+--- 3 messages dropped ---
+HL [00:05:43.463,653] <inf> sd_logger: SD write: 4096 B in 8575 us, ~477 KB/s, buf 38/32768
+--- 1 messages dropped ---
+HL [00:05:43.494,384] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 6/32768
+--- 4 messages dropped ---
+HL [00:05:43.581,298] <inf> sd_logger: SD write: 4096 B in 11505 us, ~356 KB/s, buf 32/32768
+--- 4 messages dropped ---
+HL [00:05:43.660,614] <inf> sd_logger: SD write: 4096 B in 8056 us, ~508 KB/s, buf 2/32768
+--- 2 messages dropped ---
+HL [00:05:43.710,784] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 140/32768
+--- 1 messages dropped ---
+HL [00:05:43.741,607] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 184/32768
+--- 3 messages dropped ---
+HL [00:05:43.809,478] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 148/32768
+--- 4 messages dropped ---
+HL [00:05:43.888,946] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 22/32768
+--- 1 messages dropped ---
+HL [00:05:43.922,698] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 10/32768
+--- 5 messages dropped ---
+HL [00:05:44.021,209] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 198/32768
+--- 3 messages dropped ---
+HL [00:05:44.086,456] <inf> sd_logger: SD write: 4096 B in 7751 us, ~528 KB/s, buf 84/32768
+--- 4 messages dropped ---
+HL [00:05:44.167,297] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 122/32768
+--- 3 messages dropped ---
+HL [00:05:44.231,781] <inf> sd_logger: SD write: 4096 B in 7050 us, ~580 KB/s, buf 56/32768
+--- 1 messages dropped ---
+HL [00:05:44.285,400] <inf> sd_logger: SD write: 4096 B in 8484 us, ~482 KB/s, buf 240/32768
+--- 4 messages dropped ---
+HL [00:05:44.346,893] <inf> sd_logger: SD write: 4096 B in 6043 us, ~677 KB/s, buf 118/32768
+--- 2 messages dropped ---
+HL [00:05:44.412,597] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 188/32768
+--- 1 messages dropped ---
+HL [00:05:44.428,863] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 14/32768
+--- 3 messages dropped ---
+HL [00:05:44.494,140] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 52/32768
+--- 1 messages dropped ---
+HL [00:05:44.528,198] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 34/32768
+--- 2 messages dropped ---
+HL [00:05:44.575,775] <inf> sd_logger: SD write: 4096 B in 6897 us, ~593 KB/s, buf 86/32768
+--- 2 messages dropped ---
+HL [00:05:44.661,651] <inf> sd_logger: SD write: 4096 B in 9033 us, ~453 KB/s, buf 36/32768
+--- 3 messages dropped ---
+HL [00:05:44.694,854] <inf> sd_logger: SD write: 4096 B in 8850 us, ~462 KB/s, buf 166/32768
+--- 3 messages dropped ---
+HL [00:05:44.758,697] <inf> sd_logger: SD write: 4096 B in 6805 us, ~601 KB/s, buf 4/32768
+--- 2 messages dropped ---
+HL [00:05:44.809,753] <inf> sd_logger: SD write: 4096 B in 7476 us, ~547 KB/s, buf 40/32768
+--- 3 messages dropped ---
+HL [00:05:44.874,206] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 90/32768
+--- 5 messages dropped ---
+HL [00:05:44.973,175] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 118/32768
+--- 2 messages dropped ---
+HL [00:05:45.049,163] <inf> sd_logger: SD write: 4096 B in 15655 us, ~261 KB/s, buf 402/32768
+--- 4 messages dropped ---
+HL [00:05:45.105,468] <inf> sd_logger: SD write: 4096 B in 6684 us, ~612 KB/s, buf 44/32768
+--- 1 messages dropped ---
+HL [00:05:45.140,106] <inf> sd_logger: SD write: 4096 B in 7904 us, ~518 KB/s, buf 14/32768
+--- 3 messages dropped ---
+HL [00:05:45.205,078] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 98/32768
+--- 2 messages dropped ---
+HL [00:05:45.289,459] <inf> sd_logger: SD write: 4096 B in 8178 us, ~500 KB/s, buf 24/32768
+--- 3 messages dropped ---
+HL [00:05:45.340,454] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 102/32768
+--- 1 messages dropped ---
+HL [00:05:45.373,168] <inf> sd_logger: SD write: 4096 B in 8453 us, ~484 KB/s, buf 174/32768
+--- 2 messages dropped ---
+HL [00:05:45.405,426] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 156/32768
+--- 4 messages dropped ---
+HL [00:05:45.487,548] <inf> sd_logger: SD write: 4096 B in 8637 us, ~474 KB/s, buf 48/32768
+--- 1 messages dropped ---
+HL [00:05:45.534,362] <inf> sd_logger: SD write: 4096 B in 6683 us, ~612 KB/s, buf 12/32768
+--- 1 messages dropped ---
+HL [00:05:45.552,551] <inf> sd_logger: SD write: 4096 B in 8576 us, ~477 KB/s, buf 40/32768
+--- 1 messages dropped ---
+HL [00:05:45.587,402] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 22/32768
+--- 1 messages dropped ---
+HL [00:05:45.616,394] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 14/32768
+--- 3 messages dropped ---
+HL [00:05:45.701,416] <inf> sd_logger: SD write: 4096 B in 9064 us, ~451 KB/s, buf 86/32768
+--- 3 messages dropped ---
+HL [00:05:45.752,319] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 158/32768
+--- 1 messages dropped ---
+HL [00:05:45.779,815] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 138/32768
+--- 2 messages dropped ---
+HL [00:05:45.836,639] <inf> sd_logger: SD write: 4096 B in 9857 us, ~415 KB/s, buf 158/32768
+--- 2 messages dropped ---
+HL [00:05:45.882,385] <inf> sd_logger: SD write: 4096 B in 8606 us, ~475 KB/s, buf 88/32768
+--- 2 messages dropped ---
+HL [00:05:45.930,236] <inf> sd_logger: SD write: 4096 B in 7629 us, ~536 KB/s, buf 100/32768
+--- 2 messages dropped ---
+HL [00:05:46.060,821] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 38/32768
+--- 10 messages dropped ---
+HL [00:05:46.192,260] <inf> sd_logger: SD write: 4096 B in 6408 us, ~639 KB/s, buf 140/32768
+--- 2 messages dropped ---
+HL [00:05:46.228,729] <inf> sd_logger: SD write: 4096 B in 9125 us, ~448 KB/s, buf 154/32768
+--- 2 messages dropped ---
+HL [00:05:46.257,019] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 36/32768
+--- 3 messages dropped ---
+HL [00:05:46.324,035] <inf> sd_logger: SD write: 4096 B in 8149 us, ~502 KB/s, buf 14/32768
+--- 4 messages dropped ---
+HL [00:05:46.440,155] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 52/32768
+--- 3 messages dropped ---
+HL [00:05:46.470,733] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 108/32768
+--- 3 messages dropped ---
+HL [00:05:46.539,459] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 2/32768
+--- 1 messages dropped ---
+HL [00:05:46.570,434] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 194/32768
+--- 3 messages dropped ---
+HL [00:05:46.637,268] <inf> sd_logger: SD write: 4096 B in 7081 us, ~578 KB/s, buf 14/32768
+--- 1 messages dropped ---
+HL [00:05:46.667,938] <inf> sd_logger: SD write: 4096 B in 6348 us, ~645 KB/s, buf 90/32768
+--- 1 messages dropped ---
+HL [00:05:46.700,622] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 114/32768
+--- 3 messages dropped ---
+HL [00:05:46.768,707] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 52/32768
+--- 3 messages dropped ---
+HL [00:05:46.848,693] <inf> sd_logger: SD write: 4096 B in 6073 us, ~674 KB/s, buf 136/32768
+--- 2 messages dropped ---
+HL [00:05:46.898,895] <inf> sd_logger: SD write: 4096 B in 7050 us, ~580 KB/s, buf 154/32768
+--- 3 messages dropped ---
+HL [00:05:46.962,280] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 184/32768
+--- 1 messages dropped ---
+HL [00:05:46.980,529] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 198/32768
+--- 4 messages dropped ---
+HL [00:05:47.063,079] <inf> sd_logger: SD write: 4096 B in 8514 us, ~481 KB/s, buf 164/32768
+--- 7 messages dropped ---
+HL [00:05:47.095,764] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 18/32768
+--- 1 messages dropped ---
+HL [00:05:47.148,010] <inf> sd_logger: SD write: 4096 B in 10223 us, ~400 KB/s, buf 32/32768
+--- 2 messages dropped ---
+HL [00:05:47.179,321] <inf> sd_logger: SD write: 4096 B in 8271 us, ~495 KB/s, buf 24/32768
+--- 4 messages dropped ---
+HL [00:05:47.263,854] <inf> sd_logger: SD write: 4096 B in 10742 us, ~381 KB/s, buf 30/32768
+HL [00:05:47.280,303] <inf> sd_logger: SD write: 4096 B in 9460 us, ~432 KB/s, buf 34/32768
+--- 1 messages dropped ---
+HL [00:05:47.310,577] <inf> sd_logger: SD write: 4096 B in 7995 us, ~512 KB/s, buf 60/32768
+--- 2 messages dropped ---
+HL [00:05:47.361,511] <inf> sd_logger: SD write: 4096 B in 8575 us, ~477 KB/s, buf 22/32768
+--- 2 messages dropped ---
+HL [00:05:47.413,909] <inf> sd_logger: SD write: 4096 B in 9613 us, ~426 KB/s, buf 38/32768
+--- 4 messages dropped ---
+HL [00:05:47.493,408] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 62/32768
+HL [00:05:47.510,040] <inf> sd_logger: SD write: 4096 B in 8271 us, ~495 KB/s, buf 228/32768
+--- 3 messages dropped ---
+HL [00:05:47.574,340] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 82/32768
+--- 3 messages dropped ---
+HL [00:05:47.637,695] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 56/32768
+--- 1 messages dropped ---
+HL [00:05:47.675,048] <inf> sd_logger: SD write: 4096 B in 9979 us, ~410 KB/s, buf 6/32768
+--- 2 messages dropped ---
+HL [00:05:47.720,062] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 136/32768
+--- 1 messages dropped ---
+HL [00:05:47.768,554] <inf> sd_logger: SD write: 4096 B in 5951 us, ~688 KB/s, buf 128/32768
+--- 3 messages dropped ---
+HL [00:05:47.837,890] <inf> sd_logger: SD write: 4096 B in 8545 us, ~479 KB/s, buf 2/32768
+--- 5 messages dropped ---
+HL [00:05:47.917,388] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 194/32768
+--- 1 messages dropped ---
+HL [00:05:47.950,378] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 78/32768
+--- 1 messages dropped ---
+HL [00:05:47.998,168] <inf> sd_logger: SD write: 4096 B in 6592 us, ~621 KB/s, buf 116/32768
+--- 6 messages dropped ---
+HL [00:05:48.098,114] <inf> sd_logger: SD write: 4096 B in 6897 us, ~593 KB/s, buf 22/32768
+--- 2 messages dropped ---
+HL [00:05:48.148,010] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 44/32768
+--- 2 messages dropped ---
+HL [00:05:48.197,723] <inf> sd_logger: SD write: 4096 B in 8576 us, ~477 KB/s, buf 100/32768
+--- 2 messages dropped ---
+HL [00:05:48.246,337] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 118/32768
+--- 1 messages dropped ---
+HL [00:05:48.278,991] <inf> sd_logger: SD write: 4096 B in 8332 us, ~491 KB/s, buf 184/32768
+--- 3 messages dropped ---
+HL [00:05:48.347,381] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 204/32768
+--- 1 messages dropped ---
+HL [00:05:48.379,608] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 86/32768
+--- 3 messages dropped ---
+HL [00:05:48.444,824] <inf> sd_logger: SD write: 4096 B in 7263 us, ~563 KB/s, buf 2/32768
+--- 1 messages dropped ---
+HL [00:05:48.495,544] <inf> sd_logger: SD write: 4096 B in 7995 us, ~512 KB/s, buf 46/32768
+--- 3 messages dropped ---
+HL [00:05:48.557,434] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 4/32768
+--- 2 messages dropped ---
+HL [00:05:48.608,093] <inf> sd_logger: SD write: 4096 B in 7569 us, ~541 KB/s, buf 90/32768
+--- 6 messages dropped ---
+HL [00:05:48.707,641] <inf> sd_logger: SD write: 4096 B in 8027 us, ~510 KB/s, buf 92/32768
+--- 1 messages dropped ---
+HL [00:05:48.756,256] <inf> sd_logger: SD write: 4096 B in 6714 us, ~610 KB/s, buf 2/32768
+--- 4 messages dropped ---
+HL [00:05:48.822,631] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 200/32768
+--- 3 messages dropped ---
+HL [00:05:48.888,549] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 50/32768
+--- 3 messages dropped ---
+HL [00:05:48.954,772] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 14/32768
+--- 1 messages dropped ---
+HL [00:05:48.992,523] <inf> sd_logger: SD write: 4096 B in 9765 us, ~419 KB/s, buf 156/32768
+--- 4 messages dropped ---
+HL [00:05:49.068,237] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 20/32768
+--- 4 messages dropped ---
+HL [00:05:49.166,870] <inf> sd_logger: SD write: 4096 B in 6348 us, ~645 KB/s, buf 170/32768
+--- 3 messages dropped ---
+HL [00:05:49.217,498] <inf> sd_logger: SD write: 4096 B in 6684 us, ~612 KB/s, buf 120/32768
+--- 1 messages dropped ---
+HL [00:05:49.250,488] <inf> sd_logger: SD write: 4096 B in 8972 us, ~456 KB/s, buf 170/32768
+--- 3 messages dropped ---
+HL [00:05:49.314,117] <inf> sd_logger: SD write: 4096 B in 7599 us, ~539 KB/s, buf 92/32768
+--- 6 messages dropped ---
+HL [00:05:49.430,267] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 182/32768
+--- 2 messages dropped ---
+HL [00:05:49.476,684] <inf> sd_logger: SD write: 4096 B in 7081 us, ~578 KB/s, buf 32/32768
+--- 2 messages dropped ---
+HL [00:05:49.527,496] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 88/32768
+--- 4 messages dropped ---
+HL [00:05:49.608,032] <inf> sd_logger: SD write: 4096 B in 6989 us, ~586 KB/s, buf 98/32768
+--- 2 messages dropped ---
+HL [00:05:49.674,163] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 2/32768
+--- 3 messages dropped ---
+HL [00:05:49.722,656] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 136/32768
+--- 3 messages dropped ---
+HL [00:05:49.805,419] <inf> sd_logger: SD write: 4096 B in 7598 us, ~539 KB/s, buf 4/32768
+--- 1 messages dropped ---
+HL [00:05:49.840,240] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 114/32768
+--- 4 messages dropped ---
+HL [00:05:49.923,797] <inf> sd_logger: SD write: 4096 B in 8271 us, ~495 KB/s, buf 68/32768
+--- 2 messages dropped ---
+HL [00:05:49.957,031] <inf> sd_logger: SD write: 4096 B in 7508 us, ~545 KB/s, buf 4/32768
+--- 1 messages dropped ---
+HL [00:05:50.004,241] <inf> sd_logger: SD write: 4096 B in 6165 us, ~664 KB/s, buf 134/32768
+--- 5 messages dropped ---
+HL [00:05:50.088,867] <inf> sd_logger: SD write: 4096 B in 8789 us, ~466 KB/s, buf 20/32768
+--- 3 messages dropped ---
+HL [00:05:50.153,625] <inf> sd_logger: SD write: 4096 B in 7019 us, ~583 KB/s, buf 108/32768
+HL [00:05:50.173,400] <inf> sd_logger: SD write: 4096 B in 9887 us, ~414 KB/s, buf 62/32768
+--- 3 messages dropped ---
+HL [00:05:50.236,419] <inf> sd_logger: SD write: 4096 B in 7813 us, ~524 KB/s, buf 146/32768
+--- 3 messages dropped ---
+HL [00:05:50.319,305] <inf> sd_logger: SD write: 4096 B in 6867 us, ~596 KB/s, buf 128/32768
+--- 2 messages dropped ---
+HL [00:05:50.367,645] <inf> sd_logger: SD write: 4096 B in 6073 us, ~674 KB/s, buf 182/32768
+--- 2 messages dropped ---
+HL [00:05:50.440,307] <inf> sd_logger: SD write: 4096 B in 9674 us, ~423 KB/s, buf 74/32768
+--- 4 messages dropped ---
+HL [00:05:50.486,633] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 52/32768
+--- 3 messages dropped ---
+HL [00:05:50.555,877] <inf> sd_logger: SD write: 4096 B in 8453 us, ~484 KB/s, buf 172/32768
+--- 1 messages dropped ---
+HL [00:05:50.605,010] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 168/32768
+--- 2 messages dropped ---
+HL [00:05:50.653,900] <inf> sd_logger: SD write: 4096 B in 8423 us, ~486 KB/s, buf 152/32768
+--- 2 messages dropped ---
+HL [00:05:50.687,805] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 134/32768
+--- 3 messages dropped ---
+HL [00:05:50.753,265] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 28/32768
+--- 2 messages dropped ---
+HL [00:05:50.801,452] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 148/32768
+--- 1 messages dropped ---
+HL [00:05:50.837,280] <inf> sd_logger: SD write: 4096 B in 10132 us, ~404 KB/s, buf 16/32768
+--- 3 messages dropped ---
+HL [00:05:50.918,395] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 122/32768
+--- 1 messages dropped ---
+HL [00:05:50.934,112] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 72/32768
+--- 3 messages dropped ---
+HL [00:05:51.004,547] <inf> sd_logger: SD write: 4096 B in 9095 us, ~450 KB/s, buf 146/32768
+--- 1 messages dropped ---
+HL [00:05:51.050,994] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 192/32768
+--- 3 messages dropped ---
+HL [00:05:51.103,851] <inf> sd_logger: SD write: 4096 B in 9430 us, ~434 KB/s, buf 188/32768
+--- 3 messages dropped ---
+HL [00:05:51.184,753] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 212/32768
+--- 1 messages dropped ---
+HL [00:05:51.215,942] <inf> sd_logger: SD write: 4096 B in 8515 us, ~481 KB/s, buf 200/32768
+--- 6 messages dropped ---
+HL [00:05:51.313,446] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 32/32768
+--- 2 messages dropped ---
+HL [00:05:51.394,866] <inf> sd_logger: SD write: 4096 B in 7232 us, ~566 KB/s, buf 140/32768
+--- 4 messages dropped ---
+HL [00:05:51.458,892] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 54/32768
+--- 1 messages dropped ---
+HL [00:05:51.480,743] <inf> sd_logger: SD write: 4096 B in 11261 us, ~363 KB/s, buf 68/32768
+--- 5 messages dropped ---
+HL [00:05:51.575,164] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 78/32768
+--- 3 messages dropped ---
+HL [00:05:51.640,960] <inf> sd_logger: SD write: 4096 B in 6928 us, ~591 KB/s, buf 34/32768
+HL [00:05:51.657,318] <inf> sd_logger: SD write: 4096 B in 6836 us, ~599 KB/s, buf 82/32768
+HL [00:05:51.675,384] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 36/32768
+--- 1 messages dropped ---
+HL [00:05:51.721,435] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 28/32768
+--- 2 messages dropped ---
+HL [00:05:51.770,904] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 38/32768
+--- 3 messages dropped ---
+HL [00:05:51.852,783] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 40/32768
+--- 3 messages dropped ---
+HL [00:05:51.920,837] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 78/32768
+--- 5 messages dropped ---
+HL [00:05:51.983,184] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 6/32768
+--- 5 messages dropped ---
+HL [00:05:52.083,160] <inf> sd_logger: SD write: 4096 B in 7476 us, ~547 KB/s, buf 144/32768
+--- 2 messages dropped ---
+HL [00:05:52.166,687] <inf> sd_logger: SD write: 4096 B in 7905 us, ~518 KB/s, buf 2/32768
+--- 2 messages dropped ---
+HL [00:05:52.214,935] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 38/32768
+--- 4 messages dropped ---
+HL [00:05:52.262,939] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 6/32768
+--- 3 messages dropped ---
+HL [00:05:52.330,230] <inf> sd_logger: SD write: 4096 B in 8728 us, ~469 KB/s, buf 176/32768
+--- 3 messages dropped ---
+HL [00:05:52.397,521] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 24/32768
+--- 3 messages dropped ---
+HL [00:05:52.481,964] <inf> sd_logger: SD write: 4096 B in 7873 us, ~520 KB/s, buf 18/32768
+--- 2 messages dropped ---
+HL [00:05:52.513,061] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 228/32768
+HL [00:05:52.530,456] <inf> sd_logger: SD write: 4096 B in 10986 us, ~372 KB/s, buf 82/32768
+--- 4 messages dropped ---
+HL [00:05:52.626,007] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 122/32768
+--- 5 messages dropped ---
+HL [00:05:52.740,112] <inf> sd_logger: SD write: 4096 B in 6531 us, ~627 KB/s, buf 92/32768
+--- 2 messages dropped ---
+HL [00:05:52.758,514] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 92/32768
+--- 1 messages dropped ---
+HL [00:05:52.807,922] <inf> sd_logger: SD write: 4096 B in 9460 us, ~432 KB/s, buf 156/32768
+--- 4 messages dropped ---
+HL [00:05:52.873,687] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 120/32768
+--- 2 messages dropped ---
+HL [00:05:52.922,271] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 34/32768
+--- 3 messages dropped ---
+HL [00:05:53.005,706] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 26/32768
+--- 2 messages dropped ---
+HL [00:05:53.038,848] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 146/32768
+--- 1 messages dropped ---
+HL [00:05:53.087,707] <inf> sd_logger: SD write: 4096 B in 7263 us, ~563 KB/s, buf 114/32768
+--- 3 messages dropped ---
+HL [00:05:53.154,968] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 36/32768
+--- 4 messages dropped ---
+HL [00:05:53.223,327] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 204/32768
+--- 3 messages dropped ---
+HL [00:05:53.286,804] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 70/32768
+--- 3 messages dropped ---
+HL [00:05:53.352,233] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 16/32768
+--- 3 messages dropped ---
+HL [00:05:53.432,983] <inf> sd_logger: SD write: 4096 B in 7904 us, ~518 KB/s, buf 18/32768
+--- 2 messages dropped ---
+HL [00:05:53.467,773] <inf> sd_logger: SD write: 4096 B in 10315 us, ~397 KB/s, buf 104/32768
+--- 5 messages dropped ---
+HL [00:05:53.563,537] <inf> sd_logger: SD write: 4096 B in 8149 us, ~502 KB/s, buf 2/32768
+--- 3 messages dropped ---
+HL [00:05:53.662,231] <inf> sd_logger: SD write: 4096 B in 7813 us, ~524 KB/s, buf 54/32768
+--- 6 messages dropped ---
+HL [00:05:53.743,286] <inf> sd_logger: SD write: 4096 B in 6836 us, ~599 KB/s, buf 114/32768
+--- 2 messages dropped ---
+HL [00:05:53.811,523] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 78/32768
+--- 2 messages dropped ---
+HL [00:05:53.861,663] <inf> sd_logger: SD write: 4096 B in 9217 us, ~444 KB/s, buf 152/32768
+--- 1 messages dropped ---
+HL [00:05:53.877,563] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 200/32768
+--- 2 messages dropped ---
+HL [00:05:53.925,567] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 6/32768
+--- 1 messages dropped ---
+HL [00:05:53.974,060] <inf> sd_logger: SD write: 4096 B in 7691 us, ~532 KB/s, buf 2/32768
+--- 3 messages dropped ---
+HL [00:05:54.021,850] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 74/32768
+--- 3 messages dropped ---
+HL [00:05:54.087,127] <inf> sd_logger: SD write: 4096 B in 6684 us, ~612 KB/s, buf 140/32768
+--- 1 messages dropped ---
+HL [00:05:54.124,908] <inf> sd_logger: SD write: 4096 B in 10895 us, ~375 KB/s, buf 22/32768
+--- 1 messages dropped ---
+HL [00:05:54.151,977] <inf> sd_logger: SD write: 4096 B in 6531 us, ~627 KB/s, buf 146/32768
+--- 2 messages dropped ---
+HL [00:05:54.203,308] <inf> sd_logger: SD write: 4096 B in 7812 us, ~524 KB/s, buf 128/32768
+--- 2 messages dropped ---
+HL [00:05:54.285,583] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 20/32768
+--- 3 messages dropped ---
+HL [00:05:54.332,733] <inf> sd_logger: SD write: 4096 B in 6317 us, ~648 KB/s, buf 196/32768
+--- 3 messages dropped ---
+HL [00:05:54.383,728] <inf> sd_logger: SD write: 4096 B in 9308 us, ~440 KB/s, buf 12/32768
+--- 2 messages dropped ---
+HL [00:05:54.431,701] <inf> sd_logger: SD write: 4096 B in 6317 us, ~648 KB/s, buf 178/32768
+--- 2 messages dropped ---
+HL [00:05:54.515,808] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 72/32768
+--- 3 messages dropped ---
+HL [00:05:54.548,553] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 164/32768
+--- 1 messages dropped ---
+HL [00:05:54.632,934] <inf> sd_logger: SD write: 4096 B in 10590 us, ~386 KB/s, buf 166/32768
+--- 4 messages dropped ---
+HL [00:05:54.664,916] <inf> sd_logger: SD write: 4096 B in 8575 us, ~477 KB/s, buf 82/32768
+--- 1 messages dropped ---
+HL [00:05:54.711,090] <inf> sd_logger: SD write: 4096 B in 6684 us, ~612 KB/s, buf 180/32768
+--- 7 messages dropped ---
+HL [00:05:54.827,209] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 32/32768
+--- 1 messages dropped ---
+HL [00:05:54.860,595] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 40/32768
+--- 1 messages dropped ---
+HL [00:05:54.912,384] <inf> sd_logger: SD write: 4096 B in 10041 us, ~407 KB/s, buf 32/32768
+--- 3 messages dropped ---
+HL [00:05:54.958,007] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 60/32768
+--- 3 messages dropped ---
+HL [00:05:55.025,787] <inf> sd_logger: SD write: 4096 B in 7324 us, ~559 KB/s, buf 206/32768
+--- 1 messages dropped ---
+HL [00:05:55.057,556] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 50/32768
+--- 3 messages dropped ---
+HL [00:05:55.121,734] <inf> sd_logger: SD write: 4096 B in 6196 us, ~661 KB/s, buf 134/32768
+--- 1 messages dropped ---
+HL [00:05:55.176,391] <inf> sd_logger: SD write: 4096 B in 8453 us, ~484 KB/s, buf 410/32768
+--- 3 messages dropped ---
+HL [00:05:55.221,527] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 202/32768
+--- 2 messages dropped ---
+HL [00:05:55.285,797] <inf> sd_logger: SD write: 4096 B in 7263 us, ~563 KB/s, buf 82/32768
+--- 5 messages dropped ---
+HL [00:05:55.366,821] <inf> sd_logger: SD write: 4096 B in 6348 us, ~645 KB/s, buf 74/32768
+--- 2 messages dropped ---
+HL [00:05:55.418,701] <inf> sd_logger: SD write: 4096 B in 7447 us, ~550 KB/s, buf 116/32768
+--- 2 messages dropped ---
+HL [00:05:55.498,840] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 4/32768
+--- 2 messages dropped ---
+HL [00:05:55.533,660] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 32/32768
+--- 4 messages dropped ---
+HL [00:05:55.615,051] <inf> sd_logger: SD write: 4096 B in 6714 us, ~610 KB/s, buf 194/32768
+--- 1 messages dropped ---
+HL [00:05:55.631,011] <inf> sd_logger: SD write: 4096 B in 6592 us, ~621 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:05:55.703,247] <inf> sd_logger: SD write: 4096 B in 8576 us, ~477 KB/s, buf 1164/32768
+--- 2 messages dropped ---
+HL [00:05:55.730,285] <inf> sd_logger: SD write: 4096 B in 6501 us, ~630 KB/s, buf 26/32768
+--- 1 messages dropped ---
+HL [00:05:55.764,434] <inf> sd_logger: SD write: 4096 B in 8057 us, ~508 KB/s, buf 6/32768
+--- 5 messages dropped ---
+HL [00:05:55.879,608] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 192/32768
+--- 2 messages dropped ---
+HL [00:05:55.932,739] <inf> sd_logger: SD write: 4096 B in 8393 us, ~488 KB/s, buf 146/32768
+--- 2 messages dropped ---
+HL [00:05:55.966,918] <inf> sd_logger: SD write: 4096 B in 9582 us, ~427 KB/s, buf 160/32768
+--- 5 messages dropped ---
+HL [00:05:56.083,068] <inf> sd_logger: SD write: 4096 B in 7812 us, ~524 KB/s, buf 0/32768
+--- 1 messages dropped ---
+HL [00:05:56.101,898] <inf> sd_logger: SD write: 4096 B in 9430 us, ~434 KB/s, buf 116/32768
+--- 4 messages dropped ---
+HL [00:05:56.198,822] <inf> sd_logger: SD write: 4096 B in 10406 us, ~393 KB/s, buf 158/32768
+--- 1 messages dropped ---
+HL [00:05:56.215,240] <inf> sd_logger: SD write: 4096 B in 9918 us, ~412 KB/s, buf 144/32768
+--- 3 messages dropped ---
+HL [00:05:56.278,656] <inf> sd_logger: SD write: 4096 B in 6989 us, ~586 KB/s, buf 44/32768
+HL [00:05:56.294,311] <inf> sd_logger: SD write: 4096 B in 6989 us, ~586 KB/s, buf 132/32768
+--- 2 messages dropped ---
+HL [00:05:56.346,160] <inf> sd_logger: SD write: 4096 B in 7904 us, ~518 KB/s, buf 36/32768
+--- 1 messages dropped ---
+HL [00:05:56.376,831] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 28/32768
+--- 3 messages dropped ---
+HL [00:05:56.460,662] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 144/32768
+--- 1 messages dropped ---
+HL [00:05:56.509,277] <inf> sd_logger: SD write: 4096 B in 6897 us, ~593 KB/s, buf 76/32768
+--- 2 messages dropped ---
+HL [00:05:56.526,306] <inf> sd_logger: SD write: 4096 B in 7568 us, ~541 KB/s, buf 6/32768
+--- 3 messages dropped ---
+HL [00:05:56.608,673] <inf> sd_logger: SD write: 4096 B in 8423 us, ~486 KB/s, buf 142/32768
+--- 1 messages dropped ---
+HL [00:05:56.642,517] <inf> sd_logger: SD write: 4096 B in 8271 us, ~495 KB/s, buf 78/32768
+--- 4 messages dropped ---
+HL [00:05:56.706,756] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 110/32768
+--- 1 messages dropped ---
+HL [00:05:56.744,445] <inf> sd_logger: SD write: 4096 B in 11108 us, ~368 KB/s, buf 152/32768
+--- 2 messages dropped ---
+HL [00:05:56.788,208] <inf> sd_logger: SD write: 4096 B in 6684 us, ~612 KB/s, buf 204/32768
+--- 3 messages dropped ---
+HL [00:05:56.852,020] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 60/32768
+--- 2 messages dropped ---
+HL [00:05:56.918,029] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 10/32768
+--- 3 messages dropped ---
+HL [00:05:56.969,116] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 38/32768
+HL [00:05:56.984,222] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 62/32768
+--- 3 messages dropped ---
+HL [00:05:57.051,116] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 40/32768
+--- 3 messages dropped ---
+HL [00:05:57.071,807] <dbg> power_manager: fuel_gauge_work_handler: Voltage: 3.725 V
+--- 3 messages dropped ---
+HL [00:05:57.083,343] <inf> sd_logger: SD write: 4096 B in 7690 us, ~532 KB/s, buf 6/32768
+--- 1 messages dropped ---
+HL [00:05:57.115,539] <inf> sd_logger: SD write: 4096 B in 7264 us, ~563 KB/s, buf 138/32768
+--- 3 messages dropped ---
+HL [00:05:57.214,447] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 94/32768
+--- 3 messages dropped ---
+HL [00:05:57.251,068] <inf> sd_logger: SD write: 4096 B in 9766 us, ~419 KB/s, buf 16/32768
+--- 4 messages dropped ---
+HL [00:05:57.331,146] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 88/32768
+--- 1 messages dropped ---
+HL [00:05:57.362,670] <inf> sd_logger: SD write: 4096 B in 6347 us, ~645 KB/s, buf 56/32768
+--- 3 messages dropped ---
+HL [00:05:57.478,851] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 128/32768
+--- 6 messages dropped ---
+HL [00:05:57.545,562] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 44/32768
+--- 1 messages dropped ---
+HL [00:05:57.579,315] <inf> sd_logger: SD write: 4096 B in 9033 us, ~453 KB/s, buf 200/32768
+--- 2 messages dropped ---
+HL [00:05:57.643,188] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 64/32768
+--- 3 messages dropped ---
+HL [00:05:57.694,244] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 106/32768
+--- 2 messages dropped ---
+HL [00:05:57.758,605] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 190/32768
+--- 7 messages dropped ---
+HL [00:05:57.874,572] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 8/32768
+--- 1 messages dropped ---
+HL [00:05:57.906,890] <inf> sd_logger: SD write: 4096 B in 8423 us, ~486 KB/s, buf 8/32768
+--- 2 messages dropped ---
+HL [00:05:57.971,282] <inf> sd_logger: SD write: 4096 B in 6073 us, ~674 KB/s, buf 74/32768
+--- 3 messages dropped ---
+HL [00:05:58.022,583] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 70/32768
+--- 1 messages dropped ---
+HL [00:05:58.054,870] <inf> sd_logger: SD write: 4096 B in 7568 us, ~541 KB/s, buf 126/32768
+--- 3 messages dropped ---
+HL [00:05:58.120,941] <inf> sd_logger: SD write: 4096 B in 7751 us, ~528 KB/s, buf 8/32768
+--- 1 messages dropped ---
+HL [00:05:58.153,594] <inf> sd_logger: SD write: 4096 B in 7232 us, ~566 KB/s, buf 134/32768
+--- 4 messages dropped ---
+HL [00:05:58.234,191] <inf> sd_logger: SD write: 4096 B in 7995 us, ~512 KB/s, buf 2/32768
+--- 3 messages dropped ---
+HL [00:05:58.319,000] <inf> sd_logger: SD write: 4096 B in 10620 us, ~385 KB/s, buf 54/32768
+--- 3 messages dropped ---
+HL [00:05:58.366,821] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 4/32768
+--- 3 messages dropped ---
+HL [00:05:58.432,495] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 24/32768
+--- 4 messages dropped ---
+HL [00:05:58.513,763] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 80/32768
+--- 1 messages dropped ---
+HL [00:05:58.546,051] <inf> sd_logger: SD write: 4096 B in 7751 us, ~528 KB/s, buf 168/32768
+--- 1 messages dropped ---
+HL [00:05:58.577,697] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 182/32768
+--- 3 messages dropped ---
+HL [00:05:58.660,797] <inf> sd_logger: SD write: 4096 B in 7568 us, ~541 KB/s, buf 194/32768
+--- 2 messages dropped ---
+HL [00:05:58.694,732] <inf> sd_logger: SD write: 4096 B in 7508 us, ~545 KB/s, buf 190/32768
+--- 3 messages dropped ---
+HL [00:05:58.775,726] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 184/32768
+--- 2 messages dropped ---
+HL [00:05:58.844,940] <inf> sd_logger: SD write: 4096 B in 11749 us, ~348 KB/s, buf 22/32768
+--- 3 messages dropped ---
+HL [00:05:58.876,190] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 142/32768
+--- 4 messages dropped ---
+HL [00:05:58.974,243] <inf> sd_logger: SD write: 4096 B in 7019 us, ~583 KB/s, buf 98/32768
+--- 2 messages dropped ---
+HL [00:05:59.008,117] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 98/32768
+--- 1 messages dropped ---
+HL [00:05:59.040,679] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 92/32768
+--- 4 messages dropped ---
+HL [00:05:59.123,382] <inf> sd_logger: SD write: 4096 B in 8667 us, ~472 KB/s, buf 34/32768
+--- 3 messages dropped ---
+HL [00:05:59.186,767] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 42/32768
+--- 3 messages dropped ---
+HL [00:05:59.254,882] <inf> sd_logger: SD write: 4096 B in 10650 us, ~384 KB/s, buf 168/32768
+--- 4 messages dropped ---
+HL [00:05:59.333,343] <inf> sd_logger: SD write: 4096 B in 8057 us, ~508 KB/s, buf 0/32768
+HL [00:05:59.349,334] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 28/32768
+--- 3 messages dropped ---
+HL [00:05:59.431,213] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 44/32768
+--- 1 messages dropped ---
+HL [00:05:59.449,493] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 12/32768
+--- 3 messages dropped ---
+HL [00:05:59.516,479] <inf> sd_logger: SD write: 4096 B in 10284 us, ~398 KB/s, buf 20/32768
+--- 1 messages dropped ---
+HL [00:05:59.548,645] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 158/32768
+--- 3 messages dropped ---
+HL [00:05:59.614,318] <inf> sd_logger: SD write: 4096 B in 8453 us, ~484 KB/s, buf 40/32768
+--- 1 messages dropped ---
+HL [00:05:59.680,328] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 4/32768
+--- 4 messages dropped ---
+HL [00:05:59.729,553] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 16/32768
+--- 1 messages dropped ---
+HL [00:05:59.762,512] <inf> sd_logger: SD write: 4096 B in 8637 us, ~474 KB/s, buf 38/32768
+--- 1 messages dropped ---
+HL [00:05:59.793,334] <inf> sd_logger: SD write: 4096 B in 7049 us, ~581 KB/s, buf 2/32768
+--- 5 messages dropped ---
+HL [00:05:59.897,338] <inf> sd_logger: SD write: 4096 B in 12146 us, ~337 KB/s, buf 174/32768
+--- 4 messages dropped ---
+HL [00:05:59.973,541] <inf> sd_logger: SD write: 4096 B in 6317 us, ~648 KB/s, buf 188/32768
+--- 1 messages dropped ---
+HL [00:06:00.025,115] <inf> sd_logger: SD write: 4096 B in 8637 us, ~474 KB/s, buf 64/32768
+--- 3 messages dropped ---
+HL [00:06:00.072,631] <inf> sd_logger: SD write: 4096 B in 6439 us, ~636 KB/s, buf 184/32768
+--- 1 messages dropped ---
+HL [00:06:00.120,758] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 36/32768
+--- 4 messages dropped ---
+HL [00:06:00.190,124] <inf> sd_logger: SD write: 4096 B in 7904 us, ~518 KB/s, buf 58/32768
+--- 4 messages dropped ---
+HL [00:06:00.271,148] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 14/32768
+HL [00:06:00.286,773] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 166/32768
+--- 4 messages dropped ---
+HL [00:06:00.368,255] <inf> sd_logger: SD write: 4096 B in 6226 us, ~657 KB/s, buf 188/32768
+--- 3 messages dropped ---
+HL [00:06:00.449,157] <inf> sd_logger: SD write: 4096 B in 6012 us, ~681 KB/s, buf 162/32768
+--- 3 messages dropped ---
+HL [00:06:00.498,291] <inf> sd_logger: SD write: 4096 B in 6867 us, ~596 KB/s, buf 4/32768
+--- 2 messages dropped ---
+HL [00:06:00.580,780] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 32/32768
+--- 3 messages dropped ---
+HL [00:06:00.629,913] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 198/32768
+--- 2 messages dropped ---
+HL [00:06:00.681,121] <inf> sd_logger: SD write: 4096 B in 8606 us, ~475 KB/s, buf 24/32768
+--- 5 messages dropped ---
+HL [00:06:00.761,749] <inf> sd_logger: SD write: 4096 B in 7447 us, ~550 KB/s, buf 86/32768
+--- 3 messages dropped ---
+HL [00:06:00.829,528] <inf> sd_logger: SD write: 4096 B in 8239 us, ~497 KB/s, buf 160/32768
+HL [00:06:00.844,787] <inf> sd_logger: SD write: 4096 B in 6683 us, ~612 KB/s, buf 174/32768
+--- 2 messages dropped ---
+HL [00:06:00.891,540] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 70/32768
+--- 2 messages dropped ---
+HL [00:06:00.947,875] <inf> sd_logger: SD write: 4096 B in 11566 us, ~354 KB/s, buf 94/32768
+--- 1 messages dropped ---
+HL [00:06:00.992,248] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 28/32768
+--- 3 messages dropped ---
+HL [00:06:01.038,635] <inf> sd_logger: SD write: 4096 B in 6439 us, ~636 KB/s, buf 80/32768
+--- 2 messages dropped ---
+HL [00:06:01.090,942] <inf> sd_logger: SD write: 4096 B in 9491 us, ~431 KB/s, buf 44/32768
+--- 2 messages dropped ---
+HL [00:06:01.137,847] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 48/32768
+--- 4 messages dropped ---
+HL [00:06:01.236,694] <inf> sd_logger: SD write: 4096 B in 8239 us, ~497 KB/s, buf 220/32768
+--- 3 messages dropped ---
+HL [00:06:01.283,782] <inf> sd_logger: SD write: 4096 B in 6348 us, ~645 KB/s, buf 0/32768
+--- 4 messages dropped ---
+HL [00:06:01.366,210] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 28/32768
+HL [00:06:01.382,934] <inf> sd_logger: SD write: 4096 B in 6714 us, ~610 KB/s, buf 42/32768
+--- 2 messages dropped ---
+HL [00:06:01.447,265] <inf> sd_logger: SD write: 4096 B in 6042 us, ~677 KB/s, buf 74/32768
+--- 2 messages dropped ---
+HL [00:06:01.485,290] <inf> sd_logger: SD write: 4096 B in 9491 us, ~431 KB/s, buf 530/32768
+--- 4 messages dropped ---
+HL [00:06:01.565,338] <inf> sd_logger: SD write: 4096 B in 8179 us, ~500 KB/s, buf 126/32768
+--- 1 messages dropped ---
+HL [00:06:01.597,900] <inf> sd_logger: SD write: 4096 B in 6745 us, ~607 KB/s, buf 62/32768
+--- 5 messages dropped ---
+HL [00:06:01.696,014] <inf> sd_logger: SD write: 4096 B in 6928 us, ~591 KB/s, buf 40/32768
+--- 3 messages dropped ---
+HL [00:06:01.779,602] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 166/32768
+--- 1 messages dropped ---
+HL [00:06:01.794,799] <inf> sd_logger: SD write: 4096 B in 6897 us, ~593 KB/s, buf 38/32768
+--- 2 messages dropped ---
+HL [00:06:01.860,870] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 66/32768
+--- 1 messages dropped ---
+HL [00:06:01.880,676] <inf> sd_logger: SD write: 4096 B in 10589 us, ~386 KB/s, buf 20/32768
+--- 2 messages dropped ---
+HL [00:06:01.929,779] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 108/32768
+--- 1 messages dropped ---
+HL [00:06:01.958,526] <inf> sd_logger: SD write: 4096 B in 6348 us, ~645 KB/s, buf 68/32768
+--- 3 messages dropped ---
+HL [00:06:02.024,658] <inf> sd_logger: SD write: 4096 B in 6836 us, ~599 KB/s, buf 180/32768
+HL [00:06:02.040,679] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 166/32768
+--- 2 messages dropped ---
+HL [00:06:02.092,590] <inf> sd_logger: SD write: 4096 B in 8789 us, ~466 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:06:02.156,982] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 2/32768
+--- 2 messages dropped ---
+HL [00:06:02.188,385] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 80/32768
+--- 1 messages dropped ---
+HL [00:06:02.223,236] <inf> sd_logger: SD write: 4096 B in 8057 us, ~508 KB/s, buf 34/32768
+--- 2 messages dropped ---
+HL [00:06:02.289,489] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 166/32768
+--- 5 messages dropped ---
+HL [00:06:02.370,147] <inf> sd_logger: SD write: 4096 B in 6439 us, ~636 KB/s, buf 166/32768
+--- 1 messages dropped ---
+HL [00:06:02.453,125] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 2/32768
+--- 4 messages dropped ---
+HL [00:06:02.484,191] <inf> sd_logger: SD write: 4096 B in 6928 us, ~591 KB/s, buf 2/32768
+--- 3 messages dropped ---
+HL [00:06:02.549,835] <inf> sd_logger: SD write: 4096 B in 6226 us, ~657 KB/s, buf 4/32768
+--- 1 messages dropped ---
+HL [00:06:02.601,440] <inf> sd_logger: SD write: 4096 B in 8117 us, ~504 KB/s, buf 92/32768
+--- 2 messages dropped ---
+HL [00:06:02.651,733] <inf> sd_logger: SD write: 4096 B in 7934 us, ~516 KB/s, buf 14/32768
+--- 4 messages dropped ---
+HL [00:06:02.718,048] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 48/32768
+--- 3 messages dropped ---
+HL [00:06:02.782,043] <inf> sd_logger: SD write: 4096 B in 6774 us, ~604 KB/s, buf 114/32768
+--- 3 messages dropped ---
+HL [00:06:02.848,846] <inf> sd_logger: SD write: 4096 B in 7294 us, ~561 KB/s, buf 12/32768
+--- 2 messages dropped ---
+HL [00:06:02.912,139] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 40/32768
+--- 4 messages dropped ---
+HL [00:06:02.982,727] <inf> sd_logger: SD write: 4096 B in 9858 us, ~415 KB/s, buf 16/32768
+HL [00:06:02.996,704] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 226/32768
+HL [00:06:03.010,772] <inf> sd_logger: SD write: 4096 B in 6531 us, ~627 KB/s, buf 192/32768
+HL [00:06:03.027,740] <inf> sd_logger: SD write: 4096 B in 6683 us, ~612 KB/s, buf 192/32768
+--- 1 messages dropped ---
+HL [00:06:03.065,704] <inf> sd_logger: SD write: 4096 B in 10223 us, ~400 KB/s, buf 664/32768
+--- 3 messages dropped ---
+HL [00:06:03.127,197] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 4/32768
+HL [00:06:03.144,714] <inf> sd_logger: SD write: 4096 B in 6652 us, ~615 KB/s, buf 174/32768
+--- 2 messages dropped ---
+HL [00:06:03.196,777] <inf> sd_logger: SD write: 4096 B in 9704 us, ~422 KB/s, buf 156/32768
+--- 6 messages dropped ---
+HL [00:06:03.309,082] <inf> sd_logger: SD write: 4096 B in 7263 us, ~563 KB/s, buf 6/32768
+HL [00:06:03.325,775] <inf> sd_logger: SD write: 4096 B in 8392 us, ~488 KB/s, buf 162/32768
+--- 3 messages dropped ---
+HL [00:06:03.391,296] <inf> sd_logger: SD write: 4096 B in 8056 us, ~508 KB/s, buf 46/32768
+--- 1 messages dropped ---
+HL [00:06:03.457,672] <inf> sd_logger: SD write: 4096 B in 8393 us, ~488 KB/s, buf 40/32768
+--- 2 messages dropped ---
+HL [00:06:03.473,602] <inf> sd_logger: SD write: 4096 B in 7416 us, ~552 KB/s, buf 16/32768
+--- 1 messages dropped ---
+HL [00:06:03.523,620] <inf> sd_logger: SD write: 4096 B in 8271 us, ~495 KB/s, buf 216/32768
+--- 4 messages dropped ---
+HL [00:06:03.593,322] <inf> sd_logger: SD write: 4096 B in 8698 us, ~470 KB/s, buf 1090/32768
+--- 1 messages dropped ---
+HL [00:06:03.621,368] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 2/32768
+--- 1 messages dropped ---
+HL [00:06:03.652,709] <inf> sd_logger: SD write: 4096 B in 6683 us, ~612 KB/s, buf 16/32768
+--- 2 messages dropped ---
+HL [00:06:03.703,308] <inf> sd_logger: SD write: 4096 B in 8240 us, ~497 KB/s, buf 46/32768
+--- 2 messages dropped ---
+HL [00:06:03.751,281] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 78/32768
+--- 3 messages dropped ---
+HL [00:06:03.818,023] <inf> sd_logger: SD write: 4096 B in 6989 us, ~586 KB/s, buf 114/32768
+--- 1 messages dropped ---
+HL [00:06:03.852,813] <inf> sd_logger: SD write: 4096 B in 9704 us, ~422 KB/s, buf 178/32768
+--- 2 messages dropped ---
+HL [00:06:03.931,274] <inf> sd_logger: SD write: 4096 B in 6103 us, ~671 KB/s, buf 200/32768
+--- 4 messages dropped ---
+HL [00:06:03.984,130] <inf> sd_logger: SD write: 4096 B in 8911 us, ~459 KB/s, buf 216/32768
+--- 2 messages dropped ---
+HL [00:06:04.047,241] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 208/32768
+--- 3 messages dropped ---
+HL [00:06:04.101,348] <inf> sd_logger: SD write: 4096 B in 11322 us, ~361 KB/s, buf 38/32768
+--- 1 messages dropped ---
+HL [00:06:04.128,387] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 108/32768
+--- 4 messages dropped ---
+HL [00:06:04.209,472] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 18/32768
+--- 4 messages dropped ---
+HL [00:06:04.295,196] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 124/32768
+--- 2 messages dropped ---
+HL [00:06:04.377,502] <inf> sd_logger: SD write: 4096 B in 8422 us, ~486 KB/s, buf 162/32768
+--- 4 messages dropped ---
+HL [00:06:04.426,574] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 148/32768
+--- 2 messages dropped ---
+HL [00:06:04.475,463] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 44/32768
+--- 5 messages dropped ---
+HL [00:06:04.572,692] <inf> sd_logger: SD write: 4096 B in 6652 us, ~615 KB/s, buf 36/32768
+HL [00:06:04.589,538] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 54/32768
+--- 3 messages dropped ---
+HL [00:06:04.659,088] <inf> sd_logger: SD write: 4096 B in 8057 us, ~508 KB/s, buf 146/32768
+--- 2 messages dropped ---
+HL [00:06:04.721,252] <inf> sd_logger: SD write: 4096 B in 6226 us, ~657 KB/s, buf 24/32768
+--- 2 messages dropped ---
+HL [00:06:04.756,103] <inf> sd_logger: SD write: 4096 B in 7995 us, ~512 KB/s, buf 2/32768
+--- 5 messages dropped ---
+HL [00:06:04.852,386] <inf> sd_logger: SD write: 4096 B in 6165 us, ~664 KB/s, buf 136/32768
+--- 1 messages dropped ---
+HL [00:06:04.886,810] <inf> sd_logger: SD write: 4096 B in 7630 us, ~536 KB/s, buf 100/32768
+--- 2 messages dropped ---
+HL [00:06:04.935,363] <inf> sd_logger: SD write: 4096 B in 7385 us, ~554 KB/s, buf 152/32768
+--- 4 messages dropped ---
+HL [00:06:05.019,317] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 20/32768
+--- 1 messages dropped ---
+HL [00:06:05.050,445] <inf> sd_logger: SD write: 4096 B in 7386 us, ~554 KB/s, buf 158/32768
+--- 3 messages dropped ---
+HL [00:06:05.131,469] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 50/32768
+--- 2 messages dropped ---
+HL [00:06:05.166,656] <inf> sd_logger: SD write: 4096 B in 8117 us, ~504 KB/s, buf 4/32768
+--- 1 messages dropped ---
+HL [00:06:05.217,010] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 222/32768
+--- 4 messages dropped ---
+HL [00:06:05.333,190] <inf> sd_logger: SD write: 4096 B in 7995 us, ~512 KB/s, buf 238/32768
+--- 5 messages dropped ---
+HL [00:06:05.396,209] <inf> sd_logger: SD write: 4096 B in 6195 us, ~661 KB/s, buf 152/32768
+--- 6 messages dropped ---
+HL [00:06:05.513,122] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 138/32768
+--- 3 messages dropped ---
+HL [00:06:05.562,133] <inf> sd_logger: SD write: 4096 B in 9094 us, ~450 KB/s, buf 178/32768
+--- 3 messages dropped ---
+HL [00:06:05.627,014] <inf> sd_logger: SD write: 4096 B in 6531 us, ~627 KB/s, buf 174/32768
+--- 1 messages dropped ---
+HL [00:06:05.660,705] <inf> sd_logger: SD write: 4096 B in 6439 us, ~636 KB/s, buf 192/32768
+--- 2 messages dropped ---
+HL [00:06:05.726,043] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 88/32768
+--- 4 messages dropped ---
+HL [00:06:05.789,459] <inf> sd_logger: SD write: 4096 B in 6408 us, ~639 KB/s, buf 124/32768
+--- 1 messages dropped ---
+HL [00:06:05.827,819] <inf> sd_logger: SD write: 4096 B in 10559 us, ~387 KB/s, buf 110/32768
+--- 1 messages dropped ---
+HL [00:06:05.858,917] <inf> sd_logger: SD write: 4096 B in 8697 us, ~470 KB/s, buf 208/32768
+--- 3 messages dropped ---
+HL [00:06:05.925,354] <inf> sd_logger: SD write: 4096 B in 8271 us, ~495 KB/s, buf 168/32768
+--- 1 messages dropped ---
+HL [00:06:05.990,295] <inf> sd_logger: SD write: 4096 B in 6713 us, ~610 KB/s, buf 72/32768
+--- 5 messages dropped ---
+HL [00:06:06.054,656] <inf> sd_logger: SD write: 4096 B in 6531 us, ~627 KB/s, buf 64/32768
+--- 5 messages dropped ---
+HL [00:06:06.153,137] <inf> sd_logger: SD write: 4096 B in 6165 us, ~664 KB/s, buf 176/32768
+--- 4 messages dropped ---
+HL [00:06:06.236,053] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 152/32768
+--- 1 messages dropped ---
+HL [00:06:06.283,752] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 120/32768
+--- 4 messages dropped ---
+HL [00:06:06.355,895] <inf> sd_logger: SD write: 4096 B in 10223 us, ~400 KB/s, buf 22/32768
+--- 4 messages dropped ---
+HL [00:06:06.435,394] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 76/32768
+HL [00:06:06.447,540] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 198/32768
+--- 3 messages dropped ---
+HL [00:06:06.517,883] <inf> sd_logger: SD write: 4096 B in 8972 us, ~456 KB/s, buf 116/32768
+--- 5 messages dropped ---
+HL [00:06:06.631,011] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 182/32768
+--- 1 messages dropped ---
+HL [00:06:06.648,071] <inf> sd_logger: SD write: 4096 B in 7141 us, ~573 KB/s, buf 196/32768
+--- 2 messages dropped ---
+HL [00:06:06.695,678] <inf> sd_logger: SD write: 4096 B in 6714 us, ~610 KB/s, buf 16/32768
+--- 2 messages dropped ---
+HL [00:06:06.777,130] <inf> sd_logger: SD write: 4096 B in 7172 us, ~571 KB/s, buf 28/32768
+--- 2 messages dropped ---
+HL [00:06:06.796,173] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 198/32768
+--- 3 messages dropped ---
+HL [00:06:06.860,351] <inf> sd_logger: SD write: 4096 B in 8423 us, ~486 KB/s, buf 36/32768
+--- 1 messages dropped ---
+HL [00:06:06.908,538] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 0/32768
+--- 3 messages dropped ---
+HL [00:06:06.958,038] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 56/32768
+--- 2 messages dropped ---
+HL [00:06:07.012,908] <inf> sd_logger: SD write: 4096 B in 10834 us, ~378 KB/s, buf 128/32768
+HL [00:06:07.023,742] <inf> sd_logger: SD write: 4096 B in 7141 us, ~573 KB/s, buf 140/32768
+--- 5 messages dropped ---
+HL [00:06:07.072,906] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 166/32768
+--- 5 messages dropped ---
+HL [00:06:07.122,070] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 132/32768
+--- 2 messages dropped ---
+HL [00:06:07.173,645] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 8/32768
+--- 1 messages dropped ---
+HL [00:06:07.221,496] <inf> sd_logger: SD write: 4096 B in 7446 us, ~550 KB/s, buf 240/32768
+--- 3 messages dropped ---
+HL [00:06:07.275,085] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 1150/32768
+--- 3 messages dropped ---
+HL [00:06:07.338,378] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 20/32768
+--- 2 messages dropped ---
+HL [00:06:07.403,015] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 118/32768
+--- 4 messages dropped ---
+HL [00:06:07.481,170] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 188/32768
+--- 4 messages dropped ---
+HL [00:06:07.545,562] <inf> sd_logger: SD write: 4096 B in 6165 us, ~664 KB/s, buf 20/32768
+--- 4 messages dropped ---
+HL [00:06:07.629,272] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 96/32768
+HL [00:06:07.663,208] <inf> sd_logger: SD write: 4096 B in 8790 us, ~465 KB/s, buf 46/32768
+--- 3 messages dropped ---
+HL [00:06:07.711,608] <inf> sd_logger: SD write: 4096 B in 6866 us, ~596 KB/s, buf 14/32768
+--- 1 messages dropped ---
+HL [00:06:07.745,269] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 192/32768
+--- 4 messages dropped ---
+HL [00:06:07.825,744] <inf> sd_logger: SD write: 4096 B in 7813 us, ~524 KB/s, buf 28/32768
+--- 3 messages dropped ---
+HL [00:06:07.891,540] <inf> sd_logger: SD write: 4096 B in 6318 us, ~648 KB/s, buf 232/32768
+--- 2 messages dropped ---
+HL [00:06:07.976,745] <inf> sd_logger: SD write: 4096 B in 7812 us, ~524 KB/s, buf 72/32768
+--- 3 messages dropped ---
+HL [00:06:08.005,065] <inf> sd_logger: SD write: 4096 B in 6104 us, ~671 KB/s, buf 26/32768
+--- 1 messages dropped ---
+HL [00:06:08.038,452] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 130/32768
+--- 5 messages dropped ---
+HL [00:06:08.139,556] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 48/32768
+--- 2 messages dropped ---
+HL [00:06:08.206,176] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 44/32768
+--- 3 messages dropped ---
+HL [00:06:08.253,479] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 66/32768
+--- 2 messages dropped ---
+HL [00:06:08.335,357] <inf> sd_logger: SD write: 4096 B in 6379 us, ~642 KB/s, buf 48/32768
+--- 5 messages dropped ---
+HL [00:06:08.400,909] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 178/32768
+HL [00:06:08.418,701] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 146/32768
+--- 2 messages dropped ---
+HL [00:06:08.485,961] <inf> sd_logger: SD write: 4096 B in 7690 us, ~532 KB/s, buf 64/32768
+--- 3 messages dropped ---
+HL [00:06:08.550,842] <inf> sd_logger: SD write: 4096 B in 6225 us, ~657 KB/s, buf 38/32768
+--- 2 messages dropped ---
+HL [00:06:08.588,531] <inf> sd_logger: SD write: 4096 B in 10620 us, ~385 KB/s, buf 194/32768
+--- 7 messages dropped ---
+HL [00:06:08.716,400] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 18/32768
+--- 2 messages dropped ---
+HL [00:06:08.765,869] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 26/32768
+--- 2 messages dropped ---
+HL [00:06:08.813,568] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 12/32768
+--- 2 messages dropped ---
+HL [00:06:08.882,904] <inf> sd_logger: SD write: 4096 B in 8027 us, ~510 KB/s, buf 150/32768
+--- 3 messages dropped ---
+HL [00:06:08.928,924] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 54/32768
+--- 1 messages dropped ---
+HL [00:06:08.980,651] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 510/32768
+--- 4 messages dropped ---
+HL [00:06:09.048,034] <inf> sd_logger: SD write: 4096 B in 9613 us, ~426 KB/s, buf 24/32768
+--- 1 messages dropped ---
+HL [00:06:09.092,559] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 76/32768
+--- 2 messages dropped ---
+HL [00:06:09.129,577] <inf> sd_logger: SD write: 4096 B in 7690 us, ~532 KB/s, buf 168/32768
+--- 3 messages dropped ---
+HL [00:06:09.194,274] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 100/32768
+--- 2 messages dropped ---
+HL [00:06:09.260,437] <inf> sd_logger: SD write: 4096 B in 8362 us, ~489 KB/s, buf 92/32768
+--- 5 messages dropped ---
+HL [00:06:09.359,832] <inf> sd_logger: SD write: 4096 B in 9765 us, ~419 KB/s, buf 192/32768
+--- 1 messages dropped ---
+HL [00:06:09.376,403] <inf> sd_logger: SD write: 4096 B in 9796 us, ~418 KB/s, buf 4/32768
+--- 2 messages dropped ---
+HL [00:06:09.439,941] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 42/32768
+--- 2 messages dropped ---
+HL [00:06:09.471,374] <inf> sd_logger: SD write: 4096 B in 7476 us, ~547 KB/s, buf 116/32768
+--- 2 messages dropped ---
+HL [00:06:09.521,423] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 144/32768
+--- 3 messages dropped ---
+HL [00:06:09.586,273] <inf> sd_logger: SD write: 4096 B in 7904 us, ~518 KB/s, buf 44/32768
+--- 1 messages dropped ---
+HL [00:06:09.637,573] <inf> sd_logger: SD write: 4096 B in 8575 us, ~477 KB/s, buf 390/32768
+--- 2 messages dropped ---
+HL [00:06:09.668,975] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 142/32768
+--- 2 messages dropped ---
+HL [00:06:09.717,193] <inf> sd_logger: SD write: 4096 B in 7049 us, ~581 KB/s, buf 130/32768
+--- 1 messages dropped ---
+HL [00:06:09.750,244] <inf> sd_logger: SD write: 4096 B in 7325 us, ~559 KB/s, buf 6/32768
+--- 3 messages dropped ---
+HL [00:06:09.834,075] <inf> sd_logger: SD write: 4096 B in 8422 us, ~486 KB/s, buf 38/32768
+--- 2 messages dropped ---
+HL [00:06:09.864,990] <inf> sd_logger: SD write: 4096 B in 6165 us, ~664 KB/s, buf 20/32768
+--- 6 messages dropped ---
+HL [00:06:09.981,170] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 8/32768
+--- 1 messages dropped ---
+HL [00:06:10.012,664] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 72/32768
+--- 3 messages dropped ---
+HL [00:06:10.080,017] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 154/32768
+--- 3 messages dropped ---
+HL [00:06:10.145,660] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 86/32768
+--- 1 messages dropped ---
+HL [00:06:10.197,296] <inf> sd_logger: SD write: 4096 B in 7507 us, ~545 KB/s, buf 132/32768
+--- 3 messages dropped ---
+HL [00:06:10.244,476] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 12/32768
+--- 1 messages dropped ---
+HL [00:06:10.275,207] <inf> sd_logger: SD write: 4096 B in 6379 us, ~642 KB/s, buf 68/32768
+--- 2 messages dropped ---
+HL [00:06:10.340,637] <inf> sd_logger: SD write: 4096 B in 6775 us, ~604 KB/s, buf 134/32768
+--- 2 messages dropped ---
+HL [00:06:10.390,563] <inf> sd_logger: SD write: 4096 B in 8117 us, ~504 KB/s, buf 0/32768
+--- 2 messages dropped ---
+HL [00:06:10.440,765] <inf> sd_logger: SD write: 4096 B in 6256 us, ~654 KB/s, buf 14/32768
+--- 5 messages dropped ---
+HL [00:06:10.523,956] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 186/32768
+--- 1 messages dropped ---
+HL [00:06:10.556,915] <inf> sd_logger: SD write: 4096 B in 8515 us, ~481 KB/s, buf 118/32768
+--- 2 messages dropped ---
+HL [00:06:10.605,346] <inf> sd_logger: SD write: 4096 B in 8057 us, ~508 KB/s, buf 12/32768
+--- 1 messages dropped ---
+HL [00:06:10.654,663] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 118/32768
+--- 2 messages dropped ---
+HL [00:06:10.687,500] <inf> sd_logger: SD write: 4096 B in 8361 us, ~489 KB/s, buf 154/32768
+--- 3 messages dropped ---
+HL [00:06:10.752,746] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 140/32768
+HL [00:06:10.768,157] <inf> sd_logger: SD write: 4096 B in 6530 us, ~627 KB/s, buf 44/32768
+--- 1 messages dropped ---
+HL [00:06:10.805,206] <inf> sd_logger: SD write: 4096 B in 11291 us, ~362 KB/s, buf 150/32768
+--- 1 messages dropped ---
+HL [00:06:10.834,899] <inf> sd_logger: SD write: 4096 B in 6164 us, ~664 KB/s, buf 150/32768
+--- 4 messages dropped ---
+HL [00:06:10.916,900] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 36/32768
+--- 3 messages dropped ---
+HL [00:06:10.984,893] <inf> sd_logger: SD write: 4096 B in 7690 us, ~532 KB/s, buf 86/32768
+--- 2 messages dropped ---
+HL [00:06:11.032,440] <inf> sd_logger: SD write: 4096 B in 7569 us, ~541 KB/s, buf 116/32768
+--- 3 messages dropped ---
+HL [00:06:11.100,311] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 80/32768
+--- 2 messages dropped ---
+HL [00:06:11.182,952] <inf> sd_logger: SD write: 4096 B in 7049 us, ~581 KB/s, buf 212/32768
+--- 4 messages dropped ---
+HL [00:06:11.231,750] <inf> sd_logger: SD write: 4096 B in 6928 us, ~591 KB/s, buf 12/32768
+--- 1 messages dropped ---
+HL [00:06:11.263,214] <inf> sd_logger: SD write: 4096 B in 7447 us, ~550 KB/s, buf 132/32768
+--- 1 messages dropped ---
+HL [00:06:11.315,032] <inf> sd_logger: SD write: 4096 B in 8514 us, ~481 KB/s, buf 18/32768
+--- 3 messages dropped ---
+HL [00:06:11.361,755] <inf> sd_logger: SD write: 4096 B in 6103 us, ~671 KB/s, buf 148/32768
+--- 4 messages dropped ---
+HL [00:06:11.442,352] <inf> sd_logger: SD write: 4096 B in 6500 us, ~630 KB/s, buf 26/32768
+HL [00:06:11.463,165] <inf> sd_logger: SD write: 4096 B in 10346 us, ~395 KB/s, buf 58/32768
+--- 2 messages dropped ---
+HL [00:06:11.509,582] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 220/32768
+--- 4 messages dropped ---
+HL [00:06:11.624,176] <inf> sd_logger: SD write: 4096 B in 7385 us, ~554 KB/s, buf 58/32768
+--- 2 messages dropped ---
+HL [00:06:11.641,937] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 26/32768
+--- 2 messages dropped ---
+HL [00:06:11.689,270] <inf> sd_logger: SD write: 4096 B in 6928 us, ~591 KB/s, buf 138/32768
+--- 3 messages dropped ---
+HL [00:06:11.756,530] <inf> sd_logger: SD write: 4096 B in 7752 us, ~528 KB/s, buf 184/32768
+--- 2 messages dropped ---
+HL [00:06:11.803,344] <inf> sd_logger: SD write: 4096 B in 6531 us, ~627 KB/s, buf 84/32768
+--- 3 messages dropped ---
+HL [00:06:11.884,979] <inf> sd_logger: SD write: 4096 B in 6165 us, ~664 KB/s, buf 72/32768
+--- 2 messages dropped ---
+HL [00:06:11.936,248] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 142/32768
+--- 5 messages dropped ---
+HL [00:06:12.037,384] <inf> sd_logger: SD write: 4096 B in 9399 us, ~435 KB/s, buf 120/32768
+--- 4 messages dropped ---
+HL [00:06:12.099,487] <inf> sd_logger: SD write: 4096 B in 6745 us, ~607 KB/s, buf 36/32768
+--- 2 messages dropped ---
+HL [00:06:12.151,000] <inf> sd_logger: SD write: 4096 B in 7720 us, ~530 KB/s, buf 14/32768
+--- 1 messages dropped ---
+HL [00:06:12.182,403] <inf> sd_logger: SD write: 4096 B in 8423 us, ~486 KB/s, buf 100/32768
+--- 4 messages dropped ---
+HL [00:06:12.264,129] <inf> sd_logger: SD write: 4096 B in 9186 us, ~445 KB/s, buf 156/32768
+--- 2 messages dropped ---
+HL [00:06:12.312,011] <inf> sd_logger: SD write: 4096 B in 6286 us, ~651 KB/s, buf 72/32768
+HL [00:06:12.327,850] <inf> sd_logger: SD write: 4096 B in 6104 us, ~671 KB/s, buf 170/32768
+--- 2 messages dropped ---
+HL [00:06:12.379,547] <inf> sd_logger: SD write: 4096 B in 8484 us, ~482 KB/s, buf 58/32768
+--- 1 messages dropped ---
+HL [00:06:12.411,926] <inf> sd_logger: SD write: 4096 B in 8087 us, ~506 KB/s, buf 196/32768
+--- 5 messages dropped ---
+HL [00:06:12.512,268] <inf> sd_logger: SD write: 4096 B in 10407 us, ~393 KB/s, buf 44/32768
+--- 1 messages dropped ---
+HL [00:06:12.544,128] <inf> sd_logger: SD write: 4096 B in 7385 us, ~554 KB/s, buf 182/32768
+--- 3 messages dropped ---
+HL [00:06:12.608,673] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 8/32768
+--- 4 messages dropped ---
+HL [00:06:12.691,925] <inf> sd_logger: SD write: 4096 B in 7935 us, ~516 KB/s, buf 198/32768
+--- 3 messages dropped ---
+HL [00:06:12.757,354] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 6/32768
+--- 2 messages dropped ---
+HL [00:06:12.806,457] <inf> sd_logger: SD write: 4096 B in 6012 us, ~681 KB/s, buf 136/32768
+--- 1 messages dropped ---
+HL [00:06:12.840,698] <inf> sd_logger: SD write: 4096 B in 7965 us, ~514 KB/s, buf 118/32768
+--- 1 messages dropped ---
+HL [00:06:12.874,145] <inf> sd_logger: SD write: 4096 B in 7385 us, ~554 KB/s, buf 36/32768
+--- 2 messages dropped ---
+HL [00:06:12.923,736] <inf> sd_logger: SD write: 4096 B in 8942 us, ~458 KB/s, buf 170/32768
+--- 3 messages dropped ---
+HL [00:06:13.004,058] <inf> sd_logger: SD write: 4096 B in 7324 us, ~559 KB/s, buf 140/32768
+--- 3 messages dropped ---
+HL [00:06:13.058,166] <inf> sd_logger: SD write: 4096 B in 10437 us, ~392 KB/s, buf 108/32768
+--- 6 messages dropped ---
+HL [00:06:13.189,300] <inf> sd_logger: SD write: 4096 B in 9582 us, ~427 KB/s, buf 134/32768
+--- 3 messages dropped ---
+HL [00:06:13.285,705] <inf> sd_logger: SD write: 4096 B in 6744 us, ~607 KB/s, buf 136/32768
+--- 3 messages dropped ---
+HL [00:06:13.302,734] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 168/32768
+--- 3 messages dropped ---
+HL [00:06:13.384,887] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 154/32768
+--- 2 messages dropped ---
+HL [00:06:13.418,548] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 78/32768
+--- 1 messages dropped ---
+HL [00:06:13.450,744] <inf> sd_logger: SD write: 4096 B in 7904 us, ~518 KB/s, buf 148/32768
+HL [00:06:13.466,644] <inf> sd_logger: SD write: 4096 B in 6897 us, ~593 KB/s, buf 144/32768
+--- 2 messages dropped ---
+HL [00:06:13.514,160] <inf> sd_logger: SD write: 4096 B in 6379 us, ~642 KB/s, buf 178/32768
+--- 1 messages dropped ---
+HL [00:06:13.549,530] <inf> sd_logger: SD write: 4096 B in 7781 us, ~526 KB/s, buf 118/32768
+--- 4 messages dropped ---
+HL [00:06:13.629,150] <inf> sd_logger: SD write: 4096 B in 6347 us, ~645 KB/s, buf 34/32768
+--- 7 messages dropped ---
+HL [00:06:13.763,488] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 18/32768
+--- 1 messages dropped ---
+HL [00:06:13.792,816] <inf> sd_logger: SD write: 4096 B in 6103 us, ~671 KB/s, buf 42/32768
+--- 1 messages dropped ---
+HL [00:06:13.844,757] <inf> sd_logger: SD write: 4096 B in 8851 us, ~462 KB/s, buf 132/32768
+--- 3 messages dropped ---
+HL [00:06:13.889,739] <inf> sd_logger: SD write: 4096 B in 6988 us, ~586 KB/s, buf 164/32768
+--- 2 messages dropped ---
+HL [00:06:13.939,697] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 54/32768
+--- 4 messages dropped ---
+HL [00:06:14.021,789] <inf> sd_logger: SD write: 4096 B in 7111 us, ~576 KB/s, buf 134/32768
+--- 2 messages dropped ---
+HL [00:06:14.068,725] <inf> sd_logger: SD write: 4096 B in 7049 us, ~581 KB/s, buf 30/32768
+--- 1 messages dropped ---
+HL [00:06:14.107,513] <inf> sd_logger: SD write: 4096 B in 10529 us, ~389 KB/s, buf 412/32768
+--- 2 messages dropped ---
+HL [00:06:14.169,158] <inf> sd_logger: SD write: 4096 B in 8392 us, ~488 KB/s, buf 0/32768
+--- 2 messages dropped ---
+HL [00:06:14.218,963] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 188/32768
+--- 6 messages dropped ---
+HL [00:06:14.320,312] <inf> sd_logger: SD write: 4096 B in 8667 us, ~472 KB/s, buf 24/32768
+--- 1 messages dropped ---
+HL [00:06:14.353,179] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 190/32768
+--- 2 messages dropped ---
+HL [00:06:14.419,342] <inf> sd_logger: SD write: 4096 B in 8484 us, ~482 KB/s, buf 182/32768
+--- 2 messages dropped ---
+HL [00:06:14.450,958] <inf> sd_logger: SD write: 4096 B in 6653 us, ~615 KB/s, buf 8/32768
+--- 2 messages dropped ---
+HL [00:06:14.501,434] <inf> sd_logger: SD write: 4096 B in 8942 us, ~458 KB/s, buf 18/32768
+--- 2 messages dropped ---
+HL [00:06:14.548,370] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 6/32768
+--- 1 messages dropped ---
+HL [00:06:14.598,297] <inf> sd_logger: SD write: 4096 B in 8301 us, ~493 KB/s, buf 32/32768
+--- 2 messages dropped ---
+HL [00:06:14.631,683] <inf> sd_logger: SD write: 4096 B in 7721 us, ~530 KB/s, buf 190/32768
+--- 2 messages dropped ---
+HL [00:06:14.715,698] <inf> sd_logger: SD write: 4096 B in 7873 us, ~520 KB/s, buf 120/32768
+--- 3 messages dropped ---
+HL [00:06:14.765,869] <inf> sd_logger: SD write: 4096 B in 9156 us, ~447 KB/s, buf 140/32768
+--- 4 messages dropped ---
+HL [00:06:14.830,535] <inf> sd_logger: SD write: 4096 B in 7629 us, ~536 KB/s, buf 86/32768
+--- 1 messages dropped ---
+HL [00:06:14.863,800] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 4/32768
+--- 1 messages dropped ---
+HL [00:06:14.912,231] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 78/32768
+--- 1 messages dropped ---
+HL [00:06:14.930,206] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 92/32768
+HL [00:06:14.946,868] <inf> sd_logger: SD write: 4096 B in 8178 us, ~500 KB/s, buf 10/32768
+--- 2 messages dropped ---
+HL [00:06:14.994,293] <inf> sd_logger: SD write: 4096 B in 6531 us, ~627 KB/s, buf 130/32768
+HL [00:06:15.012,573] <inf> sd_logger: SD write: 4096 B in 7843 us, ~522 KB/s, buf 98/32768
+HL [00:06:15.031,127] <inf> sd_logger: SD write: 4096 B in 9491 us, ~431 KB/s, buf 48/32768
+HL [00:06:15.045,471] <inf> sd_logger: SD write: 4096 B in 8454 us, ~484 KB/s, buf 12/32768
+HL [00:06:15.063,385] <inf> sd_logger: SD write: 4096 B in 7538 us, ~543 KB/s, buf 54/32768
+HL [00:06:15.076,660] <inf> sd_logger: SD write: 4096 B in 6378 us, ~642 KB/s, buf 118/32768
+HL [00:06:15.093,872] <inf> sd_logger: SD write: 4096 B in 7233 us, ~566 KB/s, buf 132/32768
+HL [00:06:15.110,778] <inf> sd_logger: SD write: 4096 B in 8331 us, ~491 KB/s, buf 4/32768
+HL [00:06:15.126,068] <inf> sd_logger: SD write: 4096 B in 7325 us, ~559 KB/s, buf 178/32768
+HL [00:06:15.150,177] <inf> sd_logger: SD write: 4096 B in 12481 us, ~328 KB/s, buf 62/32768
+HL [00:06:15.165,161] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 1248/32768
+HL [00:06:15.176,788] <inf> sd_logger: SD write: 4096 B in 8057 us, ~508 KB/s, buf 192/32768
+HL [00:06:15.192,749] <inf> sd_logger: SD write: 4096 B in 7050 us, ~580 KB/s, buf 178/32768
+HL [00:06:15.208,496] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 4/32768
+HL [00:06:15.226,287] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 114/32768
+HL [00:06:15.242,767] <inf> sd_logger: SD write: 4096 B in 7080 us, ~578 KB/s, buf 160/32768
+HL [00:06:15.260,650] <inf> sd_logger: SD write: 4096 B in 7996 us, ~512 KB/s, buf 128/32768
+HL [00:06:15.277,587] <inf> sd_logger: SD write: 4096 B in 7874 us, ~520 KB/s, buf 142/32768
+HL [00:06:15.296,051] <inf> sd_logger: SD write: 4096 B in 9399 us, ~435 KB/s, buf 156/32768
+HL [00:06:15.310,241] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 78/32768
+HL [00:06:15.325,683] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 10/32768
+HL [00:06:15.342,254] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 162/32768
+HL [00:06:15.360,961] <inf> sd_logger: SD write: 4096 B in 8056 us, ~508 KB/s, buf 212/32768
+HL [00:06:15.375,762] <inf> sd_logger: SD write: 4096 B in 6927 us, ~591 KB/s, buf 144/32768
+HL [00:06:15.395,294] <inf> sd_logger: SD write: 4096 B in 7660 us, ~534 KB/s, buf 28/32768
+HL [00:06:15.408,325] <inf> sd_logger: SD write: 4096 B in 6622 us, ~618 KB/s, buf 178/32768
+HL [00:06:15.427,307] <inf> sd_logger: SD write: 4096 B in 8118 us, ~504 KB/s, buf 164/32768
+HL [00:06:15.442,382] <inf> sd_logger: SD write: 4096 B in 6561 us, ~624 KB/s, buf 224/32768
+HL [00:06:15.460,357] <inf> sd_logger: SD write: 4096 B in 7751 us, ~528 KB/s, buf 192/32768
+HL [00:06:15.477,935] <inf> sd_logger: SD write: 4096 B in 8270 us, ~495 KB/s, buf 146/32768
+HL [00:06:15.490,173] <inf> sd_logger: SD write: 4096 B in 6928 us, ~591 KB/s, buf 74/32768
+HL [00:06:15.506,134] <inf> sd_logger: SD write: 4096 B in 6439 us, ~636 KB/s, buf 88/32768
+HL [00:06:15.524,047] <inf> sd_logger: SD write: 4096 B in 7385 us, ~554 KB/s, buf 120/32768
+HL [00:06:15.541,015] <inf> sd_logger: SD write: 4096 B in 7355 us, ~556 KB/s, buf 88/32768
+HL [00:06:15.560,119] <inf> sd_logger: SD write: 4096 B in 10376 us, ~394 KB/s, buf 134/32768
+HL [00:06:15.571,411] <inf> sd_logger: SD write: 4096 B in 6684 us, ~612 KB/s, buf 166/32768
+HL [00:06:15.590,118] <inf> sd_logger: SD write: 4096 B in 8483 us, ~482 KB/s, buf 134/32768
+HL [00:06:15.606,201] <inf> sd_logger: SD write: 4096 B in 8393 us, ~488 KB/s, buf 208/32768
+HL [00:06:15.620,086] <inf> sd_logger: SD write: 4096 B in 6347 us, ~645 KB/s, buf 20/32768
+HL [00:06:15.636,230] <inf> sd_logger: SD write: 4096 B in 7477 us, ~547 KB/s, buf 8/32768
+HL [00:06:15.653,900] <inf> sd_logger: SD write: 4096 B in 7599 us, ~539 KB/s, buf 4/32768
+HL [00:06:15.671,722] <inf> sd_logger: SD write: 4096 B in 11017 us, ~371 KB/s, buf 60/32768
+HL [00:06:15.686,401] <inf> sd_logger: SD write: 4096 B in 7995 us, ~512 KB/s, buf 28/32768
+HL [00:06:15.692,626] <inf> sensor_manager: Setup sensor ID 0 (turned off)
+HL [00:06:15.702,087] <inf> sd_logger: SD write: 4096 B in 6470 us, ~633 KB/s, buf 198/32768
+HL [00:06:15.719,329] <inf> sd_logger: SD write: 4096 B in 8148 us, ~502 KB/s, buf 2/32768
+HL [00:06:15.734,924] <inf> sd_logger: SD write: 4096 B in 8026 us, ~510 KB/s, buf 72/32768
+HL [00:06:15.751,464] <inf> sd_logger: SD write: 4096 B in 7782 us, ~526 KB/s, buf 150/32768
+HL [00:06:15.752,838] <inf> sensor_manager: Setup sensor ID 4 (turned off)
+HL [00:06:15.768,127] <inf> sd_logger: SD write: 4096 B in 7354 us, ~556 KB/s, buf 26/32768
+HL [00:06:15.783,142] <inf> sd_logger: SD write: 4096 B in 5402 us, ~758 KB/s, buf 8/32768
+HL [00:06:15.802,307] <inf> sd_logger: SD write: 4096 B in 6714 us, ~610 KB/s, buf 34/32768
+HL [00:06:15.812,774] <inf> sensor_manager: Setup sensor ID 6 (turned off)
+HL [00:06:15.821,411] <inf> sd_logger: SD write: 4096 B in 8454 us, ~484 KB/s, buf 66/32768
+HL [00:06:15.837,615] <inf> sd_logger: SD write: 4096 B in 6958 us, ~588 KB/s, buf 194/32768
+HL [00:06:15.850,921] <inf> sd_logger: SD write: 4096 B in 6226 us, ~657 KB/s, buf 2/32768
+HL [00:06:15.869,171] <inf> sd_logger: SD write: 4096 B in 6379 us, ~642 KB/s, buf 130/32768
+HL [00:06:15.872,772] <inf> sensor_manager: Setup sensor ID 1 (turned off)
+HL [00:06:15.885,406] <inf> sd_logger: SD write: 4096 B in 5737 us, ~713 KB/s, buf 56/32768
+HL [00:06:15.903,198] <inf> sd_logger: SD write: 4096 B in 6134 us, ~667 KB/s, buf 38/32768
+HL [00:06:15.918,029] <inf> sd_logger: SD write: 4096 B in 5310 us, ~771 KB/s, buf 94/32768
+HL [00:06:15.935,791] <inf> sd_logger: SD write: 4096 B in 6409 us, ~639 KB/s, buf 28/32768
+HL [00:06:15.953,826] <inf> sd_logger: SD write: 4096 B in 8209 us, ~498 KB/s, buf 118/32768
+HL [00:06:15.962,799] <inf> sensor_manager: Setup sensor ID 7 (turned off)
+HL [00:06:15.966,522] <inf> sd_logger: SD write: 4096 B in 5768 us, ~710 KB/s, buf 18/32768
+HL [00:06:15.985,473] <inf> sd_logger: SD write: 4096 B in 4883 us, ~838 KB/s, buf 8/32768
+HL [00:06:16.006,530] <inf> sd_logger: SD write: 4096 B in 4914 us, ~833 KB/s, buf 154/32768
+HL [00:06:16.022,705] <inf> sensor_manager: Setup sensor ID 2 (turned off)
+HL [00:06:16.026,672] <inf> sd_logger: SD write: 4096 B in 5066 us, ~808 KB/s, buf 98/32768
+HL [00:06:16.030,731] <inf> sd_logger: Close File ....
+HL [00:06:16.036,987] <inf> sd_logger: SD write: 4096 B in 10315 us, ~397 KB/s, buf 0/32768
+HL [00:06:16.040,954] <dbg> SDCardManager: close_file: File /SD:/sensor_log_315819854.oe closed
+HL [00:06:17.068,878] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:06:17.068,908] <inf> power_manager: charging state: charging
+HL [00:06:17.072,082] <dbg> power_manager: fuel_gauge_work_handler: Voltage: 3.728 V
+HL [00:06:17.072,082] <dbg> power_manager: fuel_gauge_work_handler: Charging current: 113.000 mA
+HL [00:06:17.072,113] <dbg> power_manager: fuel_gauge_work_handler: Target current: 110.000 mA
+HL [00:06:17.073,211] <dbg> power_manager: fuel_gauge_work_handler: State of charge: 38.000 %

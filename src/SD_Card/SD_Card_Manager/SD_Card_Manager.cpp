@@ -231,9 +231,28 @@ int SDCardManager::mount() {
 			}
 		}
 	}
-
+	uint32_t spi_max_freq1 = DT_PROP(DT_NODELABEL(spi4), max_frequency);
+	uint32_t spi4_rx_delay1 = DT_PROP(DT_NODELABEL(spi4), rx_delay);
+	LOG_INF("SD card SPI bus frequency before setting it: %d Hz (max configured)", spi_max_freq1);
+	LOG_INF("RX delay before setting it: %d ", spi4_rx_delay1);
+	// Log actual SPI bus frequency
+	uint32_t actual_hz1;
+	switch(nrf_spim_frequency_get(NRF_SPIM4)) {
+		case NRF_SPIM_FREQ_125K: actual_hz1 = 125000; break;
+		case NRF_SPIM_FREQ_250K: actual_hz1 = 250000; break;
+		case NRF_SPIM_FREQ_500K: actual_hz1 = 500000; break;
+		case NRF_SPIM_FREQ_1M:   actual_hz1 = 1000000; break;
+		case NRF_SPIM_FREQ_2M:   actual_hz1 = 2000000; break;
+		case NRF_SPIM_FREQ_4M:   actual_hz1 = 4000000; break;
+		case NRF_SPIM_FREQ_8M:   actual_hz1 = 8000000; break;
+		case NRF_SPIM_FREQ_16M:  actual_hz1 = 16000000; break;
+		case NRF_SPIM_FREQ_32M:  actual_hz1 = 32000000; break;
+		default: actual_hz1 = 0; break;
+	}
+	LOG_INF("Effective SPI frequency before setting it: %d Hz", actual_hz1);
 	// Set SPI bus frequency to 32MHz
 	nrf_spim_frequency_set(NRF_SPIM4, NRF_SPIM_FREQ_32M);
+	//nrf_spim_iftiming_set(NRF_SPIM4, 0);
 		
 	// Log SPI bus frequency (configured max frequency from device tree)
 	uint32_t spi_max_freq = DT_PROP(DT_NODELABEL(spi4), max_frequency);
@@ -254,6 +273,8 @@ int SDCardManager::mount() {
 		default: actual_hz = 0; break;
 	}
 	LOG_INF("Effective SPI frequency: %d Hz", actual_hz);
+	//uint32_t spi4_rx_delay = DT_PROP(DT_NODELABEL(spi4), rx_delay);
+	//LOG_INF("RX delay after setting it: %d ", spi4_rx_delay);
 	
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {

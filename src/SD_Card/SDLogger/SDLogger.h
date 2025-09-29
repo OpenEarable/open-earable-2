@@ -86,7 +86,7 @@ private:
         * @return 0 on success, negative error code on failure
         */
         int write_sensor_data(const void* const* data_blocks, const size_t* lengths, size_t block_count);
-
+        void write_speed_record(uint32_t bytes, uint32_t duration_us, uint32_t post_fill);
         int write_sensor_data(const sensor_data& msg);
 
         /**

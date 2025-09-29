@@ -128,11 +128,17 @@ void SDLogger::sensor_sd_task() {
             size_t write_size = SD_BLOCK_SIZE;
     
             ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+            uint32_t pre_fill = ring_buf_size_get(&ring_buffer);
+
+            uint64_t start_us = micros();
             bytes_read = sdlogger.sd_card->write((char*)data, &write_size, false);
             uint64_t end_us = micros();
+            uint32_t dur_us = (uint32_t)(end_us - start_us);
             ring_buf_get_finish(&ring_buffer, bytes_read);
+            uint32_t post_fill = ring_buf_size_get(&ring_buffer);
 
             if (bytes_read > 0) {
+                sdlogger.write_speed_record(bytes_read, dur_us, pre_fill);
                 sdlogger.unsynced_bytes += bytes_read;
                 uint64_t now = end_us;
                 bool size_gate = (sdlogger.unsynced_bytes >= SYNC_EVERY_BYTES);
@@ -305,6 +311,36 @@ int SDLogger::write_sensor_data(const sensor_data& msg) {
     const void* msg_ptr = &msg;
     return write_sensor_data(&msg_ptr, &data_size, 1);
 }
+
+void SDLogger::write_speed_record(uint32_t bytes_read, uint32_t duration_us, uint32_t pre_fill) {
+    uint32_t kbps = (duration_us > 0) ? (bytes_read * 1000u) / duration_us : 0u;
+    LOG_INF("SD write: %u B in %u us, ~%u KB/s, buf %u/%u",
+            (unsigned)bytes_read,
+            (unsigned)duration_us,
+            (unsigned)kbps,
+            (unsigned)pre_fill,
+            (unsigned)BUFFER_SIZE);  // INFO level output [web:4][web:8]
+    /*
+    WriteSpeedRecord rec;
+    rec.timestamp_us      = micros();      // or start_us
+    rec.bytes_written     = (uint32_t)bytes_read;
+    rec.duration_us       = duration_us;
+    rec.buffer_fill_bytes = pre_fill;     // or pre_fill, pick one
+    rec.buffer_capacity   = BUFFER_SIZE;
+
+    WSHeader h;
+    h.magic = WS_MAGIC;
+    h.ver   = WS_VER;
+    h.size  = sizeof(WriteSpeedRecord);
+
+    size_t hdr_len = sizeof(h);
+    sd_card->write((char*)&h, &hdr_len, false);
+
+    size_t rec_len = sizeof(rec);
+    sd_card->write((char*)&rec, &rec_len, false);
+    */
+}
+
 
 int SDLogger::flush() {
     uint32_t bytes_read;
