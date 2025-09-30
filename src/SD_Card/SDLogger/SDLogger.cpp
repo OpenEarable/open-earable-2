@@ -36,7 +36,7 @@ struct ring_buf ring_buffer;
 struct k_mutex write_mutex;
 uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
 
-int count_max_buffer_fill = 0;
+uint32_t count_max_buffer_fill = 0;
 
 struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt =
@@ -106,38 +106,67 @@ void SDLogger::sensor_sd_task() {
     while (1) {
         ret = k_poll(&logger_evt, 1, K_FOREVER);
 
+        if (ret < 0) {
+            LOG_ERR("k_poll failed: %d", ret);
+            continue;
+        }
+
+        // If the event was signaled, reset it so the next enqueue can re-signal
+        if (ret == 0 && logger_evt.state == K_POLL_STATE_SIGNALED) {
+            k_poll_signal_reset(&logger_sig);
+        }
+
         if (!sdcard_manager.is_mounted()) {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("SD Card not mounted!");
             return;
         }
 
-        uint32_t fill = ring_buf_size_get(&ring_buffer);
+        // Drain the ring buffer in big, aligned chunks
+        for (;;) {
+            uint32_t fill = ring_buf_size_get(&ring_buffer);
+            if (fill < SD_BLOCK_SIZE) {
+                break;
+            }
 
-        if (fill >= SD_BLOCK_SIZE) {
             if (fill > count_max_buffer_fill) {
                 count_max_buffer_fill = fill;
-                //LOG_INF("Max buffer fill: %d bytes", count_max_buffer_fill);
             }
-            //k_mutex_lock(&write_mutex, K_FOREVER);
-            uint32_t bytes_read;
-            uint8_t * data;
-            size_t write_size = SD_BLOCK_SIZE;
-    
-            ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
-            bytes_read = sdlogger.sd_card->write((char*)data, &write_size, false);
-            ring_buf_get_finish(&ring_buffer, bytes_read);
 
-            //k_mutex_unlock(&write_mutex);
-    
-            //fill -= bytes_read;
-        } else {
-            k_yield();
+            size_t to_write = fill < BUFFER_SIZE ? fill : BUFFER_SIZE;
+
+            // Claim contiguous bytes actually available (may be < to_write at wrap)
+            uint8_t *data = NULL;
+            size_t claimed = ring_buf_get_claim(&ring_buffer, &data, to_write);
+            if (claimed == 0) {
+                break;
+            }
+            // Write the claimed bytes to the SD card
+            size_t want = claimed;
+            uint32_t wrote = sdlogger.sd_card->write((char *)data, &want, false);
+
+            if (wrote == 0) {
+                // Card is momentarily not accepting data; finish claim=0 and back off
+                ring_buf_get_finish(&ring_buffer, 0);
+                LOG_WRN("SD card write stalled; backing off");
+                k_sleep(K_MSEC(5));
+                break;
+            }
+
+            ring_buf_get_finish(&ring_buffer, wrote);
+
+            // If we couldn’t flush the full claim, don’t spin; let the card breathe
+            if (wrote < claimed) {
+                k_sleep(K_MSEC(1));
+                break;
+            }
+
+            // Loop again to keep draining until fill < SD_BLOCK_SIZE or max batch next round
         }
 
-        if (ret < 0) {
-            state_indicator.set_sd_state(SD_FAULT);
-            LOG_ERR("Failed to write sensor data: %d", ret);
+        // If we didn’t do any work this tick, yield to higher-prio threads
+        if (ring_buf_size_get(&ring_buffer) < SD_BLOCK_SIZE) {
+            k_yield();
         }
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
@@ -246,7 +275,9 @@ int SDLogger::write_header() {
 }
 
 int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* lengths, size_t block_count) {
-    k_mutex_lock(&write_mutex, K_FOREVER);
+    if (!is_open || data_blocks == nullptr || lengths == nullptr || block_count == 0) {
+        return -ENODEV;
+    }
 
     // Calculate total length needed
     size_t total_length = 0;
@@ -254,24 +285,62 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
         total_length += lengths[i];
     }
 
-    uint32_t left_space = ring_buf_space_get(&ring_buffer);
-    if (left_space < total_length) {
-        k_mutex_unlock(&write_mutex);
-        LOG_WRN("Not enough space in ring buffer: %d bytes needed, %d bytes available", total_length, left_space);
-        return -ENOSPC;
+    // Single message larger than buffer -> cannot ever fit
+    if (total_length > BUFFER_SIZE) {
+        LOG_WRN("Dropping oversize record: %zu > BUFFER_SIZE=%u", total_length, (unsigned)BUFFER_SIZE);
+        return -EMSGSIZE;
     }
-    
-    for (size_t i = 0; i < block_count; i++) {
-        int written = ring_buf_put(&ring_buffer, (const uint8_t*)data_blocks[i], lengths[i]);
-        if (written < lengths[i]) {
-            k_mutex_unlock(&write_mutex);
-            LOG_ERR("Failed to write data block: %d bytes written, %d bytes requested", written, lengths[i]);
-            return -ENOSPC;
+
+    // Do not block producers; if mutex is contended, drop quickly
+    if (k_mutex_lock(&write_mutex, K_NO_WAIT) != 0) {
+        return -EAGAIN;
+    }
+
+    // Ensure there is enough space; if not, free up room by discarding oldest bytes
+    // in SD_BLOCK_SIZE chunks to keep SD writer alignment and minimize partial writes.
+    uint32_t space = ring_buf_space_get(&ring_buffer);
+    if (space < total_length) {
+        // Amount to free
+        size_t need = total_length - space;
+        // Round up to SD block size to reduce writer fragmentation
+        size_t to_free = ((need + SD_BLOCK_SIZE - 1) / SD_BLOCK_SIZE) * SD_BLOCK_SIZE;
+
+        // WARNING: This may cut through a logical record. For fully safe drops,
+        // switch to length-prefixed frames inside the ring buffer.
+        while (to_free > 0) {
+            uint8_t *drop_ptr = nullptr;
+            size_t   drop_now = MIN((size_t)SD_BLOCK_SIZE, to_free);
+
+            size_t got = ring_buf_get_claim(&ring_buffer, &drop_ptr, drop_now);
+            if (got == 0) {
+                // Nothing to drop (producer outran consumer and space calc raced). Break.
+                break;
+            }
+            ring_buf_get_finish(&ring_buffer, got);
+            to_free -= got;
+        }
+    }
+
+    // Try to write all blocks
+    for (size_t i = 0; i < block_count; ++i) {
+        const uint8_t* src = (const uint8_t*)data_blocks[i];
+        size_t len = lengths[i];
+        while (len > 0) {
+            int wrote = ring_buf_put(&ring_buffer, src, len);
+            if (wrote <= 0) {
+                // Buffer still tight -> give up quickly; do not block the producer
+                k_mutex_unlock(&write_mutex);
+                LOG_DBG("Ring buffer tight; partial enqueue. Dropping remainder=%zu", len);
+                return -ENOSPC;
+            }
+            src += wrote;
+            len -= wrote;
         }
     }
 
     k_mutex_unlock(&write_mutex);
-    
+
+    k_poll_signal_raise(&logger_sig, 0);
     return 0;
 }
 
@@ -282,19 +351,27 @@ int SDLogger::write_sensor_data(const sensor_data& msg) {
 }
 
 int SDLogger::flush() {
-    uint32_t bytes_read;
-    uint8_t * data;
-    size_t write_size = SD_BLOCK_SIZE;
-
-    uint32_t fill = ring_buf_size_get(&ring_buffer);
-
-    ring_buf_get_claim(&ring_buffer, &data, fill);
-
-    bytes_read = sd_card->write((char*)ring_buffer.buffer, &write_size, false);
-
-    ring_buf_get_finish(&ring_buffer, bytes_read);
-
-    return bytes_read;
+    // Drain the entire ring buffer to the file
+    uint32_t total_written = 0;
+    for (;;) {
+        uint8_t *data = nullptr;
+        size_t   avail = ring_buf_size_get(&ring_buffer);
+        if (avail == 0) {
+            break;
+        }
+        size_t claim = avail;
+        (void)ring_buf_get_claim(&ring_buffer, &data, claim);
+        size_t req = claim;
+        uint32_t wrote = sd_card->write((char*)data, &req, false); // writes up to req
+        // wrote is what the driver reports; req is IN/OUT if your API mutates
+        ring_buf_get_finish(&ring_buffer, wrote);
+        total_written += wrote;
+        if (wrote < claim) {
+            // Could not write all right now; avoid tight loop
+            k_yield();
+        }
+    }
+    return (int)total_written;
 }
 
 int SDLogger::end() {
