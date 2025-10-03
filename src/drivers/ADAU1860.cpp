@@ -192,55 +192,6 @@ int ADAU1860::begin() {
         err = adi_lark_pmu_enable_cm_pin_fast_charge(&device, 0);
         LARK_ERROR_RETURN(err);
 
-        // bypass PLL and set MCLK to 24.576 MHz
-        /*err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_24P576, true);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_clk_enable_pll_power_on(&device, false);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_clk_enable_xtal_power_on(&device, true);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_clk_select_xtal_mode(&device, API_LARK_CLK_XTAL_MODE_XTAL);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_clk_enable_2x_output(&device, true);
-        LARK_ERROR_RETURN(err);
-
-        uint8_t fm_locked;
-
-        adi_lark_clk_get_2x_locked_status(&device, &fm_locked);
-
-        // verify power up complete
-        uint8_t status2;
-        readReg(registers::STATUS2, &status2, sizeof(status2));
-        LOG_DBG("STATUS2: 0x%x", status2);
-
-        if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-        if (!(status2 & (1 << 1))) LOG_WRN("FM not ready");
-
-        while (!(status2 & (1 << 7)) || !(status2 & (1 << 1))) {
-                readReg(registers::STATUS2, &status2, sizeof(status2));
-                LOG_DBG("STATUS2: 0x%x", status2);
-
-                // power up complete and PLL lock
-                if (!(status2 & (1 << 7))) LOG_WRN("No power up");
-                if (!(status2 & (1 << 1))) LOG_WRN("FM not ready");
-
-                k_usleep(10);
-        }
-
-        // Power saving
-        //uint8_t power_mode = 0x40 | 0x11 | 0x04; // CM_Startup_over | active mode, Master enable
-        //writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));
-
-        err = adi_lark_pmu_set_chip_power_mode(&device, API_LARK_PWR_MODE_ACTIVE); //API_LARK_PWR_MODE_ACTIVE
-        LARK_ERROR_RETURN(err);
-
-        err = adi_lark_pmu_enable_master_block(&device, 1);
-        LARK_ERROR_RETURN(err);*/
-
-        // bypass PLL
-        //uint8_t clk_ctrl13 = (1 << 7) | (1 << 4) | 0x01; // (0x01 = 49.152 MHz)
-        //writeReg(registers::CLK_CTRL13, &clk_ctrl13, sizeof(clk_ctrl13));
-
         err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_98P304, true);
         LARK_ERROR_RETURN(err);
 
@@ -326,56 +277,6 @@ int ADAU1860::begin() {
         err = adi_lark_pmu_enable_master_block(&device, 1);
         LARK_ERROR_RETURN(err);
 
-#ifdef PLL
-
-        /* change dldo voltage output to 1.1v to support 98MHz clock */
-        err = adi_lark_pmu_set_dldo_output_voltage(&device, API_LARK_PMU_DLDO_OUTPUT_1P1V);
-        LARK_ERROR_RETURN(err);
-
-
-        /* Wait until DVDD is settle at 1.1V
-        * If DVDD is configured to 0.9, DVDD_Done flag
-        * will never be set to 1 as it is not going to change
-        * any value*/
-
-        uint32_t DVDD_DONE = 0;
-        do
-        {
-                err = adi_lark_hal_bf_read(&device, BF_STARTUP_DLYCNT_DONE_INFO, &DVDD_DONE);
-                LARK_ERROR_RETURN(err);
-
-        } while(!DVDD_DONE);
-
-
-        /* power up device and audio block */
-        err = adi_lark_pmu_set_chip_power_mode(&device, API_LARK_PWR_MODE_ACTIVE);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_pmu_enable_master_block(&device, 1);
-        LARK_ERROR_RETURN(err);
-
-        /* set pll, bus clock and ffsram clock */
-        err = adi_lark_clk_startup_pll(&device, API_LARK_CLK_XTAL_MODE_XTAL, API_LARK_CLK_PLL_SOURCE_MCLKIN, API_LARK_CLK_SYNC_SOURCE_INTERNAL, 24576000, 98304000);
-        LARK_ERROR_RETURN(err);
-        err = adi_lark_clk_set_ffsram_clk_rate(&device, API_LARK_FFSRAM_CLK_RATE_BUSCLK_OVER_1);
-        LARK_ERROR_RETURN(err);
-
-        /* Wait until PLL is locked
-        * As we are using a MMCLK of 98.304MHz using the PLL
-        * from the XTAL we need to wait until locks*/
-
-        uint32_t PLL_LOCKED = 0;
-        do
-        {
-                err = adi_lark_hal_bf_read(&device, BF_IRQ1_PLL_LOCKED_INFO, &PLL_LOCKED);
-                LARK_ERROR_RETURN(err);
-
-        } while(!PLL_LOCKED);
-
-        err = adi_lark_clk_set_mclk_freq(&device, API_LARK_MCLK_FREQ_98P304, false);
-        LARK_ERROR_RETURN(err);
-
-#endif
-
         // Power saving
         /*uint8_t power_mode = 0x40 | 0x11 | 0x04; // CM_Startup_over | Active Mode, Master enable
         writeReg(registers::CHIP_PWR, &power_mode, sizeof(power_mode));*/
@@ -415,10 +316,10 @@ int ADAU1860::begin() {
                 uint8_t fdec_pwr = 0x03; // FDEC0_EN | FDEC1_EN
                 writeReg(registers::FDEC_PWR, &fdec_pwr, sizeof(fdec_pwr));
 
-                uint8_t fdec_ctrl1 = 0x24; // 192khz to 48kHz
+                uint8_t fdec_ctrl1 = 0x25; // 384khz to 48kHz
                 writeReg(registers::FDEC_CTRL1, &fdec_ctrl1, sizeof(fdec_ctrl1));
 
-                uint8_t fdec_route0 = 39; // DMIC Channel 0
+                uint8_t fdec_route0 = 0; // DMIC Channel 0
                 writeReg(registers::FDEC_ROUTE0, &fdec_route0, sizeof(fdec_route0));
                 
                 uint8_t fdec_route1 = 40; // DMIC Channel 1
@@ -453,7 +354,7 @@ int ADAU1860::begin() {
                 uint8_t dmic_ctrl1 = 0x34; // ... | 6.144 MHz
                 writeReg(registers::DMIC_CTRL1, &dmic_ctrl1, sizeof(dmic_ctrl1));
 
-                uint8_t dmic_ctrl2 = 0x04; // 192kHz
+                uint8_t dmic_ctrl2 = 0x05; // 384kHz
                 writeReg(registers::DMIC_CTRL2, &dmic_ctrl2, sizeof(dmic_ctrl2));
         } else {
                 // I2S_IN enable
@@ -511,7 +412,7 @@ int ADAU1860::setup_DAC() {
         uint8_t hpldo_ctrl = 0x01;
         writeReg(registers::HPLDO_CTRL, &hpldo_ctrl, sizeof(hpldo_ctrl));
 
-        uint8_t dac_ctrl1 = 0x04; // 192kz
+        uint8_t dac_ctrl1 = 0x05; // 384kHz
         writeReg(registers::DAC_CTRL1, &dac_ctrl1, sizeof(dac_ctrl1));
 
         // DAC_NOISE_CTRL1&2
