@@ -16,6 +16,9 @@
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/settings/settings.h>
 
+#include "../drivers/LED_Controller/KTD2026.h"
+#include "../utils/StateIndicator.h"
+
 #include "macros_common.h"
 #include "zbus_common.h"
 #include "openearable_common.h"
@@ -59,6 +62,14 @@ int hw_codec_set_audio_mode(enum audio_mode mode) {
 	audio_mode = mode;
 
 	settings_save_one("audio/mode", &mode, sizeof(mode));
+
+	if (audio_mode == AUDIO_MODE_NORMAL) {
+        // Blue LED for Normal mode (Bank A)
+        led_controller.blink(LED_BLUE, 100, 2000);
+    } else {
+        // Magenta LED for Transparency mode (Bank B)
+        led_controller.blink(LED_MAGENTA, 100, 2000);
+    }
 
 	ret = dac.fdsp_bank_select((uint8_t) mode);
 	// TODO: make writing to bank work

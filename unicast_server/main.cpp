@@ -76,13 +76,13 @@ int main(void) {
 
 	uint32_t sirk = uicr_sirk_get();
 
-	if (sirk == 0xFFFFFFFFU) {
+	/*if (sirk == 0xFFFFFFFFU) {
 		state_indicator.set_pairing_state(SET_PAIRING);
 	} else if (bonded_device_count > 0 && !oe_boot_state.timer_reset) {
 		state_indicator.set_pairing_state(PAIRED);
 	} else {
 		state_indicator.set_pairing_state(BONDING);
-	}
+	}*/
 
 	init_sensor_manager();
 
