@@ -29,8 +29,8 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
 target_sources(app PRIVATE
 #    src/openearable_common.c
     ${CMAKE_BINARY_DIR}/fw_info_app.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/sd_bench.cpp
     )
-
 if (CONFIG_BT_BAP_BROADCAST_SINK)
 	add_subdirectory(broadcast_sink)
 endif()

@@ -19,6 +19,7 @@
 #endif
 
 #include <hal/nrf_ficr.h>
+#include <hal/nrf_spim.h>
 
 #include "../drivers/LED_Controller/KTD2026.h"
 #include "../drivers/ADAU1860.h"
@@ -137,7 +138,23 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
     uint16_t charging_state = battery_controller.read_charging_state() >> 6;
     gauge_status gs;
-
+    
+    //nrf_spim_frequency_set(NRF_SPIM4, NRF_SPIM_FREQ_32M);
+    uint32_t actual_hz;
+    switch(nrf_spim_frequency_get(NRF_SPIM4)) {
+        case NRF_SPIM_FREQ_125K: actual_hz = 125000; break;
+        case NRF_SPIM_FREQ_250K: actual_hz = 250000; break;
+        case NRF_SPIM_FREQ_500K: actual_hz = 500000; break;
+        case NRF_SPIM_FREQ_1M:   actual_hz = 1000000; break;
+        case NRF_SPIM_FREQ_2M:   actual_hz = 2000000; break;
+        case NRF_SPIM_FREQ_4M:   actual_hz = 4000000; break;
+        case NRF_SPIM_FREQ_8M:   actual_hz = 8000000; break;
+        case NRF_SPIM_FREQ_16M:  actual_hz = 16000000; break;
+        case NRF_SPIM_FREQ_32M:  actual_hz = 32000000; break;
+        default: actual_hz = 0; break;
+    }
+    LOG_INF("Effective SPI frequency: %d Hz", actual_hz);
+            
     switch (charging_state) {
         case 0:
             LOG_INF("charging state: discharge");

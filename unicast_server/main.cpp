@@ -18,6 +18,8 @@
 #include "macros_common.h"
 #include "openearable_common.h"
 #include "streamctrl.h"
+#include "../src/sd_bench.h"
+
 
 #include "../src/Battery/PowerManager.h"
 #include "../src/SensorManager/SensorManager.h"
@@ -99,7 +101,7 @@ int main(void) {
 	//sensor_config ppg = {ID_PPG, 400, 0};
 	//config_sensor(&ppg);
 
-    ret = init_led_service();
+  ret = init_led_service();
 	ERR_CHK(ret);
 
 	ret = init_battery_service();
@@ -111,12 +113,15 @@ int main(void) {
 	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
 	ERR_CHK(ret);
 
-	ret = init_sensor_service();
-	ERR_CHK(ret);
+	//ret = init_sensor_service();
+	//ERR_CHK(ret);
 
 	// error test
 	//long *a = nullptr;
 	//*a = 10;
-
+	LOG_INF("STARTING SD BENCH");
+	
+	ret = sd_benchmark.init();
+	ret = sd_benchmark.start();
 	return 0;
 }
