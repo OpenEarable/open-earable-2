@@ -5,7 +5,7 @@
 #include <string>
 #include "SD_Card_Manager.h"
 
-#define BENCHMARK_BLOCK_SIZE 16384  // 4KB
+#define BENCHMARK_BLOCK_SIZE 4096  // 4KB
 #define BENCHMARK_TOTAL_SIZE (1024 * 1024)  // 1MB
 #define BENCHMARK_ITERATIONS 10
 #define BENCHMARK_THREAD_STACK_SIZE 8192  // 4KB
