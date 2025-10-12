@@ -111,9 +111,13 @@ void SDLogger::sensor_sd_task() {
             continue;
         }
 
-        // If the event was signaled, reset it so the next enqueue can re-signal
-        if (ret == 0 && logger_evt.state == K_POLL_STATE_SIGNALED) {
-            k_poll_signal_reset(&logger_sig);
+        unsigned int signaled;
+        int result;
+        k_poll_signal_check(&logger_sig, &signaled, &result);
+
+        if (signaled == 0) {
+            LOG_DBG("Poll woke up without signal");
+            continue;
         }
 
         if (!sdcard_manager.is_mounted()) {
@@ -122,52 +126,36 @@ void SDLogger::sensor_sd_task() {
             return;
         }
 
-        // Drain the ring buffer in big, aligned chunks
-        for (;;) {
-            uint32_t fill = ring_buf_size_get(&ring_buffer);
-            if (fill < SD_BLOCK_SIZE) {
-                break;
-            }
+        uint32_t fill = ring_buf_size_get(&ring_buffer);
 
+        if (fill >= SD_BLOCK_SIZE) {
             if (fill > count_max_buffer_fill) {
                 count_max_buffer_fill = fill;
+                //LOG_INF("Max buffer fill: %d bytes", count_max_buffer_fill);
             }
+            //k_mutex_lock(&write_mutex, K_FOREVER);
+            uint32_t bytes_read;
+            uint8_t * data;
+            size_t write_size = SD_BLOCK_SIZE;
+    
+            ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+            bytes_read = sdlogger.sd_card->write((char*)data, &write_size, false);
+            ring_buf_get_finish(&ring_buffer, bytes_read);
 
-            size_t to_write = fill < BUFFER_SIZE ? fill : BUFFER_SIZE;
-
-            // Claim contiguous bytes actually available (may be < to_write at wrap)
-            uint8_t *data = NULL;
-            size_t claimed = ring_buf_get_claim(&ring_buffer, &data, to_write);
-            if (claimed == 0) {
-                break;
-            }
-            // Write the claimed bytes to the SD card
-            size_t want = claimed;
-            uint32_t wrote = sdlogger.sd_card->write((char *)data, &want, false);
-
-            if (wrote == 0) {
-                // Card is momentarily not accepting data; finish claim=0 and back off
-                ring_buf_get_finish(&ring_buffer, 0);
-                LOG_WRN("SD card write stalled; backing off");
-                k_sleep(K_MSEC(5));
-                break;
-            }
-
-            ring_buf_get_finish(&ring_buffer, wrote);
-
-            // If we couldn’t flush the full claim, don’t spin; let the card breathe
-            if (wrote < claimed) {
-                k_sleep(K_MSEC(1));
-                break;
-            }
-
-            // Loop again to keep draining until fill < SD_BLOCK_SIZE or max batch next round
-        }
-
-        // If we didn’t do any work this tick, yield to higher-prio threads
-        if (ring_buf_size_get(&ring_buffer) < SD_BLOCK_SIZE) {
+            //k_mutex_unlock(&write_mutex);
+    
+            //fill -= bytes_read;
+        } else {
             k_yield();
         }
+
+        if (ret < 0) {
+            state_indicator.set_sd_state(SD_FAULT);
+            LOG_ERR("Failed to write sensor data: %d", ret);
+        }
+
+        logger_evt.state = K_POLL_STATE_NOT_READY;
+        k_poll_signal_reset(&logger_sig);
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
@@ -355,18 +343,17 @@ int SDLogger::flush() {
     uint32_t total_written = 0;
     for (;;) {
         uint8_t *data = nullptr;
-        size_t   avail = ring_buf_size_get(&ring_buffer);
-        if (avail == 0) {
+        uint32_t fill = ring_buf_size_get(&ring_buffer);
+        if (fill == 0) {
             break;
         }
-        size_t claim = avail;
-        (void)ring_buf_get_claim(&ring_buffer, &data, claim);
-        size_t req = claim;
+        (void)ring_buf_get_claim(&ring_buffer, &data, fill);
+        size_t req = fill;
         uint32_t wrote = sd_card->write((char*)data, &req, false); // writes up to req
         // wrote is what the driver reports; req is IN/OUT if your API mutates
         ring_buf_get_finish(&ring_buffer, wrote);
         total_written += wrote;
-        if (wrote < claim) {
+        if (wrote < fill) {
             // Could not write all right now; avoid tight loop
             k_yield();
         }
