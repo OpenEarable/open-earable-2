@@ -75,16 +75,15 @@ void BoneConduction::update_sensor(struct k_work *work) {
         msg_bc.stream = sensor._ble_stream;
 
         msg_bc.data.id = ID_BONE_CONDUCTION;
-        msg_bc.data.size = to_write * _size;
+        msg_bc.data.size = to_write * _size + sizeof(uint16_t);
         msg_bc.data.time = _time_stamp - (num_samples - written) * BoneConduction::sensor.t_sample_us;
 
         if (to_write > 1) {
             uint16_t t_diff = BoneConduction::sensor.t_sample_us;
-            memcpy(&msg_bc.data.data, &t_diff, sizeof(uint16_t));
-            
             for (int i = 0; i < to_write; i++) {
-                memcpy(&msg_bc.data.data[i * _size] + sizeof(uint16_t), &sensor.fifo_acc_data[written + i], _size);
+                memcpy(&msg_bc.data.data[i * _size], &sensor.fifo_acc_data[written + i], _size);
             }
+            memcpy(&msg_bc.data.data[msg_bc.data.size - sizeof(uint16_t)], &t_diff, sizeof(uint16_t));
         } else {
             memcpy(&msg_bc.data.data, &sensor.fifo_acc_data[written], _size);
         }
