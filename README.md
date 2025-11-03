@@ -53,7 +53,7 @@
    - In the **APPLICATIONS** section of the nRF Connect extension tab:  
      - Select the `open-earable-2` application  
      - Click **"+ Add build configuration"** to set up a new build
-     - Select the SDK version 3.0.1, toolchain version 3.0.1, and `open-earable-2/nrf5340/cpuapp` as board target
+     - Select the SDK version 3.0.1, toolchain version 3.0.1, and `openearable_v2/nrf5340/cpuapp` as board target
      - To build **with FOTA** (firmware over-the-air update functionality):
        - Leave the `Base configuration files (Kconfig fragments)` dropdown empty
        - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`

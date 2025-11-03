@@ -54,6 +54,13 @@ private:
 
         friend void sd_listener_callback(const struct zbus_channel *chan);
 
+        // Batching controls
+        size_t unsynced_bytes = 0;
+        uint64_t last_sync_us = 0;
+        // Tunables
+        static constexpr size_t SYNC_EVERY_BYTES = 32 * 1024;  // 32 KB
+        static constexpr uint32_t SYNC_EVERY_MS  = 500;        // 0.5 s
+
     public:
         SDLogger();
         ~SDLogger();
