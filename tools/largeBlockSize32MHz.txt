@@ -1,0 +1,926 @@
+*** Booting My Application v2.1.5-978b1127ab1a ***
+*** Using nRF Connect SDK v3.0.1-9eb5615da66b ***
+*** Using Zephyr OS v4.0.99-77f865b8f8d0 ***
+-- [00:00:00.256,988] <inf> power_manager: Rebooting ...
+HL [00:00:00.266,021] <wrn> LED: I2C write failed: -5
+HL [00:00:00.267,669] <inf> main: Standalone mode: 255
+HL [00:00:00.267,852] <inf> fw_info: 
+	 nRF5340 Audio nRF5340 Audio DK cpuapp 			    
+	 NCS base version: 3.0.1 			    
+	 Cmake run : Mon Oct 13 17:29:41 2025
+HL [00:00:00.267,852] <inf> fw_info: ------- DEBUG BUILD -------
+HL [00:00:00.267,852] <inf> fw_info: HEADSET left device
+HL [00:00:00.318,817] <inf> bt_mgmt_ctlr_cfg: Controller: SoftDevice: Version 6.0 (0x0e), Revision 8435
+HL [00:00:00.319,091] <inf> bt_mgmt: Local identity addr: DC:54:A1:86:A3:4C (random)
+HL [00:00:00.605,224] <wrn> unicast_server: CSIP using the default SIRK, must be changed before production
+HL [00:00:00.607,818HL [00:00:14.206,726] <wrn> sensor_manager: No data to process
+HL [00:00:15.700,500] <inf> power_manager: Effective SPI frequency: 250000 Hz
+HL [00:00:15.700,531] <inf> power_manager: charging state: charging
+HL [00:00:15.703,613] <dbg> power_manager: fuel_gauge_work_handler: Voltage: 4.301 V
+HL [00:00:15.703,613] <dbg> power_manager: fuel_gauge_work_handler: Charging current: 14.000 mA
+HL [00:00:15.703,643] <dbg> power_manager: fuel_gauge_work_handler: Target current: 110.000 mA
+HL [00:00:15.704,742] <dbg> power_manager: fuel_gauge_work_handler: State of charge: 100.000 %
+HL [00:00:25.700,897] <inf> power_manager: Effective SPI frequency: 250000 Hz
+HL [00:00:25.700,897] <inf> power_manager: charging state: charging
+HL [00:00:25.704,101] <dbg> power_manager: fuel_gauge_work_handler: Voltage: 4.302 V
+HL [00:00:25.704,101] <dbg> power_manager: fuel_gauge_work_handler: Charging current: 11.000 mA
+HL [00:00:25.704,132] <dbg> power_manager: fuel_gauge_work_handler: Target current: 110.000 mA
+HL [00:00:25.705,261] <dbg> power_manager: fuel_gauge_work_handler: State of charge: 100.000 %
+HL [00:00:35.701,232] <inf> power_manager: Effective SPI frequency: 250000 Hz
+HL [00:00:35.701,232] <inf> power_manager: charging state: charging
+HL [00:00:35.704,467] <dbg> power_manager: fuel_gauge_work_handler: Voltage: 4.302 V
+HL [00:00:35.704,467] <dbg> power_manager: fuel_gauge_work_handler: Charging current: 10.000 mA
+HL [00:00:35.704,498] <dbg> power_manager: fuel_gauge_work_handler: Target current: 110.000 mA
+HL [00:00:35.705,627] <dbg> power_manager: fuel_gauge_work_handler: State of charge: 100.000 %
+HL [00:00:35.746,398] <inf> sensor_manager: Setup sensor ID 0 with samplerateIndex 5
+HL [00:00:36.023,834] <inf> sensor_manager: Starting SDLogger with recording name prefix: sensor_log_
+HL [00:00:36.313,629] <dbg> SDCardManager: mount: Sector count: 125042688
+HL [00:00:36.313,659] <dbg> SDCardManager: mount: Sector size: 512 bytes
+HL [00:00:36.313,659] <inf> SDCardManager: SD card volume size: 61056 MB
+HL [00:00:36.317,169] <inf> SDCardManager: SD card SPI bus frequency before setting it: 32000000 Hz (max configured)
+HL [00:00:36.317,199] <inf> SDCardManager: RX delay before setting it: 2 
+HL [00:00:36.317,199] <inf> SDCardManager: Effective SPI frequency before setting it: 16000000 Hz
+HL [00:00:36.317,199] <inf> SDCardManager: SD card SPI bus frequency: 32000000 Hz (max configured)
+HL [00:00:36.317,199] <inf> SDCardManager: Effective SPI frequency: 32000000 Hz
+HL [00:00:36.317,230] <dbg> SDCardManager: mount: Root dir: /SD:
+HL [00:00:36.317,291] <inf> sd_logger: OPEN FILE: sensor_log_36023834
+HL [00:00:36.406,555] <inf> sensor_manager: Setup sensor ID 4 with samplerateIndex 15
+HL [00:00:36.466,583] <inf> sensor_manager: Setup sensor ID 6 with samplerateIndex 7
+HL [00:00:36.468,231] <wrn> MLX90632: Sensor EEPROM version (usually 0x205): 0x8505
+HL [00:00:36.595,794] <wrn> MLX90632: Found a cycle position that was not 1 or 2
+HL [00:00:36.646,606] <inf> sensor_manager: Setup sensor ID 1 with samplerateIndex 17
+HL [00:00:36.706,604] <inf> sensor_manager: Setup sensor ID 7 with samplerateIndex 9
+HL [00:00:36.707,336] <inf> BMA580: Chip ID :0xC4
+HL [00:00:36.708,648] <inf> BMA580: Accel enabled
+HL [00:00:36.710,510] <inf> BMA580: Chip ID :0xC4
+HL [00:00:36.712,402] <inf> BMA580: Accel enabled
+HL [00:00:36.796,691] <inf> sensor_manager: Setup sensor ID 2 with samplerateIndex 0
+HL [00:00:36.850,189] <inf> sd_logger: SD write: 16384 B in 50171 us, ~326 KB/s, buf 78/98304
+HL [00:00:36.892,059] <inf> sd_logger: SD write: 16384 B in 30121 us, ~543 KB/s, buf 80/98304
+HL [00:00:36.957,672] <inf> sd_logger: SD write: 16384 B in 29480 us, ~555 KB/s, buf 220/98304
+HL [00:00:37.025,115] <inf> sd_logger: SD write: 16384 B in 31036 us, ~527 KB/s, buf 114/98304
+HL [00:00:37.089,508] <inf> sd_logger: SD write: 16384 B in 30610 us, ~535 KB/s, buf 74/98304
+HL [00:00:37.177,673] <inf> sd_logger: SD write: 16384 B in 51026 us, ~321 KB/s, buf 844/98304
+HL [00:00:37.216,644] <inf> sd_logger: SD write: 16384 B in 29724 us, ~551 KB/s, buf 124/98304
+HL [00:00:37.331,146] <inf> sd_logger: SD write: 16384 B in 80200 us, ~204 KB/s, buf 6/98304
+HL [00:00:37.379,150] <inf> sd_logger: SD write: 16384 B in 48004 us, ~341 KB/s, buf 3712/98304
+HL [00:00:37.414,031] <inf> sd_logger: SD write: 16384 B in 30731 us, ~533 KB/s, buf 184/98304
+HL [00:00:37.523,345] <inf> sd_logger: SD write: 16384 B in 50751 us, ~322 KB/s, buf 6984/98304
+HL [00:00:37.552,368] <inf> sd_logger: SD write: 16384 B in 29023 us, ~564 KB/s, buf 3388/98304
+HL [00:00:37.603,820] <inf> sd_logger: SD write: 16384 B in 29785 us, ~550 KB/s, buf 4/98304
+HL [00:00:37.667,999] <inf> sd_logger: SD write: 16384 B in 29541 us, ~554 KB/s, buf 2/98304
+HL [00:00:37.731,140] <inf> sd_logger: SD write: 16384 B in 28962 us, ~565 KB/s, buf 6/98304
+HL [00:00:37.871,368] <inf> sd_logger: SD write: 16384 B in 102631 us, ~159 KB/s, buf 670/98304
+HL [00:00:37.920,684] <inf> sd_logger: SD write: 16384 B in 49286 us, ~332 KB/s, buf 10612/98304
+HL [00:00:37.951,293] <inf> sd_logger: SD write: 16384 B in 30579 us, ~535 KB/s, buf 6578/98304
+HL [00:00:37.988,342] <inf> sd_logger: SD write: 16384 B in 29145 us, ~562 KB/s, buf 156/98304
+HL [00:00:38.051,239] <inf> sd_logger: SD write: 16384 B in 30243 us, ~541 KB/s, buf 162/98304
+HL [00:00:38.159,942] <inf> sd_logger: SD write: 16384 B in 50598 us, ~323 KB/s, buf 6028/98304
+HL [00:00:38.188,659] <inf> sd_logger: SD write: 16384 B in 28686 us, ~571 KB/s, buf 2410/98304
+HL [00:00:38.244,262] <inf> sd_logger: SD write: 16384 B in 28442 us, ~576 KB/s, buf 82/98304
+HL [00:00:38.338,623] <inf> sd_logger: SD write: 16384 B in 60700 us, ~269 KB/s, buf 54/98304
+HL [00:00:38.395,233] <inf> sd_logger: SD write: 16384 B in 51545 us, ~317 KB/s, buf 18/98304
+HL [00:00:38.503,479] <inf> sd_logger: SD write: 16384 B in 50293 us, ~325 KB/s, buf 11720/98304
+HL [00:00:38.533,630] <inf> sd_logger: SD write: 16384 B in 30090 us, ~544 KB/s, buf 7824/98304
+HL [00:00:38.566,467] <inf> sd_logger: SD write: 16384 B in 30396 us, ~539 KB/s, buf 78/98304
+HL [00:00:38.628,845] <inf> sd_logger: SD write: 16384 B in 29023 us, ~564 KB/s, buf 32/98304
+HL [00:00:38.696,166] <inf> sd_logger: SD write: 16384 B in 30090 us, ~544 KB/s, buf 114/98304
+HL [00:00:38.787,567] <inf> sd_logger: SD write: 16384 B in 52674 us, ~311 KB/s, buf 208/98304
+HL [00:00:38.858,612] <inf> sd_logger: SD write: 16384 B in 59509 us, ~275 KB/s, buf 58/98304
+HL [00:00:38.920,013] <inf> sd_logger: SD write: 16384 B in 52948 us, ~309 KB/s, buf 206/98304
+HL [00:00:38.962,310] <inf> sd_logger: SD write: 16384 B in 30121 us, ~543 KB/s, buf 16/98304
+HL [00:00:39.028,625] <inf> sd_logger: SD write: 16384 B in 30548 us, ~536 KB/s, buf 74/98304
+HL [00:00:39.139,190] <inf> sd_logger: SD write: 16384 B in 52063 us, ~314 KB/s, buf 5920/98304
+HL [00:00:39.170,593] <inf> sd_logger: SD write: 16384 B in 31342 us, ~522 KB/s, buf 1728/98304
+HL [00:00:39.230,621] <inf> sd_logger: SD write: 16384 B in 31799 us, ~515 KB/s, buf 186/98304
+HL [00:00:39.294,372] <inf> sd_logger: SD write: 16384 B in 31006 us, ~528 KB/s, buf 8/98304
+HL [00:00:39.390,106] <inf> sd_logger: SD write: 16384 B in 60303 us, ~271 KB/s, buf 150/98304
+HL [00:00:39.522,521] <inf> sd_logger: SD write: 16384 B in 53039 us, ~308 KB/s, buf 17784/98304
+HL [00:00:39.553,405] <inf> sd_logger: SD write: 16384 B in 30792 us, ~532 KB/s, buf 14612/98304
+HL [00:00:39.583,923] <inf> sd_logger: SD write: 16384 B in 30457 us, ~537 KB/s, buf 5686/98304
+HL [00:00:39.626,281] <inf> sd_logger: SD write: 16384 B in 30395 us, ~539 KB/s, buf 66/98304
+HL [00:00:39.696,563] <inf> sd_logger: SD write: 16384 B in 31891 us, ~513 KB/s, buf 2/98304
+HL [00:00:39.785,980] <inf> sd_logger: SD write: 16384 B in 50934 us, ~321 KB/s, buf 1194/98304
+HL [00:00:39.825,897] <inf> sd_logger: SD write: 16384 B in 29114 us, ~562 KB/s, buf 56/98304
+HL [00:00:39.917,114] <inf> sd_logger: SD write: 16384 B in 55298 us, ~296 KB/s, buf 128/98304
+HL [00:00:39.974,243] <inf> sd_logger: SD write: 16384 B in 44312 us, ~369 KB/s, buf 184/98304
+HL [00:00:40.022,064] <inf> sd_logger: SD write: 16384 B in 25849 us, ~633 KB/s, buf 16/98304
+HL [00:00:40.121,368] <inf> sd_logger: SD write: 16384 B in 46142 us, ~355 KB/s, buf 3058/98304
+HL [00:00:40.153,747] <inf> sd_logger: SD write: 16384 B in 24750 us, ~661 KB/s, buf 148/98304
+HL [00:00:40.223,907] <inf> sd_logger: SD write: 16384 B in 28137 us, ~582 KB/s, buf 162/98304
+HL [00:00:40.285,308] <inf> sd_logger: SD write: 16384 B in 25421 us, ~644 KB/s, buf 18/98304
+HL [00:00:40.353,790] <inf> sd_logger: SD write: 16384 B in 25849 us, ~633 KB/s, buf 222/98304
+HL [00:00:40.484,222] <inf> sd_logger: SD write: 16384 B in 91461 us, ~179 KB/s, buf 90/98304
+HL [00:00:40.534,393] <inf> sd_logger: SD write: 16384 B in 50171 us, ~326 KB/s, buf 6600/98304
+HL [00:00:40.564,697] <inf> sd_logger: SD write: 16384 B in 30212 us, ~542 KB/s, buf 2168/98304
+HL [00:00:40.622,558] <inf> sd_logger: SD write: 16384 B in 29999 us, ~546 KB/s, buf 18/98304
+HL [00:00:40.688,507] <inf> sd_logger: SD write: 16384 B in 30274 us, ~541 KB/s, buf 10/98304
+HL [00:00:40.800,201] <inf> sd_logger: SD write: 16384 B in 52216 us, ~313 KB/s, buf 6078/98304
+HL [00:00:40.830,749] <inf> sd_logger: SD write: 16384 B in 30518 us, ~536 KB/s, buf 1992/98304
+HL [00:00:40.888,122] <inf> sd_logger: SD write: 16384 B in 30304 us, ~540 KB/s, buf 90/98304
+HL [00:00:40.985,565] <inf> sd_logger: SD write: 16384 B in 60791 us, ~269 KB/s, buf 14/98304
+HL [00:00:41.046,630] <wrn> audio_datapath: I2S RX overrun. Single msg
+HL [00:00:41.076,141] <inf> sd_logger: SD write: 16384 B in 86395 us, ~189 KB/s, buf 30/98304
+HL [00:00:41.076,629] <wrn> audio_datapath: I2S RX continuing stream
+HL [00:00:41.187,683] <inf> sd_logger: SD write: 16384 B in 52704 us, ~310 KB/s, buf 11980/98304
+HL [00:00:41.219,940] <inf> sd_logger: SD write: 16384 B in 32196 us, ~508 KB/s, buf 8238/98304
+HL [00:00:41.250,122] <inf> sd_logger: SD write: 16384 B in 29297 us, ~559 KB/s, buf 184/98304
+HL [00:00:41.315,948] <inf> sd_logger: SD write: 16384 B in 30029 us, ~545 KB/s, buf 160/98304
+HL [00:00:41.385,070] <inf> sd_logger: SD write: 16384 B in 31341 us, ~522 KB/s, buf 128/98304
+HL [00:00:41.476,104] <inf> sd_logger: SD write: 16384 B in 52887 us, ~309 KB/s, buf 948/98304
+HL [00:00:41.544,891] <inf> sd_logger: SD write: 16384 B in 59021 us, ~277 KB/s, buf 12/98304
+HL [00:00:41.603,546] <inf> sd_logger: SD write: 16384 B in 50171 us, ~326 KB/s, buf 16/98304
+HL [00:00:41.649,047] <inf> sd_logger: SD write: 16384 B in 30273 us, ~541 KB/s, buf 88/98304
+HL [00:00:41.713,775] <inf> sd_logger: SD write: 16384 B in 30030 us, ~545 KB/s, buf 56/98304
+HL [00:00:41.823,303] <inf> sd_logger: SD write: 16384 B in 52002 us, ~315 KB/s, buf 5188/98304
+HL [00:00:41.855,987] <inf> sd_logger: SD write: 16384 B in 32654 us, ~501 KB/s, buf 1166/98304
+HL [00:00:41.914,825] <inf> sd_logger: SD write: 16384 B in 30060 us, ~545 KB/s, buf 48/98304
+HL [00:00:41.981,018] <inf> sd_logger: SD write: 16384 B in 31250 us, ~524 KB/s, buf 114/98304
+HL [00:00:42.076,507] <inf> sd_logger: SD write: 16384 B in 61737 us, ~265 KB/s, buf 192/98304
+HL [00:00:42.207,366] <inf> sd_logger: SD write: 16384 B in 50109 us, ~326 KB/s, buf 18278/98304
+HL [00:00:42.238,250] <inf> sd_logger: SD write: 16384 B in 30884 us, ~530 KB/s, buf 14118/98304
+HL [00:00:42.267,791] <inf> sd_logger: SD write: 16384 B in 29510 us, ~555 KB/s, buf 5192/98304
+HL [00:00:42.313,232] <inf> sd_logger: SD write: 16384 B in 30426 us, ~538 KB/s, buf 16/98304
+HL [00:00:42.381,072] <inf> sd_logger: SD write: 16384 B in 30303 us, ~540 KB/s, buf 148/98304
+HL [00:00:42.469,482] <inf> sd_logger: SD write: 16384 B in 50934 us, ~321 KB/s, buf 34/98304
+HL [00:00:42.514,404] <inf> sd_logger: SD write: 16384 B in 30517 us, ~536 KB/s, buf 122/98304
+HL [00:00:42.635,498] <inf> sd_logger: SD write: 16384 B in 86792 us, ~188 KB/s, buf 160/98304
+HL [00:00:42.685,974] <inf> sd_logger: SD write: 16384 B in 50415 us, ~324 KB/s, buf 4620/98304
+HL [00:00:42.718,139] <inf> sd_logger: SD write: 16384 B in 32135 us, ~509 KB/s, buf 244/98304
+HL [00:00:42.832,427] <inf> sd_logger: SD write: 16384 B in 53436 us, ~306 KB/s, buf 6810/98304
+HL [00:00:42.866,027] <inf> sd_logger: SD write: 16384 B in 33570 us, ~488 KB/s, buf 3614/98304
+HL [00:00:42.915,863] <inf> sd_logger: SD write: 16384 B in 30610 us, ~535 KB/s, buf 40/98304
+HL [00:00:42.980,346] <inf> sd_logger: SD write: 16384 B in 30670 us, ~534 KB/s, buf 60/98304
+HL [00:00:43.047,637] <inf> sd_logger: SD write: 16384 B in 30822 us, ~531 KB/s, buf 92/98304
+HL [00:00:43.167,083] <inf> sd_logger: SD write: 16384 B in 82917 us, ~197 KB/s, buf 190/98304
+HL [00:00:43.218,627] <inf> sd_logger: SD write: 16384 B in 51453 us, ~318 KB/s, buf 4188/98304
+HL [00:00:43.247,406] <inf> sd_logger: SD write: 16384 B in 28686 us, ~571 KB/s, buf 422/98304
+HL [00:00:43.313,201] <inf> sd_logger: SD write: 16384 B in 29480 us, ~555 KB/s, buf 112/98304
+HL [00:00:43.380,981] <inf> sd_logger: SD write: 16384 B in 31799 us, ~515 KB/s, buf 158/98304
+HL [00:00:43.493,957] <inf> sd_logger: SD write: 16384 B in 50903 us, ~321 KB/s, buf 6734/98304
+HL [00:00:43.525,268] <inf> sd_logger: SD write: 16384 B in 31311 us, ~523 KB/s, buf 2340/98304
+HL [00:00:43.580,108] <inf> sd_logger: SD write: 16384 B in 31403 us, ~521 KB/s, buf 22/98304
+HL [00:00:43.676,300] <inf> sd_logger: SD write: 16384 B in 61676 us, ~265 KB/s, buf 0/98304
+HL [00:00:43.733,306] <inf> sd_logger: SD write: 16384 B in 49560 us, ~330 KB/s, buf 134/98304
+HL [00:00:43.825,469] <inf> sd_logger: SD write: 16384 B in 45562 us, ~359 KB/s, buf 8046/98304
+HL [00:00:43.849,426] <inf> sd_logger: SD write: 16384 B in 23926 us, ~684 KB/s, buf 2030/98304
+HL [00:00:43.905,059] <inf> sd_logger: SD write: 16384 B in 25268 us, ~648 KB/s, buf 10/98304
+HL [00:00:43.975,708] <inf> sd_logger: SD write: 16384 B in 28870 us, ~567 KB/s, buf 204/98304
+HL [00:00:44.038,848] <inf> sd_logger: SD write: 16384 B in 26184 us, ~625 KB/s, buf 130/98304
+HL [00:00:44.124,511] <inf> sd_logger: SD write: 16384 B in 45807 us, ~357 KB/s, buf 88/98304
+HL [00:00:44.200,439] <inf> sd_logger: SD write: 16384 B in 54199 us, ~302 KB/s, buf 6/98304
+HL [00:00:44.258,850] <inf> sd_logger: SD write: 16384 B in 45746 us, ~358 KB/s, buf 16/98304
+HL [00:00:44.302,917] <inf> sd_logger: SD write: 16384 B in 24963 us, ~656 KB/s, buf 134/98304
+HL [00:00:44.373,077] <inf> sd_logger: SD write: 16384 B in 25756 us, ~636 KB/s, buf 2/98304
+HL [00:00:44.467,102] <inf> sd_logger: SD write: 16384 B in 47821 us, ~342 KB/s, buf 2000/98304
+HL [00:00:44.506,195] <inf> sd_logger: SD write: 16384 B in 28138 us, ~582 KB/s, buf 8/98304
+HL [00:00:44.567,687] <inf> sd_logger: SD write: 16384 B in 24719 us, ~662 KB/s, buf 124/98304
+HL [00:00:44.633,483] <inf> sd_logger: SD write: 16384 B in 24566 us, ~666 KB/s, buf 232/98304
+HL [00:00:44.728,057] <inf> sd_logger: SD write: 16384 B in 52155 us, ~314 KB/s, buf 12/98304
+HL [00:00:44.839,477] <inf> sd_logger: SD write: 16384 B in 45349 us, ~361 KB/s, buf 13124/98304
+HL [00:00:44.862,945] <inf> sd_logger: SD write: 16384 B in 23376 us, ~700 KB/s, buf 7676/98304
+HL [00:00:44.897,705] <inf> sd_logger: SD write: 16384 B in 24261 us, ~675 KB/s, buf 174/98304
+HL [00:00:44.966,979] <inf> sd_logger: SD write: 16384 B in 26367 us, ~621 KB/s, buf 46/98304
+HL [00:00:45.034,210] <inf> sd_logger: SD write: 16384 B in 27497 us, ~595 KB/s, buf 38/98304
+HL [00:00:45.117,248] <inf> sd_logger: SD write: 16384 B in 46235 us, ~354 KB/s, buf 44/98304
+HL [00:00:45.161,926] <inf> sd_logger: SD write: 16384 B in 23926 us, ~684 KB/s, buf 86/98304
+HL [00:00:45.259,368] <inf> sd_logger: SD write: 16384 B in 54993 us, ~297 KB/s, buf 14/98304
+HL [00:00:45.316,375] <inf> sd_logger: SD write: 16384 B in 45776 us, ~357 KB/s, buf 16/98304
+HL [00:00:45.366,516] <wrn> audio_datapath: I2S RX overrun. Single msg
+HL [00:00:45.395,690] <inf> sd_logger: SD write: 16384 B in 59845 us, ~273 KB/s, buf 36/98304
+HL [00:00:45.396,514] <wrn> audio_datapath: I2S RX continuing stream
+HL [00:00:45.488,342] <inf> sd_logger: SD write: 16384 B in 45196 us, ~362 KB/s, buf 2392/98304
+HL [00:00:45.527,069] <inf> sd_logger: SD write: 16384 B in 26428 us, ~619 KB/s, buf 6/98304
+HL [00:00:45.597,900] <inf> sd_logger: SD write: 16384 B in 29113 us, ~562 KB/s, buf 40/98304
+HL [00:00:45.657,012] <inf> sd_logger: SD write: 16384 B in 24017 us, ~682 KB/s, buf 0/98304
+HL [00:00:45.701,873] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:00:45.701,904] <inf> power_manager: charging state: done
+HL [00:00:45.725,799] <inf> sd_logger: SD write: 16384 B in 25879 us, ~633 KB/s, buf 70/98304
+HL [00:00:45.841,552] <inf> sd_logger: SD write: 16384 B in 74920 us, ~218 KB/s, buf 162/98304
+HL [00:00:45.885,894] <inf> sd_logger: SD write: 16384 B in 44342 us, ~369 KB/s, buf 2046/98304
+HL [00:00:45.928,161] <inf> sd_logger: SD write: 16384 B in 25544 us, ~641 KB/s, buf 94/98304
+HL [00:00:45.993,896] <inf> sd_logger: SD write: 16384 B in 26275 us, ~623 KB/s, buf 190/98304
+HL [00:00:46.057,220] <inf> sd_logger: SD write: 16384 B in 25635 us, ~639 KB/s, buf 72/98304
+HL [00:00:46.131,591] <inf> sd_logger: SD write: 16384 B in 31983 us, ~512 KB/s, buf 154/98304
+HL [00:00:46.189,758] <inf> sd_logger: SD write: 16384 B in 26001 us, ~630 KB/s, buf 42/98304
+HL [00:00:46.262,115] <inf> sd_logger: SD write: 16384 B in 32501 us, ~504 KB/s, buf 30/98304
+HL [00:00:46.333,312] <inf> sd_logger: SD write: 16384 B in 36499 us, ~448 KB/s, buf 76/98304
+HL [00:00:46.394,531] <inf> sd_logger: SD write: 16384 B in 32227 us, ~508 KB/s, buf 22/98304
+HL [00:00:46.460,388] <inf> sd_logger: SD write: 16384 B in 30762 us, ~532 KB/s, buf 182/98304
+HL [00:00:46.521,636] <inf> sd_logger: SD write: 16384 B in 25848 us, ~633 KB/s, buf 168/98304
+HL [00:00:46.586,853] <inf> sd_logger: SD write: 16384 B in 25422 us, ~644 KB/s, buf 22/98304
+HL [00:00:46.656,402] <inf> sd_logger: SD write: 16384 B in 29846 us, ~548 KB/s, buf 78/98304
+HL [00:00:46.716,278] <inf> sd_logger: SD write: 16384 B in 24720 us, ~662 KB/s, buf 138/98304
+HL [00:00:46.784,576] <inf> sd_logger: SD write: 16384 B in 27404 us, ~597 KB/s, buf 14/98304
+HL [00:00:46.854,797] <inf> sd_logger: SD write: 16384 B in 30090 us, ~544 KB/s, buf 42/98304
+HL [00:00:46.915,863] <inf> sd_logger: SD write: 16384 B in 25300 us, ~647 KB/s, buf 182/98304
+HL [00:00:46.978,546] <inf> sd_logger: SD write: 16384 B in 23926 us, ~684 KB/s, buf 90/98304
+HL [00:00:47.051,330] <inf> sd_logger: SD write: 16384 B in 30548 us, ~536 KB/s, buf 102/98304
+HL [00:00:47.112,548] <inf> sd_logger: SD write: 16384 B in 26031 us, ~629 KB/s, buf 20/98304
+HL [00:00:47.175,354] <inf> sd_logger: SD write: 16384 B in 23742 us, ~690 KB/s, buf 40/98304
+HL [00:00:47.243,164] <inf> sd_logger: SD write: 16384 B in 25177 us, ~650 KB/s, buf 0/98304
+HL [00:00:47.309,936] <inf> sd_logger: SD write: 16384 B in 25391 us, ~645 KB/s, buf 6/98304
+--- 1 messages dropped ---
+HL [00:00:47.443,939] <inf> sd_logger: SD write: 16384 B in 25360 us, ~646 KB/s, buf 176/98304
+--- 1 messages dropped ---
+HL [00:00:47.575,836] <inf> sd_logger: SD write: 16384 B in 26306 us, ~622 KB/s, buf 100/98304
+--- 1 messages dropped ---
+HL [00:00:47.776,794] <inf> sd_logger: SD write: 16384 B in 27038 us, ~605 KB/s, buf 198/98304
+--- 2 messages dropped ---
+HL [00:00:47.911,224] <inf> sd_logger: SD write: 16384 B in 31403 us, ~521 KB/s, buf 54/98304
+--- 1 messages dropped ---
+HL [00:00:48.105,499] <inf> sd_logger: SD write: 16384 B in 25879 us, ~633 KB/s, buf 52/98304
+--- 2 messages dropped ---
+HL [00:00:48.243,774] <inf> sd_logger: SD write: 16384 B in 31250 us, ~524 KB/s, buf 26/98304
+--- 2 messages dropped ---
+HL [00:00:48.443,145] <inf> sd_logger: SD write: 16384 B in 32226 us, ~508 KB/s, buf 4/98304
+--- 1 messages dropped ---
+HL [00:00:48.568,786] <inf> sd_logger: SD write: 16384 B in 24231 us, ~676 KB/s, buf 108/98304
+--- 1 messages dropped ---
+HL [00:00:48.770,080] <inf> sd_logger: SD write: 16384 B in 27436 us, ~597 KB/s, buf 108/98304
+--- 2 messages dropped ---
+HL [00:00:48.900,848] <inf> sd_logger: SD write: 16384 B in 25177 us, ~650 KB/s, buf 12/98304
+--- 1 messages dropped ---
+HL [00:00:49.103,271] <inf> sd_logger: SD write: 16384 B in 27985 us, ~585 KB/s, buf 10/98304
+--- 2 messages dropped ---
+HL [00:00:49.234,100] <inf> sd_logger: SD write: 16384 B in 25543 us, ~641 KB/s, buf 62/98304
+--- 1 messages dropped ---
+HL [00:00:49.365,539] <inf> sd_logger: SD write: 16384 B in 25055 us, ~653 KB/s, buf 180/98304
+--- 2 messages dropped ---
+HL [00:00:49.565,338] <inf> sd_logger: SD write: 16384 B in 26855 us, ~610 KB/s, buf 194/98304
+--- 1 messages dropped ---
+HL [00:00:49.761,260] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 90/98304
+--- 2 messages dropped ---
+HL [00:00:49.893,493] <inf> sd_logger: SD write: 16384 B in 24750 us, ~661 KB/s, buf 12/98304
+--- 2 messages dropped ---
+HL [00:00:50.092,224] <inf> sd_logger: SD write: 16384 B in 27802 us, ~589 KB/s, buf 40/98304
+--- 1 messages dropped ---
+HL [00:00:50.284,210] <inf> sd_logger: SD write: 16384 B in 24689 us, ~663 KB/s, buf 170/98304
+--- 2 messages dropped ---
+HL [00:00:50.417,694] <inf> sd_logger: SD write: 16384 B in 25726 us, ~636 KB/s, buf 44/98304
+--- 2 messages dropped ---
+HL [00:00:50.612,091] <inf> sd_logger: SD write: 16384 B in 24689 us, ~663 KB/s, buf 44/98304
+--- 2 messages dropped ---
+HL [00:00:50.813,293] <inf> sd_logger: SD write: 16384 B in 23773 us, ~689 KB/s, buf 22/98304
+--- 1 messages dropped ---
+HL [00:00:50.947,418] <inf> sd_logger: SD write: 16384 B in 24811 us, ~660 KB/s, buf 192/98304
+--- 1 messages dropped ---
+HL [00:00:51.148,101] <inf> sd_logger: SD write: 16384 B in 25574 us, ~640 KB/s, buf 2/98304
+--- 2 messages dropped ---
+HL [00:00:51.280,700] <inf> sd_logger: SD write: 16384 B in 25268 us, ~648 KB/s, buf 108/98304
+--- 2 messages dropped ---
+HL [00:00:51.475,402] <inf> sd_logger: SD write: 16384 B in 23712 us, ~690 KB/s, buf 86/98304
+--- 1 messages dropped ---
+HL [00:00:51.612,579] <inf> sd_logger: SD write: 16384 B in 29114 us, ~562 KB/s, buf 158/98304
+--- 2 messages dropped ---
+HL [00:00:51.816,101] <inf> sd_logger: SD write: 16384 B in 33875 us, ~483 KB/s, buf 4/98304
+--- 4 messages dropped ---
+HL [00:00:52.151,916] <inf> sd_logger: SD write: 16384 B in 36926 us, ~443 KB/s, buf 88/98304
+--- 1 messages dropped ---
+HL [00:00:52.269,104] <inf> sd_logger: SD write: 16384 B in 24810 us, ~660 KB/s, buf 36/98304
+--- 1 messages dropped ---
+HL [00:00:52.465,759] <inf> sd_logger: SD write: 16384 B in 24109 us, ~679 KB/s, buf 26/98304
+--- 3 messages dropped ---
+HL [00:00:52.674,896] <inf> sd_logger: SD write: 16384 B in 33783 us, ~484 KB/s, buf 16/98304
+--- 2 messages dropped ---
+HL [00:00:52.864,562] <inf> sd_logger: SD write: 16384 B in 25054 us, ~653 KB/s, buf 168/98304
+--- 1 messages dropped ---
+HL [00:00:53.001,983] <inf> sd_logger: SD write: 16384 B in 30548 us, ~536 KB/s, buf 194/98304
+HL [00:00:53.063,781] <inf> sd_logger: SD write: 16384 B in 26977 us, ~607 KB/s, buf 228/98304
+--- 1 messages dropped ---
+HL [00:00:53.197,814] <inf> sd_logger: SD write: 16384 B in 31342 us, ~522 KB/s, buf 90/98304
+HL [00:00:53.259,979] <inf> sd_logger: SD write: 16384 B in 25573 us, ~640 KB/s, buf 172/98304
+--- 1 messages dropped ---
+HL [00:00:53.393,737] <inf> sd_logger: SD write: 16384 B in 27282 us, ~600 KB/s, buf 66/98304
+HL [00:00:53.456,634] <inf> sd_logger: SD write: 16384 B in 25147 us, ~651 KB/s, buf 80/98304
+HL [00:00:53.526,062] <inf> sd_logger: SD write: 16384 B in 25940 us, ~631 KB/s, buf 22/98304
+HL [00:00:53.591,064] <inf> sd_logger: SD write: 16384 B in 24658 us, ~664 KB/s, buf 10/98304
+HL [00:00:53.655,334] <inf> sd_logger: SD write: 16384 B in 23895 us, ~685 KB/s, buf 76/98304
+HL [00:00:53.739,776] <inf> sd_logger: SD write: 16384 B in 41351 us, ~396 KB/s, buf 46/98304
+HL [00:00:53.788,909] <inf> sd_logger: SD write: 16384 B in 24566 us, ~666 KB/s, buf 6/98304
+HL [00:00:53.855,529] <inf> sd_logger: SD write: 16384 B in 24872 us, ~658 KB/s, buf 204/98304
+HL [00:00:53.920,959] <inf> sd_logger: SD write: 16384 B in 24444 us, ~670 KB/s, buf 40/98304
+HL [00:00:53.986,358] <inf> sd_logger: SD write: 16384 B in 24811 us, ~660 KB/s, buf 124/98304
+HL [00:00:54.054,779] <inf> sd_logger: SD write: 16384 B in 28107 us, ~582 KB/s, buf 6/98304
+HL [00:00:54.118,530] <inf> sd_logger: SD write: 16384 B in 25177 us, ~650 KB/s, buf 62/98304
+HL [00:00:54.192,504] <inf> sd_logger: SD write: 16384 B in 31952 us, ~512 KB/s, buf 108/98304
+HL [00:00:54.258,636] <inf> sd_logger: SD write: 16384 B in 31982 us, ~512 KB/s, buf 46/98304
+HL [00:00:54.319,030] <inf> sd_logger: SD write: 16384 B in 26031 us, ~629 KB/s, buf 42/98304
+HL [00:00:54.385,650] <inf> sd_logger: SD write: 16384 B in 26154 us, ~626 KB/s, buf 208/98304
+HL [00:00:54.450,317] <inf> sd_logger: SD write: 16384 B in 25634 us, ~639 KB/s, buf 142/98304
+HL [00:00:54.519,317] <inf> sd_logger: SD write: 16384 B in 25848 us, ~633 KB/s, buf 204/98304
+HL [00:00:54.589,630] <inf> sd_logger: SD write: 16384 B in 31830 us, ~514 KB/s, buf 42/98304
+HL [00:00:54.649,444] <inf> sd_logger: SD write: 16384 B in 25055 us, ~653 KB/s, buf 38/98304
+HL [00:00:54.717,590] <inf> sd_logger: SD write: 16384 B in 26093 us, ~627 KB/s, buf 158/98304
+HL [00:00:54.787,902] <inf> sd_logger: SD write: 16384 B in 31464 us, ~520 KB/s, buf 86/98304
+HL [00:00:54.846,771] <inf> sd_logger: SD write: 16384 B in 25238 us, ~649 KB/s, buf 86/98304
+HL [00:00:54.915,527] <inf> sd_logger: SD write: 16384 B in 26184 us, ~625 KB/s, buf 122/98304
+HL [00:00:54.989,624] <inf> sd_logger: SD write: 16384 B in 34057 us, ~481 KB/s, buf 146/98304
+HL [00:00:55.049,072] <inf> sd_logger: SD write: 16384 B in 26673 us, ~614 KB/s, buf 64/98304
+HL [00:00:55.111,511] <inf> sd_logger: SD write: 16384 B in 24139 us, ~678 KB/s, buf 194/98304
+HL [00:00:55.175,018] <inf> sd_logger: SD write: 16384 B in 23621 us, ~693 KB/s, buf 36/98304
+HL [00:00:55.242,553] <inf> sd_logger: SD write: 16384 B in 26092 us, ~627 KB/s, buf 134/98304
+HL [00:00:55.325,012] <inf> sd_logger: SD write: 16384 B in 39917 us, ~410 KB/s, buf 20/98304
+HL [00:00:55.379,272] <inf> sd_logger: SD write: 16384 B in 26917 us, ~608 KB/s, buf 164/98304
+HL [00:00:55.443,298] <inf> sd_logger: SD write: 16384 B in 24048 us, ~681 KB/s, buf 10/98304
+HL [00:00:55.507,843] <inf> sd_logger: SD write: 16384 B in 24537 us, ~667 KB/s, buf 60/98304
+HL [00:00:55.574,737] <inf> sd_logger: SD write: 16384 B in 26398 us, ~620 KB/s, buf 176/98304
+HL [00:00:55.637,969] <inf> sd_logger: SD write: 16384 B in 24566 us, ~666 KB/s, buf 200/98304
+HL [00:00:55.702,484] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:00:55.702,514] <inf> power_manager: charging state: done
+HL [00:00:55.712,738] <inf> sd_logger: SD write: 16384 B in 31433 us, ~521 KB/s, buf 58/98304
+HL [00:00:55.777,557] <inf> sd_logger: SD write: 16384 B in 30243 us, ~541 KB/s, buf 138/98304
+HL [00:00:55.844,360] <inf> sd_logger: SD write: 16384 B in 32959 us, ~497 KB/s, buf 158/98304
+HL [00:00:55.904,632] <inf> sd_logger: SD write: 16384 B in 26276 us, ~623 KB/s, buf 30/98304
+HL [00:00:55.968,292] <inf> sd_logger: SD write: 16384 B in 24994 us, ~655 KB/s, buf 82/98304
+HL [00:00:56.040,252] <inf> sd_logger: SD write: 16384 B in 28870 us, ~567 KB/s, buf 0/98304
+HL [00:00:56.102,081] <inf> sd_logger: SD write: 16384 B in 24597 us, ~666 KB/s, buf 214/98304
+HL [00:00:56.175,750] <inf> sd_logger: SD write: 16384 B in 31433 us, ~521 KB/s, buf 194/98304
+HL [00:00:56.234,985] <inf> sd_logger: SD write: 16384 B in 25543 us, ~641 KB/s, buf 4/98304
+HL [00:00:56.301,849] <inf> sd_logger: SD write: 16384 B in 25421 us, ~644 KB/s, buf 84/98304
+HL [00:00:56.381,683] <inf> sd_logger: SD write: 16384 B in 35065 us, ~467 KB/s, buf 2/98304
+HL [00:00:56.438,537] <inf> sd_logger: SD write: 16384 B in 26185 us, ~625 KB/s, buf 144/98304
+HL [00:00:56.501,983] <inf> sd_logger: SD write: 16384 B in 24658 us, ~664 KB/s, buf 158/98304
+HL [00:00:56.573,272] <inf> sd_logger: SD write: 16384 B in 31891 us, ~513 KB/s, buf 4/98304
+HL [00:00:56.634,857] <inf> sd_logger: SD write: 16384 B in 25574 us, ~640 KB/s, buf 156/98304
+HL [00:00:56.704,742] <inf> sd_logger: SD write: 16384 B in 28442 us, ~576 KB/s, buf 48/98304
+HL [00:00:56.768,249] <inf> sd_logger: SD write: 16384 B in 25970 us, ~630 KB/s, buf 118/98304
+HL [00:00:56.830,749] <inf> sd_logger: SD write: 16384 B in 23376 us, ~700 KB/s, buf 138/98304
+HL [00:00:56.913,574] <inf> sd_logger: SD write: 16384 B in 39246 us, ~417 KB/s, buf 88/98304
+HL [00:00:56.965,209] <inf> sd_logger: SD write: 16384 B in 25848 us, ~633 KB/s, buf 132/98304
+HL [00:00:57.034,332] <inf> sd_logger: SD write: 16384 B in 28015 us, ~584 KB/s, buf 24/98304
+HL [00:00:57.099,090] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 16/98304
+HL [00:00:57.161,804] <inf> sd_logger: SD write: 16384 B in 23255 us, ~704 KB/s, buf 2/98304
+HL [00:00:57.229,827] <inf> sd_logger: SD write: 16384 B in 25512 us, ~642 KB/s, buf 16/98304
+HL [00:00:57.295,837] <inf> sd_logger: SD write: 16384 B in 25208 us, ~649 KB/s, buf 100/98304
+HL [00:00:57.364,654] <inf> sd_logger: SD write: 16384 B in 27405 us, ~597 KB/s, buf 154/98304
+HL [00:00:57.437,652] <inf> sd_logger: SD write: 16384 B in 32410 us, ~505 KB/s, buf 76/98304
+HL [00:00:57.495,025] <inf> sd_logger: SD write: 16384 B in 24781 us, ~661 KB/s, buf 168/98304
+HL [00:00:57.559,967] <inf> sd_logger: SD write: 16384 B in 24903 us, ~657 KB/s, buf 26/98304
+HL [00:00:57.628,021] <inf> sd_logger: SD write: 16384 B in 25574 us, ~640 KB/s, buf 196/98304
+HL [00:00:57.697,082] <inf> sd_logger: SD write: 16384 B in 27740 us, ~590 KB/s, buf 178/98304
+HL [00:00:57.767,456] <inf> sd_logger: SD write: 16384 B in 32013 us, ~511 KB/s, buf 96/98304
+HL [00:00:57.829,315] <inf> sd_logger: SD write: 16384 B in 27008 us, ~606 KB/s, buf 26/98304
+HL [00:00:57.891,418] <inf> sd_logger: SD write: 16384 B in 24139 us, ~678 KB/s, buf 104/98304
+HL [00:00:57.968,811] <inf> sd_logger: SD write: 16384 B in 34394 us, ~476 KB/s, buf 132/98304
+HL [00:00:58.027,984] <inf> sd_logger: SD write: 16384 B in 27893 us, ~587 KB/s, buf 146/98304
+HL [00:00:58.092,712] <inf> sd_logger: SD write: 16384 B in 26550 us, ~617 KB/s, buf 4/98304
+HL [00:00:58.165,466] <inf> sd_logger: SD write: 16384 B in 33203 us, ~493 KB/s, buf 56/98304
+HL [00:00:58.220,825] <inf> sd_logger: SD write: 16384 B in 23468 us, ~698 KB/s, buf 140/98304
+HL [00:00:58.286,865] <inf> sd_logger: SD write: 16384 B in 24628 us, ~665 KB/s, buf 176/98304
+HL [00:00:58.353,057] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 20/98304
+HL [00:00:58.419,281] <inf> sd_logger: SD write: 16384 B in 25970 us, ~630 KB/s, buf 6/98304
+HL [00:00:58.499,725] <inf> sd_logger: SD write: 16384 B in 40283 us, ~406 KB/s, buf 22/98304
+HL [00:00:58.551,757] <inf> sd_logger: SD write: 16384 B in 24414 us, ~671 KB/s, buf 22/98304
+HL [00:00:58.616,943] <inf> sd_logger: SD write: 16384 B in 24658 us, ~664 KB/s, buf 42/98304
+HL [00:00:58.687,652] <inf> sd_logger: SD write: 16384 B in 28107 us, ~582 KB/s, buf 6/98304
+HL [00:00:58.751,617] <inf> sd_logger: SD write: 16384 B in 26428 us, ~619 KB/s, buf 186/98304
+HL [00:00:58.815,032] <inf> sd_logger: SD write: 16384 B in 24322 us, ~673 KB/s, buf 4/98304
+HL [00:00:58.884,674] <inf> sd_logger: SD write: 16384 B in 26490 us, ~618 KB/s, buf 184/98304
+HL [00:00:58.954,895] <inf> sd_logger: SD write: 16384 B in 32593 us, ~502 KB/s, buf 52/98304
+--- 1 messages dropped ---
+HL [00:00:59.086,364] <inf> sd_logger: SD write: 16384 B in 27099 us, ~604 KB/s, buf 190/98304
+--- 1 messages dropped ---
+HL [00:00:59.277,709] <inf> sd_logger: SD write: 16384 B in 23925 us, ~684 KB/s, buf 162/98304
+--- 2 messages dropped ---
+HL [00:00:59.410,888] <inf> sd_logger: SD write: 16384 B in 25513 us, ~642 KB/s, buf 52/98304
+--- 1 messages dropped ---
+HL [00:00:59.608,032] <inf> sd_logger: SD write: 16384 B in 24750 us, ~661 KB/s, buf 118/98304
+--- 2 messages dropped ---
+HL [00:00:59.749,603] <inf> sd_logger: SD write: 16384 B in 30457 us, ~537 KB/s, buf 132/98304
+--- 1 messages dropped ---
+HL [00:00:59.872,802] <inf> sd_logger: SD write: 16384 B in 25207 us, ~649 KB/s, buf 8/98304
+--- 1 messages dropped ---
+HL [00:01:00.083,618] <inf> sd_logger: SD write: 16384 B in 37354 us, ~438 KB/s, buf 204/98304
+--- 2 messages dropped ---
+HL [00:01:00.199,584] <inf> sd_logger: SD write: 16384 B in 24292 us, ~674 KB/s, buf 36/98304
+--- 2 messages dropped ---
+HL [00:01:00.397,186] <inf> sd_logger: SD write: 16384 B in 24017 us, ~682 KB/s, buf 0/98304
+--- 1 messages dropped ---
+HL [00:01:00.602,508] <inf> sd_logger: SD write: 16384 B in 30243 us, ~541 KB/s, buf 66/98304
+--- 2 messages dropped ---
+HL [00:01:00.935,455] <inf> sd_logger: SD write: 16384 B in 30091 us, ~544 KB/s, buf 74/98304
+--- 4 messages dropped ---
+HL [00:01:01.063,507] <inf> sd_logger: SD write: 16384 B in 25024 us, ~654 KB/s, buf 168/98304
+--- 1 messages dropped ---
+HL [00:01:01.263,214] <inf> sd_logger: SD write: 16384 B in 24781 us, ~661 KB/s, buf 42/98304
+--- 2 messages dropped ---
+HL [00:01:01.398,986] <inf> sd_logger: SD write: 16384 B in 24872 us, ~658 KB/s, buf 38/98304
+--- 1 messages dropped ---
+HL [00:01:01.596,252] <inf> sd_logger: SD write: 16384 B in 25025 us, ~654 KB/s, buf 46/98304
+--- 2 messages dropped ---
+HL [00:01:01.733,673] <inf> sd_logger: SD write: 16384 B in 26551 us, ~617 KB/s, buf 42/98304
+--- 1 messages dropped ---
+HL [00:01:01.927,307] <inf> sd_logger: SD write: 16384 B in 24139 us, ~678 KB/s, buf 26/98304
+--- 2 messages dropped ---
+HL [00:01:02.058,502] <inf> sd_logger: SD write: 16384 B in 25360 us, ~646 KB/s, buf 4/98304
+--- 2 messages dropped ---
+HL [00:01:02.259,613] <inf> sd_logger: SD write: 16384 B in 24994 us, ~655 KB/s, buf 20/98304
+--- 1 messages dropped ---
+HL [00:01:02.392,700] <inf> sd_logger: SD write: 16384 B in 24353 us, ~672 KB/s, buf 82/98304
+--- 1 messages dropped ---
+HL [00:01:02.536,956] <inf> sd_logger: SD write: 16384 B in 33508 us, ~488 KB/s, buf 84/98304
+--- 2 messages dropped ---
+HL [00:01:02.732,727] <inf> sd_logger: SD write: 16384 B in 30395 us, ~539 KB/s, buf 194/98304
+--- 2 messages dropped ---
+HL [00:01:02.929,168] <inf> sd_logger: SD write: 16384 B in 28961 us, ~565 KB/s, buf 152/98304
+--- 1 messages dropped ---
+HL [00:01:03.056,060] <inf> sd_logger: SD write: 16384 B in 23956 us, ~683 KB/s, buf 38/98304
+--- 3 messages dropped ---
+HL [00:01:03.323,394] <inf> sd_logger: SD write: 16384 B in 26184 us, ~625 KB/s, buf 52/98304
+--- 1 messages dropped ---
+HL [00:01:03.454,315] <inf> sd_logger: SD write: 16384 B in 24964 us, ~656 KB/s, buf 8/98304
+--- 1 messages dropped ---
+HL [00:01:03.588,867] <inf> sd_logger: SD write: 16384 B in 23712 us, ~690 KB/s, buf 4/98304
+--- 2 messages dropped ---
+HL [00:01:03.791,748] <inf> sd_logger: SD write: 16384 B in 31525 us, ~519 KB/s, buf 82/98304
+--- 1 messages dropped ---
+HL [00:01:03.919,097] <inf> sd_logger: SD write: 16384 B in 23040 us, ~711 KB/s, buf 0/98304
+--- 2 messages dropped ---
+HL [00:01:04.125,427] <inf> sd_logger: SD write: 16384 B in 30396 us, ~539 KB/s, buf 64/98304
+--- 1 messages dropped ---
+HL [00:01:04.255,126] <inf> sd_logger: SD write: 16384 B in 27069 us, ~605 KB/s, buf 0/98304
+--- 1 messages dropped ---
+HL [00:01:04.386,474] <inf> sd_logger: SD write: 16384 B in 25635 us, ~639 KB/s, buf 42/98304
+--- 2 messages dropped ---
+HL [00:01:04.583,831] <inf> sd_logger: SD write: 16384 B in 24781 us, ~661 KB/s, buf 18/98304
+HL [00:01:04.653,503] <inf> sd_logger: SD write: 16384 B in 27435 us, ~597 KB/s, buf 118/98304
+HL [00:01:04.716,247] <inf> sd_logger: SD write: 16384 B in 24963 us, ~656 KB/s, buf 46/98304
+HL [00:01:04.782,836] <inf> sd_logger: SD write: 16384 B in 24749 us, ~662 KB/s, buf 120/98304
+HL [00:01:04.860,229] <inf> sd_logger: SD write: 16384 B in 37079 us, ~441 KB/s, buf 138/98304
+HL [00:01:04.916,778] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 10/98304
+HL [00:01:04.985,687] <inf> sd_logger: SD write: 16384 B in 27252 us, ~601 KB/s, buf 24/98304
+HL [00:01:05.048,492] <inf> sd_logger: SD write: 16384 B in 24201 us, ~676 KB/s, buf 208/98304
+HL [00:01:05.113,494] <inf> sd_logger: SD write: 16384 B in 22461 us, ~729 KB/s, buf 150/98304
+HL [00:01:05.181,884] <inf> sd_logger: SD write: 16384 B in 25635 us, ~639 KB/s, buf 70/98304
+HL [00:01:05.248,199] <inf> sd_logger: SD write: 16384 B in 25939 us, ~631 KB/s, buf 152/98304
+HL [00:01:05.314,697] <inf> sd_logger: SD write: 16384 B in 26490 us, ~618 KB/s, buf 178/98304
+HL [00:01:05.389,434] <inf> sd_logger: SD write: 16384 B in 33355 us, ~491 KB/s, buf 58/98304
+HL [00:01:05.445,953] <inf> sd_logger: SD write: 16384 B in 23620 us, ~693 KB/s, buf 134/98304
+HL [00:01:05.515,167] <inf> sd_logger: SD write: 16384 B in 27100 us, ~604 KB/s, buf 116/98304
+HL [00:01:05.578,186] <inf> sd_logger: SD write: 16384 B in 24933 us, ~657 KB/s, buf 118/98304
+HL [00:01:05.648,498] <inf> sd_logger: SD write: 16384 B in 28137 us, ~582 KB/s, buf 36/98304
+HL [00:01:05.702,850] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:01:05.702,880] <inf> power_manager: charging state: done
+HL [00:01:05.719,818] <inf> sd_logger: SD write: 16384 B in 31708 us, ~516 KB/s, buf 12/98304
+HL [00:01:05.779,571] <inf> sd_logger: SD write: 16384 B in 25574 us, ~640 KB/s, buf 192/98304
+HL [00:01:05.842,712] <inf> sd_logger: SD write: 16384 B in 23804 us, ~688 KB/s, buf 2/98304
+HL [00:01:05.916,564] <inf> sd_logger: SD write: 16384 B in 31403 us, ~521 KB/s, buf 44/98304
+HL [00:01:05.977,722] <inf> sd_logger: SD write: 16384 B in 26734 us, ~612 KB/s, buf 4/98304
+HL [00:01:06.043,945] <inf> sd_logger: SD write: 16384 B in 26886 us, ~609 KB/s, buf 18/98304
+HL [00:01:06.116,058] <inf> sd_logger: SD write: 16384 B in 33020 us, ~496 KB/s, buf 40/98304
+HL [00:01:06.171,661] <inf> sd_logger: SD write: 16384 B in 22339 us, ~733 KB/s, buf 236/98304
+HL [00:01:06.238,830] <inf> sd_logger: SD write: 16384 B in 25544 us, ~641 KB/s, buf 136/98304
+HL [00:01:06.307,281] <inf> sd_logger: SD write: 16384 B in 27282 us, ~600 KB/s, buf 26/98304
+HL [00:01:06.371,398] <inf> sd_logger: SD write: 16384 B in 25513 us, ~642 KB/s, buf 0/98304
+HL [00:01:06.452,728] <inf> sd_logger: SD write: 16384 B in 38758 us, ~422 KB/s, buf 156/98304
+HL [00:01:06.505,737] <inf> sd_logger: SD write: 16384 B in 24719 us, ~662 KB/s, buf 66/98304
+HL [00:01:06.570,587] <inf> sd_logger: SD write: 16384 B in 24597 us, ~666 KB/s, buf 86/98304
+HL [00:01:06.637,542] <inf> sd_logger: SD write: 16384 B in 26520 us, ~617 KB/s, buf 156/98304
+HL [00:01:06.701,141] <inf> sd_logger: SD write: 16384 B in 24902 us, ~657 KB/s, buf 136/98304
+HL [00:01:06.770,874] <inf> sd_logger: SD write: 16384 B in 26825 us, ~610 KB/s, buf 82/98304
+HL [00:01:06.835,388] <inf> sd_logger: SD write: 16384 B in 26276 us, ~623 KB/s, buf 166/98304
+HL [00:01:06.907,623] <inf> sd_logger: SD write: 16384 B in 31616 us, ~518 KB/s, buf 52/98304
+HL [00:01:06.975,738] <inf> sd_logger: SD write: 16384 B in 34698 us, ~472 KB/s, buf 72/98304
+HL [00:01:07.033,020] <inf> sd_logger: SD write: 16384 B in 24627 us, ~665 KB/s, buf 240/98304
+HL [00:01:07.103,759] <inf> sd_logger: SD write: 16384 B in 26367 us, ~621 KB/s, buf 64/98304
+HL [00:01:07.165,954] <inf> sd_logger: SD write: 16384 B in 23499 us, ~697 KB/s, buf 96/98304
+HL [00:01:07.234,619] <inf> sd_logger: SD write: 16384 B in 25635 us, ~639 KB/s, buf 30/98304
+HL [00:01:07.303,771] <inf> sd_logger: SD write: 16384 B in 27527 us, ~595 KB/s, buf 160/98304
+HL [00:01:07.367,279] <inf> sd_logger: SD write: 16384 B in 25330 us, ~646 KB/s, buf 124/98304
+HL [00:01:07.432,952] <inf> sd_logger: SD write: 16384 B in 24841 us, ~659 KB/s, buf 188/98304
+HL [00:01:07.506,439] <inf> sd_logger: SD write: 16384 B in 32318 us, ~506 KB/s, buf 114/98304
+HL [00:01:07.564,025] <inf> sd_logger: SD write: 16384 B in 24841 us, ~659 KB/s, buf 208/98304
+HL [00:01:07.633,789] <inf> sd_logger: SD write: 16384 B in 28717 us, ~570 KB/s, buf 74/98304
+HL [00:01:07.704,071] <inf> sd_logger: SD write: 16384 B in 32043 us, ~511 KB/s, buf 70/98304
+HL [00:01:07.761,199] <inf> sd_logger: SD write: 16384 B in 23193 us, ~706 KB/s, buf 90/98304
+HL [00:01:07.830,718] <inf> sd_logger: SD write: 16384 B in 25574 us, ~640 KB/s, buf 156/98304
+HL [00:01:07.893,585] <inf> sd_logger: SD write: 16384 B in 23590 us, ~694 KB/s, buf 188/98304
+HL [00:01:07.959,930] <inf> sd_logger: SD write: 16384 B in 25848 us, ~633 KB/s, buf 40/98304
+HL [00:01:08.039,398] <inf> sd_logger: SD write: 16384 B in 37354 us, ~438 KB/s, buf 164/98304
+HL [00:01:08.092,895] <inf> sd_logger: SD write: 16384 B in 25268 us, ~648 KB/s, buf 38/98304
+HL [00:01:08.162,139] <inf> sd_logger: SD write: 16384 B in 27161 us, ~603 KB/s, buf 50/98304
+HL [00:01:08.223,480] <inf> sd_logger: SD write: 16384 B in 23499 us, ~697 KB/s, buf 154/98304
+HL [00:01:08.291,351] <inf> sd_logger: SD write: 16384 B in 26642 us, ~614 KB/s, buf 4/98304
+HL [00:01:08.356,719] <inf> sd_logger: SD write: 16384 B in 25482 us, ~642 KB/s, buf 242/98304
+HL [00:01:08.424,072] <inf> sd_logger: SD write: 16384 B in 27130 us, ~603 KB/s, buf 192/98304
+HL [00:01:08.496,124] <inf> sd_logger: SD write: 16384 B in 32013 us, ~511 KB/s, buf 138/98304
+HL [00:01:08.560,516] <inf> sd_logger: SD write: 16384 B in 31616 us, ~518 KB/s, buf 38/98304
+HL [00:01:08.621,154] <inf> sd_logger: SD write: 16384 B in 26123 us, ~627 KB/s, buf 10/98304
+HL [00:01:08.687,377] <inf> sd_logger: SD write: 16384 B in 26215 us, ~624 KB/s, buf 152/98304
+HL [00:01:08.750,946] <inf> sd_logger: SD write: 16384 B in 24079 us, ~680 KB/s, buf 116/98304
+HL [00:01:08.818,115] <inf> sd_logger: SD write: 16384 B in 25086 us, ~653 KB/s, buf 156/98304
+HL [00:01:08.891,662] <inf> sd_logger: SD write: 16384 B in 31769 us, ~515 KB/s, buf 150/98304
+HL [00:01:08.949,127] <inf> sd_logger: SD write: 16384 B in 25177 us, ~650 KB/s, buf 12/98304
+HL [00:01:09.013,183] <inf> sd_logger: SD write: 16384 B in 23438 us, ~699 KB/s, buf 32/98304
+HL [00:01:09.085,601] <inf> sd_logger: SD write: 16384 B in 31524 us, ~519 KB/s, buf 174/98304
+HL [00:01:09.145,874] <inf> sd_logger: SD write: 16384 B in 26886 us, ~609 KB/s, buf 148/98304
+HL [00:01:09.214,630] <inf> sd_logger: SD write: 16384 B in 26734 us, ~612 KB/s, buf 158/98304
+HL [00:01:09.279,296] <inf> sd_logger: SD write: 16384 B in 26673 us, ~614 KB/s, buf 22/98304
+HL [00:01:09.341,705] <inf> sd_logger: SD write: 16384 B in 24048 us, ~681 KB/s, buf 36/98304
+HL [00:01:09.410,400] <inf> sd_logger: SD write: 16384 B in 25512 us, ~642 KB/s, buf 200/98304
+HL [00:01:09.473,876] <inf> sd_logger: SD write: 16384 B in 24933 us, ~657 KB/s, buf 36/98304
+HL [00:01:09.542,144] <inf> sd_logger: SD write: 16384 B in 26031 us, ~629 KB/s, buf 154/98304
+HL [00:01:09.625,671] <inf> sd_logger: SD write: 16384 B in 42786 us, ~382 KB/s, buf 196/98304
+HL [00:01:09.675,354] <inf> sd_logger: SD write: 16384 B in 25452 us, ~643 KB/s, buf 114/98304
+HL [00:01:09.739,349] <inf> sd_logger: SD write: 16384 B in 24292 us, ~674 KB/s, buf 168/98304
+HL [00:01:09.805,145] <inf> sd_logger: SD write: 16384 B in 25513 us, ~642 KB/s, buf 10/98304
+HL [00:01:09.872,100] <inf> sd_logger: SD write: 16384 B in 25849 us, ~633 KB/s, buf 20/98304
+HL [00:01:09.940,429] <inf> sd_logger: SD write: 16384 B in 27557 us, ~594 KB/s, buf 86/98304
+HL [00:01:10.004,882] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 106/98304
+HL [00:01:10.076,446] <inf> sd_logger: SD write: 16384 B in 31586 us, ~518 KB/s, buf 56/98304
+HL [00:01:10.143,463] <inf> sd_logger: SD write: 16384 B in 33600 us, ~487 KB/s, buf 56/98304
+HL [00:01:10.201,141] <inf> sd_logger: SD write: 16384 B in 26215 us, ~624 KB/s, buf 82/98304
+HL [00:01:10.273,284] <inf> sd_logger: SD write: 16384 B in 29449 us, ~556 KB/s, buf 142/98304
+HL [00:01:10.336,364] <inf> sd_logger: SD write: 16384 B in 25299 us, ~647 KB/s, buf 94/98304
+HL [00:01:10.402,160] <inf> sd_logger: SD write: 16384 B in 26062 us, ~628 KB/s, buf 160/98304
+HL [00:01:10.471,954] <inf> sd_logger: SD write: 16384 B in 32105 us, ~510 KB/s, buf 28/98304
+HL [00:01:10.533,721] <inf> sd_logger: SD write: 16384 B in 25482 us, ~642 KB/s, buf 114/98304
+HL [00:01:10.603,515] <inf> sd_logger: SD write: 16384 B in 28015 us, ~584 KB/s, buf 24/98304
+HL [00:01:10.674,591] <inf> sd_logger: SD write: 16384 B in 32715 us, ~500 KB/s, buf 182/98304
+HL [00:01:10.732,482] <inf> sd_logger: SD write: 16384 B in 24871 us, ~658 KB/s, buf 18/98304
+HL [00:01:10.798,309] <inf> sd_logger: SD write: 16384 B in 25482 us, ~642 KB/s, buf 42/98304
+HL [00:01:10.870,483] <inf> sd_logger: SD write: 16384 B in 32379 us, ~506 KB/s, buf 82/98304
+HL [00:01:10.931,976] <inf> sd_logger: SD write: 16384 B in 26947 us, ~608 KB/s, buf 152/98304
+HL [00:01:10.996,002] <inf> sd_logger: SD write: 16384 B in 23987 us, ~683 KB/s, buf 214/98304
+HL [00:01:11.064,178] <inf> sd_logger: SD write: 16384 B in 27496 us, ~595 KB/s, buf 32/98304
+--- 1 messages dropped ---
+HL [00:01:11.207,489] <inf> sd_logger: SD write: 16384 B in 38636 us, ~424 KB/s, buf 98/98304
+--- 1 messages dropped ---
+HL [00:01:11.327,789] <inf> sd_logger: SD write: 16384 B in 24566 us, ~666 KB/s, buf 98/98304
+--- 1 messages dropped ---
+HL [00:01:11.460,021] <inf> sd_logger: SD write: 16384 B in 25177 us, ~650 KB/s, buf 188/98304
+--- 2 messages dropped ---
+HL [00:01:11.664,031] <inf> sd_logger: SD write: 16384 B in 31097 us, ~526 KB/s, buf 44/98304
+--- 2 messages dropped ---
+HL [00:01:11.857,727] <inf> sd_logger: SD write: 16384 B in 25818 us, ~634 KB/s, buf 8/98304
+--- 1 messages dropped ---
+HL [00:01:11.992,218] <inf> sd_logger: SD write: 16384 B in 26581 us, ~616 KB/s, buf 14/98304
+--- 2 messages dropped ---
+HL [00:01:12.186,889] <inf> sd_logger: SD write: 16384 B in 24811 us, ~660 KB/s, buf 84/98304
+--- 1 messages dropped ---
+HL [00:01:12.322,326] <inf> sd_logger: SD write: 16384 B in 26337 us, ~622 KB/s, buf 112/98304
+--- 2 messages dropped ---
+HL [00:01:12.515,777] <inf> sd_logger: SD write: 16384 B in 23835 us, ~687 KB/s, buf 24/98304
+--- 1 messages dropped ---
+HL [00:01:12.649,871] <inf> sd_logger: SD write: 16384 B in 24963 us, ~656 KB/s, buf 156/98304
+--- 1 messages dropped ---
+HL [00:01:12.794,433] <inf> sd_logger: SD write: 16384 B in 36560 us, ~448 KB/s, buf 152/98304
+--- 1 messages dropped ---
+HL [00:01:12.916,412] <inf> sd_logger: SD write: 16384 B in 26459 us, ~619 KB/s, buf 128/98304
+--- 2 messages dropped ---
+HL [00:01:13.110,778] <inf> sd_logger: SD write: 16384 B in 22888 us, ~715 KB/s, buf 26/98304
+--- 1 messages dropped ---
+HL [00:01:13.315,429] <inf> sd_logger: SD write: 16384 B in 30639 us, ~534 KB/s, buf 72/98304
+--- 2 messages dropped ---
+HL [00:01:13.445,587] <inf> sd_logger: SD write: 16384 B in 26795 us, ~611 KB/s, buf 150/98304
+--- 1 messages dropped ---
+HL [00:01:13.577,301] <inf> sd_logger: SD write: 16384 B in 27436 us, ~597 KB/s, buf 34/98304
+--- 1 messages dropped ---
+HL [00:01:13.706,604] <inf> sd_logger: SD write: 16384 B in 24598 us, ~666 KB/s, buf 64/98304
+--- 2 messages dropped ---
+HL [00:01:13.908,264] <inf> sd_logger: SD write: 16384 B in 27436 us, ~597 KB/s, buf 178/98304
+HL [00:01:13.971,496] <inf> sd_logger: SD write: 16384 B in 23102 us, ~709 KB/s, buf 122/98304
+HL [00:01:14.043,182] <inf> sd_logger: SD write: 16384 B in 30365 us, ~539 KB/s, buf 166/98304
+--- 1 messages dropped ---
+HL [00:01:14.242,218] <inf> sd_logger: SD write: 16384 B in 27924 us, ~586 KB/s, buf 182/98304
+--- 2 messages dropped ---
+HL [00:01:14.436,126] <inf> sd_logger: SD write: 16384 B in 25757 us, ~636 KB/s, buf 36/98304
+--- 2 messages dropped ---
+HL [00:01:14.568,817] <inf> sd_logger: SD write: 16384 B in 26032 us, ~629 KB/s, buf 142/98304
+--- 1 messages dropped ---
+HL [00:01:14.701,690] <inf> sd_logger: SD write: 16384 B in 23804 us, ~688 KB/s, buf 44/98304
+--- 2 messages dropped ---
+HL [00:01:14.909,179] <inf> sd_logger: SD write: 16384 B in 33356 us, ~491 KB/s, buf 148/98304
+--- 1 messages dropped ---
+HL [00:01:15.030,761] <inf> sd_logger: SD write: 16384 B in 23621 us, ~693 KB/s, buf 30/98304
+--- 1 messages dropped ---
+HL [00:01:15.160,919] <inf> sd_logger: SD write: 16384 B in 22980 us, ~712 KB/s, buf 96/98304
+--- 2 messages dropped ---
+HL [00:01:15.360,137] <inf> sd_logger: SD write: 16384 B in 24292 us, ~674 KB/s, buf 20/98304
+--- 2 messages dropped ---
+HL [00:01:15.562,927] <inf> sd_logger: SD write: 16384 B in 27191 us, ~602 KB/s, buf 38/98304
+--- 1 messages dropped ---
+HL [00:01:15.691,558] <inf> sd_logger: SD write: 16384 B in 22827 us, ~717 KB/s, buf 40/98304
+--- 3 messages dropped ---
+HL [00:01:15.822,692] <inf> sd_logger: SD write: 16384 B in 23895 us, ~685 KB/s, buf 176/98304
+--- 1 messages dropped ---
+HL [00:01:15.971,740] <inf> sd_logger: SD write: 16384 B in 40039 us, ~409 KB/s, buf 104/98304
+--- 1 messages dropped ---
+HL [00:01:16.153,045] <inf> sd_logger: SD write: 16384 B in 24353 us, ~672 KB/s, buf 62/98304
+--- 2 messages dropped ---
+HL [00:01:16.288,146] <inf> sd_logger: SD write: 16384 B in 26367 us, ~621 KB/s, buf 122/98304
+--- 2 messages dropped ---
+HL [00:01:16.492,401] <inf> sd_logger: SD write: 16384 B in 32135 us, ~509 KB/s, buf 22/98304
+HL [00:01:16.554,718] <inf> sd_logger: SD write: 16384 B in 27954 us, ~586 KB/s, buf 24/98304
+HL [00:01:16.620,300] <inf> sd_logger: SD write: 16384 B in 25604 us, ~639 KB/s, buf 144/98304
+--- 1 messages dropped ---
+HL [00:01:16.752,044] <inf> sd_logger: SD write: 16384 B in 26154 us, ~626 KB/s, buf 230/98304
+--- 1 messages dropped ---
+HL [00:01:16.883,941] <inf> sd_logger: SD write: 16384 B in 26184 us, ~625 KB/s, buf 152/98304
+--- 1 messages dropped ---
+HL [00:01:17.025,054] <inf> sd_logger: SD write: 16384 B in 34363 us, ~476 KB/s, buf 108/98304
+HL [00:01:17.082,153] <inf> sd_logger: SD write: 16384 B in 26398 us, ~620 KB/s, buf 120/98304
+HL [00:01:17.148,468] <inf> sd_logger: SD write: 16384 B in 25665 us, ~638 KB/s, buf 66/98304
+HL [00:01:17.214,477] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 136/98304
+HL [00:01:17.278,259] <inf> sd_logger: SD write: 16384 B in 23438 us, ~699 KB/s, buf 90/98304
+HL [00:01:17.347,351] <inf> sd_logger: SD write: 16384 B in 26672 us, ~614 KB/s, buf 122/98304
+HL [00:01:17.408,630] <inf> sd_logger: SD write: 16384 B in 23926 us, ~684 KB/s, buf 32/98304
+HL [00:01:17.473,907] <inf> sd_logger: SD write: 16384 B in 24292 us, ~674 KB/s, buf 46/98304
+HL [00:01:17.553,344] <inf> sd_logger: SD write: 16384 B in 38635 us, ~424 KB/s, buf 84/98304
+HL [00:01:17.607,910] <inf> sd_logger: SD write: 16384 B in 24444 us, ~670 KB/s, buf 178/98304
+HL [00:01:17.673,797] <inf> sd_logger: SD write: 16384 B in 23987 us, ~683 KB/s, buf 160/98304
+HL [00:01:17.739,837] <inf> sd_logger: SD write: 16384 B in 24200 us, ~677 KB/s, buf 198/98304
+HL [00:01:17.807,464] <inf> sd_logger: SD write: 16384 B in 25483 us, ~642 KB/s, buf 182/98304
+HL [00:01:17.872,863] <inf> sd_logger: SD write: 16384 B in 26245 us, ~624 KB/s, buf 18/98304
+HL [00:01:17.936,431] <inf> sd_logger: SD write: 16384 B in 24689 us, ~663 KB/s, buf 88/98304
+HL [00:01:18.011,627] <inf> sd_logger: SD write: 16384 B in 31891 us, ~513 KB/s, buf 182/98304
+HL [00:01:18.077,301] <inf> sd_logger: SD write: 16384 B in 32654 us, ~501 KB/s, buf 18/98304
+HL [00:01:18.135,253] <inf> sd_logger: SD write: 16384 B in 25634 us, ~639 KB/s, buf 70/98304
+HL [00:01:18.200,439] <inf> sd_logger: SD write: 16384 B in 25726 us, ~636 KB/s, buf 140/98304
+HL [00:01:18.263,610] <inf> sd_logger: SD write: 16384 B in 23864 us, ~686 KB/s, buf 180/98304
+HL [00:01:18.334,442] <inf> sd_logger: SD write: 16384 B in 27435 us, ~597 KB/s, buf 224/98304
+HL [00:01:18.405,944] <inf> sd_logger: SD write: 16384 B in 33325 us, ~491 KB/s, buf 128/98304
+HL [00:01:18.464,019] <inf> sd_logger: SD write: 16384 B in 24231 us, ~676 KB/s, buf 84/98304
+HL [00:01:18.531,372] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 108/98304
+HL [00:01:18.603,637] <inf> sd_logger: SD write: 16384 B in 30915 us, ~529 KB/s, buf 188/98304
+HL [00:01:18.662,353] <inf> sd_logger: SD write: 16384 B in 24627 us, ~665 KB/s, buf 188/98304
+HL [00:01:18.731,109] <inf> sd_logger: SD write: 16384 B in 25207 us, ~649 KB/s, buf 18/98304
+HL [00:01:18.805,114] <inf> sd_logger: SD write: 16384 B in 33081 us, ~495 KB/s, buf 214/98304
+HL [00:01:18.863,555] <inf> sd_logger: SD write: 16384 B in 25970 us, ~630 KB/s, buf 86/98304
+HL [00:01:18.927,246] <inf> sd_logger: SD write: 16384 B in 24598 us, ~666 KB/s, buf 118/98304
+HL [00:01:18.990,447] <inf> sd_logger: SD write: 16384 B in 23071 us, ~710 KB/s, buf 32/98304
+HL [00:01:19.059,692] <inf> sd_logger: SD write: 16384 B in 24994 us, ~655 KB/s, buf 118/98304
+HL [00:01:19.141,174] <inf> sd_logger: SD write: 16384 B in 39520 us, ~414 KB/s, buf 20/98304
+HL [00:01:19.198,028] <inf> sd_logger: SD write: 16384 B in 27039 us, ~605 KB/s, buf 146/98304
+HL [00:01:19.259,368] <inf> sd_logger: SD write: 16384 B in 23285 us, ~703 KB/s, buf 120/98304
+HL [00:01:19.325,988] <inf> sd_logger: SD write: 16384 B in 24658 us, ~664 KB/s, buf 2/98304
+HL [00:01:19.392,517] <inf> sd_logger: SD write: 16384 B in 25665 us, ~638 KB/s, buf 136/98304
+HL [00:01:19.456,909] <inf> sd_logger: SD write: 16384 B in 24231 us, ~676 KB/s, buf 180/98304
+HL [00:01:19.529,632] <inf> sd_logger: SD write: 16384 B in 28900 us, ~566 KB/s, buf 6/98304
+HL [00:01:19.596,191] <inf> sd_logger: SD write: 16384 B in 30609 us, ~535 KB/s, buf 54/98304
+HL [00:01:19.663,177] <inf> sd_logger: SD write: 16384 B in 32470 us, ~504 KB/s, buf 184/98304
+HL [00:01:19.723,663] <inf> sd_logger: SD write: 16384 B in 25971 us, ~630 KB/s, buf 74/98304
+HL [00:01:19.791,931] <inf> sd_logger: SD write: 16384 B in 26368 us, ~621 KB/s, buf 160/98304
+HL [00:01:19.861,145] <inf> sd_logger: SD write: 16384 B in 27741 us, ~590 KB/s, buf 6/98304
+HL [00:01:19.926,239] <inf> sd_logger: SD write: 16384 B in 26611 us, ~615 KB/s, buf 184/98304
+HL [00:01:19.998,107] <inf> sd_logger: SD write: 16384 B in 31372 us, ~522 KB/s, buf 86/98304
+HL [00:01:20.056,976] <inf> sd_logger: SD write: 16384 B in 25146 us, ~651 KB/s, buf 46/98304
+HL [00:01:20.123,748] <inf> sd_logger: SD write: 16384 B in 25024 us, ~654 KB/s, buf 36/98304
+HL [00:01:20.200,622] <inf> sd_logger: SD write: 16384 B in 33631 us, ~487 KB/s, buf 128/98304
+HL [00:01:20.257,873] <inf> sd_logger: SD write: 16384 B in 26154 us, ~626 KB/s, buf 192/98304
+HL [00:01:20.327,209] <inf> sd_logger: SD write: 16384 B in 25970 us, ~630 KB/s, buf 12/98304
+HL [00:01:20.399,719] <inf> sd_logger: SD write: 16384 B in 32470 us, ~504 KB/s, buf 162/98304
+HL [00:01:20.457,275] <inf> sd_logger: SD write: 16384 B in 23621 us, ~693 KB/s, buf 162/98304
+HL [00:01:20.525,421] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 130/98304
+HL [00:01:20.590,881] <inf> sd_logger: SD write: 16384 B in 25330 us, ~646 KB/s, buf 48/98304
+HL [00:01:20.655,059] <inf> sd_logger: SD write: 16384 B in 23834 us, ~687 KB/s, buf 34/98304
+HL [00:01:20.737,731] <inf> sd_logger: SD write: 16384 B in 39947 us, ~410 KB/s, buf 10/98304
+HL [00:01:20.789,001] <inf> sd_logger: SD write: 16384 B in 24414 us, ~671 KB/s, buf 180/98304
+HL [00:01:20.856,201] <inf> sd_logger: SD write: 16384 B in 26642 us, ~614 KB/s, buf 200/98304
+HL [00:01:20.917,724] <inf> sd_logger: SD write: 16384 B in 23987 us, ~683 KB/s, buf 96/98304
+HL [00:01:20.988,189] <inf> sd_logger: SD write: 16384 B in 26490 us, ~618 KB/s, buf 200/98304
+HL [00:01:21.054,718] <inf> sd_logger: SD write: 16384 B in 26154 us, ~626 KB/s, buf 60/98304
+HL [00:01:21.120,208] <inf> sd_logger: SD write: 16384 B in 26550 us, ~617 KB/s, buf 78/98304
+HL [00:01:21.191,497] <inf> sd_logger: SD write: 16384 B in 28839 us, ~568 KB/s, buf 134/98304
+HL [00:01:21.260,620] <inf> sd_logger: SD write: 16384 B in 31800 us, ~515 KB/s, buf 222/98304
+HL [00:01:21.321,350] <inf> sd_logger: SD write: 16384 B in 26734 us, ~612 KB/s, buf 126/98304
+HL [00:01:21.387,390] <inf> sd_logger: SD write: 16384 B in 25818 us, ~634 KB/s, buf 12/98304
+HL [00:01:21.455,535] <inf> sd_logger: SD write: 16384 B in 26245 us, ~624 KB/s, buf 26/98304
+HL [00:01:21.528,259] <inf> sd_logger: SD write: 16384 B in 30700 us, ~533 KB/s, buf 8/98304
+HL [00:01:21.599,273] <inf> sd_logger: SD write: 16384 B in 34118 us, ~480 KB/s, buf 28/98304
+HL [00:01:21.654,815] <inf> sd_logger: SD write: 16384 B in 25299 us, ~647 KB/s, buf 22/98304
+HL [00:01:21.719,512] <inf> sd_logger: SD write: 16384 B in 24902 us, ~657 KB/s, buf 36/98304
+HL [00:01:21.795,288] <inf> sd_logger: SD write: 16384 B in 32746 us, ~500 KB/s, buf 32/98304
+HL [00:01:21.856,994] <inf> sd_logger: SD write: 16384 B in 27496 us, ~595 KB/s, buf 106/98304
+HL [00:01:21.923,217] <inf> sd_logger: SD write: 16384 B in 26001 us, ~630 KB/s, buf 2/98304
+HL [00:01:21.994,323] <inf> sd_logger: SD write: 16384 B in 31769 us, ~515 KB/s, buf 60/98304
+HL [00:01:22.050,964] <inf> sd_logger: SD write: 16384 B in 23468 us, ~698 KB/s, buf 130/98304
+HL [00:01:22.119,720] <inf> sd_logger: SD write: 16384 B in 25054 us, ~653 KB/s, buf 190/98304
+HL [00:01:22.187,438] <inf> sd_logger: SD write: 16384 B in 27862 us, ~588 KB/s, buf 130/98304
+HL [00:01:22.250,274] <inf> sd_logger: SD write: 16384 B in 24444 us, ~670 KB/s, buf 124/98304
+HL [00:01:22.336,029] <inf> sd_logger: SD write: 16384 B in 42541 us, ~385 KB/s, buf 190/98304
+HL [00:01:22.383,880] <inf> sd_logger: SD write: 16384 B in 25116 us, ~652 KB/s, buf 230/98304
+HL [00:01:22.450,775] <inf> sd_logger: SD write: 16384 B in 25605 us, ~639 KB/s, buf 22/98304
+HL [00:01:22.519,897] <inf> sd_logger: SD write: 16384 B in 27252 us, ~601 KB/s, buf 192/98304
+HL [00:01:22.585,906] <inf> sd_logger: SD write: 16384 B in 26398 us, ~620 KB/s, buf 128/98304
+HL [00:01:22.651,031] <inf> sd_logger: SD write: 16384 B in 25482 us, ~642 KB/s, buf 16/98304
+HL [00:01:22.717,559] <inf> sd_logger: SD write: 16384 B in 26733 us, ~612 KB/s, buf 16/98304
+HL [00:01:22.787,536] <inf> sd_logger: SD write: 16384 B in 32379 us, ~506 KB/s, buf 18/98304
+HL [00:01:22.857,513] <inf> sd_logger: SD write: 16384 B in 35003 us, ~468 KB/s, buf 142/98304
+HL [00:01:22.915,435] <inf> sd_logger: SD write: 16384 B in 26093 us, ~627 KB/s, buf 22/98304
+HL [00:01:22.980,804] <inf> sd_logger: SD write: 16384 B in 26031 us, ~629 KB/s, buf 176/98304
+HL [00:01:23.046,203] <inf> sd_logger: SD write: 16384 B in 25726 us, ~636 KB/s, buf 200/98304
+HL [00:01:23.110,198] <inf> sd_logger: SD write: 16384 B in 25147 us, ~651 KB/s, buf 18/98304
+HL [00:01:23.179,779] <inf> sd_logger: SD write: 16384 B in 27314 us, ~599 KB/s, buf 162/98304
+HL [00:01:23.245,544] <inf> sd_logger: SD write: 16384 B in 26397 us, ~620 KB/s, buf 16/98304
+HL [00:01:23.310,272] <inf> sd_logger: SD write: 16384 B in 25727 us, ~636 KB/s, buf 78/98304
+HL [00:01:23.384,460] <inf> sd_logger: SD write: 16384 B in 32806 us, ~499 KB/s, buf 106/98304
+HL [00:01:23.442,840] <inf> sd_logger: SD write: 16384 B in 25391 us, ~645 KB/s, buf 48/98304
+HL [00:01:23.511,230] <inf> sd_logger: SD write: 16384 B in 28625 us, ~572 KB/s, buf 114/98304
+--- 1 messages dropped ---
+HL [00:01:23.639,465] <inf> sd_logger: SD write: 16384 B in 24933 us, ~657 KB/s, buf 18/98304
+--- 1 messages dropped ---
+HL [00:01:23.840,881] <inf> sd_logger: SD write: 16384 B in 28381 us, ~577 KB/s, buf 34/98304
+--- 2 messages dropped ---
+HL [00:01:23.970,428] <inf> sd_logger: SD write: 16384 B in 24841 us, ~659 KB/s, buf 160/98304
+--- 1 messages dropped ---
+HL [00:01:24.105,987] <inf> sd_logger: SD write: 16384 B in 25513 us, ~642 KB/s, buf 32/98304
+--- 1 messages dropped ---
+HL [00:01:24.307,800] <inf> sd_logger: SD write: 16384 B in 27313 us, ~599 KB/s, buf 158/98304
+--- 3 messages dropped ---
+HL [00:01:24.504,486] <inf> sd_logger: SD write: 16384 B in 26764 us, ~612 KB/s, buf 14/98304
+--- 2 messages dropped ---
+HL [00:01:24.702,606] <inf> sd_logger: SD write: 16384 B in 24170 us, ~677 KB/s, buf 186/98304
+--- 1 messages dropped ---
+HL [00:01:24.836,700] <inf> sd_logger: SD write: 16384 B in 26154 us, ~626 KB/s, buf 104/98304
+--- 1 messages dropped ---
+HL [00:01:24.975,921] <inf> sd_logger: SD write: 16384 B in 32501 us, ~504 KB/s, buf 28/98304
+--- 2 messages dropped ---
+HL [00:01:25.167,938] <inf> sd_logger: SD write: 16384 B in 26306 us, ~622 KB/s, buf 184/98304
+--- 1 messages dropped ---
+HL [00:01:25.298,034] <inf> sd_logger: SD write: 16384 B in 25238 us, ~649 KB/s, buf 16/98304
+--- 2 messages dropped ---
+HL [00:01:25.510,375] <inf> sd_logger: SD write: 16384 B in 39978 us, ~409 KB/s, buf 32/98304
+--- 1 messages dropped ---
+HL [00:01:25.631,378] <inf> sd_logger: SD write: 16384 B in 26917 us, ~608 KB/s, buf 180/98304
+--- 3 messages dropped ---
+HL [00:01:25.758,636] <inf> sd_logger: SD write: 16384 B in 24689 us, ~663 KB/s, buf 78/98304
+--- 1 messages dropped ---
+HL [00:01:25.893,310] <inf> sd_logger: SD write: 16384 B in 24842 us, ~659 KB/s, buf 108/98304
+--- 2 messages dropped ---
+HL [00:01:26.093,811] <inf> sd_logger: SD write: 16384 B in 25269 us, ~648 KB/s, buf 14/98304
+--- 2 messages dropped ---
+HL [00:01:26.293,518] <inf> sd_logger: SD write: 16384 B in 26154 us, ~626 KB/s, buf 58/98304
+--- 2 messages dropped ---
+HL [00:01:26.490,631] <inf> sd_logger: SD write: 16384 B in 26184 us, ~625 KB/s, buf 138/98304
+--- 1 messages dropped ---
+HL [00:01:26.688,140] <inf> sd_logger: SD write: 16384 B in 25695 us, ~637 KB/s, buf 54/98304
+--- 2 messages dropped ---
+HL [00:01:26.820,068] <inf> sd_logger: SD write: 16384 B in 25482 us, ~642 KB/s, buf 98/98304
+--- 2 messages dropped ---
+HL [00:01:27.101,654] <inf> sd_logger: SD write: 16384 B in 39459 us, ~415 KB/s, buf 24/98304
+--- 1 messages dropped ---
+HL [00:01:27.154,357] <inf> sd_logger: SD write: 16384 B in 26886 us, ~609 KB/s, buf 62/98304
+--- 1 messages dropped ---
+HL [00:01:27.283,905] <inf> sd_logger: SD write: 16384 B in 24567 us, ~666 KB/s, buf 18/98304
+--- 1 messages dropped ---
+HL [00:01:27.420,288] <inf> sd_logger: SD write: 16384 B in 26855 us, ~610 KB/s, buf 96/98304
+--- 2 messages dropped ---
+HL [00:01:27.621,490] <inf> sd_logger: SD write: 16384 B in 31036 us, ~527 KB/s, buf 138/98304
+--- 1 messages dropped ---
+HL [00:01:27.746,124] <inf> sd_logger: SD write: 16384 B in 25238 us, ~649 KB/s, buf 34/98304
+--- 1 messages dropped ---
+HL [00:01:27.878,662] <inf> sd_logger: SD write: 16384 B in 25238 us, ~649 KB/s, buf 102/98304
+--- 1 messages dropped ---
+HL [00:01:28.072,631] <inf> sd_logger: SD write: 16384 B in 24811 us, ~660 KB/s, buf 26/98304
+--- 3 messages dropped ---
+HL [00:01:28.272,735] <inf> sd_logger: SD write: 16384 B in 25330 us, ~646 KB/s, buf 78/98304
+--- 1 messages dropped ---
+HL [00:01:28.476,776] <inf> sd_logger: SD write: 16384 B in 28198 us, ~581 KB/s, buf 184/98304
+--- 2 messages dropped ---
+HL [00:01:28.683,166] <inf> sd_logger: SD write: 16384 B in 37018 us, ~442 KB/s, buf 198/98304
+--- 2 messages dropped ---
+HL [00:01:28.804,595] <inf> sd_logger: SD write: 16384 B in 26947 us, ~608 KB/s, buf 12/98304
+--- 1 messages dropped ---
+HL [00:01:28.999,084] <inf> sd_logger: SD write: 16384 B in 23499 us, ~697 KB/s, buf 130/98304
+--- 1 messages dropped ---
+HL [00:01:29.134,948] <inf> sd_logger: SD write: 16384 B in 27405 us, ~597 KB/s, buf 8/98304
+--- 1 messages dropped ---
+HL [00:01:29.205,139] <inf> sd_logger: SD write: 16384 B in 30579 us, ~535 KB/s, buf 234/98304
+HL [00:01:29.264,404] <inf> sd_logger: SD write: 16384 B in 25788 us, ~635 KB/s, buf 170/98304
+HL [00:01:29.329,010] <inf> sd_logger: SD write: 16384 B in 23651 us, ~692 KB/s, buf 190/98304
+HL [00:01:29.393,402] <inf> sd_logger: SD write: 16384 B in 23926 us, ~684 KB/s, buf 2/98304
+HL [00:01:29.464,080] <inf> sd_logger: SD write: 16384 B in 26947 us, ~608 KB/s, buf 44/98304
+HL [00:01:29.536,560] <inf> sd_logger: SD write: 16384 B in 31983 us, ~512 KB/s, buf 178/98304
+HL [00:01:29.598,480] <inf> sd_logger: SD write: 16384 B in 27191 us, ~602 KB/s, buf 70/98304
+HL [00:01:29.659,423] <inf> sd_logger: SD write: 16384 B in 23041 us, ~711 KB/s, buf 102/98304
+HL [00:01:29.735,900] <inf> sd_logger: SD write: 16384 B in 32593 us, ~502 KB/s, buf 136/98304
+HL [00:01:29.792,510] <inf> sd_logger: SD write: 16384 B in 24993 us, ~655 KB/s, buf 4/98304
+HL [00:01:29.860,137] <inf> sd_logger: SD write: 16384 B in 26672 us, ~614 KB/s, buf 82/98304
+HL [00:01:29.932,678] <inf> sd_logger: SD write: 16384 B in 31403 us, ~521 KB/s, buf 194/98304
+HL [00:01:29.991,394] <inf> sd_logger: SD write: 16384 B in 26062 us, ~628 KB/s, buf 90/98304
+HL [00:01:30.052,917] <inf> sd_logger: SD write: 16384 B in 23651 us, ~692 KB/s, buf 4/98304
+HL [00:01:30.123,870] <inf> sd_logger: SD write: 16384 B in 26581 us, ~616 KB/s, buf 70/98304
+HL [00:01:30.189,910] <inf> sd_logger: SD write: 16384 B in 25421 us, ~644 KB/s, buf 98/98304
+HL [00:01:30.268,066] <inf> sd_logger: SD write: 16384 B in 37842 us, ~432 KB/s, buf 118/98304
+HL [00:01:30.320,739] <inf> sd_logger: SD write: 16384 B in 25482 us, ~642 KB/s, buf 142/98304
+HL [00:01:30.386,230] <inf> sd_logger: SD write: 16384 B in 24505 us, ~668 KB/s, buf 88/98304
+HL [00:01:30.454,498] <inf> sd_logger: SD write: 16384 B in 27069 us, ~605 KB/s, buf 78/98304
+HL [00:01:30.519,744] <inf> sd_logger: SD write: 16384 B in 24201 us, ~676 KB/s, buf 140/98304
+HL [00:01:30.584,289] <inf> sd_logger: SD write: 16384 B in 25024 us, ~654 KB/s, buf 40/98304
+HL [00:01:30.654,113] <inf> sd_logger: SD write: 16384 B in 27862 us, ~588 KB/s, buf 22/98304
+HL [00:01:30.724,121] <inf> sd_logger: SD write: 16384 B in 32318 us, ~506 KB/s, buf 24/98304
+HL [00:01:30.795,806] <inf> sd_logger: SD write: 16384 B in 34393 us, ~476 KB/s, buf 44/98304
+HL [00:01:30.853,271] <inf> sd_logger: SD write: 16384 B in 24993 us, ~655 KB/s, buf 190/98304
+HL [00:01:30.918,395] <inf> sd_logger: SD write: 16384 B in 23956 us, ~683 KB/s, buf 74/98304
+HL [00:01:30.986,297] <inf> sd_logger: SD write: 16384 B in 25940 us, ~631 KB/s, buf 44/98304
+HL [00:01:31.053,527] <inf> sd_logger: SD write: 16384 B in 26245 us, ~624 KB/s, buf 182/98304
+HL [00:01:31.120,727] <inf> sd_logger: SD write: 16384 B in 26489 us, ~618 KB/s, buf 44/98304
+HL [00:01:31.184,570] <inf> sd_logger: SD write: 16384 B in 25177 us, ~650 KB/s, buf 58/98304
+HL [00:01:31.255,493] <inf> sd_logger: SD write: 16384 B in 27222 us, ~601 KB/s, buf 182/98304
+HL [00:01:31.325,897] <inf> sd_logger: SD write: 16384 B in 31647 us, ~517 KB/s, buf 22/98304
+HL [00:01:31.386,993] <inf> sd_logger: SD write: 16384 B in 24994 us, ~655 KB/s, buf 22/98304
+HL [00:01:31.455,718] <inf> sd_logger: SD write: 16384 B in 28015 us, ~584 KB/s, buf 144/98304
+HL [00:01:31.525,390] <inf> sd_logger: SD write: 16384 B in 31159 us, ~525 KB/s, buf 80/98304
+HL [00:01:31.585,449] <inf> sd_logger: SD write: 16384 B in 25605 us, ~639 KB/s, buf 4/98304
+HL [00:01:31.649,505] <inf> sd_logger: SD write: 16384 B in 24201 us, ~676 KB/s, buf 114/98304
+HL [00:01:31.715,576] <inf> sd_logger: SD write: 16384 B in 23835 us, ~687 KB/s, buf 32/98304
+HL [00:01:31.784,667] <inf> sd_logger: SD write: 16384 B in 27191 us, ~602 KB/s, buf 134/98304
+HL [00:01:31.859,863] <inf> sd_logger: SD write: 16384 B in 36529 us, ~448 KB/s, buf 6/98304
+HL [00:01:31.914,215] <inf> sd_logger: SD write: 16384 B in 25146 us, ~651 KB/s, buf 0/98304
+HL [00:01:31.984,222] <inf> sd_logger: SD write: 16384 B in 26977 us, ~607 KB/s, buf 78/98304
+HL [00:01:32.045,410] <inf> sd_logger: SD write: 16384 B in 23194 us, ~706 KB/s, buf 162/98304
+HL [00:01:32.116,180] <inf> sd_logger: SD write: 16384 B in 27191 us, ~602 KB/s, buf 32/98304
+HL [00:01:32.179,412] <inf> sd_logger: SD write: 16384 B in 25146 us, ~651 KB/s, buf 70/98304
+HL [00:01:32.249,450] <inf> sd_logger: SD write: 16384 B in 27222 us, ~601 KB/s, buf 196/98304
+HL [00:01:32.322,723] <inf> sd_logger: SD write: 16384 B in 32470 us, ~504 KB/s, buf 100/98304
+HL [00:01:32.390,197] <inf> sd_logger: SD write: 16384 B in 33447 us, ~489 KB/s, buf 36/98304
+HL [00:01:32.449,615] <inf> sd_logger: SD write: 16384 B in 27313 us, ~599 KB/s, buf 98/98304
+HL [00:01:32.514,251] <inf> sd_logger: SD write: 16384 B in 25330 us, ~646 KB/s, buf 20/98304
+HL [00:01:32.579,681] <inf> sd_logger: SD write: 16384 B in 25329 us, ~646 KB/s, buf 10/98304
+HL [00:01:32.645,477] <inf> sd_logger: SD write: 16384 B in 25147 us, ~651 KB/s, buf 30/98304
+HL [00:01:32.717,163] <inf> sd_logger: SD write: 16384 B in 29938 us, ~547 KB/s, buf 26/98304
+HL [00:01:32.779,632] <inf> sd_logger: SD write: 16384 B in 27374 us, ~598 KB/s, buf 34/98304
+HL [00:01:32.845,306] <inf> sd_logger: SD write: 16384 B in 25726 us, ~636 KB/s, buf 10/98304
+HL [00:01:32.916,900] <inf> sd_logger: SD write: 16384 B in 30945 us, ~529 KB/s, buf 68/98304
+HL [00:01:32.980,529] <inf> sd_logger: SD write: 16384 B in 27374 us, ~598 KB/s, buf 62/98304
+HL [00:01:33.042,510] <inf> sd_logger: SD write: 16384 B in 24200 us, ~677 KB/s, buf 186/98304
+HL [00:01:33.111,785] <inf> sd_logger: SD write: 16384 B in 27160 us, ~603 KB/s, buf 42/98304
+HL [00:01:33.176,757] <inf> sd_logger: SD write: 16384 B in 25208 us, ~649 KB/s, buf 176/98304
+HL [00:01:33.244,140] <inf> sd_logger: SD write: 16384 B in 26977 us, ~607 KB/s, buf 2/98304
+HL [00:01:33.308,410] <inf> sd_logger: SD write: 16384 B in 25146 us, ~651 KB/s, buf 60/98304
+HL [00:01:33.374,938] <inf> sd_logger: SD write: 16384 B in 25360 us, ~646 KB/s, buf 18/98304
+HL [00:01:33.455,078] <inf> sd_logger: SD write: 16384 B in 39825 us, ~411 KB/s, buf 102/98304
+HL [00:01:33.506,011] <inf> sd_logger: SD write: 16384 B in 25726 us, ~636 KB/s, buf 122/98304
+HL [00:01:33.572,479] <inf> sd_logger: SD write: 16384 B in 25330 us, ~646 KB/s, buf 50/98304
+HL [00:01:33.637,390] <inf> sd_logger: SD write: 16384 B in 25055 us, ~653 KB/s, buf 46/98304
+HL [00:01:33.705,108] <inf> sd_logger: SD write: 16384 B in 24963 us, ~656 KB/s, buf 164/98304
+HL [00:01:33.777,313] <inf> sd_logger: SD write: 16384 B in 29114 us, ~562 KB/s, buf 22/98304
+HL [00:01:33.839,691] <inf> sd_logger: SD write: 16384 B in 26551 us, ~617 KB/s, buf 76/98304
+HL [00:01:33.912,780] <inf> sd_logger: SD write: 16384 B in 32623 us, ~502 KB/s, buf 40/98304
+HL [00:01:33.978,698] <inf> sd_logger: SD write: 16384 B in 33447 us, ~489 KB/s, buf 116/98304
+HL [00:01:34.038,116] <inf> sd_logger: SD write: 16384 B in 24811 us, ~660 KB/s, buf 196/98304
+HL [00:01:34.108,673] <inf> sd_logger: SD write: 16384 B in 28381 us, ~577 KB/s, buf 106/98304
+HL [00:01:34.170,562] <inf> sd_logger: SD write: 16384 B in 24383 us, ~671 KB/s, buf 120/98304
+HL [00:01:34.236,083] <inf> sd_logger: SD write: 16384 B in 25848 us, ~633 KB/s, buf 30/98304
+HL [00:01:34.306,884] <inf> sd_logger: SD write: 16384 B in 31677 us, ~517 KB/s, buf 116/98304
+HL [00:01:34.366,302] <inf> sd_logger: SD write: 16384 B in 24017 us, ~682 KB/s, buf 116/98304
+HL [00:01:34.438,476] <inf> sd_logger: SD write: 16384 B in 28168 us, ~581 KB/s, buf 118/98304
+HL [00:01:34.508,911] <inf> sd_logger: SD write: 16384 B in 32837 us, ~498 KB/s, buf 22/98304
+HL [00:01:34.567,413] <inf> sd_logger: SD write: 16384 B in 24261 us, ~675 KB/s, buf 200/98304
+HL [00:01:34.631,683] <inf> sd_logger: SD write: 16384 B in 24536 us, ~667 KB/s, buf 64/98304
+HL [00:01:34.703,918] <inf> sd_logger: SD write: 16384 B in 31799 us, ~515 KB/s, buf 88/98304
+HL [00:01:34.767,303] <inf> sd_logger: SD write: 16384 B in 28107 us, ~582 KB/s, buf 6/98304
+HL [00:01:34.835,662] <inf> sd_logger: SD write: 16384 B in 27100 us, ~604 KB/s, buf 156/98304
+HL [00:01:34.898,529] <inf> sd_logger: SD write: 16384 B in 24048 us, ~681 KB/s, buf 194/98304
+HL [00:01:34.964,538] <inf> sd_logger: SD write: 16384 B in 24323 us, ~673 KB/s, buf 162/98304
+HL [00:01:35.045,104] <inf> sd_logger: SD write: 16384 B in 38818 us, ~422 KB/s, buf 192/98304
+HL [00:01:35.099,487] <inf> sd_logger: SD write: 16384 B in 27374 us, ~598 KB/s, buf 188/98304
+HL [00:01:35.162,567] <inf> sd_logger: SD write: 16384 B in 25360 us, ~646 KB/s, buf 188/98304
+HL [00:01:35.227,539] <inf> sd_logger: SD write: 16384 B in 25422 us, ~644 KB/s, buf 10/98304
+HL [00:01:35.294,128] <inf> sd_logger: SD write: 16384 B in 25390 us, ~645 KB/s, buf 20/98304
+HL [00:01:35.359,405] <inf> sd_logger: SD write: 16384 B in 25299 us, ~647 KB/s, buf 62/98304
+HL [00:01:35.431,579] <inf> sd_logger: SD write: 16384 B in 28534 us, ~574 KB/s, buf 142/98304
+HL [00:01:35.499,664] <inf> sd_logger: SD write: 16384 B in 31342 us, ~522 KB/s, buf 232/98304
+HL [00:01:35.570,404] <inf> sd_logger: SD write: 16384 B in 35340 us, ~463 KB/s, buf 20/98304
+HL [00:01:35.627,532] <inf> sd_logger: SD write: 16384 B in 26062 us, ~628 KB/s, buf 234/98304
+HL [00:01:35.691,802] <inf> sd_logger: SD write: 16384 B in 23559 us, ~695 KB/s, buf 178/98304
+HL [00:01:35.704,101] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:01:35.704,101] <inf> power_manager: charging state: done
+HL [00:01:35.759,857] <inf> sd_logger: SD write: 16384 B in 27679 us, ~591 KB/s, buf 2/98304
+HL [00:01:35.827,453] <inf> sd_logger: SD write: 16384 B in 27314 us, ~599 KB/s, buf 90/98304
+HL [00:01:35.898,101] <inf> sd_logger: SD write: 16384 B in 32440 us, ~505 KB/s, buf 200/98304
+HL [00:01:35.959,838] <inf> sd_logger: SD write: 16384 B in 26703 us, ~613 KB/s, buf 24/98304
+HL [00:01:36.022,583] <inf> sd_logger: SD write: 16384 B in 24506 us, ~668 KB/s, buf 18/98304
+HL [00:01:36.097,991] <inf> sd_logger: SD write: 16384 B in 34058 us, ~481 KB/s, buf 124/98304
+HL [00:01:36.155,303] <inf> sd_logger: SD write: 16384 B in 25054 us, ~653 KB/s, buf 48/98304
+HL [00:01:36.196,777] <inf> sensor_manager: Setup sensor ID 0 (turned off)
+HL [00:01:36.220,642] <inf> sd_logger: SD write: 16384 B in 25483 us, ~642 KB/s, buf 28/98304
+HL [00:01:36.257,019] <inf> sensor_manager: Setup sensor ID 4 (turned off)
+HL [00:01:36.291,076] <inf> sd_logger: SD write: 16384 B in 28961 us, ~565 KB/s, buf 12/98304
+HL [00:01:36.316,955] <inf> sensor_manager: Setup sensor ID 6 (turned off)
+HL [00:01:36.347,747] <inf> sd_logger: SD write: 16384 B in 20600 us, ~795 KB/s, buf 20/98304
+HL [00:01:36.376,953] <inf> sensor_manager: Setup sensor ID 1 (turned off)
+HL [00:01:36.417,755] <inf> sd_logger: SD write: 16384 B in 22705 us, ~721 KB/s, buf 118/98304
+HL [00:01:36.436,920] <inf> sensor_manager: Setup sensor ID 7 (turned off)
+HL [00:01:36.482,299] <inf> sd_logger: SD write: 16384 B in 16236 us, ~1009 KB/s, buf 144/98304
+HL [00:01:36.496,856] <inf> sensor_manager: Setup sensor ID 2 (turned off)
+HL [00:01:36.512,908] <inf> sd_logger: Close File ....
+HL [00:01:36.512,969] <dbg> SDCardManager: close_file: File /SD:/sensor_log_36023834.oe closed
+HL [00:01:45.704,071] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:01:45.704,071] <inf> power_manager: charging state: done
+HL [00:01:55.704,467] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:01:55.704,467] <inf> power_manager: charging state: done
+HL [00:02:05.704,650] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:02:05.704,650] <inf> power_manager: charging state: done
+HL [00:02:15.705,047] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:02:15.705,047] <inf> power_manager: charging state: done
+HL [00:02:25.705,352] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:02:25.705,383] <inf> power_manager: charging state: done
+HL [00:02:35.705,535] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:02:35.705,535] <inf> power_manager: charging state: done
+HL [00:02:45.705,932] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:02:45.705,963] <inf> power_manager: charging state: done
+HL [00:02:55.706,237] <inf> power_manager: Effective SPI frequency: 32000000 Hz
+HL [00:02:55.706,268] <inf> power_manager: charging state: done

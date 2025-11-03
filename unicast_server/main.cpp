@@ -113,15 +113,15 @@ int main(void) {
 	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
 	ERR_CHK(ret);
 
-	//ret = init_sensor_service();
-	//ERR_CHK(ret);
+	ret = init_sensor_service();
+	ERR_CHK(ret);
 
 	// error test
 	//long *a = nullptr;
 	//*a = 10;
 	LOG_INF("STARTING SD BENCH");
 	
-	ret = sd_benchmark.init();
-	ret = sd_benchmark.start();
+	//ret = sd_benchmark.init();
+	//ret = sd_benchmark.start();
 	return 0;
 }
