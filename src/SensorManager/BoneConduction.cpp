@@ -65,24 +65,28 @@ void BoneConduction::update_sensor(struct k_work *work) {
 
     int written = 0;
 
+    const int _size = 3 * sizeof(int16_t);
+
     while (written < num_samples) {
-        int to_write = MIN(6, num_samples - written);
+        int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
         if (to_write <= 0) break;
 
         msg_bc.sd = sensor._sd_logging;
         msg_bc.stream = sensor._ble_stream;
 
-        const int _size = 3 * sizeof(int16_t);
-
         msg_bc.data.id = ID_BONE_CONDUCTION;
-        msg_bc.data.size = to_write * _size;
+        msg_bc.data.size = to_write * _size + sizeof(uint16_t);
         msg_bc.data.time = _time_stamp - (num_samples - written) * BoneConduction::sensor.t_sample_us;
 
-        for (int i = 0; i < to_write; i++) {
-            memcpy(&msg_bc.data.data[i * _size], &sensor.fifo_acc_data[written + i], _size);
+        if (to_write > 1) {
+            uint16_t t_diff = BoneConduction::sensor.t_sample_us;
+            for (int i = 0; i < to_write; i++) {
+                memcpy(&msg_bc.data.data[i * _size], &sensor.fifo_acc_data[written + i], _size);
+            }
+            memcpy(&msg_bc.data.data[msg_bc.data.size - sizeof(uint16_t)], &t_diff, sizeof(uint16_t));
+        } else {
+            memcpy(&msg_bc.data.data, &sensor.fifo_acc_data[written], _size);
         }
-
-        // memcpy(msg_bc.data.data, &sensor.fifo_acc_data[written], to_write * 3 * sizeof(int16_t));
 
         int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
         if (ret) {
