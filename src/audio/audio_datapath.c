@@ -219,10 +219,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
-			unsigned int logger_signaled;
-			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
-
-			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
+			if (_record_to_sd) {
 				struct sensor_msg audio_msg;
 	
 				audio_msg.sd = true;
