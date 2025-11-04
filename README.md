@@ -123,7 +123,7 @@ Battery states will overwrite LED connection states. All LED states can be manua
 
 | LED State         | Description                                                                 |
 |------------------|-----------------------------------------------------------------------------|
-| 🟥 Red - Solid      | Battery fault or deep discharge*, charging current = 0                       |
+| 🟥 Red - Solid      | > 20 seconds = battery fault or deep discharge*                       |
 | 🔴 Red - Pulsing    | Pre-charge phase or system-down voltage not yet cleared                     |
 | 🟧 Orange - Solid   | Power connected, but charging current is not verified or not at desired level |
 | 🟠 Orange - Pulsing | At least 80% of the target charging current is reached                      |
