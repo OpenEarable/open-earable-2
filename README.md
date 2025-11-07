@@ -62,19 +62,19 @@
         - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`.
         - Do not set any of the FOTA flags described above.
     
-9. **j-link Setup**
-   - Wire your j-link to the debugging breakout PCB as shown below.
+9. **J-Link Setup**
+   - Wire your J-Link to the debugging breakout PCB as shown below.
    ![image](https://github.com/user-attachments/assets/2eeec41e-6be1-4a4f-b986-7d9a07b0f8e5)
-   - If you do not own a j-link yet, here are a few options:
-      - [j-link EDU Mini](https://mou.sr/3LrwiVe) (available to educational institutions, private persons, and students) with [JTAG adapter](https://www.adafruit.com/product/2094) and [cable](https://www.adafruit.com/product/1675).
+   - If you do not own a J-Link yet, here are a few options:
+      - [J-Link EDU Mini](https://mou.sr/3LrwiVe) (available to educational institutions, private persons, and students) with [JTAG adapter](https://www.adafruit.com/product/2094) and [cable](https://www.adafruit.com/product/1675).
       - On-board debugger of the [nRF5340 development kit](https://www.digikey.de/short/qb5zpbc2) with [JTAG adapter](https://www.adafruit.com/product/2094) and [cable](https://www.adafruit.com/product/1675).
-      - Full-scale j-link for commercial use (e.g., [j-link BASE Compact](https://mou.sr/4oQkAls)).
-      - ⚠️ The wiring show in the figure above is for the full-scale j-link pinout. If you use the [JTAG adapter](https://www.adafruit.com/product/2094) the wiring may be different so make sure it is correct in your case! _(to be confirmed, picture coming soon)_.
+      - Full-scale J-Link for commercial use (e.g., [J-Link BASE Compact](https://mou.sr/4oQkAls)).
+      - ⚠️ The wiring show in the figure above is for the full-scale J-Link pinout. If you use the [JTAG adapter](https://www.adafruit.com/product/2094) the wiring may be different so make sure it is correct in your case! _(to be confirmed, picture coming soon)_.
 
 10. **Build and Flash**
      - Click on `Generate and Build` and wait for the application to build (this will take some time).
      - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
-     - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your j-link (right click your j-link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
+     - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
 
       ```bash
       # --right for the right ear device, or no flag to retain left/right bonding
@@ -94,7 +94,7 @@
      - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`. To execute it, open PowerShell with administrative privileges.
 
 11. **Recover Board**
-     - If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your j-link debugger.
+     - If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your J-Link debugger.
      - Ensure the device is powered via USB or that the battery is sufficiently charged before running the recovery process. Otherwise, the MCU may not power up correctly and the recovery will fail.
       ```bash
       ./tools/flash/recover.sh --snr 123456789
