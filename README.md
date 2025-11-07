@@ -76,6 +76,7 @@
      - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
      - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your j-link (right click your j-link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
 
+<<<<<<< HEAD
 11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
@@ -91,6 +92,24 @@
       # --hw version is optional
      ./tools/flash/flash.sh --snr 123456789 --left --hw 2.0.1      
      ```
+=======
+      ```bash
+      # --right for the right ear device, or no flag to retain left/right bonding
+      # --standalone for no pair
+
+      ./tools/flash/flash_fota.sh --snr 123456789 --left 
+      ```
+
+     - or without FOTA
+
+      ```bash
+      # --right for the right ear device, or no flag to retain left/right bonding
+      # --standalone for no pair
+
+      ./tools/flash/flash.sh --snr 123456789 --left    
+      ```
+     - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`. To execute it, open PowerShell with administrative privileges.
+>>>>>>> 2cc8b14 (Update README with debug output instructions)
 
 11. **Recover Board**
      - If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your j-link debugger.
@@ -99,6 +118,23 @@
       ./tools/flash/recover.sh --snr 123456789
       ```
      - After successful recovery, you can attempt to flash the firmware again.
+   
+12. **Enable Debug Output**
+     - Open the **J-Link Configuration** program on your computer.  
+        - On macOS: Press `CMD` + `Space` and search for `J-Link Config`.  
+        - On Windows: Search for the program from the taskbar.  
+     - Ensure your J-Link is connected to your computer.  
+     - In the **Connected via USB** table, locate your J-Link device. Double-click it or right-click and select **Configure**.  
+     - Find the **Virtual COM-Port** option and select **Enable**. Click **OK** to apply the setting.  
+     - Open **Visual Studio Code**.  
+     - In the left sidebar, open the **Extensions** menu.  
+     - Search for and install the [**Serial Monitor**](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-serial-monitor) extension.  
+     - In the top menu bar, click **Terminal → New Terminal**.  
+     - A terminal window will appear at the bottom of VS Code. Open the **Serial Monitor** tab.  
+     - In the **Port** dropdown menu, select your J-Link’s COM port.  
+     - Set the **Baud rate** to **115200**.  
+     - Click **Start Monitoring**.  
+     - Ensure your earable is connected to the debugger probe. You should now see debug output appearing when you interact with the device (e.g., press button).
 
 
 
