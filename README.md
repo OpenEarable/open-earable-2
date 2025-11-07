@@ -95,11 +95,12 @@
 11. **Recover Board**
      - If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your j-link debugger.
      - Ensure the device is powered via USB or that the battery is sufficiently charged before running the recovery process. Otherwise, the MCU may not power up correctly and the recovery will fail.
-     - After successful recovery, you can attempt to flash the firmware again.
-
       ```bash
       ./tools/flash/recover.sh --snr 123456789
       ```
+     - After successful recovery, you can attempt to flash the firmware again.
+
+
 
 ## Battery States
 Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
