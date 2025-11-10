@@ -62,9 +62,9 @@ private:
     static void battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
     const battery_settings _battery_settings = {
-        3.7, 4.3, 3.0, 2.5,  // Spannungen
+        3.7, 4.2, 3.0, 2.5,  // Spannungen
         10, 110, 200,        // Ströme
-        108,                 // Kapazität
+        950,                 // Kapazität
         0, 15, 45, 50        // Temperaturen
     };
 
