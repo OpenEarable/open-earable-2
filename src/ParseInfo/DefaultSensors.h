@@ -7,6 +7,7 @@
 #include "openearable_common.h"
 
 #include "../SensorManager/PPG_right_I2C2.h"
+#include "../SensorManager/PPG_left_I2C1.h"
 #include "../SensorManager/IMU.h"
 #include "../SensorManager/Baro.h"
 #include "../SensorManager/Temp.h"
@@ -71,19 +72,34 @@ SensorComponentGroup boneConductionIMUGroups[BONE_CONDUCTION_IMU_GROUP_COUNT] = 
     { .name = "ACCELEROMETER", .componentCount = BONE_CONDUCTION_ACC_COUNT, .components = boneConductionIMUComponents },
 };
 
-// ============= PPG =============
+// ============= PPG Right =============
 
-#define PPG_ADC_COUNT 4
-SensorComponent ppgAdcComponents[PPG_ADC_COUNT] = {
+#define PPG_RIGHT_ADC_COUNT 4
+SensorComponent ppgRightAdcComponents[PPG_RIGHT_ADC_COUNT] = {
     { .name = "RED", .unit = "ADC", .parseType = PARSE_TYPE_UINT32 },
     { .name = "IR", .unit = "ADC", .parseType = PARSE_TYPE_UINT32 },
     { .name = "GREEN", .unit = "ADC", .parseType = PARSE_TYPE_UINT32 },
     { .name = "AMBIENT", .unit = "ADC", .parseType = PARSE_TYPE_UINT32 },
 };
 
-#define PPG_GROUP_COUNT 1
-SensorComponentGroup ppgGroups[PPG_GROUP_COUNT] = {
-    { .name = "PHOTOPLETHYSMOGRAPHY", .componentCount = PPG_ADC_COUNT, .components = ppgAdcComponents },
+#define PPG_RIGHT_GROUP_COUNT 1
+SensorComponentGroup ppgRightGroups[PPG_RIGHT_GROUP_COUNT] = {
+    { .name = "PHOTOPLETHYSMOGRAPHY", .componentCount = PPG_RIGHT_ADC_COUNT, .components = ppgRightAdcComponents },
+};
+
+// ============= PPG Left =============
+
+#define PPG_LEFT_ADC_COUNT 4
+SensorComponent ppgLeftAdcComponents[PPG_LEFT_ADC_COUNT] = {
+    { .name = "RED", .unit = "ADC", .parseType = PARSE_TYPE_UINT32 },
+    { .name = "IR", .unit = "ADC", .parseType = PARSE_TYPE_UINT32 },
+    { .name = "GREEN", .unit = "ADC", .parseType = PARSE_TYPE_UINT32 },
+    { .name = "AMBIENT", .unit = "ADC", .parseType = PARSE_TYPE_UINT32 },
+};
+
+#define PPG_LEFT_GROUP_COUNT 1
+SensorComponentGroup ppgLeftGroups[PPG_LEFT_GROUP_COUNT] = {
+    { .name = "PHOTOPLETHYSMOGRAPHY", .componentCount = PPG_LEFT_ADC_COUNT, .components = ppgLeftAdcComponents },
 };
 
 // ============= OpticTemperature =============
@@ -118,7 +134,7 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 
 // ============= Sensors =============
 
-#define SENSOR_COUNT 6
+#define SENSOR_COUNT 7
 SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "9-Axis IMU",
@@ -153,8 +169,8 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "Pulse Oximeter Right I2C2",
         .id = ID_PPG_right_I2C2,
-        .groupCount = PPG_GROUP_COUNT,
-        .groups = ppgGroups,
+        .groupCount = PPG_RIGHT_GROUP_COUNT,
+        .groups = ppgRightGroups,
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
@@ -162,6 +178,21 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
                 .defaultFrequencyIndex = 2,
                 .maxBleFrequencyIndex = 12,
                 .frequencies = PPG_right_I2C2::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "Pulse Oximeter Left I2C1",
+        .id = ID_PPG_left_I2C1,
+        .groupCount = PPG_LEFT_GROUP_COUNT,
+        .groups = ppgLeftGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(PPG_left_I2C1::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 2,
+                .maxBleFrequencyIndex = 12,
+                .frequencies = PPG_left_I2C1::sample_rates.sample_rates,
             },
         },
     },
@@ -214,7 +245,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_PPG_left_I2C1, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
 };
 
 #endif // _DEFAULT_SENSORS_H
