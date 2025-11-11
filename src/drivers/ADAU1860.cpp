@@ -60,7 +60,7 @@ int ADAU1860::begin() {
                 LOG_ERR("Failed to set DAC enable as output.\n");
                 return ret;
         }
-
+        return 0;
         //k_msleep(1);
 
         //last_i2c = micros();
