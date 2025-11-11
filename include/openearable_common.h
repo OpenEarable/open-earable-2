@@ -78,6 +78,8 @@ enum sensor_id {
 	ID_OPTTEMP=6,
 	ID_BONE_CONDUCTION=7,
 	ID_PPG_left_I2C1=8,
+	ID_OPTTEMP_right_I2C2=9,
+	ID_OPTTEMP_left_I2C1=10,
 };
 
 struct battery_data {

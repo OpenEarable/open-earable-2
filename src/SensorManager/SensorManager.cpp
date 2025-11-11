@@ -11,7 +11,8 @@
 #include "Baro.h"
 #include "PPG_right_I2C2.h"
 #include "PPG_left_I2C1.h"
-#include "Temp.h"
+#include "Temp_right_I2C2.h"
+#include "Temp_left_I2C1.h"
 #include "BoneConduction.h"
 #include "Microphone.h"
 
@@ -133,7 +134,8 @@ void stop_sensor_manager() {
 	IMU::sensor.stop();
 	PPG_right_I2C2::sensor.stop();
 	PPG_left_I2C1::sensor.stop();
-	Temp::sensor.stop();
+	Temp_right_I2C2::sensor.stop();
+	Temp_left_I2C1::sensor.stop();
 	BoneConduction::sensor.stop();
 	Microphone::sensor.stop();
 
@@ -162,8 +164,10 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 		return &(PPG_right_I2C2::sensor);
 	case ID_PPG_left_I2C1:
 		return &(PPG_left_I2C1::sensor);
-	case ID_OPTTEMP:
-		return &(Temp::sensor);
+	case ID_OPTTEMP_right_I2C2:
+		return &(Temp_right_I2C2::sensor);
+	case ID_OPTTEMP_left_I2C1:
+		return &(Temp_left_I2C1::sensor);
 	case ID_BONE_CONDUCTION:
 		return &(BoneConduction::sensor);
 	case ID_MICRO:

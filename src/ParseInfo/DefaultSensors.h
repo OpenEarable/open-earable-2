@@ -10,7 +10,8 @@
 #include "../SensorManager/PPG_left_I2C1.h"
 #include "../SensorManager/IMU.h"
 #include "../SensorManager/Baro.h"
-#include "../SensorManager/Temp.h"
+#include "../SensorManager/Temp_right_I2C2.h"
+#include "../SensorManager/Temp_left_I2C1.h"
 #include "../SensorManager/BoneConduction.h"
 #include "../SensorManager/Microphone.h"
 
@@ -102,16 +103,28 @@ SensorComponentGroup ppgLeftGroups[PPG_LEFT_GROUP_COUNT] = {
     { .name = "PHOTOPLETHYSMOGRAPHY", .componentCount = PPG_LEFT_ADC_COUNT, .components = ppgLeftAdcComponents },
 };
 
-// ============= OpticTemperature =============
+// ============= OpticTemperature Right =============
 
-#define OPTIC_TEMP_COUNT 1
-SensorComponent opticTemperatureComponents[OPTIC_TEMP_COUNT] = {
+#define OPTIC_TEMP_RIGHT_COUNT 1
+SensorComponent opticTemperatureRightComponents[OPTIC_TEMP_RIGHT_COUNT] = {
     { .name = "Temperature", .unit = "°C", .parseType = PARSE_TYPE_FLOAT },
 };
 
-#define OPTIC_TEMP_GROUP_COUNT 1
-SensorComponentGroup opticTemperatureGroups[OPTIC_TEMP_GROUP_COUNT] = {
-    { .name = "OPTICAL_TEMPERATURE_SENSOR", .componentCount = OPTIC_TEMP_COUNT, .components = opticTemperatureComponents },
+#define OPTIC_TEMP_RIGHT_GROUP_COUNT 1
+SensorComponentGroup opticTemperatureRightGroups[OPTIC_TEMP_RIGHT_GROUP_COUNT] = {
+    { .name = "OPTICAL_TEMPERATURE_SENSOR_RIGHT", .componentCount = OPTIC_TEMP_RIGHT_COUNT, .components = opticTemperatureRightComponents },
+};
+
+// ============= OpticTemperature Left =============
+
+#define OPTIC_TEMP_LEFT_COUNT 1
+SensorComponent opticTemperatureLeftComponents[OPTIC_TEMP_LEFT_COUNT] = {
+    { .name = "Temperature", .unit = "°C", .parseType = PARSE_TYPE_FLOAT },
+};
+
+#define OPTIC_TEMP_LEFT_GROUP_COUNT 1
+SensorComponentGroup opticTemperatureLeftGroups[OPTIC_TEMP_LEFT_GROUP_COUNT] = {
+    { .name = "OPTICAL_TEMPERATURE_SENSOR_LEFT", .componentCount = OPTIC_TEMP_LEFT_COUNT, .components = opticTemperatureLeftComponents },
 };
 
 // ============= Baro =============
@@ -134,7 +147,7 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 
 // ============= Sensors =============
 
-#define SENSOR_COUNT 7
+#define SENSOR_COUNT 8
 SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "9-Axis IMU",
@@ -197,17 +210,32 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
         },
     },
     {
-        .name = "Skin Temperature Sensor",
-        .id = ID_OPTTEMP,
-        .groupCount = OPTIC_TEMP_GROUP_COUNT,
-        .groups = opticTemperatureGroups,
+        .name = "Skin Temperature Sensor Right I2C2",
+        .id = ID_OPTTEMP_right_I2C2,
+        .groupCount = OPTIC_TEMP_RIGHT_GROUP_COUNT,
+        .groups = opticTemperatureRightGroups,
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = sizeof(Temp::sample_rates.reg_vals),
+                .frequencyCount = sizeof(Temp_right_I2C2::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 4,
                 .maxBleFrequencyIndex = 7,
-                .frequencies = Temp::sample_rates.sample_rates,
+                .frequencies = Temp_right_I2C2::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "Skin Temperature Sensor Left I2C1",
+        .id = ID_OPTTEMP_left_I2C1,
+        .groupCount = OPTIC_TEMP_LEFT_GROUP_COUNT,
+        .groups = opticTemperatureLeftGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(Temp_left_I2C1::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 4,
+                .maxBleFrequencyIndex = 7,
+                .frequencies = Temp_left_I2C1::sample_rates.sample_rates,
             },
         },
     },
@@ -245,7 +273,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_PPG_left_I2C1, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_PPG_left_I2C1, ID_OPTTEMP_right_I2C2, ID_OPTTEMP_left_I2C1, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
 };
 
 #endif // _DEFAULT_SENSORS_H

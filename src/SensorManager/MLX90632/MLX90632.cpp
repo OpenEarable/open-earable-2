@@ -64,7 +64,7 @@ LOG_MODULE_REGISTER(MLX90632, 3);
 //Return true if we got a 'Polo' back from Marco
 bool MLX90632::begin()
 {
-  uint8_t deviceAddress = DT_REG_ADDR(DT_NODELABEL(mlx90632));
+  uint8_t deviceAddress = 0x3A; // Default I2C address
   //TWI  &wirePort = Wire2;
   MLX90632::status returnError;
   if (begin(deviceAddress, I2C3, returnError) == true)

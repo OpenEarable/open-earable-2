@@ -163,6 +163,6 @@ class MLX90632 {
 
     //Variables
     TWIM *_i2c = &I2C3; //The generic connection to user's chosen I2C hardware
-    uint8_t _deviceAddress = DT_REG_ADDR(DT_NODELABEL(mlx90632)); //Keeps track of I2C address. setI2CAddress changes this. Either 0x3A or 0x3B (default)
+    uint8_t _deviceAddress = 0x3A; //Keeps track of I2C address. setI2CAddress changes this. Either 0x3A or 0x3B (default)
 
 };
