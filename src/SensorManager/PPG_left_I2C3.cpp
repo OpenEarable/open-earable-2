@@ -1,4 +1,4 @@
-#include "PPG_left_I2C1.h"
+#include "PPG_left_I2C3.h"
 
 #include "SensorManager.h"
 
@@ -10,13 +10,13 @@ LOG_MODULE_DECLARE(MAXM86161);
 
 #define LATENCY_MS 40
 
-PPG_left_I2C1 PPG_left_I2C1::sensor;
+PPG_left_I2C3 PPG_left_I2C3::sensor;
 
-MAXM86161 PPG_left_I2C1::ppg(&I2C1);
+MAXM86161 PPG_left_I2C3::ppg(&I2C3, DT_REG_ADDR(DT_NODELABEL(maxm86161_left)));
 
 static struct sensor_msg msg_ppg_left;
 
-const SampleRateSetting<16> PPG_left_I2C1::sample_rates = {
+const SampleRateSetting<16> PPG_left_I2C3::sample_rates = {
     { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x0A, 0x0B,
     0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13 },
 
@@ -27,7 +27,7 @@ const SampleRateSetting<16> PPG_left_I2C1::sample_rates = {
     32.000, 64.000, 128.000, 256.000, 512.000, 1024.000, 2048.000, 4096.000},
 };
 
-bool PPG_left_I2C1::init(struct k_msgq * queue) {
+bool PPG_left_I2C3::init(struct k_msgq * queue) {
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
         pm_device_runtime_get(ls_3_3);
@@ -65,16 +65,16 @@ bool PPG_left_I2C1::init(struct k_msgq * queue) {
 	return true;
 }
 
-void PPG_left_I2C1::update_sensor(struct k_work *work) {
+void PPG_left_I2C3::update_sensor(struct k_work *work) {
     int int_status;
     int status;
 
     uint64_t _time_stamp = micros();
 
-    PPG_left_I2C1::sensor._sample_count += (_time_stamp - PPG_left_I2C1::sensor._last_time_stamp) / PPG_left_I2C1::sensor.t_sample_us;
-    PPG_left_I2C1::sensor._last_time_stamp = _time_stamp;
+    PPG_left_I2C3::sensor._sample_count += (_time_stamp - PPG_left_I2C3::sensor._last_time_stamp) / PPG_left_I2C3::sensor.t_sample_us;
+    PPG_left_I2C3::sensor._last_time_stamp = _time_stamp;
 
-    if (PPG_left_I2C1::sensor._sample_count < PPG_left_I2C1::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
+    if (PPG_left_I2C3::sensor._sample_count < PPG_left_I2C3::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
         return;
     }
     
@@ -88,7 +88,7 @@ void PPG_left_I2C1::update_sensor(struct k_work *work) {
     if(int_status & MAXM86161_INT_FULL) { // MAXM86161_INT_DATA_RDY
         int num_samples = ppg.read(sensor.data_buffer);
 
-        PPG_left_I2C1::sensor._sample_count = MAX(0, PPG_left_I2C1::sensor._num_samples_buffered - num_samples);
+        PPG_left_I2C3::sensor._sample_count = MAX(0, PPG_left_I2C3::sensor._num_samples_buffered - num_samples);
 
         for (int i = 0; i < num_samples; i++) {
             msg_ppg_left.sd = sensor._sd_logging;
@@ -96,9 +96,9 @@ void PPG_left_I2C1::update_sensor(struct k_work *work) {
 
             size_t size = sizeof(uint32_t);
             
-            msg_ppg_left.data.id = ID_PPG_left_I2C1;
+            msg_ppg_left.data.id = ID_PPG_left_I2C3;
             msg_ppg_left.data.size = 4 * size;
-            msg_ppg_left.data.time = _time_stamp - (num_samples - i) * PPG_left_I2C1::sensor.t_sample_us;
+            msg_ppg_left.data.time = _time_stamp - (num_samples - i) * PPG_left_I2C3::sensor.t_sample_us;
 
             memcpy(msg_ppg_left.data.data + 0 * size, &sensor.data_buffer[i][red_left], size);
             memcpy(msg_ppg_left.data.data + 1 * size, &sensor.data_buffer[i][ir_left], size);
@@ -116,11 +116,11 @@ void PPG_left_I2C1::update_sensor(struct k_work *work) {
 /**
 * @brief Submit a k_work on timer expiry.
 */
-void PPG_left_I2C1::sensor_timer_handler(struct k_timer *dummy) {
+void PPG_left_I2C3::sensor_timer_handler(struct k_timer *dummy) {
 	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 }
 
-void PPG_left_I2C1::start(int sample_rate_idx) {
+void PPG_left_I2C3::start(int sample_rate_idx) {
     if (!_active) return;
 
     t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
@@ -140,7 +140,7 @@ void PPG_left_I2C1::start(int sample_rate_idx) {
     _last_time_stamp = micros();
 }
 
-void PPG_left_I2C1::stop() {
+void PPG_left_I2C3::stop() {
     if (!_active) return;
     _active = false;
 

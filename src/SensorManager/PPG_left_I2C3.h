@@ -1,5 +1,5 @@
-#ifndef _PPG_LEFT_I2C1_H
-#define _PPG_LEFT_I2C1_H
+#ifndef _PPG_LEFT_I2C3_H
+#define _PPG_LEFT_I2C3_H
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
@@ -17,11 +17,11 @@ enum led_order_left {
     red_left, green_left, ir_left, ambient_left
 };
 
-class PPG_left_I2C1 : public EdgeMlSensor {
+class PPG_left_I2C3 : public EdgeMlSensor {
 public:
     //PulseOximeter(int _samplerate);
 
-    static PPG_left_I2C1 sensor;
+    static PPG_left_I2C3 sensor;
 
     bool init(struct k_msgq * queue) override;
     void start(int sample_rate_idx) override;

@@ -108,11 +108,6 @@
 		 reg = <0x55>;
 		 gpout-gpios = <&gpio0 22 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
 	 };
-
-	mlx90632_left: mlx90632@3A {
-        compatible = "i2c-device";
-        reg = <0x3A>;
-    };
  
 	 bq25120a: bq25120a@6a {
 		 compatible = "ti,bq25120a";
@@ -146,14 +141,14 @@
 	 zephyr,concat-buf-size = <512>;
      zephyr,flash-buf-max-size = <512>;
 
-	maxm86161: maxm86161@62 {
+	maxm86161_right: maxm86161@62 {
         compatible = "i2c-device";
         reg = <0x62>;
     };
 
-	mlx90632_right: mlx90632@3A {
+	mlx90632_right: mlx90632@3a {
         compatible = "i2c-device";
-        reg = <0x3A>;
+        reg = <0x3a>;
     };
  };
  
@@ -180,6 +175,16 @@
 	bmx160: bmx160@68 {
         compatible = "i2c-device";
         reg = <0x68>;
+    };
+
+	maxm86161_left: maxm86161@62 {
+        compatible = "i2c-device";
+        reg = <0x62>;
+    };
+
+	mlx90632_left: mlx90632@3a {
+        compatible = "i2c-device";
+        reg = <0x3a>;
     };
  };
  

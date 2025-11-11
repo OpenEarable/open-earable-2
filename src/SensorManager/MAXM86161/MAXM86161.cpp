@@ -10,7 +10,7 @@ char databuffer[32*BYTES_PER_CH*LED_NUM];
 // Constructor
 /*****************************************************************************/
 /*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*/
-MAXM86161::MAXM86161(TWIM * i2c):_i2c(i2c)
+MAXM86161::MAXM86161(TWIM * i2c, uint8_t address):_i2c(i2c), _addr(address)
 {
     // Empty block
 }

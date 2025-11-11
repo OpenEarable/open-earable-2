@@ -7,11 +7,11 @@
 #include "openearable_common.h"
 
 #include "../SensorManager/PPG_right_I2C2.h"
-#include "../SensorManager/PPG_left_I2C1.h"
+#include "../SensorManager/PPG_left_I2C3.h"
 #include "../SensorManager/IMU.h"
 #include "../SensorManager/Baro.h"
 #include "../SensorManager/Temp_right_I2C2.h"
-#include "../SensorManager/Temp_left_I2C1.h"
+#include "../SensorManager/Temp_left_I2C3.h"
 #include "../SensorManager/BoneConduction.h"
 #include "../SensorManager/Microphone.h"
 
@@ -195,17 +195,17 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
         },
     },
     {
-        .name = "Pulse Oximeter Left I2C1",
-        .id = ID_PPG_left_I2C1,
+        .name = "Pulse Oximeter Left I2C3",
+        .id = ID_PPG_left_I2C3,
         .groupCount = PPG_LEFT_GROUP_COUNT,
         .groups = ppgLeftGroups,
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = sizeof(PPG_left_I2C1::sample_rates.reg_vals),
+                .frequencyCount = sizeof(PPG_left_I2C3::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 2,
                 .maxBleFrequencyIndex = 12,
-                .frequencies = PPG_left_I2C1::sample_rates.sample_rates,
+                .frequencies = PPG_left_I2C3::sample_rates.sample_rates,
             },
         },
     },
@@ -225,17 +225,17 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
         },
     },
     {
-        .name = "Skin Temperature Sensor Left I2C1",
-        .id = ID_OPTTEMP_left_I2C1,
+        .name = "Skin Temperature Sensor Left I2C3",
+        .id = ID_OPTTEMP_left_I2C3,
         .groupCount = OPTIC_TEMP_LEFT_GROUP_COUNT,
         .groups = opticTemperatureLeftGroups,
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = sizeof(Temp_left_I2C1::sample_rates.reg_vals),
+                .frequencyCount = sizeof(Temp_left_I2C3::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 4,
                 .maxBleFrequencyIndex = 7,
-                .frequencies = Temp_left_I2C1::sample_rates.sample_rates,
+                .frequencies = Temp_left_I2C3::sample_rates.sample_rates,
             },
         },
     },
@@ -273,7 +273,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_PPG_left_I2C1, ID_OPTTEMP_right_I2C2, ID_OPTTEMP_left_I2C1, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_PPG_left_I2C3, ID_OPTTEMP_right_I2C2, ID_OPTTEMP_left_I2C3, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
 };
 
 #endif // _DEFAULT_SENSORS_H

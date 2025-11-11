@@ -12,7 +12,7 @@ LOG_MODULE_DECLARE(MAXM86161);
 
 PPG_right_I2C2 PPG_right_I2C2::sensor;
 
-MAXM86161 PPG_right_I2C2::ppg(&I2C2);
+MAXM86161 PPG_right_I2C2::ppg(&I2C2, DT_REG_ADDR(DT_NODELABEL(maxm86161_right)));
 
 static struct sensor_msg msg_ppg;
 

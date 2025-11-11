@@ -38,8 +38,9 @@ class MAXM86161 {
     public:
     /** @brief Constructor
      * @param i2c Pointer for bus for communication via I2C
+     * @param address I2C address of the sensor (optional, uses maxm86161_right from devicetree by default)
     */
-    MAXM86161(TWIM * i2c);
+    MAXM86161(TWIM * i2c, uint8_t address = DT_REG_ADDR(DT_NODELABEL(maxm86161_right)));
 
     /** @brief Destructor */
     ~MAXM86161(void);
@@ -95,7 +96,7 @@ class MAXM86161 {
 private:
     TWIM * _i2c = &I2C2;
 
-    uint8_t _addr = DT_REG_ADDR(DT_NODELABEL(maxm86161));
+    uint8_t _addr;
 
     // void _set_led_sequence(char sequence);
 

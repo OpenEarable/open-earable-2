@@ -1,5 +1,5 @@
-#ifndef _TEMP_LEFT_I2C1_H
-#define _TEMP_LEFT_I2C1_H
+#ifndef _TEMP_LEFT_I2C3_H
+#define _TEMP_LEFT_I2C3_H
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
@@ -10,9 +10,9 @@
 #include "openearable_common.h"
 #include "zbus_common.h"
 
-class Temp_left_I2C1 : public EdgeMlSensor {
+class Temp_left_I2C3 : public EdgeMlSensor {
 public:
-    static Temp_left_I2C1 sensor;
+    static Temp_left_I2C3 sensor;
 
     bool init(struct k_msgq * queue) override;
     void start(int sample_rate_idx) override;
