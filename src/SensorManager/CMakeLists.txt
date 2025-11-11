@@ -10,7 +10,7 @@ target_sources(app PRIVATE
 		   ${CMAKE_CURRENT_SOURCE_DIR}/EdgeMLSensor.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/Baro.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/IMU.cpp
-		   ${CMAKE_CURRENT_SOURCE_DIR}/PPG.cpp
+		   ${CMAKE_CURRENT_SOURCE_DIR}/PPG_right_I2C2.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/Temp.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/BoneConduction.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/Microphone.cpp

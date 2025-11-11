@@ -73,7 +73,7 @@ enum sensor_id {
 	ID_IMU=0,
 	ID_TEMP_BARO=1,
 	ID_MICRO=2,
-	ID_PPG=4,
+	ID_PPG_right_I2C2=4,
 	ID_PULSOX=5,
 	ID_OPTTEMP=6,
 	ID_BONE_CONDUCTION=7,

@@ -6,7 +6,7 @@
 #include "zbus_common.h"
 #include "openearable_common.h"
 
-#include "../SensorManager/PPG.h"
+#include "../SensorManager/PPG_right_I2C2.h"
 #include "../SensorManager/IMU.h"
 #include "../SensorManager/Baro.h"
 #include "../SensorManager/Temp.h"
@@ -151,17 +151,17 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
         },
     },
     {
-        .name = "Pulse Oximeter",
-        .id = ID_PPG,
+        .name = "Pulse Oximeter Right I2C2",
+        .id = ID_PPG_right_I2C2,
         .groupCount = PPG_GROUP_COUNT,
         .groups = ppgGroups,
         .configOptions = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
-                .frequencyCount = sizeof(PPG::sample_rates.reg_vals),
+                .frequencyCount = sizeof(PPG_right_I2C2::sample_rates.reg_vals),
                 .defaultFrequencyIndex = 2,
                 .maxBleFrequencyIndex = 12,
-                .frequencies = PPG::sample_rates.sample_rates,
+                .frequencies = PPG_right_I2C2::sample_rates.sample_rates,
             },
         },
     },
@@ -214,7 +214,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
 };
 
 #endif // _DEFAULT_SENSORS_H

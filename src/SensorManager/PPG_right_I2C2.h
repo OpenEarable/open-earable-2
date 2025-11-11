@@ -1,5 +1,5 @@
-#ifndef _PPG_H
-#define _PPG_H
+#ifndef _PPG_RIGHT_I2C2_H
+#define _PPG_RIGHT_I2C2_H
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
@@ -17,11 +17,11 @@ enum led_order {
     red, green, ir, ambient
 };
 
-class PPG : public EdgeMlSensor {
+class PPG_right_I2C2 : public EdgeMlSensor {
 public:
     //PulseOximeter(int _samplerate);
 
-    static PPG sensor;
+    static PPG_right_I2C2 sensor;
 
     bool init(struct k_msgq * queue) override;
     void start(int sample_rate_idx) override;
