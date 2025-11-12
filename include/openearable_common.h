@@ -22,7 +22,7 @@
 extern const struct device *const cons;
 extern const struct device *const ls_1_8;
 extern const struct device *const ls_3_3;
-extern const struct device *const ls_sd;
+//extern const struct device *const ls_sd; // SD card disabled
 
 typedef uint8_t RGBColor[3];
 

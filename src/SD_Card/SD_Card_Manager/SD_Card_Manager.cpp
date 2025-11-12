@@ -94,13 +94,14 @@ int SDCardManager::aquire_ls() {
 		return ret;
 	}
 
-	ret = pm_device_runtime_get(ls_sd);
+	// SD card disabled
+	/*ret = pm_device_runtime_get(ls_sd);
 	if (ret) {
 		pm_device_runtime_put(ls_1_8);
 		pm_device_runtime_put(ls_3_3);
 		LOG_ERR("Failed to get ls_sd");
 		return ret;
-	}
+	}*/
 
 	ls_aquired = true;
 
@@ -114,7 +115,7 @@ int SDCardManager::release_ls() {
 
 	ret = pm_device_runtime_put(ls_1_8);
 	ret = pm_device_runtime_put(ls_3_3);
-	ret = pm_device_runtime_put(ls_sd);
+	//ret = pm_device_runtime_put(ls_sd); // SD card disabled
 
 	ls_aquired = false;
 

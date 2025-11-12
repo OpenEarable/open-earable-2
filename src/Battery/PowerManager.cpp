@@ -385,10 +385,11 @@ int PowerManager::begin() {
         LOG_WRN("Error setting up load switch 3.3V.");
     }
 
-    ret = pm_device_runtime_enable(ls_sd);
+    // SD card disabled
+    /*ret = pm_device_runtime_enable(ls_sd);
     if (ret != 0) {
         LOG_WRN("Error setting up load switch SD.");
-    }
+    }*/
 
     ret = device_is_ready(error_led.port); //bool
     if (!ret) {
@@ -628,10 +629,10 @@ int PowerManager::power_down(bool fault) {
         return 0;
     }
 
-    ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
+    //ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND); // SD card disabled
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
-    //ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND); // uart0 disabled
+    ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
 
     /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);

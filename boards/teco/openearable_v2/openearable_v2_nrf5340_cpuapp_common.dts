@@ -7,12 +7,12 @@
  #include <zephyr/dt-bindings/input/input-event-codes.h>
  
  / {
-	 chosen {// uart0 disabled
-		 // zephyr,console = &uart0;
-		 // zephyr,shell-uart = &uart0;
+	 chosen {
+		 zephyr,console = &uart0;
+		 zephyr,shell-uart = &uart0;
 		 zephyr,uart-mcumgr = &cdc_acm_uart0;
-		 // zephyr,bt-mon-uart = &uart0;
-		 // zephyr,bt-c2h-uart = &uart0;
+		 zephyr,bt-mon-uart = &uart0;
+		 zephyr,bt-c2h-uart = &uart0;
 		 zephyr,bt-hci = &bt_hci_ipc0;
 		 watchdog0 = &wdt0;
 	 };
@@ -35,7 +35,7 @@
 		 compatible = "load-switch";
 		 enable-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
 		 power-delay-us = <300>; // 250us per datasheet
-		 status = "okay";
+		 status = "disabled";
 	 };
  
 	 gpio_fwd: nrf-gpio-forwarder {
@@ -189,7 +189,7 @@
  };
  
  &uart0 {
-	 status = "disabled";
+	 status = "okay";
 	 current-speed = <115200>;
 	 pinctrl-0 = <&uart0_default>;
 	 pinctrl-1 = <&uart0_sleep>;
@@ -241,22 +241,16 @@
  &spi4 {
 	 compatible = "nordic,nrf-spim";
 	 status = "okay";
-	 cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>,<&gpio1 1 GPIO_ACTIVE_LOW>;
+	 cs-gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
  
 	 pinctrl-0 = <&spi4_default>;
 	 pinctrl-1 = <&spi4_sleep>;
 	 pinctrl-names = "default", "sleep";
-	 sdhc0: sdhc@0 {
-		 compatible = "zephyr,sdhc-spi-slot";
+
+	 ad7124_exg: ad7124@0 {
+		 compatible = "adi,ad7124";
 		 reg = <0>;
-		 status = "okay";
-		 sdmmc {
-			 compatible = "zephyr,sdmmc-disk";
-			 status = "okay";
-			 disk-name = "SD";
-		 };
- 
-		 spi-max-frequency = <32000000>;
+		 spi-max-frequency = <8000000>; /* 8 MHz */
 	 };
  };
  
