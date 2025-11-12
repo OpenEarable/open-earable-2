@@ -102,7 +102,8 @@ void init_sensor_manager() {
 
 	k_poll_signal_init(&sensor_manager_sig);
 
-	sdlogger.init();
+	// SD card disabled
+	//sdlogger.init();
 }
 
 void start_sensor_manager() {
