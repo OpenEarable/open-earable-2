@@ -14,7 +14,20 @@
 #include "../SensorManager/Temp_left_I2C3.h"
 #include "../SensorManager/BoneConduction.h"
 #include "../SensorManager/Microphone.h"
+#include "../SensorManager/ExG.h"
 
+
+// ============= ExG Sensor =============
+
+#define EXG_COMPONENT_COUNT 1
+SensorComponent exgComponents[EXG_COMPONENT_COUNT] = {
+    { .name = "VOLTAGE", .unit = "V", .parseType = PARSE_TYPE_FLOAT },
+};
+
+#define EXG_GROUP_COUNT 1
+SensorComponentGroup exgGroups[EXG_GROUP_COUNT] = {
+    { .name = "EXG", .componentCount = EXG_COMPONENT_COUNT, .components = exgComponents },
+};
 
 // ============= Microphones =============
 
@@ -147,7 +160,7 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 
 // ============= Sensors =============
 
-#define SENSOR_COUNT 8
+#define SENSOR_COUNT 9
 SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "9-Axis IMU",
@@ -269,11 +282,26 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             },
         }, 
     },
+    {
+        .name = "ExG Sensor",
+        .id = ID_EXG,
+        .groupCount = EXG_GROUP_COUNT,
+        .groups = exgGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(ExG::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 0,
+                .maxBleFrequencyIndex = 7,
+                .frequencies = ExG::sample_rates.sample_rates,
+            },
+        },
+    },
 };
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_PPG_left_I2C3, ID_OPTTEMP_right_I2C2, ID_OPTTEMP_left_I2C3, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG_right_I2C2, ID_PPG_left_I2C3, ID_OPTTEMP_right_I2C2, ID_OPTTEMP_left_I2C3, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO, ID_EXG },
 };
 
 #endif // _DEFAULT_SENSORS_H

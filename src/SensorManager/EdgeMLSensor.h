@@ -20,7 +20,7 @@
 
 template <size_t N>
 struct SampleRateSetting {
-    uint8_t reg_vals[N];
+    uint16_t reg_vals[N];
     float sample_rates[N];
     float true_sample_rates[N];
 };

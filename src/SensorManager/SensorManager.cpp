@@ -15,6 +15,7 @@
 #include "Temp_left_I2C3.h"
 #include "BoneConduction.h"
 #include "Microphone.h"
+#include "ExG.h"
 
 #include "openearable_common.h"
 #include "StateIndicator.h"
@@ -138,6 +139,7 @@ void stop_sensor_manager() {
 	Temp_left_I2C3::sensor.stop();
 	BoneConduction::sensor.stop();
 	Microphone::sensor.stop();
+	ExG::sensor.stop();
 
 	active_sensors = 0;
 
@@ -172,6 +174,8 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 		return &(BoneConduction::sensor);
 	case ID_MICRO:
 		return &(Microphone::sensor);
+	case ID_EXG:
+		return &(ExG::sensor);
 	default:
 		return NULL;
 	}
