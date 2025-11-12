@@ -74,12 +74,10 @@ enum sensor_id {
 	ID_TEMP_BARO=1,
 	ID_MICRO=2,
 	ID_PPG_right_I2C2=4,
-	ID_PULSOX=5,
-	ID_OPTTEMP=6,
-	ID_BONE_CONDUCTION=7,
-	ID_PPG_left_I2C3=8,
-	ID_OPTTEMP_right_I2C2=9,
-	ID_OPTTEMP_left_I2C3=10,
+	ID_PPG_left_I2C3=5,
+	ID_BONE_CONDUCTION=6,
+	ID_OPTTEMP_right_I2C2=7,
+	ID_OPTTEMP_left_I2C3=8,
 };
 
 struct battery_data {
