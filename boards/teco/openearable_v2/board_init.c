@@ -17,7 +17,7 @@ LOG_MODULE_REGISTER(board_init, LOG_LEVEL_DBG);
 #define load_switch_3_3_id DT_CHILD(DT_NODELABEL(bq25120a), load_switch)
 //#define load_switch_3_3_id DT_NODELABEL(lsctrl)
 
-const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+//const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console)); // uart0 disabled
 const struct device *const ls_1_8 = DEVICE_DT_GET(load_switch_1_8_id);
 const struct device *const ls_3_3 = DEVICE_DT_GET(load_switch_3_3_id);
 const struct device *const ls_sd = DEVICE_DT_GET(load_switch_sd_id);

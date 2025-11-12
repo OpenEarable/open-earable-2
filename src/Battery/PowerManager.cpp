@@ -631,7 +631,7 @@ int PowerManager::power_down(bool fault) {
     ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
+    //ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND); // uart0 disabled
 
     /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
