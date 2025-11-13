@@ -24,7 +24,9 @@
 #include "sw_codec_select.h"
 #include "audio_system.h"
 #include "streamctrl.h"
+#if IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)
 #include "sd_card_playback.h"
+#endif
 
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
@@ -191,7 +193,8 @@ bool _record_to_sd = false;
 int _count = 0;
 
 extern struct k_poll_signal encoder_sig;
-extern struct k_poll_event logger_sig;
+// SD card disabled
+//extern struct k_poll_event logger_sig;
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
@@ -218,7 +221,8 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
-			unsigned int logger_signaled;
+			// SD card disabled - audio recording to SD not supported
+			/*unsigned int logger_signaled;
 			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
 
 			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
@@ -230,15 +234,6 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				audio_msg.data.id = ID_MICRO;
 				audio_msg.data.size = BLOCK_SIZE_BYTES; // SENQUEUE_FRAME_SIZE;
 
-				/*k_mutex_lock(&write_mutex, K_FOREVER);
-
-				uint32_t data_size = sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time); // + audio_msg.data.size;
-
-				uint32_t bytes_written = ring_buf_put(&ring_buffer, (uint8_t *) &audio_msg.data, data_size);
-				bytes_written += ring_buf_put(&ring_buffer, audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
-
-				k_mutex_unlock(&write_mutex);*/
-
 				uint32_t data_size[2] = {sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time), BLOCK_SIZE_BYTES};
 
 				const void *data_ptrs[2] = {
@@ -247,10 +242,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				};
 
 				sdlogger_write_data(&data_ptrs, data_size, 2);
-
-				//sdlogger_write_data(&audio_msg.data, data_size);
-				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
-			}
+			}*/
 
 			k_yield();
         }

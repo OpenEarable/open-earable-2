@@ -52,9 +52,9 @@ zephyr_library_include_directories(
     src/utils
     src/utils/macros
     src/ParseInfo
-    src/SD_Card/SDLogger
-    src/SD_Card/Benchmark
-    src/SD_Card/SD_Card_Manager
+    #src/SD_Card/SDLogger
+    #src/SD_Card/Benchmark
+    #src/SD_Card/SD_Card_Manager
 )
 
 zephyr_library_include_directories(app PRIVATE
@@ -71,9 +71,10 @@ add_subdirectory(src/modules)
 add_subdirectory(src/utils)
 add_subdirectory(src/ParseInfo)
 add_subdirectory(src/SensorManager)
-add_subdirectory(src/SD_Card/SDLogger)
-add_subdirectory(src/SD_Card/Benchmark)
-add_subdirectory(src/SD_Card/SD_Card_Manager)
+# SD card disabled
+#add_subdirectory(src/SD_Card/SDLogger)
+#add_subdirectory(src/SD_Card/Benchmark)
+#add_subdirectory(src/SD_Card/SD_Card_Manager)
 
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
