@@ -25,7 +25,8 @@ bool ExG::init(struct k_msgq * queue) {
         pm_device_runtime_get(ls_1_8);
         pm_device_runtime_get(ls_3_3);
         
-        k_msleep(5);
+        // Wait for power rails to stabilize (AD7124 needs time)
+        k_msleep(50);
         
         _active = true;
     }
@@ -40,13 +41,13 @@ bool ExG::init(struct k_msgq * queue) {
         return false;
     }
     
-    // Setup CS control (CS pin at GPIO0.0 for AD7124)
+    // Setup CS control (CS pin at P0.20 for AD7124)
     static struct spi_cs_control cs_ctrl;
     cs_ctrl.gpio = GPIO_DT_SPEC_GET_BY_IDX(DT_NODELABEL(spi4), cs_gpios, 0);
     cs_ctrl.delay = 0;
     
     if (!gpio_is_ready_dt(&cs_ctrl.gpio)) {
-        LOG_ERR("CS GPIO not ready");
+        LOG_ERR("CS GPIO (P0.20) not ready");
         pm_device_runtime_put(ls_1_8);
         pm_device_runtime_put(ls_3_3);
         _active = false;
@@ -54,6 +55,7 @@ bool ExG::init(struct k_msgq * queue) {
     }
     
     gpio_pin_configure_dt(&cs_ctrl.gpio, GPIO_OUTPUT_INACTIVE);
+    LOG_INF("Using 4-wire SPI mode with CS on P0.20");
     
     // Create ADC instance
     if (adc == nullptr) {
@@ -78,17 +80,53 @@ bool ExG::init(struct k_msgq * queue) {
         return false;
     }
     
-    // Configure ADC control register (continuous mode, full power, internal reference enabled)
-    adc->setAdcControl(AD7124_OpMode_Continuous, AD7124_FullPower, true);
+    // Wait for reset to complete and internal oscillator to stabilize
+    k_msleep(50);
     
-    // Configure setup 0 (internal reference, gain 1, bipolar)
-    adc->setConfig(0, AD7124_Ref_Internal, AD7124_Gain_1, true);
+    // Verify SPI communication by reading ID register
+    uint32_t chip_id;
+    if (adc->readRegister(AD7124_REG_ID, &chip_id, 1) != 0) {
+        LOG_ERR("Failed to read chip ID - SPI communication error");
+        pm_device_runtime_put(ls_1_8);
+        pm_device_runtime_put(ls_3_3);
+        _active = false;
+        return false;
+    }
+    LOG_INF("AD7124 Chip ID: 0x%02X (expected 0x14 or 0x16)", chip_id);
+    
+    if (chip_id != 0x14 && chip_id != 0x16) {
+        LOG_ERR("Invalid chip ID! Check SPI connections and CS pin");
+        pm_device_runtime_put(ls_1_8);
+        pm_device_runtime_put(ls_3_3);
+        _active = false;
+        return false;
+    }
+    
+    LOG_INF("Configuring AD7124...");
+
+    if (adc->setAdcControl(AD7124_OpMode_Continuous, AD7124_FullPower, true) != 0) {
+        LOG_ERR("Failed to set ADC control");
+        return false;
+    }
+    
+    // Configure setup 0 FIRST (internal reference, gain 1, bipolar)
+    if (adc->setConfig(0, AD7124_Ref_Internal, AD7124_Gain_1, true) != 0) {
+        LOG_ERR("Failed to configure setup 0");
+        return false;
+    }
+    LOG_DBG("Setup 0 configured");
     
     // Configure filter for setup 0 (SINC4 filter, 256 SPS by default)
-    adc->setFilter(0, AD7124_Filter_SINC4, 75, AD7124_PostFilter_NoPost, false);
+    if (adc->setFilter(0, AD7124_Filter_SINC4, 75, AD7124_PostFilter_NoPost, false) != 0) {
+        LOG_ERR("Failed to configure filter");
+        return false;
+    }
     
     // Configure channel 0 (AIN1 - AIN0, setup 0, enabled)
-    adc->setChannel(0, 0, AD7124_Input_AIN1, AD7124_Input_AIN0, true);
+    if (adc->setChannel(0, 0, AD7124_Input_AIN7, AD7124_Input_AIN6, true) != 0) {
+        LOG_ERR("Failed to configure channel 0");
+        return false;
+    }
     
     sensor_queue = queue;
     
@@ -100,23 +138,33 @@ bool ExG::init(struct k_msgq * queue) {
 }
 
 void ExG::update_sensor(struct k_work *work) {
+    static uint32_t sample_count = 0;
+    
     // Wait for conversion ready
     if (adc->waitForConvReady(100) != 0) {
         LOG_WRN("Conversion timeout");
         return;
     }
     
-    // Read voltage
-    float voltage = adc->readVolts(0);
+    // Read voltage and convert to microvolts (µV)
+    // InAmp gain = 50 (as per hardware design)
+    const float INAMP_GAIN = 50.0f;
+    float voltage_volts = adc->readVolts(0);
+    float voltage_microvolts = (voltage_volts / INAMP_GAIN) * 1e6f;
     
-    msg_exg.sd = sensor._sd_logging;
+    // Log every 100th sample
+    sample_count++;
+    if (sample_count % 100 == 0) {
+        LOG_INF("Sample #%u: Raw=%.6f V, uV=%.2f", sample_count, voltage_volts, voltage_microvolts);
+    }
+    
     msg_exg.stream = sensor._ble_stream;
     
     msg_exg.data.id = ID_EXG;
     msg_exg.data.size = sizeof(float);
     msg_exg.data.time = micros();
     
-    memcpy(msg_exg.data.data, &voltage, sizeof(float));
+    memcpy(msg_exg.data.data, &voltage_microvolts, sizeof(float));
     
     int ret = k_msgq_put(sensor_queue, &msg_exg, K_NO_WAIT);
     if (ret) {

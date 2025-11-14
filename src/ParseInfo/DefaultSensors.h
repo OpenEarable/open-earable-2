@@ -21,7 +21,7 @@
 
 #define EXG_COMPONENT_COUNT 1
 SensorComponent exgComponents[EXG_COMPONENT_COUNT] = {
-    { .name = "VOLTAGE", .unit = "V", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "VOLTAGE", .unit = "uV", .parseType = PARSE_TYPE_FLOAT },
 };
 
 #define EXG_GROUP_COUNT 1

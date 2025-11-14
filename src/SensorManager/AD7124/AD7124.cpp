@@ -50,8 +50,11 @@ LOG_MODULE_REGISTER(AD7124, 3);
 AD7124::AD7124(const struct device *spi_dev, struct spi_cs_control *cs_ctrl)
     : spi_dev(spi_dev), ref_voltage(2.5f), gain_value(1), bipolar_mode(true) {
     
-    spi_cfg.operation = SPI_WORD_SET(8) | SPI_TRANSFER_MSB | SPI_MODE_CPOL | SPI_MODE_CPHA;
-    spi_cfg.frequency = 8000000; // 8 MHz
+    // Configure for 4-wire SPI mode with CS on P0.20
+    // Try SPI Mode 0: CPOL=0 (clock idle low), CPHA=0 (sample on leading edge)
+    // AD7124 datasheet shows it supports both mode 0 and mode 3
+    spi_cfg.operation = SPI_WORD_SET(8) | SPI_TRANSFER_MSB;
+    spi_cfg.frequency = 500000; 
     spi_cfg.slave = 0;
     spi_cfg.cs = *cs_ctrl;
 }
@@ -84,7 +87,8 @@ int AD7124::reset() {
         return ret;
     }
     
-    k_msleep(1); // Wait for reset to complete
+    // AD7124 datasheet requires 500us minimum after reset
+    k_msleep(2);
     return 0;
 }
 
@@ -105,11 +109,15 @@ int AD7124::readRegister(uint8_t addr, uint32_t *value, uint8_t size) {
     struct spi_buf_set tx = {.buffers = tx_bufs, .count = 1};
     struct spi_buf_set rx = {.buffers = rx_bufs, .count = 1};
     
+    LOG_INF("Reading reg 0x%02X, sending cmd: 0x%02X", addr, tx_data[0]);
+    
     int ret = spi_transceive(spi_dev, &spi_cfg, &tx, &rx);
     if (ret < 0) {
         LOG_ERR("SPI read failed: %d", ret);
         return ret;
     }
+    
+    LOG_INF("RX bytes: [0x%02X 0x%02X 0x%02X 0x%02X]", rx_data[0], rx_data[1], rx_data[2], rx_data[3]);
     
     // Convert bytes to value (big endian)
     *value = 0;
@@ -141,13 +149,34 @@ int AD7124::writeRegister(uint8_t addr, uint32_t value, uint8_t size) {
         .count = 1
     };
     
+    LOG_INF("Writing reg 0x%02X, cmd: 0x%02X, value: 0x%08X", addr, tx_data[0], value);
+    
     int ret = spi_write(spi_dev, &spi_cfg, &tx);
     if (ret < 0) {
         LOG_ERR("SPI write failed: %d", ret);
         return ret;
     }
     
+    // Temporarily disable verification to debug communication
+    LOG_INF("Register 0x%02X written (verification disabled)", addr);
     return 0;
+    
+    // // Verify the write by reading back
+    // uint32_t read_value;
+    // ret = readRegister(addr, &read_value, size);
+    // if (ret < 0) {
+    //     LOG_ERR("Register readback failed for addr 0x%02X: %d", addr, ret);
+    //     return ret;
+    // }
+    // 
+    // if (read_value != value) {
+    //     LOG_ERR("Register verification failed! Addr: 0x%02X, Expected: 0x%08X, Read: 0x%08X", 
+    //             addr, value, read_value);
+    //     return -EIO;
+    // }
+    // 
+    // LOG_DBG("Register 0x%02X verified: 0x%08X", addr, read_value);
+    // return 0;
 }
 
 int AD7124::setAdcControl(AD7124_OperatingModes mode, AD7124_PowerModes power_mode, bool ref_en) {
@@ -234,7 +263,8 @@ float AD7124::readVolts(uint8_t ch) {
     int32_t raw;
     int ret = readRaw(&raw);
     if (ret < 0) {
-        return 0.0f;
+        LOG_ERR("readRaw failed: %d", ret);
+        return -1000.0f;
     }
     
     // Convert to voltage

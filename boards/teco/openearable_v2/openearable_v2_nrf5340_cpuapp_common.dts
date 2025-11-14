@@ -242,7 +242,7 @@
  &spi4 {
 	 compatible = "nordic,nrf-spim";
 	 status = "okay";
-	 cs-gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
+	 cs-gpios = <&gpio0 20 GPIO_ACTIVE_LOW>;
  
 	 pinctrl-0 = <&spi4_default>;
 	 pinctrl-1 = <&spi4_sleep>;

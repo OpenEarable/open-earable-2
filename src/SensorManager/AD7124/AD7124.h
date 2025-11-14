@@ -140,12 +140,13 @@ public:
     
     int waitForConvReady(uint32_t timeout_ms);
     int getCurrentChannel();
+    
+    int readRegister(uint8_t addr, uint32_t *value, uint8_t size);
 
 private:
     const struct device *spi_dev;
     struct spi_config spi_cfg;
     
-    int readRegister(uint8_t addr, uint32_t *value, uint8_t size);
     int writeRegister(uint8_t addr, uint32_t value, uint8_t size);
     
     // Setup values for voltage conversion
