@@ -5,8 +5,7 @@
 
 class ConnIntvlLinear : public BtMgmtConnIntervalStrategy {
 public:
-  ConnIntvlLinear(k_timeout_t inc_timeout,
-                  uint16_t inc_step_units,
+  ConnIntvlLinear(uint16_t inc_step_units,
                   uint16_t min_interval_units = CONFIG_BLE_ACL_CONN_INTERVAL,
                   uint16_t max_interval_units = CONFIG_BLE_ACL_CONN_INTERVAL_SLOW);
 
@@ -17,7 +16,6 @@ public:
   void on_timer_tick(k_timeout_t elapsed) override;
 
 private:
-  k_timeout_t inc_timeout_;
   uint16_t inc_step_units_;
   uint16_t min_interval_units_;
   uint16_t max_interval_units_;

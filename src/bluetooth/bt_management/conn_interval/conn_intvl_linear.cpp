@@ -4,11 +4,9 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(conn_intvl_linear, LOG_LEVEL_DBG);
 
-ConnIntvlLinear::ConnIntvlLinear(k_timeout_t inc_timeout,
-                                 uint16_t inc_step_units,
+ConnIntvlLinear::ConnIntvlLinear(uint16_t inc_step_units,
                                  uint16_t min_interval_units,
-                                 uint16_t max_interval_units): inc_timeout_(inc_timeout),
-                                                               inc_step_units_(inc_step_units),
+                                 uint16_t max_interval_units): inc_step_units_(inc_step_units),
                                                                min_interval_units_(min_interval_units),
                                                                max_interval_units_(max_interval_units) {
 }
