@@ -40,6 +40,9 @@
 
 #include "bt_mgmt.h"
 
+#include "bt_mgmt_conn_interval.h"
+#include "conn_interval/conn_intvl_linear.h"
+
 //#include "sd_card.h"
 
 #include <zephyr/logging/log.h>
@@ -113,6 +116,13 @@ int main(void) {
 
 	ret = init_sensor_service();
 	ERR_CHK(ret);
+
+	bt_mgmt_conn_interval_init(new ConnIntvlLinear(
+	    4,                // linear increase step (8ms units)
+	    CONFIG_BLE_ACL_CONN_INTERVAL,
+	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
+	));
+
 
 	// error test
 	//long *a = nullptr;
