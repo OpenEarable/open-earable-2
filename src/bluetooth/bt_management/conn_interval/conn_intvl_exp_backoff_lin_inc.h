@@ -6,10 +6,9 @@
 class ConnIntvlExpBackoffLinIncr : public BtMgmtConnIntervalStrategy {
 public:
   ConnIntvlExpBackoffLinIncr(uint8_t backoff_factor,
-                              k_timeout_t inc_timeout,
                               uint16_t inc_step_units,
                               uint16_t min_interval_units = CONFIG_BLE_ACL_CONN_INTERVAL,
-                              uint16_t max_interval_units = 3200);
+                              uint16_t max_interval_units = CONFIG_BLE_ACL_CONN_INTERVAL_SLOW);
 
   void init() override;
 
@@ -19,7 +18,6 @@ public:
 
 private:
   uint8_t backoff_factor_;
-  k_timeout_t inc_timeout_;
   uint16_t inc_step_units_;
   uint16_t min_interval_units_;
   uint16_t max_interval_units_;

@@ -6,11 +6,9 @@ LOG_MODULE_REGISTER(conn_intvl_exp, LOG_LEVEL_DBG);
 
 
 ConnIntvlExpBackoffLinIncr::ConnIntvlExpBackoffLinIncr(uint8_t backoff_factor,
-                                                       k_timeout_t inc_timeout,
                                                        uint16_t inc_step_units,
                                                        uint16_t min_interval_units,
                                                        uint16_t max_interval_units): backoff_factor_(backoff_factor),
-                                                                                 inc_timeout_(inc_timeout),
                                                                                  inc_step_units_(inc_step_units),
                                                                                  min_interval_units_(min_interval_units),
                                                                                  max_interval_units_(max_interval_units) {
