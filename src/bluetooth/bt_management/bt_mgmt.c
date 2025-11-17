@@ -23,6 +23,7 @@
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"
 #include "bt_mgmt_dfu_internal.h"
+#include "bt_mgmt_conn_interval.h"
 
 #include "BootState.h"
 
@@ -86,6 +87,8 @@ static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_
 	int ret;
 
 	LOG_INF("Conn params updated: interval %d unit, latency %d, timeout: %d0 ms",interval, latency, timeout);
+
+	bt_mgmt_ci_on_conn_param_updated(conn, interval, latency, timeout);
 
 	/*msg.event = BT_MGMT_CONNECTED;
 	msg.conn = conn;
@@ -162,7 +165,10 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 		LOG_ERR("Cannot update conneciton parameter (err: %d)", err);
 		return err;
 	}
-	LOG_INF("Connection parameters update requested");
+	LOG_INF("Connection parameters update requested: interval_min %d interval_max %d latency %d timeout %d",
+		conn_param->interval_min, conn_param->interval_max,
+		conn_param->latency, conn_param->timeout);
+	bt_mgmt_ci_on_connected(conn);
 
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		ret = bt_conn_set_security(conn, BT_SECURITY_L2);
@@ -170,6 +176,7 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 			LOG_ERR("Failed to set security to L2: %d", ret);
 		}
 	}
+
 }
 
 K_MUTEX_DEFINE(mtx_duplicate_scan);
