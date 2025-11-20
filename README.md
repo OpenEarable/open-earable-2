@@ -98,21 +98,21 @@
      - After successful recovery, you can attempt to flash the firmware again (you will have to restore left/right bonding and hardware version).
    
 12. **Enable Debug Output**
-     - Open the **J-Link Configuration** program on your computer.  
-        - On macOS: Press `CMD` + `Space` and search for `J-Link Config`.  
-        - On Windows: Search for the program from the taskbar.  
-     - Ensure your J-Link is connected to your computer.  
-     - In the **Connected via USB** table, locate your J-Link device. Double-click it or right-click and select **Configure**.  
-     - Find the **Virtual COM-Port** option and select **Enable**. Click **OK** to apply the setting.  
-     - Open **Visual Studio Code**.  
-     - In the left sidebar, open the **Extensions** menu.  
-     - Search for and install the [**Serial Monitor**](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-serial-monitor) extension.  
-     - In the top menu bar, click **Terminal → New Terminal**.  
-     - A terminal window will appear at the bottom of VS Code. Open the **Serial Monitor** tab.  
-     - In the **Port** dropdown menu, select your J-Link’s COM port.  
-     - Set the **Baud rate** to **115200**.  
-     - Click **Start Monitoring**.  
-     - Ensure your earable is connected to the debugger probe. You should now see debug output appearing when you interact with the device (e.g., press button).
+- Open the **J-Link Configuration** program on your computer.  
+   - On macOS: Press `CMD` + `Space` and search for `J-Link Config`.  
+   - On Windows: Search for the program from the taskbar.  
+- Ensure your J-Link is connected to your computer.  
+- In the **Connected via USB** table, locate your J-Link device. Double-click it or right-click and select **Configure**.  
+- Find the **Virtual COM-Port** option and select **Enable**. Click **OK** to apply the setting.  
+- Open **Visual Studio Code**.  
+- In the left sidebar, open the **Extensions** menu.  
+- Search for and install the [**Serial Monitor**](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-serial-monitor) extension.  
+- In the top menu bar, click **Terminal → New Terminal**.  
+- A terminal window will appear at the bottom of VS Code. Open the **Serial Monitor** tab.  
+- In the **Port** dropdown menu, select your J-Link’s COM port.  
+- Set the **Baud rate** to **115200**.  
+- Click **Start Monitoring**.  
+- Ensure your earable is connected to the debugger probe. You should now see debug output appearing when you interact with the device (e.g., press button).
 
 
 
