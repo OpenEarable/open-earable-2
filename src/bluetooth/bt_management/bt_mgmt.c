@@ -400,16 +400,8 @@ int bt_mgmt_init(void)
 
 	bt_gatt_cb_register(&gatt_callbacks);
 
-	enum audio_channel channel;
-	channel_assignment_get(&channel);
-	
-	if (channel == AUDIO_CH_L) {
-		snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X-L", CONFIG_BT_DEVICE_NAME, (oe_boot_state.device_id & 0xFFFF));
-	} else if (channel == AUDIO_CH_R) {
-		snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X-R", CONFIG_BT_DEVICE_NAME, (oe_boot_state.device_id & 0xFFFF));
-	} else {
-		snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X-?", CONFIG_BT_DEVICE_NAME, (oe_boot_state.device_id & 0xFFFF));
-	}
+	uint32_t sirk = uicr_sirk_get();
+	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X", CONFIG_BT_DEVICE_NAME, (sirk != 0xFFFFFFFFU ? sirk : oe_boot_state.device_id) & 0xFFFF);
 
 	ret = bt_set_name(name);
     if (ret) {

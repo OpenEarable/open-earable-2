@@ -26,6 +26,13 @@
 #define BT_UUID_MIC_SELECT \
 	BT_UUID_DECLARE_128(BT_UUID_MIC_SELECT_VAL)
 
+// Audio Channel Characteristic UUID
+#define BT_UUID_AUDIO_CHANNEL_VAL \
+	BT_UUID_128_ENCODE(0x1410df98, 0x5f68, 0x4ebb, 0xa7c7, 0x5e0fb9ae7557)
+
+#define BT_UUID_AUDIO_CHANNEL \
+	BT_UUID_DECLARE_128(BT_UUID_AUDIO_CHANNEL_VAL)
+
 int init_audio_config_service(void);
 
 #endif /* _AUDIO_CONFIG_SERVICE_H_ */

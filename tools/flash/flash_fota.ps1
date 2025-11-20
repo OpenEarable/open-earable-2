@@ -1,3 +1,4 @@
+powershell
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)]
@@ -7,6 +8,8 @@ param(
   [switch]$Left,               # Set left configuration
   [switch]$Right,              # Set right configuration
   [switch]$Standalone,         # Only valid together with -Left or -Right
+
+  [string]$Hw,                 # Hardware version x.y.z (e.g. 2.0.0)
 
   [string]$Chip = 'NRF53',     # nrfjprog --family
   [int]$Clockspeed = 8000      # nrfjprog --clockspeed (kHz)
@@ -22,6 +25,50 @@ if ($Left -and $Right) {
 if ($Standalone -and -not ($Left -or $Right)) {
   Write-Error "-Standalone can only be used with -Left or -Right."
   exit 1
+}
+
+# --Hw can only be used with -Left or -Right
+if ($Hw -and -not ($Left -or $Right)) {
+  Write-Error "-Hw can only be used together with -Left or -Right."
+  exit 1
+}
+
+# If Left/Right are set but no Hw is given, use default 2.0.0
+if (($Left -or $Right) -and -not $Hw) {
+  $Hw = "2.0.0"
+  Write-Host "No hardware version specified, using default: $Hw"
+}
+
+# --- Parse and validate hardware version if provided ---
+$hwValue = $null
+if ($Hw) {
+  # Expect format x.y.z
+  $parts = $Hw.Split('.')
+  if ($parts.Count -ne 3) {
+    Write-Error "Hardware version must be in format x.y.z (e.g., 2.0.0)."
+    exit 1
+  }
+
+  [int]$hwMajor = 0
+  [int]$hwMinor = 0
+  [int]$hwPatch = 0
+
+  if (-not ([int]::TryParse($parts[0], [ref]$hwMajor)) -or
+      -not ([int]::TryParse($parts[1], [ref]$hwMinor)) -or
+      -not ([int]::TryParse($parts[2], [ref]$hwPatch))) {
+    Write-Error "Hardware version components must be numeric."
+    exit 1
+  }
+
+  foreach ($c in @($hwMajor, $hwMinor, $hwPatch)) {
+    if ($c -lt 0 -or $c -gt 255) {
+      Write-Error "Each hardware version component must be between 0 and 255."
+      exit 1
+    }
+  }
+
+  # Match Bash behavior: "0x%02X%02X%02X00"
+  $hwValue = ("0x{0:X2}{1:X2}{2:X2}00" -f $hwMajor, $hwMinor, $hwPatch)
 }
 
 # --- Fixed paths relative to CURRENT WORKING DIRECTORY (repo root) ---
@@ -41,6 +88,7 @@ Write-Host "  SNR: $Snr"
 Write-Host "  CHIP: $Chip"
 Write-Host "  CLOCKSPEED: $Clockspeed"
 Write-Host "  Left: $Left  Right: $Right  Standalone: $Standalone"
+if ($Hw) { Write-Host "  HW: $Hw (value $hwValue)" } else { Write-Host "  HW: (not set)" }
 Write-Host "  APP HEX: $appHex"
 if ($haveNet) { Write-Host "  NET HEX: $netHex" } else { Write-Host "  NET HEX: (not found, will skip)" }
 Write-Host ""
@@ -98,6 +146,13 @@ elseif ($Right) {
 if ($Standalone) {
   Write-Host "Enabling standalone mode (0x00FF80FC = 0)"
   & nrfjprog --memwr 0x00FF80FC --val 0 --family $Chip --snr $Snr --clockspeed $Clockspeed
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+# --- Hardware version (if provided / defaulted) ---
+if ($Hw) {
+  Write-Host "Setting hardware version $Hw (0x00FF8100 = $hwValue)"
+  & nrfjprog --memwr 0x00FF8100 --val $hwValue --family $Chip --snr $Snr --clockspeed $Clockspeed
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

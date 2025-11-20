@@ -209,6 +209,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     while (1) {
         // Daten aus der data_queue lesen
         for (int i = 0; i < CONFIG_FIFO_FRAME_SPLIT_NUM; i++) {
+			// wait for next sample block to be available
             ret = data_fifo_pointer_last_filled_get(ctrl_blk.in.fifo, &tmp_pcm_raw_data[i], &pcm_block_size, K_FOREVER);
             ERR_CHK(ret);
 
@@ -229,6 +230,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 	
 				audio_msg.data.id = ID_MICRO;
 				audio_msg.data.size = BLOCK_SIZE_BYTES; // SENQUEUE_FRAME_SIZE;
+				audio_msg.data.time = time_stamp;
 
 				/*k_mutex_lock(&write_mutex, K_FOREVER);
 
