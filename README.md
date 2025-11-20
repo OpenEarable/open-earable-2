@@ -63,12 +63,12 @@
         - Do not set any of the FOTA flags described above.
     
 9. **J-Link Setup**
-   - Wire your J-Link to the debugging breakout PCB as shown below.
+     - Wire your J-Link to the debugging breakout PCB as shown below.
      ![image](https://github.com/user-attachments/assets/2eeec41e-6be1-4a4f-b986-7d9a07b0f8e5)
-   - If you do not own a J-Link yet, here are a few options (do **NOT** use J-Link clones, they will not work and are illegal!):
-      - [J-Link EDU Mini](https://mou.sr/3LrwiVe) (available to educational institutions, private persons, and students) with [JTAG adapter](https://www.adafruit.com/product/2094) and [cable](https://www.adafruit.com/product/1675).
-      - Full-scale J-Link for commercial use (e.g., [J-Link BASE Compact](https://mou.sr/4oQkAls)).
-      - ⚠️ The wiring show in the figure above is for the full-scale J-Link pinout. If you use the [JTAG adapter](https://www.adafruit.com/product/2094) the wiring may be different so make sure it is correct in your case! _(to be confirmed, picture coming soon)_.
+     - If you do not own a J-Link yet, here are a few options (do **NOT** use J-Link clones, they will not work and are illegal!):
+          - [J-Link EDU Mini](https://mou.sr/3LrwiVe) (available to educational institutions, private persons, and students) with [JTAG adapter](https://www.adafruit.com/product/2094) and [cable](https://www.adafruit.com/product/1675).
+          - Full-scale J-Link for commercial use (e.g., [J-Link BASE Compact](https://mou.sr/4oQkAls)).
+          - ⚠️ The wiring show in the figure above is for the full-scale J-Link pinout. If you use the [JTAG adapter](https://www.adafruit.com/product/2094) the wiring may be different so make sure it is correct in your case! _(to be confirmed, picture coming soon)_.
 
 
 10. **Build and Flash**
