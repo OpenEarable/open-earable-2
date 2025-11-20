@@ -71,11 +71,11 @@
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
      ```bash
-     ./tools/flash/flash_fota.sh --snr 123456789 --left    # --right for the right ear device, or no flag to retain left/right bonding
+     ./tools/flash/flash_fota.sh --snr 123456789 --left --hw 2.2.0    # --right for the right ear device, or no flag to retain left/right bonding
      ```
    - or without FOTA
      ```bash
-     ./tools/flash/flash.sh --snr 123456789 --left        # --right for the right ear device, or no flag to retain left/right bonding
+     ./tools/flash/flash.sh --snr 123456789 --left --hw 2.2.0      # --right for the right ear device, or no flag to retain left/right bonding
      ```
 
 
