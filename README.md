@@ -90,12 +90,12 @@
    - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`. To execute it, open PowerShell with administrative privileges.
 
 11. **Recover Board**
-     - If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your J-Link debugger.
-     - Ensure the device is powered via USB or that the battery is sufficiently charged before running the recovery process. Otherwise, the MCU may not power up correctly and the recovery will fail.
-      ```bash
-      ./tools/flash/recover.sh --snr 123456789
-      ```
-     - After successful recovery, you can attempt to flash the firmware again (you will have to restore left/right bonding and hardware version).
+- If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your J-Link debugger.
+- Ensure the device is powered via USB or that the battery is sufficiently charged before running the recovery process. Otherwise, the MCU may not power up correctly and the recovery will fail.
+```bash
+./tools/flash/recover.sh --snr 123456789
+```
+- After successful recovery, you can attempt to flash the firmware again (you will have to restore left/right bonding and hardware version).
    
 12. **Enable Debug Output**
 - Open the **J-Link Configuration** program on your computer.  
