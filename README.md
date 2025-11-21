@@ -77,14 +77,14 @@
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
      ```bash
      # --right for the right ear device, or no flag to retain left/right bonding
-     # --hw version is optional
+     # --hw version is optional and can only be used with --left or --right
      ./tools/flash/flash_fota.sh --snr 123456789 --left --hw 2.0.1    
    
      ```
    - or without FOTA
      ```bash
      # --right for the right ear device, or no flag to retain left/right bonding
-      # --hw version is optional
+      # --hw version is optional and can only be used with --left or --right
      ./tools/flash/flash.sh --snr 123456789 --left --hw 2.0.1      
      ```
    - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`. To execute it, open PowerShell with administrative privileges.
