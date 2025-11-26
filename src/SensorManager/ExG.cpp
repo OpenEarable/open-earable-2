@@ -112,29 +112,83 @@ bool ExG::init(struct k_msgq * queue) {
     
     LOG_INF("Configuring AD7124...");
 
-    if (adc->setAdcControl(AD7124_OpMode_Continuous, AD7124_FullPower, true) != 0) {
-        LOG_ERR("Failed to set ADC control");
-        return false;
-    }
-    
-    // Configure setup 0 FIRST (internal reference, gain 1, bipolar)
-    if (adc->setConfig(0, AD7124_Ref_Internal, AD7124_Gain_128, true) != 0) {
+    // Configure setup 0 FIRST (internal reference, gain 128, bipolar)
+    if (adc->setConfig(0, AD7124::ReferenceSource::INTERNAL, AD7124::PGA::GAIN_128, true) != 0) {
         LOG_ERR("Failed to configure setup 0");
         return false;
     }
-    LOG_DBG("Setup 0 configured");
     
-    // Configure filter for setup 0 (SINC4 filter, 256 SPS by default)
-    if (adc->setFilter(0, AD7124_Filter_SINC4, 75, AD7124_PostFilter_NoPost, false) != 0) {
+    // Read back and verify config register
+    uint32_t config_readback = 0;
+    adc->readRegister(0x19, &config_readback, 2);
+    LOG_INF("Setup 0 configured, readback: 0x%04X", config_readback);
+    
+    // Configure filter for setup 0 (256 SPS by default)
+    if (adc->setFilter(0, 75, false) != 0) {
         LOG_ERR("Failed to configure filter");
         return false;
     }
     
-    // Configure channel 0 (AIN7 - AIN6, setup 0, enabled)
-    //if (adc->setChannel(0, 0, AD7124_Input_AIN1, AD7124_Input_AIN0, true) != 0) {
-    if (adc->setChannel(0, 0, AD7124_Input_AIN3, AD7124_Input_AIN4, true) != 0) {
+    // Read back filter register
+    uint32_t filter_readback = 0;
+    adc->readRegister(0x21, &filter_readback, 3);
+    LOG_INF("Filter configured, readback: 0x%06X", filter_readback);
+    
+    // Configure channel 0 (AIN0 - AIN1, setup 0, enabled)
+    if (adc->setChannel(0, 0, AD7124::AnalogInput::AIN0, AD7124::AnalogInput::AIN1, true) != 0) {
         LOG_ERR("Failed to configure channel 0");
         return false;
+    }
+    
+    // Read back channel register
+    uint32_t channel_readback = 0;
+    adc->readRegister(0x09, &channel_readback, 2);
+    LOG_INF("Channel 0 configured, readback: 0x%04X (should have bit 15 set for enabled)", channel_readback);
+    
+    // Wait for internal reference to stabilize (datasheet recommends at least 2ms)
+    k_msleep(10);
+    LOG_INF("Internal reference settle time elapsed");
+    
+    // First put ADC in IDLE mode to ensure clean state
+    if (adc->setAdcControl(AD7124::OperatingMode::IDLE, AD7124::PowerMode::FULL_POWER, true) != 0) {
+        LOG_ERR("Failed to set ADC to IDLE");
+        return false;
+    }
+    k_msleep(1);
+    
+    // Now start continuous conversion mode
+    if (adc->setAdcControl(AD7124::OperatingMode::CONTINUOUS, AD7124::PowerMode::FULL_POWER, true) != 0) {
+        LOG_ERR("Failed to set ADC to CONTINUOUS");
+        return false;
+    }
+    
+    // Read back ADC control register
+    uint32_t adc_ctrl_readback = 0;
+    adc->readRegister(0x01, &adc_ctrl_readback, 2);
+    LOG_INF("ADC Control readback: 0x%04X (mode bits [5:2] should be 0x0 for continuous)", adc_ctrl_readback);
+    
+    // Wait a bit for first conversion
+    k_msleep(20);
+    
+    // Read status register to check current state
+    uint32_t status = 0;
+    adc->readRegister(0x00, &status, 1);
+    LOG_INF("Status register after start: 0x%02X, RDY=%d, ERR=%d, CH=%d", 
+            status, (status & 0x80) ? 1 : 0, (status & 0x40) ? 1 : 0, status & 0x0F);
+    
+    // Check error register
+    uint32_t error_reg = 0;
+    adc->readRegister(0x06, &error_reg, 3);
+    LOG_INF("Error register: 0x%06X", error_reg);
+    if (error_reg != 0) {
+        LOG_ERR("AD7124 has errors: LDO_CAP=%d, SPI_IGNORE=%d, SPI_SLCK=%d, SPI_READ=%d, SPI_WRITE=%d, SPI_CRC=%d, MM_CRC=%d",
+                (error_reg & (1 << 19)) ? 1 : 0,
+                (error_reg & (1 << 18)) ? 1 : 0,
+                (error_reg & (1 << 17)) ? 1 : 0,
+                (error_reg & (1 << 6)) ? 1 : 0,
+                (error_reg & (1 << 5)) ? 1 : 0,
+                (error_reg & (1 << 2)) ? 1 : 0,
+                (error_reg & (1 << 1)) ? 1 : 0);
     }
     
     sensor_queue = queue;
@@ -148,10 +202,40 @@ bool ExG::init(struct k_msgq * queue) {
 
 void ExG::update_sensor(struct k_work *work) {
     static uint32_t sample_count = 0;
+    static bool first_samples = true;
     
-    // Wait for conversion ready
-    if (adc->waitForConvReady(100) != 0) {
-        LOG_WRN("Conversion timeout");
+    // For first few samples, check status before and after read
+    if (first_samples && sample_count < 10) {
+        uint32_t status_before = 0;
+        adc->readRegister(0x00, &status_before, 1);
+        
+        // Read raw ADC value - NOTE: DATA register is FIFO-style, only read ONCE
+        int32_t raw_value = 0;
+        if (adc->readRaw(&raw_value) != 0) {
+            LOG_ERR("Failed to read raw ADC value");
+            return;
+        }
+        
+        uint32_t status_after = 0;
+        adc->readRegister(0x00, &status_after, 1);
+        
+        LOG_INF("Sample #%u: Status before=0x%02X (RDY=%d), Raw=0x%06X (%d), Status after=0x%02X (RDY=%d)", 
+                sample_count + 1,
+                status_before, (status_before & 0x80) ? 1 : 0,
+                raw_value & 0xFFFFFF, raw_value,
+                status_after, (status_after & 0x80) ? 1 : 0);
+        
+        sample_count++;
+        if (sample_count == 10) {
+            first_samples = false;
+        }
+        return;  // Skip normal processing for debug samples
+    }
+    
+    // Normal operation: just read data without polling status
+    int32_t raw_value = 0;
+    if (adc->readRaw(&raw_value) != 0) {
+        LOG_ERR("Failed to read raw ADC value");
         return;
     }
     
@@ -161,10 +245,15 @@ void ExG::update_sensor(struct k_work *work) {
     float voltage_volts = adc->readVolts(0);
     float voltage_microvolts = (voltage_volts / INAMP_GAIN) * 1e6f;
     
-    // Log every 100th sample
+    // Log every 100th sample, or first 5 samples
     sample_count++;
-    if (sample_count % 100 == 0) {
-        LOG_INF("Sample #%u: Raw=%.6f V, uV=%.2f", sample_count, voltage_volts, voltage_microvolts);
+    if (sample_count % 100 == 0 || sample_count <= 5) {
+        LOG_INF("Sample #%u: Raw=0x%06X (%d), V=%.6f, uV=%.2f", 
+                sample_count, raw_value & 0xFFFFFF, raw_value, voltage_volts, voltage_microvolts);
+    }
+    
+    if (sample_count == 5) {
+        first_samples = false;
     }
     
     msg_exg.stream = sensor._ble_stream;
@@ -190,7 +279,7 @@ void ExG::start(int sample_rate_idx) {
     
     // Update filter configuration for new sample rate
     uint16_t fs_val = sample_rates.reg_vals[sample_rate_idx];
-    adc->setFilter(0, AD7124_Filter_SINC4, fs_val, AD7124_PostFilter_NoPost, false);
+    adc->setFilter(0, fs_val, false);
     
     // Calculate timer period
     k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
@@ -210,7 +299,7 @@ void ExG::stop() {
     
     // Put ADC in standby mode
     if (adc != nullptr) {
-        adc->setAdcControl(AD7124_OpMode_Standby, AD7124_FullPower, true);
+        adc->setAdcControl(AD7124::OperatingMode::STANDBY, AD7124::PowerMode::FULL_POWER, true);
     }
     
     pm_device_runtime_put(ls_1_8);
