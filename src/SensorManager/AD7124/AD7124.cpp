@@ -1,5 +1,6 @@
 #include "AD7124.h"
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/crc.h>
 
 LOG_MODULE_REGISTER(AD7124, 3);
 
@@ -9,10 +10,16 @@ LOG_MODULE_REGISTER(AD7124, 3);
 #define AD7124_COMM_REG_RD     (1 << 6)
 #define AD7124_COMM_REG_RA(x)  ((x) & 0x3F)
 
+// CRC polynomial for AD7124
+#define AD7124_CRC8_POLYNOMIAL 0x07
+
 // Status register bits
 #define AD7124_STATUS_REG_RDY        (1 << 7)
 #define AD7124_STATUS_REG_ERROR_FLAG (1 << 6)
 #define AD7124_STATUS_REG_CH(x)      (((x) >> 0) & 0x0F)
+
+// Error register bits
+#define AD7124_ERR_REG_SPI_IGNORE_ERR (1 << 6)
 
 // Control register bits
 #define AD7124_CTRL_REG_DOUT_RDY_DEL  (1 << 12)
@@ -48,13 +55,12 @@ LOG_MODULE_REGISTER(AD7124, 3);
 #define AD7124_CH_MAP_REG_AINM(x)      (((x) & 0x1F) << 0)
 
 AD7124::AD7124(const struct device *spi_dev, struct spi_cs_control *cs_ctrl)
-    : spi_dev(spi_dev), ref_voltage(2.5f), gain_value(1), bipolar_mode(true) {
+    : spi_dev(spi_dev), ref_voltage(2.5f), gain_value(1), bipolar_mode(true), spi_ready_check_enabled(false) {
     
     // Configure for 4-wire SPI mode with CS on P0.20
-    // Try SPI Mode 0: CPOL=0 (clock idle low), CPHA=0 (sample on leading edge)
-    // AD7124 datasheet shows it supports both mode 0 and mode 3
-    spi_cfg.operation = SPI_WORD_SET(8) | SPI_TRANSFER_MSB;
-    spi_cfg.frequency = 500000; 
+    // AD7124 supports SPI Mode 3: CPOL=1, CPHA=1 (per datasheet)
+    spi_cfg.operation = SPI_WORD_SET(8) | SPI_TRANSFER_MSB | SPI_MODE_CPOL | SPI_MODE_CPHA | SPI_LINES_SINGLE | SPI_OP_MODE_MASTER;
+    spi_cfg.frequency = 10000000; // 1 MHz DONT EVER CHANGE THIS
     spi_cfg.slave = 0;
     spi_cfg.cs = *cs_ctrl;
 }
@@ -68,8 +74,37 @@ int AD7124::init() {
     return 0;
 }
 
+int AD7124::waitForSpiReady(uint32_t max_attempts) {
+    // Check ERROR register for SPI_IGNORE_ERR bit being clear
+    // This is how the official Zephyr driver checks if device is ready
+    int ret = 0;
+    uint32_t error_val = 0;
+    bool ready = false;
+    uint32_t attempts = max_attempts;
+
+    while (!ready && --attempts) {
+        ret = readRegisterInternal(AD7124_REG_ERROR, &error_val, 1);
+        if (ret) {
+            return ret;
+        }
+
+        ready = (error_val & AD7124_ERR_REG_SPI_IGNORE_ERR) == 0;
+        
+        if (!ready) {
+            k_usleep(10);
+        }
+    }
+
+    if (!attempts) {
+        LOG_ERR("SPI ready timeout, error reg: 0x%02X", error_val);
+        return -ETIMEDOUT;
+    }
+
+    return 0;
+}
+
 int AD7124::reset() {
-    // Send 64 1's to reset the device
+    // Send 64 consecutive 1's to reset the device (per datasheet)
     uint8_t reset_data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     
     struct spi_buf tx_buf = {
@@ -86,13 +121,15 @@ int AD7124::reset() {
         LOG_ERR("SPI reset failed: %d", ret);
         return ret;
     }
-    
-    // AD7124 datasheet requires 500us minimum after reset
-    k_msleep(2);
     return 0;
 }
 
-int AD7124::readRegister(uint8_t addr, uint32_t *value, uint8_t size) {
+int AD7124::readRegisterInternal(uint8_t addr, uint32_t *value, uint8_t size) {
+    if (size > 4) {
+        LOG_ERR("Invalid register size: %d", size);
+        return -EINVAL;
+    }
+    
     uint8_t tx_data[5] = {0};
     uint8_t rx_data[5] = {0};
     
@@ -109,7 +146,7 @@ int AD7124::readRegister(uint8_t addr, uint32_t *value, uint8_t size) {
     struct spi_buf_set tx = {.buffers = tx_bufs, .count = 1};
     struct spi_buf_set rx = {.buffers = rx_bufs, .count = 1};
     
-    LOG_INF("Reading reg 0x%02X, sending cmd: 0x%02X", addr, tx_data[0]);
+    LOG_DBG("Reading reg 0x%02X, cmd: 0x%02X", addr, tx_data[0]);
     
     int ret = spi_transceive(spi_dev, &spi_cfg, &tx, &rx);
     if (ret < 0) {
@@ -117,18 +154,44 @@ int AD7124::readRegister(uint8_t addr, uint32_t *value, uint8_t size) {
         return ret;
     }
     
-    LOG_INF("RX bytes: [0x%02X 0x%02X 0x%02X 0x%02X]", rx_data[0], rx_data[1], rx_data[2], rx_data[3]);
-    
     // Convert bytes to value (big endian)
     *value = 0;
     for (int i = 0; i < size; i++) {
         *value = (*value << 8) | rx_data[1 + i];
     }
     
+    LOG_DBG("Read reg 0x%02X: 0x%08X", addr, *value);
+    
     return 0;
 }
 
+int AD7124::readRegister(uint8_t addr, uint32_t *value, uint8_t size) {
+    // Wait for SPI ready before register access (if enabled and not reading ERROR register)
+    if (spi_ready_check_enabled && addr != AD7124_REG_ERROR) {
+        int ret = waitForSpiReady(100);
+        if (ret != 0) {
+            return ret;
+        }
+    }
+    
+    return readRegisterInternal(addr, value, size);
+}
+
 int AD7124::writeRegister(uint8_t addr, uint32_t value, uint8_t size) {
+    if (size > 4) {
+        LOG_ERR("Invalid register size: %d", size);
+        return -EINVAL;
+    }
+    
+    // Wait for SPI ready before writing (if enabled)
+    int ret = 0;
+    if (spi_ready_check_enabled) {
+        ret = waitForSpiReady(100);
+        if (ret != 0) {
+            return ret;
+        }
+    }
+    
     uint8_t tx_data[5] = {0};
     
     // Communication register (write command)
@@ -149,34 +212,40 @@ int AD7124::writeRegister(uint8_t addr, uint32_t value, uint8_t size) {
         .count = 1
     };
     
-    LOG_INF("Writing reg 0x%02X, cmd: 0x%02X, value: 0x%08X", addr, tx_data[0], value);
+    LOG_DBG("Writing reg 0x%02X: 0x%08X", addr, value);
     
-    int ret = spi_write(spi_dev, &spi_cfg, &tx);
+    ret = spi_write(spi_dev, &spi_cfg, &tx);
     if (ret < 0) {
         LOG_ERR("SPI write failed: %d", ret);
         return ret;
     }
     
-    // Temporarily disable verification to debug communication
-    LOG_INF("Register 0x%02X written (verification disabled)", addr);
-    return 0;
+    // Delay after write for register to update
+    k_msleep(1);
     
-    // // Verify the write by reading back
-    // uint32_t read_value;
-    // ret = readRegister(addr, &read_value, size);
-    // if (ret < 0) {
-    //     LOG_ERR("Register readback failed for addr 0x%02X: %d", addr, ret);
-    //     return ret;
-    // }
-    // 
-    // if (read_value != value) {
-    //     LOG_ERR("Register verification failed! Addr: 0x%02X, Expected: 0x%08X, Read: 0x%08X", 
-    //             addr, value, read_value);
-    //     return -EIO;
-    // }
-    // 
-    // LOG_DBG("Register 0x%02X verified: 0x%08X", addr, read_value);
-    // return 0;
+    // Verify critical registers (Control, Config, Filter, Channel)
+    if (addr == AD7124_REG_CONTROL || 
+        (addr >= AD7124_REG_CONFIG_0 && addr < AD7124_REG_FILTER_0) ||
+        (addr >= AD7124_REG_FILTER_0 && addr < AD7124_REG_OFFSET_0) ||
+        (addr >= AD7124_REG_CHANNEL_0 && addr < AD7124_REG_CONFIG_0)) {
+        
+        uint32_t read_value;
+        ret = readRegister(addr, &read_value, size);
+        if (ret < 0) {
+            LOG_ERR("Register readback failed for addr 0x%02X: %d", addr, ret);
+            return ret;
+        }
+        
+        if (read_value != value) {
+            LOG_ERR("Register verification failed! Addr: 0x%02X, Expected: 0x%08X, Read: 0x%08X", 
+                    addr, value, read_value);
+            return -EIO;
+        }
+        
+        LOG_INF("Register 0x%02X verified: 0x%08X", addr, read_value);
+    }
+    
+    return 0;
 }
 
 int AD7124::setAdcControl(AD7124_OperatingModes mode, AD7124_PowerModes power_mode, bool ref_en) {
@@ -232,13 +301,19 @@ int AD7124::waitForConvReady(uint32_t timeout_ms) {
             return ret;
         }
         
+        // RDY bit is 0 when new data is available
         if ((status & AD7124_STATUS_REG_RDY) == 0) {
+            // Check for error flag
+            if (status & AD7124_STATUS_REG_ERROR_FLAG) {
+                LOG_WRN("AD7124 error flag set in status: 0x%02X", status);
+            }
             return 0; // Ready
         }
         
-        k_usleep(10);
+        k_usleep(100);  // Poll every 100us
     }
     
+    LOG_WRN("Conversion ready timeout, last status: 0x%02X", status);
     return -ETIMEDOUT;
 }
 

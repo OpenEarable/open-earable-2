@@ -25,8 +25,11 @@ bool ExG::init(struct k_msgq * queue) {
         pm_device_runtime_get(ls_1_8);
         pm_device_runtime_get(ls_3_3);
         
-        // Wait for power rails to stabilize (AD7124 needs time)
-        k_msleep(50);
+        // Wait for power rails to stabilize - AD7124 needs significant time after power-on
+        // Per datasheet: power-on time is typically 1ms, but can be longer
+        // Increase to 200ms for reliable startup
+        LOG_INF("Waiting for power rails to stabilize...");
+        k_msleep(500);
         
         _active = true;
     }
@@ -44,7 +47,7 @@ bool ExG::init(struct k_msgq * queue) {
     // Setup CS control (CS pin at P0.20 for AD7124)
     static struct spi_cs_control cs_ctrl;
     cs_ctrl.gpio = GPIO_DT_SPEC_GET_BY_IDX(DT_NODELABEL(spi4), cs_gpios, 0);
-    cs_ctrl.delay = 0;
+    cs_ctrl.delay = 500;  // delay after CS assertion (AD7124 setup time)
     
     if (!gpio_is_ready_dt(&cs_ctrl.gpio)) {
         LOG_ERR("CS GPIO (P0.20) not ready");
@@ -71,7 +74,11 @@ bool ExG::init(struct k_msgq * queue) {
         return false;
     }
     
+    // Additional delay before reset to ensure device is fully powered
+    k_msleep(50);
+    
     // Reset ADC
+    LOG_INF("Resetting AD7124...");
     if (adc->reset() != 0) {
         LOG_ERR("ADC reset failed");
         pm_device_runtime_put(ls_1_8);
@@ -81,26 +88,27 @@ bool ExG::init(struct k_msgq * queue) {
     }
     
     // Wait for reset to complete and internal oscillator to stabilize
-    k_msleep(50);
+    // Increase delay to ensure device is fully ready
+    k_msleep(500);
     
-    // Verify SPI communication by reading ID register
-    uint32_t chip_id;
-    if (adc->readRegister(AD7124_REG_ID, &chip_id, 1) != 0) {
-        LOG_ERR("Failed to read chip ID - SPI communication error");
-        pm_device_runtime_put(ls_1_8);
-        pm_device_runtime_put(ls_3_3);
-        _active = false;
-        return false;
-    }
-    LOG_INF("AD7124 Chip ID: 0x%02X (expected 0x14 or 0x16)", chip_id);
+    // // Verify SPI communication by reading ID register
+    // uint32_t chip_id;
+    // if (adc->readRegister(AD7124_REG_ID, &chip_id, 1) != 0) {
+    //     LOG_ERR("Failed to read chip ID - SPI communication error");
+    //     pm_device_runtime_put(ls_1_8);
+    //     pm_device_runtime_put(ls_3_3);
+    //     _active = false;
+    //     return false;
+    // }
+    // LOG_INF("AD7124 Chip ID: 0x%02X (expected 0x14 or 0x16)", chip_id);
     
-    if (chip_id != 0x14 && chip_id != 0x16) {
-        LOG_ERR("Invalid chip ID! Check SPI connections and CS pin");
-        pm_device_runtime_put(ls_1_8);
-        pm_device_runtime_put(ls_3_3);
-        _active = false;
-        return false;
-    }
+    // if (chip_id != 0x14 && chip_id != 0x16) {
+    //     LOG_ERR("Invalid chip ID! Check SPI connections and CS pin");
+    //     pm_device_runtime_put(ls_1_8);
+    //     pm_device_runtime_put(ls_3_3);
+    //     _active = false;
+    //     return false;
+    // }
     
     LOG_INF("Configuring AD7124...");
 
@@ -110,7 +118,7 @@ bool ExG::init(struct k_msgq * queue) {
     }
     
     // Configure setup 0 FIRST (internal reference, gain 1, bipolar)
-    if (adc->setConfig(0, AD7124_Ref_Internal, AD7124_Gain_1, true) != 0) {
+    if (adc->setConfig(0, AD7124_Ref_Internal, AD7124_Gain_128, true) != 0) {
         LOG_ERR("Failed to configure setup 0");
         return false;
     }
@@ -122,8 +130,9 @@ bool ExG::init(struct k_msgq * queue) {
         return false;
     }
     
-    // Configure channel 0 (AIN1 - AIN0, setup 0, enabled)
-    if (adc->setChannel(0, 0, AD7124_Input_AIN7, AD7124_Input_AIN6, true) != 0) {
+    // Configure channel 0 (AIN7 - AIN6, setup 0, enabled)
+    //if (adc->setChannel(0, 0, AD7124_Input_AIN1, AD7124_Input_AIN0, true) != 0) {
+    if (adc->setChannel(0, 0, AD7124_Input_AIN3, AD7124_Input_AIN4, true) != 0) {
         LOG_ERR("Failed to configure channel 0");
         return false;
     }

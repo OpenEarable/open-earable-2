@@ -148,11 +148,14 @@ private:
     struct spi_config spi_cfg;
     
     int writeRegister(uint8_t addr, uint32_t value, uint8_t size);
+    int readRegisterInternal(uint8_t addr, uint32_t *value, uint8_t size);
+    int waitForSpiReady(uint32_t timeout_us);
     
     // Setup values for voltage conversion
     float ref_voltage;
     uint8_t gain_value;
     bool bipolar_mode;
+    bool spi_ready_check_enabled;
 };
 
 #endif // AD7124_H
