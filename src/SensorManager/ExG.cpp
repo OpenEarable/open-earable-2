@@ -58,12 +58,25 @@ bool ExG::init(struct k_msgq * queue) {
     }
     
     gpio_pin_configure_dt(&cs_ctrl.gpio, GPIO_OUTPUT_INACTIVE);
-    LOG_INF("Using 4-wire SPI mode with CS on P0.20");
+    // LOG_INF("Using 4-wire SPI mode with CS on P0.20");  // Commented out - using software SPI
     
     // Create ADC instance
     if (adc == nullptr) {
         adc = new AD7124(spi_dev, &cs_ctrl);
     }
+    
+    // Configure for SOFTWARE SPI (bit-banging)
+    // Pins: SCK=P0.6, MOSI=P0.13, MISO=P0.12, CS=P0.20
+    const struct device *gpio0 = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+    if (!device_is_ready(gpio0)) {
+        LOG_ERR("GPIO0 device not ready");
+        pm_device_runtime_put(ls_1_8);
+        pm_device_runtime_put(ls_3_3);
+        _active = false;
+        return false;
+    }
+    adc->setSoftwareSPI(gpio0, 6, 13, 12, 20);
+    LOG_INF("Using SOFTWARE SPI (bit-bang): SCK=P0.6, MOSI=P0.13, MISO=P0.12, CS=P0.20");
     
     // Initialize ADC
     if (adc->init() != 0) {

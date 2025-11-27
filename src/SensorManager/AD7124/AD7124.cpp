@@ -3,22 +3,22 @@
 
 LOG_MODULE_REGISTER(AD7124, 3);
 
-// Post-reset delay from official driver (4ms for margin)
+// Post-reset delay (4ms for margin)
 #define AD7124_POST_RESET_DELAY 4
 
-// Communication register bits (from official driver)
+// Communication register bits
 #define AD7124_COMM_REG_WEN (0 << 7)
 #define AD7124_COMM_REG_WR (0 << 6)
 #define AD7124_COMM_REG_RD (1 << 6)
 #define AD7124_COMM_REG_RA(x) ((x) & 0x3F)
 
-// Status register bits (from official driver)
+// Status register bits
 #define AD7124_STATUS_REG_RDY (1 << 7)
 #define AD7124_STATUS_REG_ERROR_FLAG (1 << 6)
 #define AD7124_STATUS_REG_POR_FLAG (1 << 4)
 #define AD7124_STATUS_REG_CH_ACTIVE(x) ((x) & 0xF)
 
-// ADC Control register bits (from official driver)
+// ADC Control register bits
 #define AD7124_ADC_CTRL_REG_DOUT_RDY_DEL (1 << 12)
 #define AD7124_ADC_CTRL_REG_CONT_READ (1 << 11)
 #define AD7124_ADC_CTRL_REG_DATA_STATUS (1 << 10)
@@ -28,7 +28,7 @@ LOG_MODULE_REGISTER(AD7124, 3);
 #define AD7124_ADC_CTRL_REG_MODE(x) (((x) & 0xF) << 2)
 #define AD7124_ADC_CTRL_REG_CLK_SEL(x) (((x) & 0x3) << 0)
 
-// Configuration register bits (from official driver)
+// Configuration register bits
 #define AD7124_CFG_REG_BIPOLAR (1 << 11)
 #define AD7124_CFG_REG_BURNOUT(x) (((x) & 0x3) << 9)
 #define AD7124_CFG_REG_REF_BUFP (1 << 8)
@@ -38,20 +38,20 @@ LOG_MODULE_REGISTER(AD7124, 3);
 #define AD7124_CFG_REG_REF_SEL(x) (((x) & 0x3) << 3)
 #define AD7124_CFG_REG_PGA(x) (((x) & 0x7) << 0)
 
-// Filter register bits (from official driver)
+// Filter register bits
 #define AD7124_FILT_REG_FILTER(x) (((x) & 0x7) << 21)
 #define AD7124_FILT_REG_REJ60 (1 << 20)
 #define AD7124_FILT_REG_POST_FILTER(x) (((x) & 0x7) << 17)
 #define AD7124_FILT_REG_SINGLE_CYCLE (1 << 16)
 #define AD7124_FILT_REG_FS(x) (((x) & 0x7FF) << 0)
 
-// Channel register bits (from official driver)
+// Channel register bits
 #define AD7124_CH_MAP_REG_CH_ENABLE (1 << 15)
 #define AD7124_CH_MAP_REG_SETUP(x) (((x) & 0x7) << 12)
 #define AD7124_CH_MAP_REG_AINP(x) (((x) & 0x1F) << 5)
 #define AD7124_CH_MAP_REG_AINM(x) (((x) & 0x1F) << 0)
 
-// Error register bits (from official driver)
+// Error register bits
 #define AD7124_ERR_REG_LDO_CAP_ERR (1 << 19)
 #define AD7124_ERR_REG_ADC_CAL_ERR (1 << 18)
 #define AD7124_ERR_REG_ADC_CONV_ERR (1 << 17)
@@ -72,10 +72,10 @@ LOG_MODULE_REGISTER(AD7124, 3);
 #define AD7124_ERR_REG_ROM_CRC_ERR (1 << 0)
 
 AD7124::AD7124(const struct device *spi_dev, struct spi_cs_control *cs_ctrl)
-    : spi_dev(spi_dev), use_crc(false), check_ready(true), spi_rdy_poll_cnt(10000),
+    : spi_dev(spi_dev), use_software_spi(false), use_crc(false), check_ready(true), spi_rdy_poll_cnt(10000),
       ref_voltage(2.5f), gain_value(1), bipolar_mode(true) {
     
-    // Initialize register map (from official driver ad7124_regs.c)
+    // Initialize register map
     // Format: {addr, value, size, rw}
     regs[0] = {0x00, 0x00, 1, 2};      // Status
     regs[1] = {0x01, 0x0000, 2, 1};    // ADC_Control
@@ -122,17 +122,110 @@ AD7124::AD7124(const struct device *spi_dev, struct spi_cs_control *cs_ctrl)
     spi_cfg.cs.delay = 10; // 10us CS assertion delay
 }
 
+/**
+ * @brief Configure software SPI (bit-banging) mode
+ */
+void AD7124::setSoftwareSPI(const struct device *gpio_dev, uint8_t sck_pin, uint8_t mosi_pin, uint8_t miso_pin, uint8_t cs_pin) {
+    this->use_software_spi = true;
+    this->gpio_dev = gpio_dev;
+    this->sck_pin = sck_pin;
+    this->mosi_pin = mosi_pin;
+    this->miso_pin = miso_pin;
+    this->cs_pin = cs_pin;
+}
+
+/**
+ * @brief Initialize software SPI GPIO pins
+ */
+void AD7124::softSpiInit() {
+    if (!use_software_spi) return;
+    
+    // Configure SCK as output, initial HIGH (CPOL=1 for Mode 3)
+    gpio_pin_configure(gpio_dev, sck_pin, GPIO_OUTPUT_HIGH);
+    
+    // Configure MOSI as output
+    gpio_pin_configure(gpio_dev, mosi_pin, GPIO_OUTPUT_LOW);
+    
+    // Configure MISO as input
+    gpio_pin_configure(gpio_dev, miso_pin, GPIO_INPUT);
+    
+    // Configure CS as output, initial HIGH (inactive)
+    gpio_pin_configure(gpio_dev, cs_pin, GPIO_OUTPUT_HIGH);
+    
+    LOG_INF("Software SPI initialized: SCK=P0.%d, MOSI=P0.%d, MISO=P0.%d, CS=P0.%d", 
+            sck_pin, mosi_pin, miso_pin, cs_pin);
+}
+
+/**
+ * @brief Software SPI CS control
+ */
+void AD7124::softSpiSetCS(bool active) {
+    if (!use_software_spi) return;
+    
+    // CS is active LOW
+    gpio_pin_set(gpio_dev, cs_pin, active ? 0 : 1);
+    
+    // CS delay (10us)
+    if (active) {
+        k_busy_wait(10);
+    }
+}
+
+/**
+ * @brief Software SPI transfer one byte (Mode 3: CPOL=1, CPHA=1)
+ * Mode 3: Clock idle HIGH, sample on rising edge, shift on falling edge
+ */
+uint8_t AD7124::softSpiTransferByte(uint8_t data) {
+    if (!use_software_spi) return 0;
+    
+    uint8_t result = 0;
+    
+    // Transfer 8 bits, MSB first
+    for (int i = 7; i >= 0; i--) {
+        // Set MOSI bit (data is stable before clock edge)
+        gpio_pin_set(gpio_dev, mosi_pin, (data >> i) & 0x01);
+        
+        // Small delay for setup time
+        k_busy_wait(1);
+        
+        // Clock LOW (falling edge - shift data out)
+        gpio_pin_set(gpio_dev, sck_pin, 0);
+        
+        // Small delay for hold time
+        k_busy_wait(1);
+        
+        // Clock HIGH (rising edge - sample data in)
+        gpio_pin_set(gpio_dev, sck_pin, 1);
+        
+        // Read MISO bit
+        result |= (gpio_pin_get(gpio_dev, miso_pin) & 0x01) << i;
+        
+        // Small delay before next bit
+        k_busy_wait(1);
+    }
+    
+    return result;
+}
+
 int AD7124::init() {
-    if (!device_is_ready(spi_dev)) {
-        LOG_ERR("SPI device not ready");
-        return -ENODEV;
+    if (use_software_spi) {
+        if (!device_is_ready(gpio_dev)) {
+            LOG_ERR("GPIO device not ready");
+            return -ENODEV;
+        }
+        softSpiInit();
+    } else {
+        if (!device_is_ready(spi_dev)) {
+            LOG_ERR("SPI device not ready");
+            return -ENODEV;
+        }
     }
     
     return 0;
 }
 
 /**
- * @brief Compute CRC8 checksum (from official driver)
+ * @brief Compute CRC8 checksum
  */
 uint8_t AD7124::computeCRC8(uint8_t *buf, uint8_t size) {
     uint8_t crc = 0;
@@ -156,7 +249,7 @@ uint8_t AD7124::computeCRC8(uint8_t *buf, uint8_t size) {
 }
 
 /**
- * @brief Read register without device ready check (from official driver)
+ * @brief Read register without device ready check
  */
 int AD7124::noCheckReadRegister(uint8_t addr, uint32_t *value, uint8_t size) {
     if (size > 4) {
@@ -169,16 +262,32 @@ int AD7124::noCheckReadRegister(uint8_t addr, uint32_t *value, uint8_t size) {
     // Build the command word
     buffer[0] = AD7124_COMM_REG_WEN | AD7124_COMM_REG_RD | AD7124_COMM_REG_RA(addr);
     
-    // Prepare SPI transaction
-    struct spi_buf tx_buf = {.buf = buffer, .len = 1 + size};
-    struct spi_buf rx_buf = {.buf = buffer, .len = 1 + size};
-    struct spi_buf_set tx = {.buffers = &tx_buf, .count = 1};
-    struct spi_buf_set rx = {.buffers = &rx_buf, .count = 1};
-    
-    // Read data from device
-    int ret = spi_transceive(spi_dev, &spi_cfg, &tx, &rx);
-    if (ret) {
-        return ret;
+    if (use_software_spi) {
+        // Software SPI implementation
+        softSpiSetCS(true);  // Assert CS
+        
+        // Send command byte
+        softSpiTransferByte(buffer[0]);
+        
+        // Read data bytes
+        for (i = 1; i <= size; i++) {
+            buffer[i] = softSpiTransferByte(0x00);  // Send dummy byte, read response
+        }
+        
+        softSpiSetCS(false);  // Deassert CS
+    } else {
+        // Hardware SPI implementation
+        // Prepare SPI transaction
+        struct spi_buf tx_buf = {.buf = buffer, .len = 1 + size};
+        struct spi_buf rx_buf = {.buf = buffer, .len = 1 + size};
+        struct spi_buf_set tx = {.buffers = &tx_buf, .count = 1};
+        struct spi_buf_set rx = {.buffers = &rx_buf, .count = 1};
+        
+        // Read data from device
+        int ret = spi_transceive(spi_dev, &spi_cfg, &tx, &rx);
+        if (ret) {
+            return ret;
+        }
     }
     
     // Build the result
@@ -192,7 +301,7 @@ int AD7124::noCheckReadRegister(uint8_t addr, uint32_t *value, uint8_t size) {
 }
 
 /**
- * @brief Write register without device ready check (from official driver)
+ * @brief Write register without device ready check
  */
 int AD7124::noCheckWriteRegister(uint8_t addr, uint32_t value, uint8_t size) {
     if (size > 4) {
@@ -213,14 +322,28 @@ int AD7124::noCheckWriteRegister(uint8_t addr, uint32_t value, uint8_t size) {
         reg_value >>= 8;
     }
     
-    struct spi_buf tx_buf = {.buf = wr_buf, .len = size + 1};
-    struct spi_buf_set tx = {.buffers = &tx_buf, .count = 1};
-    
-    return spi_write(spi_dev, &spi_cfg, &tx);
+    if (use_software_spi) {
+        // Software SPI implementation
+        softSpiSetCS(true);  // Assert CS
+        
+        // Send all bytes
+        for (i = 0; i <= size; i++) {
+            softSpiTransferByte(wr_buf[i]);
+        }
+        
+        softSpiSetCS(false);  // Deassert CS
+        return 0;
+    } else {
+        // Hardware SPI implementation
+        struct spi_buf tx_buf = {.buf = wr_buf, .len = size + 1};
+        struct spi_buf_set tx = {.buffers = &tx_buf, .count = 1};
+        
+        return spi_write(spi_dev, &spi_cfg, &tx);
+    }
 }
 
 /**
- * @brief Wait for SPI ready (from official driver)
+ * @brief Wait for SPI ready
  */
 int AD7124::waitForSpiReady(uint32_t timeout) {
     int32_t ret;
@@ -251,7 +374,7 @@ int AD7124::waitForSpiReady(uint32_t timeout) {
 }
 
 /**
- * @brief Wait for device power-on (from official driver)
+ * @brief Wait for device power-on
  */
 int AD7124::waitToPowerOn(uint32_t timeout) {
     int32_t ret;
@@ -281,7 +404,7 @@ int AD7124::waitToPowerOn(uint32_t timeout) {
 }
 
 /**
- * @brief Reset the device (from official driver)
+ * @brief Reset the device
  */
 int AD7124::reset() {
     int32_t ret = 0;
@@ -311,7 +434,7 @@ int AD7124::reset() {
 }
 
 /**
- * @brief Read register with device ready check (from official driver)
+ * @brief Read register with device ready check
  */
 int AD7124::readRegister(uint8_t addr, uint32_t *value, uint8_t size) {
     int32_t ret;
@@ -328,7 +451,7 @@ int AD7124::readRegister(uint8_t addr, uint32_t *value, uint8_t size) {
 }
 
 /**
- * @brief Write register with device ready check (from official driver)
+ * @brief Write register with device ready check
  */
 int AD7124::writeRegister(uint8_t addr, uint32_t value, uint8_t size) {
     int32_t ret;
@@ -416,7 +539,7 @@ int AD7124::setChannel(uint8_t ch, uint8_t setup, AnalogInput ainp,
 }
 
 /**
- * @brief Wait for conversion ready (from official driver)
+ * @brief Wait for conversion ready
  */
 int AD7124::waitForConvReady(uint32_t timeout_ms) {
     int32_t ret;
@@ -448,7 +571,7 @@ int AD7124::waitForConvReady(uint32_t timeout_ms) {
 }
 
 /**
- * @brief Read conversion result (from official driver)
+ * @brief Read conversion result
  * NOTE: When DATA_STATUS bit is set in ADC_CONTROL, must read 4 bytes (3 data + 1 status)
  */
 int AD7124::readRaw(int32_t *value) {
@@ -510,7 +633,7 @@ float AD7124::readVolts(uint8_t ch) {
 }
 
 /**
- * @brief Get current active channel (from official driver)
+ * @brief Get current active channel
  */
 int AD7124::getCurrentChannel() {
     uint32_t status;

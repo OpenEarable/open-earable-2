@@ -15,7 +15,7 @@
  */
 class AD7124 {
 public:
-    // Operating modes (from official driver)
+    // Operating modes
     enum class OperatingMode {
         CONTINUOUS = 0,
         SINGLE = 1,
@@ -28,14 +28,14 @@ public:
         SYSTEM_GAIN_CAL = 8
     };
 
-    // Power modes (from official driver)
+    // Power modes
     enum class PowerMode {
         LOW_POWER = 0,
         MID_POWER = 1,
         FULL_POWER = 2
     };
 
-    // PGA gain values (from official driver)
+    // PGA gain values
     enum class PGA {
         GAIN_1 = 0,
         GAIN_2 = 1,
@@ -47,14 +47,14 @@ public:
         GAIN_128 = 7
     };
 
-    // Reference source (from official driver)
+    // Reference source
     enum class ReferenceSource {
         EXTERNAL = 0,
         INTERNAL = 2,
         AVDD_AVSS = 3
     };
 
-    // Analog input selections (from official driver)
+    // Analog input selections
     enum class AnalogInput {
         AIN0 = 0, AIN1 = 1, AIN2 = 2, AIN3 = 3,
         AIN4 = 4, AIN5 = 5, AIN6 = 6, AIN7 = 7,
@@ -67,7 +67,7 @@ public:
         V_20MV_P = 28, V_20MV_M = 29
     };
 
-    // Register addresses (from official driver)
+    // Register addresses
     enum class Register {
         STATUS = 0x00,
         ADC_CONTROL = 0x01,
@@ -86,6 +86,9 @@ public:
     };
 
     AD7124(const struct device *spi_dev, struct spi_cs_control *cs_ctrl);
+    
+    // Software SPI GPIO pins (set to use software SPI instead of hardware)
+    void setSoftwareSPI(const struct device *gpio_dev, uint8_t sck_pin, uint8_t mosi_pin, uint8_t miso_pin, uint8_t cs_pin);
     
     int init();
     int reset();
@@ -107,7 +110,15 @@ private:
     const struct device *spi_dev;
     struct spi_config spi_cfg;
     
-    // Register info structure (from official driver)
+    // Software SPI support
+    bool use_software_spi;
+    const struct device *gpio_dev;
+    uint8_t sck_pin;
+    uint8_t mosi_pin;
+    uint8_t miso_pin;
+    uint8_t cs_pin;
+    
+    // Register info structure
     struct RegisterInfo {
         uint8_t addr;
         uint32_t value;
@@ -115,7 +126,7 @@ private:
         uint8_t rw;  // 1=write, 2=read, 3=read/write
     };
     
-    // Register map (from official driver ad7124_regs.c)
+    // Register map
     RegisterInfo regs[57];
     
     int writeRegister(uint8_t addr, uint32_t value, uint8_t size);
@@ -124,6 +135,11 @@ private:
     int waitForSpiReady(uint32_t timeout);
     int waitToPowerOn(uint32_t timeout);
     uint8_t computeCRC8(uint8_t *buf, uint8_t size);
+    
+    // Software SPI bit-banging functions
+    void softSpiInit();
+    uint8_t softSpiTransferByte(uint8_t data);
+    void softSpiSetCS(bool active);
     
     bool use_crc;
     bool check_ready;
