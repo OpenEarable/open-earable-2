@@ -21,8 +21,7 @@
 #include "StateIndicator.h"
 
 #include <SensorScheme.h>
-// SD card disabled
-//#include "../SD_Card/SDLogger/SDLogger.h"
+#include "../SD_Card/SDLogger/SDLogger.h"
 #include <string>
 #include <set>
 
@@ -103,8 +102,7 @@ void init_sensor_manager() {
 
 	k_poll_signal_init(&sensor_manager_sig);
 
-	// SD card disabled
-	//sdlogger.init();
+	sdlogger.init();
 }
 
 void start_sensor_manager() {
@@ -153,8 +151,7 @@ void stop_sensor_manager() {
 	_state = SUSPENDED;
 
 	// End SDLogger and close current log file
-	// SD card disabled
-	//sdlogger.end();
+	sdlogger.end();
 
 	//k_msgq_purge(&config_queue);
 }
@@ -230,8 +227,7 @@ static void config_work_handler(struct k_work *work) {
 		}
 	}
 
-	// SD card disabled
-	/*if (config.storageOptions & DATA_STORAGE) {
+	if (config.storageOptions & DATA_STORAGE) {
 		sd_sensors.insert(config.sensorId);
 
 		if (!sdlogger.is_active()) {
@@ -249,7 +245,7 @@ static void config_work_handler(struct k_work *work) {
 			sdlogger.end();
 			state_indicator.set_sd_state(SD_IDLE);
 		}
-	}*/
+	}
 
 	if (config.storageOptions & DATA_STREAMING) ble_sensors.insert(config.sensorId);
 	else if (ble_sensors.find(config.sensorId) != ble_sensors.end()) {

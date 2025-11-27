@@ -385,11 +385,10 @@ int PowerManager::begin() {
         LOG_WRN("Error setting up load switch 3.3V.");
     }
 
-    // SD card disabled
-    /*ret = pm_device_runtime_enable(ls_sd);
+    ret = pm_device_runtime_enable(ls_sd);
     if (ret != 0) {
         LOG_WRN("Error setting up load switch SD.");
-    }*/
+    }
 
     ret = device_is_ready(error_led.port); //bool
     if (!ret) {
@@ -629,7 +628,7 @@ int PowerManager::power_down(bool fault) {
         return 0;
     }
 
-    //ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND); // SD card disabled
+    ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);

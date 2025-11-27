@@ -10,12 +10,11 @@
 //#include "button_handler.h"
 //#include "button_manager.h"
 #include "button_assignments.h"
-#if IS_ENABLED(CONFIG_NRF5340_AUDIO_SD_CARD_MODULE)
 #include "sd_card.h"
-#include "sd_card_playback.h"
-#endif
 #include "board_version.h"
 #include "channel_assignment.h"
+
+#include "sd_card_playback.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(nrf5340_audio_dk, CONFIG_MODULE_NRF5340_AUDIO_DK_LOG_LEVEL);

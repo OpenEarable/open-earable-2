@@ -21,7 +21,6 @@
 	 sd_state: sd_state {
 		 compatible = "power-switch";
 		 gpios = <&gpio0 15 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
-		 status = "disabled";
 	 };
  
 	 load_switch: load_switch {
@@ -36,7 +35,7 @@
 		 compatible = "load-switch";
 		 enable-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
 		 power-delay-us = <300>; // 250us per datasheet
-		 status = "disabled";
+		 status = "okay";
 	 };
  
 	 gpio_fwd: nrf-gpio-forwarder {
@@ -242,16 +241,23 @@
  &spi4 {
 	 compatible = "nordic,nrf-spim";
 	 status = "okay";
-	 cs-gpios = <&gpio0 20 GPIO_ACTIVE_LOW>;
+	 cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>,<&gpio1 1 GPIO_ACTIVE_LOW>;
  
 	 pinctrl-0 = <&spi4_default>;
 	 pinctrl-1 = <&spi4_sleep>;
 	 pinctrl-names = "default", "sleep";
 
-	 ad7124_exg: ad7124@0 {
-		 compatible = "adi,ad7124";
+	 sdhc0: sdhc@0 {
+		 compatible = "zephyr,sdhc-spi-slot";
 		 reg = <0>;
-		 spi-max-frequency = <5000000>; /* 5 MHz */
+		 status = "okay";
+		 sdmmc {
+			 compatible = "zephyr,sdmmc-disk";
+			 status = "okay";
+			 disk-name = "SD";
+		 };
+ 
+		 spi-max-frequency = <32000000>;
 	 };
  };
  

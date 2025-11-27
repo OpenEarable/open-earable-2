@@ -32,8 +32,8 @@
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
 
-// SD card disabled
-//#include "../src/SD_Card/SDLogger/SDLogger.h"
+
+#include "../src/SD_Card/SDLogger/SDLogger.h"
 
 #include "uicr.h"
 

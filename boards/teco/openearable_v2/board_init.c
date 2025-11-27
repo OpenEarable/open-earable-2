@@ -12,7 +12,7 @@ LOG_MODULE_REGISTER(board_init, LOG_LEVEL_DBG);
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
-//#define load_switch_sd_id DT_NODELABEL(load_switch_sd) // SD card disabled
+#define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
 #define load_switch_3_3_id DT_CHILD(DT_NODELABEL(bq25120a), load_switch)
 //#define load_switch_3_3_id DT_NODELABEL(lsctrl)
@@ -20,7 +20,7 @@ LOG_MODULE_REGISTER(board_init, LOG_LEVEL_DBG);
 const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 const struct device *const ls_1_8 = DEVICE_DT_GET(load_switch_1_8_id);
 const struct device *const ls_3_3 = DEVICE_DT_GET(load_switch_3_3_id);
-//const struct device *const ls_sd = DEVICE_DT_GET(load_switch_sd_id); // SD card disabled
+const struct device *const ls_sd = DEVICE_DT_GET(load_switch_sd_id);
 
 struct load_switch_data {
     struct gpio_dt_spec ctrl_pin;
@@ -81,8 +81,7 @@ static struct load_switch_data load_switch_3_3 = {
     .delay_us = DT_PROP(load_switch_3_3_id, power_delay_us),
 };
 
-// SD card disabled
-/*static struct load_switch_data load_switch_sd_d = {
+static struct load_switch_data load_switch_sd_d = {
     .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_sd_id, enable_gpios),
     .default_on = DT_NODE_HAS_PROP(load_switch_sd_id, default_on),
     .delay_us = DT_PROP(load_switch_sd_id, power_delay_us),
@@ -90,7 +89,7 @@ static struct load_switch_data load_switch_3_3 = {
 
 PM_DEVICE_DT_DEFINE(load_switch_sd_id, generic_pm_control);
 DEVICE_DT_DEFINE(load_switch_sd_id, init_pm_device, PM_DEVICE_DT_GET(load_switch_sd_id),
-                    &load_switch_sd_d, NULL, POST_KERNEL, 80, NULL);*/
+                    &load_switch_sd_d, NULL, POST_KERNEL, 80, NULL);
 
 PM_DEVICE_DT_DEFINE(load_switch_1_8_id, generic_pm_control);
 DEVICE_DT_DEFINE(load_switch_1_8_id, init_pm_device, PM_DEVICE_DT_GET(load_switch_1_8_id),
