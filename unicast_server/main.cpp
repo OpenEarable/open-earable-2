@@ -115,16 +115,6 @@ int main(void) {
 	ret = init_sensor_service();
 	ERR_CHK(ret);
 
-	// Auto-start ExG sensor at 60 Hz (index 5) with BLE streaming enabled
-	// Must be after initParseInfoService() which populates the sensor schemes
-	sensor_config exg = {
-		.sensorId = ID_EXG,
-		.sampleRateIndex = 5,  // 60 Hz
-		.storageOptions = DATA_STREAMING  // Enable BLE streaming
-	};
-	config_sensor(&exg);
-	LOG_INF("ExG sensor auto-started at 60 Hz");
-
 	// error test
 	//long *a = nullptr;
 	//*a = 10;

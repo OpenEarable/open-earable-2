@@ -139,32 +139,29 @@ void AD7124::softSpiInit() {
 
 /**
  * @brief Software SPI transfer one byte (Mode 3: CPOL=1, CPHA=1)
- * Mode 3: Clock idle HIGH, sample on rising edge, shift on falling edge
+ * Mode 3: Clock idle HIGH, data changes on falling edge, sample on rising edge
+ * AD7124: Outputs data on falling SCLK edge, samples input on rising SCLK edge
  */
 uint8_t AD7124::softSpiTransferByte(uint8_t data) {
     uint8_t result = 0;
     
     // Transfer 8 bits, MSB first
     for (int i = 7; i >= 0; i--) {
-        // Set MOSI bit (data is stable before clock edge)
+        // Set MOSI bit (data setup before falling edge)
         gpio_pin_set(gpio_dev, mosi_pin, (data >> i) & 0x01);
-        
-        // Small delay for setup time
         k_busy_wait(1);
         
-        // Clock LOW (falling edge - shift data out)
+        // Clock LOW (falling edge - AD7124 shifts data out on MISO)
         gpio_pin_set(gpio_dev, sck_pin, 0);
         
-        // Small delay for hold time
+        // Wait for AD7124 to output data, then sample MISO while clock is LOW
         k_busy_wait(1);
-        
-        // Clock HIGH (rising edge - sample data in)
-        gpio_pin_set(gpio_dev, sck_pin, 1);
-        
-        // Read MISO bit
         result |= (gpio_pin_get(gpio_dev, miso_pin) & 0x01) << i;
         
-        // Small delay before next bit
+        // Clock HIGH (rising edge - AD7124 samples MOSI)
+        gpio_pin_set(gpio_dev, sck_pin, 1);
+        
+        // Delay before next bit
         k_busy_wait(1);
     }
     
@@ -218,13 +215,17 @@ int AD7124::noCheckReadRegister(uint8_t addr, uint32_t *value, uint8_t size) {
     // Build the command word
     buffer[0] = AD7124_COMM_REG_WEN | AD7124_COMM_REG_RD | AD7124_COMM_REG_RA(addr);
     
-    // Send command byte
+    // Send command byte (response during this transfer should be ignored)
     softSpiTransferByte(buffer[0]);
     
     // Read data bytes
     for (i = 1; i <= size; i++) {
         buffer[i] = softSpiTransferByte(0x00);  // Send dummy byte, read response
     }
+    
+    // Ensure clock returns to idle (HIGH for Mode 3) and hold for transaction boundary
+    gpio_pin_set(gpio_dev, sck_pin, 1);
+    k_usleep(500);  // Longer inter-transaction delay for 3-wire mode
     
     // Build the result
     *value = 0;
@@ -262,6 +263,11 @@ int AD7124::noCheckWriteRegister(uint8_t addr, uint32_t value, uint8_t size) {
     for (i = 0; i <= size; i++) {
         softSpiTransferByte(wr_buf[i]);
     }
+    
+    // Ensure clock returns to idle (HIGH for Mode 3) and hold for transaction boundary
+    gpio_pin_set(gpio_dev, sck_pin, 1);
+    k_usleep(100);
+    
     return 0;
 }
 
@@ -515,13 +521,8 @@ int AD7124::readRaw(int32_t *value) {
         data = data >> 8;
     }
     
-    // Get the read result
-    *value = (int32_t)data;
-    
-    // Convert to signed 24-bit if in bipolar mode
-    if (bipolar_mode && (*value & 0x800000)) {
-        *value |= 0xFF000000; // Sign extend
-    }
+    // Get the read result (keep as unsigned 24-bit for offset binary handling)
+    *value = (int32_t)(data & 0xFFFFFF);
     
     return 0;
 }
@@ -540,8 +541,10 @@ float AD7124::readVolts(uint8_t ch) {
     // Convert to voltage
     float voltage;
     if (bipolar_mode) {
-        // Bipolar: -Vref to +Vref
-        voltage = ((float)raw / 8388608.0f) * (ref_voltage / (float)gain_value);
+        // Bipolar uses offset binary: 0x800000 = 0V, 0x000000 = -Vref, 0xFFFFFF = +Vref
+        // Subtract mid-scale (0x800000) to convert to signed, then scale
+        int32_t signed_raw = raw - 0x800000;
+        voltage = ((float)signed_raw / 8388608.0f) * (ref_voltage / (float)gain_value);
     } else {
         // Unipolar: 0 to Vref
         voltage = ((float)raw / 16777216.0f) * (ref_voltage / (float)gain_value);

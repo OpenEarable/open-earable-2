@@ -99,31 +99,19 @@ bool ExG::init(struct k_msgq* queue) {
 }
 
 void ExG::update_sensor(struct k_work* work) {
-    int32_t raw_value = 0;
-    if (adc->readRaw(&raw_value) != 0) {
-        LOG_ERR("Failed to read raw ADC value");
-        return;
-    }
-
     // Read voltage and convert to microvolts (µV)
     // InAmp gain = 50 (as per hardware design)
     const float INAMP_GAIN = 50.0f;
-    double voltage_volts = adc->readVolts(0);
-    double voltage_microvolts = (voltage_volts / INAMP_GAIN) * 1e6f;
+    float voltage_volts = adc->readVolts(0);
+    float voltage_microvolts = (voltage_volts / INAMP_GAIN) * 1e6f;
 
     msg_exg.stream = sensor._ble_stream;
 
     msg_exg.data.id = ID_EXG;
-    msg_exg.data.size = sizeof(double);
+    msg_exg.data.size = sizeof(float);
     msg_exg.data.time = micros();
 
-    memcpy(msg_exg.data.data, &voltage_microvolts, sizeof(double));
-
-    sample_count++;
-    if (sample_count % 100 == 0) {
-        LOG_INF("Sample #%u: Raw=0x%06X (%d), V=%.6f, uV=%.2f", 
-                sample_count, raw_value & 0xFFFFFF, raw_value, voltage_volts, voltage_microvolts);
-    }
+    memcpy(msg_exg.data.data, &voltage_microvolts, sizeof(float));
 
     int ret = k_msgq_put(sensor_queue, &msg_exg, K_NO_WAIT);
     if (ret) {
