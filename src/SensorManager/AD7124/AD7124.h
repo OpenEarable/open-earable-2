@@ -47,6 +47,14 @@ public:
         GAIN_128 = 7
     };
 
+    // Filter types
+    enum class FilterType {
+        SINC4 = 0,
+        SINC3 = 2,
+        FS = 4,           // Fast Settling
+        POST = 7          // Post Filter
+    };
+
     // Reference source
     enum class ReferenceSource {
         EXTERNAL = 0,
@@ -85,17 +93,17 @@ public:
         GAIN_0 = 0x31
     };
 
-    AD7124(const struct device *spi_dev, struct spi_cs_control *cs_ctrl);
+    AD7124();
     
-    // Software SPI GPIO pins (set to use software SPI instead of hardware)
-    void setSoftwareSPI(const struct device *gpio_dev, uint8_t sck_pin, uint8_t mosi_pin, uint8_t miso_pin, uint8_t cs_pin);
+    // Configure GPIO pins for software SPI (3-wire mode, CS hardwired to GND)
+    void setSoftwareSPI(const struct device *gpio_dev, uint8_t sck_pin, uint8_t mosi_pin, uint8_t miso_pin);
     
     int init();
     int reset();
     
     int setAdcControl(OperatingMode mode, PowerMode power_mode, bool ref_en = true);
     int setConfig(uint8_t setup, ReferenceSource ref, PGA gain, bool bipolar);
-    int setFilter(uint8_t setup, uint16_t fs, bool rej60 = false);
+    int setFilter(uint8_t setup, FilterType filter_type, uint16_t fs, bool rej60 = false);
     int setChannel(uint8_t ch, uint8_t setup, AnalogInput ainp, AnalogInput ainm, bool enable = false);
     
     int readRaw(int32_t *value);
@@ -107,16 +115,11 @@ public:
     int readRegister(uint8_t addr, uint32_t *value, uint8_t size);
 
 private:
-    const struct device *spi_dev;
-    struct spi_config spi_cfg;
-    
-    // Software SPI support
-    bool use_software_spi;
+    // Software SPI GPIO pins (3-wire mode, CS hardwired to GND)
     const struct device *gpio_dev;
     uint8_t sck_pin;
     uint8_t mosi_pin;
     uint8_t miso_pin;
-    uint8_t cs_pin;
     
     // Register info structure
     struct RegisterInfo {
@@ -136,10 +139,9 @@ private:
     int waitToPowerOn(uint32_t timeout);
     uint8_t computeCRC8(uint8_t *buf, uint8_t size);
     
-    // Software SPI bit-banging functions
+    // Software SPI bit-banging functions (3-wire mode)
     void softSpiInit();
     uint8_t softSpiTransferByte(uint8_t data);
-    void softSpiSetCS(bool active);
     
     bool use_crc;
     bool check_ready;

@@ -71,8 +71,8 @@ LOG_MODULE_REGISTER(AD7124, 3);
 #define AD7124_ERR_REG_MM_CRC_ERR (1 << 1)
 #define AD7124_ERR_REG_ROM_CRC_ERR (1 << 0)
 
-AD7124::AD7124(const struct device *spi_dev, struct spi_cs_control *cs_ctrl)
-    : spi_dev(spi_dev), use_software_spi(false), use_crc(false), check_ready(true), spi_rdy_poll_cnt(10000),
+AD7124::AD7124()
+    : use_crc(false), check_ready(true), spi_rdy_poll_cnt(10000),
       ref_voltage(2.5f), gain_value(1), bipolar_mode(true) {
     
     // Initialize register map
@@ -111,35 +111,22 @@ AD7124::AD7124(const struct device *spi_dev, struct spi_cs_control *cs_ctrl)
     for (int i = 0; i < 8; i++) {
         regs[49 + i] = {(uint8_t)(0x31 + i), 0x500000, 3, 1};
     }
-    
-    // Configure SPI - Mode 3 (CPOL=1, CPHA=1) per datasheet
-    spi_cfg.operation = SPI_WORD_SET(8) | SPI_TRANSFER_MSB | SPI_OP_MODE_MASTER;
-    spi_cfg.frequency = 1000000; // 1 MHz SPI clock
-    spi_cfg.slave = 0;
-    
-    // Copy CS control
-    spi_cfg.cs = *cs_ctrl;
-    spi_cfg.cs.delay = 10; // 10us CS assertion delay
 }
 
 /**
- * @brief Configure software SPI (bit-banging) mode
+ * @brief Configure software SPI (bit-banging) mode - 3-wire, CS hardwired to GND
  */
-void AD7124::setSoftwareSPI(const struct device *gpio_dev, uint8_t sck_pin, uint8_t mosi_pin, uint8_t miso_pin, uint8_t cs_pin) {
-    this->use_software_spi = true;
+void AD7124::setSoftwareSPI(const struct device *gpio_dev, uint8_t sck_pin, uint8_t mosi_pin, uint8_t miso_pin) {
     this->gpio_dev = gpio_dev;
     this->sck_pin = sck_pin;
     this->mosi_pin = mosi_pin;
     this->miso_pin = miso_pin;
-    this->cs_pin = cs_pin;
 }
 
 /**
- * @brief Initialize software SPI GPIO pins
+ * @brief Initialize software SPI GPIO pins (3-wire mode, CS hardwired to GND)
  */
 void AD7124::softSpiInit() {
-    if (!use_software_spi) return;
-    
     // Configure SCK as output, initial HIGH (CPOL=1 for Mode 3)
     gpio_pin_configure(gpio_dev, sck_pin, GPIO_OUTPUT_HIGH);
     
@@ -148,27 +135,6 @@ void AD7124::softSpiInit() {
     
     // Configure MISO as input
     gpio_pin_configure(gpio_dev, miso_pin, GPIO_INPUT);
-    
-    // Configure CS as output, initial HIGH (inactive)
-    gpio_pin_configure(gpio_dev, cs_pin, GPIO_OUTPUT_HIGH);
-    
-    LOG_INF("Software SPI initialized: SCK=P0.%d, MOSI=P0.%d, MISO=P0.%d, CS=P0.%d", 
-            sck_pin, mosi_pin, miso_pin, cs_pin);
-}
-
-/**
- * @brief Software SPI CS control
- */
-void AD7124::softSpiSetCS(bool active) {
-    if (!use_software_spi) return;
-    
-    // CS is active LOW
-    gpio_pin_set(gpio_dev, cs_pin, active ? 0 : 1);
-    
-    // CS delay (10us)
-    if (active) {
-        k_busy_wait(10);
-    }
 }
 
 /**
@@ -176,8 +142,6 @@ void AD7124::softSpiSetCS(bool active) {
  * Mode 3: Clock idle HIGH, sample on rising edge, shift on falling edge
  */
 uint8_t AD7124::softSpiTransferByte(uint8_t data) {
-    if (!use_software_spi) return 0;
-    
     uint8_t result = 0;
     
     // Transfer 8 bits, MSB first
@@ -208,19 +172,11 @@ uint8_t AD7124::softSpiTransferByte(uint8_t data) {
 }
 
 int AD7124::init() {
-    if (use_software_spi) {
-        if (!device_is_ready(gpio_dev)) {
-            LOG_ERR("GPIO device not ready");
-            return -ENODEV;
-        }
-        softSpiInit();
-    } else {
-        if (!device_is_ready(spi_dev)) {
-            LOG_ERR("SPI device not ready");
-            return -ENODEV;
-        }
+    if (!device_is_ready(gpio_dev)) {
+        LOG_ERR("GPIO device not ready");
+        return -ENODEV;
     }
-    
+    softSpiInit();
     return 0;
 }
 
@@ -262,32 +218,12 @@ int AD7124::noCheckReadRegister(uint8_t addr, uint32_t *value, uint8_t size) {
     // Build the command word
     buffer[0] = AD7124_COMM_REG_WEN | AD7124_COMM_REG_RD | AD7124_COMM_REG_RA(addr);
     
-    if (use_software_spi) {
-        // Software SPI implementation
-        softSpiSetCS(true);  // Assert CS
-        
-        // Send command byte
-        softSpiTransferByte(buffer[0]);
-        
-        // Read data bytes
-        for (i = 1; i <= size; i++) {
-            buffer[i] = softSpiTransferByte(0x00);  // Send dummy byte, read response
-        }
-        
-        softSpiSetCS(false);  // Deassert CS
-    } else {
-        // Hardware SPI implementation
-        // Prepare SPI transaction
-        struct spi_buf tx_buf = {.buf = buffer, .len = 1 + size};
-        struct spi_buf rx_buf = {.buf = buffer, .len = 1 + size};
-        struct spi_buf_set tx = {.buffers = &tx_buf, .count = 1};
-        struct spi_buf_set rx = {.buffers = &rx_buf, .count = 1};
-        
-        // Read data from device
-        int ret = spi_transceive(spi_dev, &spi_cfg, &tx, &rx);
-        if (ret) {
-            return ret;
-        }
+    // Send command byte
+    softSpiTransferByte(buffer[0]);
+    
+    // Read data bytes
+    for (i = 1; i <= size; i++) {
+        buffer[i] = softSpiTransferByte(0x00);  // Send dummy byte, read response
     }
     
     // Build the result
@@ -322,24 +258,11 @@ int AD7124::noCheckWriteRegister(uint8_t addr, uint32_t value, uint8_t size) {
         reg_value >>= 8;
     }
     
-    if (use_software_spi) {
-        // Software SPI implementation
-        softSpiSetCS(true);  // Assert CS
-        
-        // Send all bytes
-        for (i = 0; i <= size; i++) {
-            softSpiTransferByte(wr_buf[i]);
-        }
-        
-        softSpiSetCS(false);  // Deassert CS
-        return 0;
-    } else {
-        // Hardware SPI implementation
-        struct spi_buf tx_buf = {.buf = wr_buf, .len = size + 1};
-        struct spi_buf_set tx = {.buffers = &tx_buf, .count = 1};
-        
-        return spi_write(spi_dev, &spi_cfg, &tx);
+    // Send all bytes
+    for (i = 0; i <= size; i++) {
+        softSpiTransferByte(wr_buf[i]);
     }
+    return 0;
 }
 
 /**
@@ -408,14 +331,10 @@ int AD7124::waitToPowerOn(uint32_t timeout) {
  */
 int AD7124::reset() {
     int32_t ret = 0;
-    uint8_t wr_buf[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     
-    struct spi_buf tx_buf = {.buf = wr_buf, .len = 8};
-    struct spi_buf_set tx = {.buffers = &tx_buf, .count = 1};
-    
-    ret = spi_write(spi_dev, &spi_cfg, &tx);
-    if (ret) {
-        return ret;
+    // Send 64 consecutive 1s (8 bytes of 0xFF) to reset
+    for (int i = 0; i < 8; i++) {
+        softSpiTransferByte(0xFF);
     }
     
     // CRC is disabled after reset
@@ -502,13 +421,12 @@ int AD7124::setConfig(uint8_t setup, ReferenceSource ref, PGA gain, bool bipolar
 /**
  * @brief Configure filter for a setup
  */
-int AD7124::setFilter(uint8_t setup, uint16_t fs, bool rej60) {
+int AD7124::setFilter(uint8_t setup, FilterType filter_type, uint16_t fs, bool rej60) {
     if (setup > 7) {
         return -EINVAL;
     }
     
-    // Use SINC4 filter by default
-    uint32_t value = AD7124_FILT_REG_FILTER(0) | // SINC4
+    uint32_t value = AD7124_FILT_REG_FILTER(static_cast<uint32_t>(filter_type)) |
                      AD7124_FILT_REG_FS(fs) |
                      (rej60 ? AD7124_FILT_REG_REJ60 : 0);
     
