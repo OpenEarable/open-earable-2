@@ -29,7 +29,6 @@ static struct sensor_data sensor_data;
 static struct sensor_config config;
 
 static bool notify_enabled = false;
-static bool temp_ntf_disable = false;
 static bool sensor_config_status_ntfy_enabled = false;
 
 void set_sensor_recording_name(const char *name);
@@ -63,19 +62,18 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 
 	case BT_MGMT_DISCONNECTED:
 		connection_complete = false;
+		notify_enabled = false;
+		k_msgq_purge(&gatt_queue);
 		break;
 	}
-}
-
-void temp_disable_notifies(bool disable) {
-	LOG_DBG("Disabling notifies");
-	temp_ntf_disable = disable;
 }
 
 static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
 	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
+
+	LOG_INF("Sensor data notifications %s", notify_enabled ? "enabled" : "disabled");
 
 	k_msgq_purge(&gatt_queue);
 }
@@ -217,7 +215,7 @@ static void notification_task(void) {
 			continue;
 		}
 
-		if (connection_complete && notify_enabled && !temp_ntf_disable) {
+		if (connection_complete && notify_enabled) {
 			const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) + sizeof(sensor_data.time) + sensor_data.size;
 
 			static struct bt_gatt_notify_params params;

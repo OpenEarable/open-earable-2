@@ -191,14 +191,14 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     rslt = bma5_set_acc_conf(&acc_cfg, dev);
     bma5_check_rslt("bma5_get_acc_conf", rslt);
 
-    /*LOG_INF("Accel configurations");
-    LOG_INF("ODR : %s\t", enum_to_string(acc_cfg.acc_odr));
-    LOG_INF("Bandwidth : %s\t", enum_to_string(BMA5_ACC_BWP_NORM_AVG4));
-    LOG_INF("Power mode : %s\t", enum_to_string(BMA5_POWER_MODE_HPM));
-    LOG_INF("Range : %s\t", enum_to_string(BMA5_ACC_RANGE_MAX_2G));
-    LOG_INF("IIR RO : %s\t", enum_to_string(BMA5_ACC_IIR_RO_DB_60));
-    LOG_INF("Noise mode : %s\t", enum_to_string(BMA5_NOISE_MODE_LOWER_POWER));
-    LOG_INF("Auto Int clear : %s\t", enum_to_string(BMA5_ACC_DRDY_INT_AUTO_CLEAR_DISABLED));*/
+    /*LOG_DBG("Accel configurations");
+    LOG_DBG("ODR : %s\t", enum_to_string(acc_cfg.acc_odr));
+    LOG_DBG("Bandwidth : %s\t", enum_to_string(BMA5_ACC_BWP_NORM_AVG4));
+    LOG_DBG("Power mode : %s\t", enum_to_string(BMA5_POWER_MODE_HPM));
+    LOG_DBG("Range : %s\t", enum_to_string(BMA5_ACC_RANGE_MAX_2G));
+    LOG_DBG("IIR RO : %s\t", enum_to_string(BMA5_ACC_IIR_RO_DB_60));
+    LOG_DBG("Noise mode : %s\t", enum_to_string(BMA5_NOISE_MODE_LOWER_POWER));
+    LOG_DBG("Auto Int clear : %s\t", enum_to_string(BMA5_ACC_DRDY_INT_AUTO_CLEAR_DISABLED));*/
 
     /* Enable accel */
     sensor_ctrl = BMA5_SENSOR_CTRL_ENABLE;
@@ -208,7 +208,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
 
     if (rslt == BMA5_OK)
     {
-        LOG_INF("Accel enabled");
+        LOG_DBG("Accel enabled");
     }
 
     rslt = bma5_get_acc_conf_0(&sensor_ctrl, dev);
@@ -227,10 +227,10 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     rslt = bma5_set_int_conf(&int_config, n_ints, dev);
     bma5_check_rslt("bma5_set_int_conf", rslt);
 
-    /*LOG_INF("\nInt Configurations");
-    LOG_INF("INT2 mode : %s\t", enum_to_string(BMA5_INT2_MODE_LATCHED));
-    LOG_INF("INT2 OD : %s\t", enum_to_string(BMA5_INT2_OD_PUSH_PULL));
-    LOG_INF("INT2 level : %s\t", enum_to_string(BMA5_INT2_LVL_ACTIVE_HIGH));*/
+    /*LOG_DBG("\nInt Configurations");
+    LOG_DBG("INT2 mode : %s\t", enum_to_string(BMA5_INT2_MODE_LATCHED));
+    LOG_DBG("INT2 OD : %s\t", enum_to_string(BMA5_INT2_OD_PUSH_PULL));
+    LOG_DBG("INT2 level : %s\t", enum_to_string(BMA5_INT2_LVL_ACTIVE_HIGH));*/
 
     return rslt;
 }
@@ -261,9 +261,7 @@ int BMA580::init(int odr, int fifo_watermark_level) {
     //struct bma5_fifo_conf fifo_conf;
 
     /* Assign context parameter selection */
-    enum bma5_context context;
-
-    context = BMA5_HEARABLE;
+    enum bma5_context context = BMA5_HEARABLE;
 
     _odr = odr;
 
@@ -276,7 +274,7 @@ int BMA580::init(int odr, int fifo_watermark_level) {
 
 	rslt = bma580_init(&dev);
     bma5_check_rslt("bma580_init", rslt);
-    LOG_INF("Chip ID :0x%X", dev.chip_id);
+    LOG_DBG("Chip ID :0x%X", dev.chip_id);
 
     /* Map generic interrupts to hardware interrupt pin of the sensor */
     rslt = bma580_get_int_map(&int_map, &dev);
