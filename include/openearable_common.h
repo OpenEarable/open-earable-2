@@ -10,7 +10,7 @@
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
 
-#define SENSOR_DATA_FIXED_LENGTH 36
+#define SENSOR_DATA_FIXED_LENGTH 38
 
 #define millis() k_cyc_to_ms_floor64(k_uptime_ticks())
 #define micros() k_cyc_to_us_floor64(k_uptime_ticks())
