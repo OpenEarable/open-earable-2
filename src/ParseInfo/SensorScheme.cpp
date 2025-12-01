@@ -13,13 +13,6 @@
 
 LOG_MODULE_REGISTER(parse_info_service, CONFIG_LOG_DEFAULT_LEVEL);
 
-static void enable_notifies_handler(struct k_work *work)
-{
-    temp_disable_notifies(false);
-}
-
-K_WORK_DELAYABLE_DEFINE(enable_notifies_work, enable_notifies_handler);
-
 static char* parseInfoScheme;
 static size_t parseInfoSchemeSize;
 
@@ -40,11 +33,7 @@ static ssize_t read_parse_info(struct bt_conn *conn,
                 void *buf,
                 uint16_t len,
                 uint16_t offset) {
-	temp_disable_notifies(true);
     ssize_t ret = bt_gatt_attr_read(conn, attr, buf, len, offset, parseInfoScheme, parseInfoSchemeSize);
-    
-    // re-enable notifications after a delay
-    k_work_schedule(&enable_notifies_work, K_MSEC(500));
 
     return ret;
 }
