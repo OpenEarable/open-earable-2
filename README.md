@@ -6,15 +6,16 @@
 
 ## Table of Contents
 
-1. [Setup](#setup)
-
-2. [Battery States](#battery-states)
-
-3. [Connection States](#connection-states)  
-
-4. [SD Card](#sd-card)
-   
-5. [Citing](#citing)
+- [OpenEarable 2 - Firmware](#openearable-2---firmware)
+  - [Table of Contents](#table-of-contents)
+  - [Setup](#setup)
+  - [Battery States](#battery-states)
+    - [Charging States](#charging-states)
+    - [Discharging States](#discharging-states)
+  - [Connection States](#connection-states)
+  - [SD Card](#sd-card)
+    - [File Parsing](#file-parsing)
+  - [Citing](#citing)
 
 
 ## Setup
@@ -51,15 +52,9 @@
 8. **Configure the Application Build**
    - If not already open, navigate to the nrfConnect extension tab in VSCode.
    - In the **APPLICATIONS** section of the nRF Connect extension tab:  
-<<<<<<< HEAD
-     - Select the `open-earable-2` application  
-     - Click **"+ Add build configuration"** to set up a new build
-     - Select the SDK version 3.0.1, toolchain version 3.0.1, and `openearable_v2/nrf5340/cpuapp` as board target
-=======
      - Select the `open-earable-2` application.  
      - Click **"+ Add build configuration"** to set up a new build.
      - Select the SDK version 3.0.1, toolchain version 3.0.1, and `open-earable-2/nrf5340/cpuapp` as board target.
->>>>>>> 56d72efc73b703a45a87936032c0b69fb77ac90d
      - To build **with FOTA** (firmware over-the-air update functionality):
        - Leave the `Base configuration files (Kconfig fragments)` dropdown empty.
        - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`.
