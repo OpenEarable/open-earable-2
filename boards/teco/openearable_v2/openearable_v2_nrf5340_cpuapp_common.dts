@@ -231,6 +231,7 @@
  &spi4 {
 	 compatible = "nordic,nrf-spim";
 	 status = "okay";
+	 max-frequency = <32000000>;
 	 cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>,<&gpio1 1 GPIO_ACTIVE_LOW>;
  
 	 pinctrl-0 = <&spi4_default>;

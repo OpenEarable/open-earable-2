@@ -6,15 +6,16 @@
 
 ## Table of Contents
 
-1. [Setup](#setup)
-
-2. [Battery States](#battery-states)
-
-3. [Connection States](#connection-states)  
-
-4. [SD Card](#sd-card)
-   
-5. [Citing](#citing)
+- [OpenEarable 2 - Firmware](#openearable-2---firmware)
+  - [Table of Contents](#table-of-contents)
+  - [Setup](#setup)
+  - [Battery States](#battery-states)
+    - [Charging States](#charging-states)
+    - [Discharging States](#discharging-states)
+  - [Connection States](#connection-states)
+  - [SD Card](#sd-card)
+    - [File Parsing](#file-parsing)
+  - [Citing](#citing)
 
 
 ## Setup

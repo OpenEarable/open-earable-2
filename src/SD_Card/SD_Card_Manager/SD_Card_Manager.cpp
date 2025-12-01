@@ -9,6 +9,7 @@
 #include <string.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/devicetree.h>
+#include <hal/nrf_spim.h>
 
 #include "openearable_common.h"
 
@@ -231,6 +232,29 @@ int SDCardManager::mount() {
 		}
 	}
 
+	// Set SPI bus frequency to 32MHz
+	nrf_spim_frequency_set(NRF_SPIM4, NRF_SPIM_FREQ_32M);
+		
+	// Log SPI bus frequency (configured max frequency from device tree)
+	uint32_t spi_max_freq = DT_PROP(DT_NODELABEL(spi4), max_frequency);
+	LOG_INF("SD card SPI bus frequency: %d Hz (max configured)", spi_max_freq);
+	
+	// Log actual SPI bus frequency
+	uint32_t actual_hz;
+	switch(nrf_spim_frequency_get(NRF_SPIM4)) {
+		case NRF_SPIM_FREQ_125K: actual_hz = 125000; break;
+		case NRF_SPIM_FREQ_250K: actual_hz = 250000; break;
+		case NRF_SPIM_FREQ_500K: actual_hz = 500000; break;
+		case NRF_SPIM_FREQ_1M:   actual_hz = 1000000; break;
+		case NRF_SPIM_FREQ_2M:   actual_hz = 2000000; break;
+		case NRF_SPIM_FREQ_4M:   actual_hz = 4000000; break;
+		case NRF_SPIM_FREQ_8M:   actual_hz = 8000000; break;
+		case NRF_SPIM_FREQ_16M:  actual_hz = 16000000; break;
+		case NRF_SPIM_FREQ_32M:  actual_hz = 32000000; break;
+		default: actual_hz = 0; break;
+	}
+	LOG_INF("Effective SPI frequency: %d Hz", actual_hz);
+	
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
@@ -653,7 +677,7 @@ int SDCardManager::rm(std::string path) {
 }
 
 int SDCardManager::sync() {
-	if (!this->mounted) {
+	if (!this->mounted || !this->tracked_file.is_open) {
 		return -ENODEV;
 	}
 
