@@ -32,6 +32,8 @@
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
 
+#include "time_sync.h"
+
 #include "../src/SD_Card/SDLogger/SDLogger.h"
 
 #include "uicr.h"
@@ -123,6 +125,8 @@ int main(void) {
 	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
 	));
 
+	ret = init_time_sync();
+	ERR_CHK(ret);
 
 	// error test
 	//long *a = nullptr;
