@@ -26,6 +26,7 @@
 
 #include <zephyr/logging/log.h>
 #include <sensor_service.h>
+#include "led_service.h"
 LOG_MODULE_DECLARE(sensor_manager);
 
 std::set<int> ble_sensors = {};
@@ -100,6 +101,7 @@ void init_sensor_manager() {
 	k_poll_signal_init(&sensor_manager_sig);
 
 	sdlogger.init();
+	senscheck();
 }
 
 void start_sensor_manager() {
@@ -186,6 +188,7 @@ static void config_work_handler(struct k_work *work) {
 	}
 
 	EdgeMlSensor * sensor = get_sensor((enum sensor_id) config.sensorId);
+	LOG_INF("The sensor ID u pressed it: %u",config.sensorId);
 
 	if (sensor == NULL) {
 		LOG_ERR("Sensor not found for ID %i", config.sensorId);
@@ -211,6 +214,7 @@ static void config_work_handler(struct k_work *work) {
 			sensor->start(config.sampleRateIndex);
 			if (sensor->is_running()) {
 				active_sensors++;
+				LOG_INF("The active sensors are: %d",active_sensors);
 			}
 		}
 	}
@@ -257,4 +261,43 @@ void config_sensor(struct sensor_config * config) {
 	//k_work_queue_drain(&sensor_work_q, true);
 	k_work_submit(&config_work);
 	//k_work_queue_unplug(&sensor_work_q);
+}
+
+void senscheck()
+{
+	int Sens[5]={0,4,6,1,7};//change the array use. use the predefined arrays
+	float sr[5]={50.0,84.0,8.0,6.25,50.0};//use the predefined arrays.
+	bool senscheck[5]={false, false, false, false, false};
+
+	for (int i=0;i<5;i++)
+	{
+		EdgeMlSensor * sensor = get_sensor((enum sensor_id) Sens[i]);
+		if (sensor->init(&sensor_queue)) {
+			if (active_sensors == 0) start_sensor_manager();
+			sensor->start(sr[i]);
+			if (sensor->is_running()) {
+				senscheck[i]=true;
+				LOG_INF("The sensor with ID %u is working",(enum sensor_id) Sens[i]);
+			}
+			sensor->stop();
+		}
+	}
+for (int i=0;i<5;i++)
+	{
+		if(false==senscheck[i])
+		{
+		LOG_INF("The sensor with ID %u is not working",(enum sensor_id) Sens[i]);
+		led_controller.blink(LED_RED, 100, 200);
+		k_sleep(K_SECONDS(1));
+		state_indicator.set_pairing_state(SET_PAIRING);
+		break;
+		}
+		else
+		{
+		led_controller.blink(LED_GREEN, 100, 200);
+		k_sleep(K_SECONDS(1));
+		state_indicator.set_pairing_state(SET_PAIRING);
+		}
+	}
+	stop_sensor_manager();
 }
