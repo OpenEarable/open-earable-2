@@ -242,7 +242,7 @@ int ADAU1860::begin() {
 
         setup_DAC();
 
-        LOG_DBG("DAC booted successfully");
+        LOG_INF("DSP booted successfully");
 
         return 0;
 }

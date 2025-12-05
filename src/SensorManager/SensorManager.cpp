@@ -265,11 +265,11 @@ void config_sensor(struct sensor_config * config) {
 
 void senscheck()
 {
-	int Sens[5]={0,4,6,1,7};//change the array use. use the predefined arrays
-	float sr[5]={50.0,84.0,8.0,6.25,50.0};//use the predefined arrays.
-	bool senscheck[5]={false, false, false, false, false};
+	int Sens[1]={0}; //,4,6,1,7};//change the array use. use the predefined arrays
+	float sr[1]={50.0}; //,84.0,8.0,6.25,50.0};//use the predefined arrays.
+	bool senscheck[1]={false};
 
-	for (int i=0;i<5;i++)
+	for (int i=0;i<1;i++)
 	{
 		EdgeMlSensor * sensor = get_sensor((enum sensor_id) Sens[i]);
 		if (sensor->init(&sensor_queue)) {
@@ -282,11 +282,11 @@ void senscheck()
 			sensor->stop();
 		}
 	}
-for (int i=0;i<5;i++)
+for (int i=0;i<1;i++)
 	{
 		if(false==senscheck[i])
 		{
-		LOG_INF("The sensor with ID %u is not working",(enum sensor_id) Sens[i]);
+		LOG_WRN("The sensor with ID %u is not working",(enum sensor_id) Sens[i]);
 		led_controller.blink(LED_RED, 100, 200);
 		k_sleep(K_SECONDS(1));
 		state_indicator.set_pairing_state(SET_PAIRING);
@@ -294,6 +294,7 @@ for (int i=0;i<5;i++)
 		}
 		else
 		{
+		LOG_INF("The sensor with ID %u is working",(enum sensor_id) Sens[i]);
 		led_controller.blink(LED_GREEN, 100, 200);
 		k_sleep(K_SECONDS(1));
 		state_indicator.set_pairing_state(SET_PAIRING);
