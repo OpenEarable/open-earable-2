@@ -55,6 +55,10 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 /* STEP 5.4 - Include header for USB */
 #include <zephyr/usb/usb_device.h>
 
+__attribute__((weak)) uint64_t oe_micros(void) {
+	return k_cyc_to_us_floor64(k_uptime_ticks());
+}
+
 int main(void) {
 	int ret;
 
