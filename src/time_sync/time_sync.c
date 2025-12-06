@@ -6,19 +6,21 @@
 
 #include <zephyr/kernel.h>
 
+#include "openearable_common.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(time_sync, LOG_LEVEL_DBG);
 
 #define BT_UUID_TIME_SYNC_SERVICE_VAL \
     BT_UUID_128_ENCODE(0x2e04cbf7, 0x939d, 0x4be5, 0x823e, 0x271838b75259)
-#define BT_UUID_TIME_SYNC_MAP_CHARAC_VAL \
+#define BT_UUID_TIME_SYNC_OFFSET_CHARAC_VAL \
     BT_UUID_128_ENCODE(0x2e04cbf8, 0x939d, 0x4be5, 0x823e, 0x271838b75259)
 #define BT_UUID_TIME_SYNC_RTT_CHARAC_VAL \
     BT_UUID_128_ENCODE(0x2e04cbf9, 0x939d, 0x4be5, 0x823e, 0x271838b75259)
 
-#define BT_UUID_TIME_SYNC_SERVICE       BT_UUID_DECLARE_128(BT_UUID_TIME_SYNC_SERVICE_VAL)
-#define BT_UUID_TIME_SYNC_MAP_CHARAC    BT_UUID_DECLARE_128(BT_UUID_TIME_SYNC_MAP_CHARAC_VAL)
-#define BT_UUID_TIME_SYNC_RTT_CHARAC    BT_UUID_DECLARE_128(BT_UUID_TIME_SYNC_RTT_CHARAC_VAL)
+#define BT_UUID_TIME_SYNC_SERVICE           BT_UUID_DECLARE_128(BT_UUID_TIME_SYNC_SERVICE_VAL)
+#define BT_UUID_TIME_SYNC_OFFSET_CHARAC     BT_UUID_DECLARE_128(BT_UUID_TIME_SYNC_OFFSET_CHARAC_VAL)
+#define BT_UUID_TIME_SYNC_RTT_CHARAC        BT_UUID_DECLARE_128(BT_UUID_TIME_SYNC_RTT_CHARAC_VAL)
 
 enum time_sync_op {
     TIME_SYNC_OP_REQUEST = 0,
@@ -34,15 +36,14 @@ struct __packed time_sync_packet {
     uint64_t t3_dev_tx;     // device transmit time
 };
 
-struct __packed time_sync_mapping {
-    uint64_t dev_time_us;
-    uint64_t unix_time_us;
-};
-
-struct time_sync_mapping time_mapping = {0, 0};
 struct time_sync_packet time_sync_packet = {};
+int64_t time_offset_us = 0;
 
 bool notify_rtt_enabled = false;
+
+inline uint64_t oe_micros() {
+    return get_current_time_us();
+}
 
 static ssize_t write_rtt_request(
     struct bt_conn *conn,
@@ -52,7 +53,7 @@ static ssize_t write_rtt_request(
     uint16_t offset,
     uint8_t flags
 ) {
-    uint64_t rx_time = get_time_since_boot_us();
+    uint64_t rx_time = get_current_time_us();
 
     if (offset != 0) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
@@ -86,7 +87,7 @@ static ssize_t write_rtt_request(
 
     time_sync_packet.op = TIME_SYNC_OP_RESPONSE;
     time_sync_packet.t2_dev_rx = rx_time;
-    time_sync_packet.t3_dev_tx = get_time_since_boot_us();
+    time_sync_packet.t3_dev_tx = get_current_time_us();
 
     if (notify_rtt_enabled) {
         bt_gatt_notify(conn, attr, &time_sync_packet, sizeof(struct time_sync_packet));
@@ -95,25 +96,19 @@ static ssize_t write_rtt_request(
     return len;
 }
 
-static ssize_t write_time_mapping(
+static ssize_t write_time_offset(
     struct bt_conn *conn,
     const struct bt_gatt_attr *attr,
     const void *buf,
     uint16_t len,
     uint16_t offset,uint8_t flags
 ) {
-    if (len != sizeof(struct time_sync_mapping)) {
+    if (len != sizeof(int64_t)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
-    memcpy(&time_mapping, buf, sizeof(struct time_sync_mapping));
-
-    LOG_DBG("Updated time mapping: dev_time_us: %llu, unix_time_us: %llu",
-        time_mapping.dev_time_us,
-        time_mapping.unix_time_us
-    );
-
-    LOG_DBG("Current device time: %llu us", get_current_time_us());
+    time_offset_us += *(int64_t *)buf;
+    LOG_DBG("Received time offset update: %lld us, new time offset: %lld us", *(int64_t *)buf, time_offset_us);
 
     return len;
 }
@@ -128,25 +123,12 @@ int init_time_sync(void) {
 	return 0;
 }
 
-uint64_t get_current_time_us() {
-    uint64_t dev_time = get_time_since_boot_us();
-    uint64_t unix_time = get_unix_time_at_dev_time(dev_time);
-    return unix_time;
+inline uint64_t get_current_time_us() {
+    return get_time_since_boot_us() + time_offset_us;
 }
 
-uint64_t get_time_since_boot_us() {
-    int64_t ticks = k_uptime_ticks();
-    return k_ticks_to_us_floor64(ticks);
-}
-
-uint64_t get_unix_time_at_dev_time(uint64_t time_since_boot) {
-    if (time_mapping.dev_time_us == 0) {
-        LOG_ERR("Time mapping not initialized");
-        return UINT64_MAX;
-    }
-
-    int64_t time_offset = (int64_t)time_mapping.unix_time_us - (int64_t)time_mapping.dev_time_us;
-    return time_since_boot + time_offset;
+inline uint64_t get_time_since_boot_us() {
+    return k_ticks_to_us_floor64(k_uptime_ticks());
 }
 
 void rtt_cfg_changed(const struct bt_gatt_attr *attr,
@@ -158,10 +140,10 @@ void rtt_cfg_changed(const struct bt_gatt_attr *attr,
 
 BT_GATT_SERVICE_DEFINE(time_sync_service,
     BT_GATT_PRIMARY_SERVICE(BT_UUID_TIME_SYNC_SERVICE),
-    BT_GATT_CHARACTERISTIC(BT_UUID_TIME_SYNC_MAP_CHARAC,
+    BT_GATT_CHARACTERISTIC(BT_UUID_TIME_SYNC_OFFSET_CHARAC,
                 BT_GATT_CHRC_WRITE,
                 BT_GATT_PERM_WRITE,
-                NULL, write_time_mapping, &time_mapping),
+                NULL, write_time_offset, &time_offset_us),
     BT_GATT_CHARACTERISTIC(BT_UUID_TIME_SYNC_RTT_CHARAC,
                 BT_GATT_CHRC_WRITE | BT_GATT_CHRC_NOTIFY,
                 BT_GATT_PERM_WRITE,
