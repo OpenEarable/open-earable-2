@@ -15,7 +15,13 @@
 
 #define millis() k_cyc_to_ms_floor64(k_uptime_ticks())
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 uint64_t oe_micros();
+#ifdef __cplusplus
+}
+#endif
 #ifndef micros
 #define micros() oe_micros()
 #endif
