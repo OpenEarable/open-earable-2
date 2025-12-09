@@ -62,16 +62,45 @@
         - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`.
         - Do not set any of the FOTA flags described above.
     
-9. **J-Link Setup**
-     - Wire your J-Link to the debugging breakout PCB as shown below.
-     ![image](https://github.com/user-attachments/assets/2eeec41e-6be1-4a4f-b986-7d9a07b0f8e5)
-     - If you do not own a J-Link yet, here are a few options (do **NOT** use J-Link clones, they will not work and are illegal!):
-          - [J-Link EDU Mini](https://mou.sr/3LrwiVe) (available to educational institutions, private persons, and students) with [JTAG adapter](https://www.adafruit.com/product/2094) and [cable](https://www.adafruit.com/product/1675).
-          - Full-scale J-Link for commercial use (e.g., [J-Link BASE Compact](https://mou.sr/4oQkAls)).
-          - ⚠️ The wiring show in the figure above is for the full-scale J-Link pinout. If you use the [JTAG adapter](https://www.adafruit.com/product/2094) the wiring may be different so make sure it is correct in your case! _(to be confirmed, picture coming soon)_.
+9. **Debugger & Flashing Setup**
+
+    To flash and debug the firmware, we support the following hardware options:
+
+    - **Standalone J-Link (do **NOT** use J-Link clones, they will not work and are illegal!):**
+        * Full-scale J-Link (e.g., J-Link BASE Compact) for commercial use. 
+        * J-Link EDU Mini (available to educational institutions and students).
+    - **nRF Development Kit:**
+        * An nRF5340-DK (acting as an external debug probe).
+
+    Choose one of the methods below to connect your debugger.
+
+    **Option A: Using a Standalone J-Link (BASE or EDU Mini)**
+
+    Wire your J-Link to the debugging breakout PCB as shown in the diagram below.
+
+    **Important Note:** The figure below shows the full-scale 20-pin J-Link pinout.
+    * If you are using a **J-Link BASE**, follow the pin numbers exactly.
+    * If you are using a **J-Link EDU Mini** (which has a smaller 10-pin connector), use a  JTAG/SWD cable adapter board.
+
+    Wire your J-Link to the debugging breakout PCB as shown below.
+    ![image](https://github.com/user-attachments/assets/2eeec41e-6be1-4a4f-b986-7d9a07b0f8e5)
+    *(Figure: J-Link to Breakout PCB wiring diagram)*
+
+    **Option B: Using an nRF5340-DK**
+
+    You can utilize the on-board Segger J-Link debugger on an nRF5340-DK to flash the external earbud target.
 
 
-10. **Build and Flash**
+    1.  Ensure the nRF5340-DK is powered via the Openearable. For that, you need to turn the SW10 switch on, and make sure nRF power source is on VDD. Connect the pins of the external supply of the nRF5340-dk to the Openearable according to the diagram below.
+    
+    2.  Connect the DK's "Debug Out" to the Openearable breakout PCB using a JTAG/SWD cable adapter board.
+    
+    Follow the wiring diagram below:
+    ![Note 1(1)_page-0001](https://github.com/user-attachments/assets/07b48fb0-7084-43c3-8afc-ce5a57e14f01)
+
+
+
+11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
    - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
