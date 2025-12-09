@@ -96,7 +96,7 @@
     2.  Connect the DK's "Debug Out" to the Openearable breakout PCB using a JTAG/SWD cable adapter board.
     
     Follow the wiring diagram below:
-    ![Note 1(1)_page-0001](https://github.com/user-attachments/assets/07b48fb0-7084-43c3-8afc-ce5a57e14f01)
+    ![Note 1(2)_page-0001](https://github.com/user-attachments/assets/5208fba3-3c97-4f19-98e0-57791419589a)
 
 
 
