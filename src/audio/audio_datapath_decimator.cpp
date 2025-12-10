@@ -13,6 +13,7 @@ LOG_MODULE_DECLARE(audio_datapath);
 /* CascadedDecimator instance for direct C++ usage */
 static CascadedDecimator* g_audio_decimator = nullptr;
 
+extern "C" {
 /**
  * @brief Reset the audio decimator filter state
  */
@@ -21,34 +22,6 @@ void audio_datapath_decimator_reset(void) {
         g_audio_decimator->reset();
         LOG_DBG("CascadedDecimator state reset");
     }
-}
-
-/**
- * @brief Change decimation factor dynamically
- * @param new_factor New total decimation factor (4, 6, 8, or 12)
- * @return 0 on success, negative on error
- */
-int audio_datapath_decimator_set_factor(uint8_t new_factor) {
-    if (g_audio_decimator) {
-        delete g_audio_decimator;
-    }
-    
-    g_audio_decimator = new CascadedDecimator(new_factor);
-    if (!g_audio_decimator) {
-        LOG_ERR("Failed to create new CascadedDecimator with factor %d", new_factor);
-        return -ENOMEM;
-    }
-    
-    int ret = g_audio_decimator->init();
-    if (ret != 0) {
-        LOG_ERR("Failed to initialize new CascadedDecimator: %d", ret);
-        delete g_audio_decimator;
-        g_audio_decimator = nullptr;
-        return ret;
-    }
-    
-    LOG_INF("CascadedDecimator changed to factor %d", new_factor);
-    return 0;
 }
 
 /**
@@ -84,7 +57,7 @@ int audio_datapath_decimator_init(uint8_t factor) {
         return ret;
     }
     
-    LOG_INF("CascadedDecimator (%dx) initialized successfully", factor);
+    LOG_DBG("CascadedDecimator (%dx) initialized successfully", factor);
     return 0;
 }
 
@@ -115,46 +88,5 @@ void audio_datapath_decimator_cleanup(void) {
     }
 }
 
+};
 #endif
-
-extern "C" {
-    /**
-     * @brief C wrapper for decimator initialization
-     */
-    int audio_decimator_init_wrapper(uint8_t factor) {
-#ifdef __cplusplus
-        return audio_datapath_decimator_init(factor);
-#else
-        return -ENOTSUP;
-#endif
-    }
-    
-    /**
-     * @brief C wrapper for decimator processing
-     */
-    int audio_decimator_process_wrapper(const int16_t* input, int16_t* output, uint32_t num_frames) {
-#ifdef __cplusplus
-        return audio_datapath_decimator_process(input, output, num_frames);
-#else
-        return -ENOTSUP;
-#endif
-    }
-    
-    /**
-     * @brief C wrapper for decimator cleanup
-     */
-    void audio_decimator_cleanup_wrapper(void) {
-#ifdef __cplusplus
-        audio_datapath_decimator_cleanup();
-#endif
-    }
-    
-    /**
-     * @brief C wrapper for decimator reset
-     */
-    void audio_decimator_reset_wrapper(void) {
-#ifdef __cplusplus
-        audio_datapath_decimator_reset();
-#endif
-    }
-}

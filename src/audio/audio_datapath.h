@@ -106,42 +106,29 @@ int audio_datapath_release();
 /**
  * @brief C wrapper for decimator initialization
  */
-int audio_decimator_init_wrapper(uint8_t factor);
+int audio_datapath_decimator_init(uint8_t factor);
 
 /**
  * @brief C wrapper for decimator processing
  */
-int audio_decimator_process_wrapper(const int16_t* input, int16_t* output, uint32_t num_frames);
+int audio_datapath_decimator_process(const int16_t* input, int16_t* output, uint32_t num_frames);
 
 /**
  * @brief C wrapper for decimator cleanup
  */
-void audio_decimator_cleanup_wrapper(void);
+void audio_datapath_decimator_cleanup(void);
 
 /**
  * @brief C wrapper for decimator reset
  */
-void audio_decimator_reset_wrapper(void);
-
-#ifdef __cplusplus
-/**
- * @brief Reset the audio decimator filter state
- */
 void audio_datapath_decimator_reset(void);
-
-/**
- * @brief Change decimation factor dynamically
- * @param new_factor New total decimation factor (4, 6, 8, or 12)
- * @return 0 on success, negative on error
- */
-int audio_datapath_decimator_set_factor(uint8_t new_factor);
 
 /**
  * @brief Get current decimation factor
  * @return Current total decimation factor, or 0 if not initialized
  */
 uint8_t audio_datapath_decimator_get_factor(void);
-#endif
+
 
 #ifdef __cplusplus
 }
