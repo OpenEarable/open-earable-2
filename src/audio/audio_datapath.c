@@ -236,10 +236,16 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				audio_msg.data.id = ID_MICRO;
 				audio_msg.data.time = time_stamp;
 
-				/* Decimate audio data from 192kHz to 48kHz (factor 4) */
+				/* Decimate audio data from 192kHz to 48kHz (factor 4) using CascadedDecimator */
 				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
 				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
-				int decimated_frames = decimation_filter_process(audio_block, decimated_audio, num_frames);
+				
+				int decimated_frames = audio_decimator_process_wrapper(audio_block, decimated_audio, num_frames);
+				/*if (decimated_frames < 0) {
+					/* Fallback to C implementation if wrapper fails */
+					//decimated_frames = decimation_filter_process(audio_block, decimated_audio, num_frames);
+				//}*/
+
 				
 				if (decimated_frames > 0) {
 					uint32_t decimated_size = decimated_frames * 2 * sizeof(int16_t);
@@ -294,9 +300,14 @@ void start_data_thread(void)
 {
 	if (data_thread_id == NULL) {
 		/* Initialize decimation filter for 192kHz -> 48kHz (factor 4) */
-		int ret = decimation_filter_init(4);
-		if (ret) {
-			LOG_ERR("Failed to initialize decimation filter: %d", ret);
+		int ret = audio_decimator_init_wrapper(4);
+		if (ret != 0) {
+			LOG_ERR("Failed to initialize CascadedDecimator via wrapper: %d", ret);
+			/* Fallback to C implementation */
+			/*ret = decimation_filter_init(4);
+			if (ret != 0) {
+				LOG_ERR("Fallback decimation filter init also failed: %d", ret);
+			}*/
 		}
 		
 		data_thread_id = k_thread_create(&data_thread_data, data_thread_stack, CONFIG_ENCODER_STACK_SIZE,
@@ -1215,6 +1226,9 @@ int audio_datapath_stop(void)
 		pres_comp_state_set(PRES_STATE_INIT);
 
 		data_fifo_empty(ctrl_blk.in.fifo);
+
+		/* Cleanup CascadedDecimator on stop */
+		audio_decimator_cleanup_wrapper();
 
 		return 0;
 	} else {
