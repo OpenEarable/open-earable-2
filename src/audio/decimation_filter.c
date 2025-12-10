@@ -12,20 +12,28 @@ LOG_MODULE_REGISTER(decimation_filter, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 #define MAX_FRAMES 512
 #define NUM_STAGES 2
 
-/* Anti-aliasing filter coefficients (Q1.15 format, 5 per stage: b0,0,b1,b2,-a1,-a2) */
-static const q15_t coeff_dec4[NUM_STAGES * 5] = {
+static const q15_t coeff_dec4[NUM_STAGES * 6] = {
 	/* Stage 1: Butterworth LP, Fc=19.2kHz @ 192kHz */
-	16, 0, 32, 16, 32016, -31357,
+	167, 0, 335, 167, 14015, -3436,
 	/* Stage 2 */
-	32768, 0, 16384, 32768, 32015, -31311
+	16384, 0, 32767, 16384, 18236, -9405
 };
 
-static const q15_t coeff_dec2[NUM_STAGES * 5] = {
-	/* Stage 1: Butterworth LP, Fc=0.4*Fs @ 2x */
-	256, 0, 512, 256, 29133, -26513,
+static const q15_t coeff_dec3[NUM_STAGES * 6] = {
+	/* Stage 1: Butterworth LP, Fc=19.2kHz @ 192kHz */
+	427, 0, 855, 427, 9102, -1819,
 	/* Stage 2 */
-	32768, 0, 16384, 32768, 29129, -26469
+	16384, 0, 32767, 16384, 12306, -8227
 };
+
+static const q15_t coeff_dec2[NUM_STAGES * 6] = {
+	/* Stage 1: Butterworth LP, Fc=19.2kHz @ 192kHz */
+	1540, 0, 3080, 1540, 0, -648,
+	/* Stage 2 */
+	16384, 0, 32767, 16384, 0, -7315
+};
+
+const int post_shift = 1;
 
 static struct {
 	bool init;
@@ -44,7 +52,7 @@ int decimation_filter_init(uint8_t decimation_factor)
 	ctx.factor = decimation_factor;
 	
 	const q15_t *coeffs = (decimation_factor == 4) ? coeff_dec4 : coeff_dec2;
-	ctx.postshift = 2; /* Shift for Q1.15 */
+	ctx.postshift = post_shift; /* Shift for Q1.15 */
 	
 	arm_biquad_cascade_df1_init_q15(&ctx.biquad, NUM_STAGES, coeffs, ctx.state, ctx.postshift);
 	memset(ctx.state, 0, sizeof(ctx.state));
