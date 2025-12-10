@@ -70,7 +70,7 @@
       - Full-scale J-Link for commercial use (e.g., [J-Link BASE Compact](https://mou.sr/4oQkAls)).
       - ⚠️ The wiring show in the figure above is for the full-scale J-Link pinout. If you use the [JTAG adapter](https://www.adafruit.com/product/2094) the wiring may be different so make sure it is correct in your case!.
 
-10. **Build and Flash**
+11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
    - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
@@ -78,7 +78,7 @@
    # --right for the right ear device, or no flag to retain left/right bonding, --standalone for no pair   
    # --hw version is optional and can only be used with --left or --right
    ./tools/flash/flash_fota.sh --snr 123456789 --left --hw 2.0.1    
-     ```
+   ```
 
    - or without FOTA
    ```bash
