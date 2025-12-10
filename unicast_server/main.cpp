@@ -32,6 +32,8 @@
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
 
+#include "time_sync.h"
+
 #include "../src/SD_Card/SDLogger/SDLogger.h"
 
 #include "uicr.h"
@@ -52,6 +54,7 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
 /* STEP 5.4 - Include header for USB */
 #include <zephyr/usb/usb_device.h>
+
 
 int main(void) {
 	int ret;
@@ -123,6 +126,8 @@ int main(void) {
 	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
 	));
 
+	ret = init_time_sync();
+	ERR_CHK(ret);
 
 	// error test
 	//long *a = nullptr;

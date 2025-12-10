@@ -12,8 +12,19 @@
 
 #define SENSOR_DATA_FIXED_LENGTH 38
 
+
 #define millis() k_cyc_to_ms_floor64(k_uptime_ticks())
-#define micros() k_cyc_to_us_floor64(k_uptime_ticks())
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+uint64_t oe_micros();
+#ifdef __cplusplus
+}
+#endif
+#ifndef micros
+#define micros() oe_micros()
+#endif
 
 #define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
