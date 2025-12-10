@@ -2,7 +2,8 @@
 
 [OpenEarable](openearable.com) is the world's first fully open-source AI platform for ear-based sensing applications with true wireless audio. Packed with an unprecedented array of high-precision sensors, OpenEarable redefines what's possible in wearable tech. Designed for both development and research applications, OpenEarable is modular, reconfigurable, and built for the future.
 <br/><br/><br/>
-![image](https://github.com/user-attachments/assets/8cb55571-c6bc-4f51-b2ae-628f7be3661c)
+<img width="1323" height="568" alt="image" src="https://github.com/user-attachments/assets/ab4e2b0e-9645-4428-975f-466c7ef2f13b" />
+
 
 ## Table of Contents
 
