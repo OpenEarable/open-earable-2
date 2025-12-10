@@ -113,6 +113,17 @@ CascadedDecimator::~CascadedDecimator() {
 
 void CascadedDecimator::setupStages() {
     switch (total_factor_) {
+        case 1: // No decimation
+            num_stages_ = 0;
+            break;
+        case 2: // 2x
+            num_stages_ = 1;
+            stages_[0] = new Decimator(2);
+            break;
+        case 3: // 3x
+            num_stages_ = 1;
+            stages_[0] = new Decimator(3);
+            break;
         case 4: // 2x -> 2x
             num_stages_ = 2;
             stages_[0] = new Decimator(2);
@@ -205,7 +216,11 @@ int CascadedDecimator::init() {
 }
 
 int CascadedDecimator::process(const int16_t* input, int16_t* output, uint32_t num_frames) {
-    if (num_stages_ == 0 || !input || !output || num_frames == 0) {
+    if (num_stages_ == 0) {
+        return num_frames;
+    }
+    
+    if (!input || !output || num_frames == 0) {
         return -EINVAL;
     }
     

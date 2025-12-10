@@ -62,7 +62,7 @@ void Microphone::start(int sample_rate_idx) {
 
 	record_to_sd(true);
 
-	if (sample_rate_idx > 0) audio_datapath_decimator_init(sample_rates.reg_vals[sample_rate_idx]);
+	audio_datapath_decimator_init(sample_rates.reg_vals[sample_rate_idx]);
 
 	audio_datapath_aquire(&fifo_rx);
 
