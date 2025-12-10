@@ -71,55 +71,25 @@ e# OpenEarable 2 - Firmware
       - ⚠️ The wiring show in the figure above is for the full-scale J-Link pinout. If you use the [JTAG adapter](https://www.adafruit.com/product/2094) the wiring may be different so make sure it is correct in your case!.
 
 10. **Build and Flash**
-     - Click on `Generate and Build` and wait for the application to build (this will take some time).
-     - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
-     - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-11. **Build and Flash**
-=======
-10. **Build and Flash**
->>>>>>> main
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
    - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
      ```bash
-<<<<<<< HEAD
      # --right for the right ear device, or no flag to retain left/right bonding, --standalone for no pair
-     # --hw version is optional
-=======
-     # --right for the right ear device, or no flag to retain left/right bonding
      # --hw version is optional and can only be used with --left or --right
->>>>>>> main
      ./tools/flash/flash_fota.sh --snr 123456789 --left --hw 2.0.1    
    
      ```
+
    - or without FOTA
      ```bash
-     # --right for the right ear device, or no flag to retain left/right bonding
-<<<<<<< HEAD
-      # --hw version is optional
-     ./tools/flash/flash.sh --snr 123456789 --left --hw 2.0.1      
+     # --right for the right ear device, or no flag to retain left/right bonding, --standalone for no pair
+     # --hw version is optional and can only be used with --left or --right
+
+     ./tools/flash/flash.sh --snr 123456789 --left    
      ```
-=======
-      ```bash
-      # --right for the right ear device, or no flag to retain left/right bonding
-      # --standalone for no pair
-
-      ./tools/flash/flash_fota.sh --snr 123456789 --left 
-      ```
-
-     - or without FOTA
-
-      ```bash
-      # --right for the right ear device, or no flag to retain left/right bonding
-      # --standalone for no pair
-
-      ./tools/flash/flash.sh --snr 123456789 --left    
-      ```
-     - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`. To execute it, open PowerShell with administrative privileges.
->>>>>>> 2cc8b14 (Update README with debug output instructions)
+     
+   - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`. To execute it, open PowerShell with administrative privileges.
 
 11. **Recover Board**
      - If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your J-Link debugger.
