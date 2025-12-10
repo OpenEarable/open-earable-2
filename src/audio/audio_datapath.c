@@ -241,21 +241,25 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
 				
 				int decimated_frames = audio_datapath_decimator_process(audio_block, decimated_audio, num_frames);
+
+				uint32_t decimated_size = decimated_frames * 2 * sizeof(int16_t);
+				audio_msg.data.size = decimated_size;
+
+				uint32_t data_size[2] = {
+					sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
+					decimated_size
+				};
+
+				void *data_ptrs[2] = {
+					&audio_msg.data,
+					decimated_audio
+				};
+
+				if (decimated_frames == num_frames) {
+					data_ptrs[1] = audio_block;
+				}
 	
 				if (decimated_frames > 0) {
-					uint32_t decimated_size = decimated_frames * 2 * sizeof(int16_t);
-					audio_msg.data.size = decimated_size;
-
-					uint32_t data_size[2] = {
-						sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
-						decimated_size
-					};
-
-					const void *data_ptrs[2] = {
-						&audio_msg.data,
-						decimated_audio
-					};
-
 					sdlogger_write_data(&data_ptrs, data_size, 2);
 				}
 			}
