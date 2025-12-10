@@ -24,13 +24,13 @@ extern "C" {
 int decimation_filter_init(uint8_t decimation_factor);
 
 /**
- * @brief Process stereo Q15 audio with decimation
- * @param input Input buffer (interleaved stereo Q15)
- * @param output Output buffer (interleaved stereo Q15)
+ * @brief Process stereo int16 audio with decimation
+ * @param input Input buffer (interleaved stereo int16)
+ * @param output Output buffer (interleaved stereo int16)
  * @param num_frames Number of input stereo frames
  * @return Number of output frames, or negative on error
  */
-int decimation_filter_process(const q15_t *input, q15_t *output, uint32_t num_frames);
+int decimation_filter_process(const int16_t *input, int16_t *output, uint32_t num_frames);
 
 /**
  * @brief Reset filter state
