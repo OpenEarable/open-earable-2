@@ -196,7 +196,7 @@ extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
 /* Decimation buffer for SD card logging */
-static q15_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(q15_t) / 4]; /* /4 for decimation factor 4 */
+static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t) / 4]; /* /4 for decimation factor 4 */
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
@@ -237,12 +237,12 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				audio_msg.data.time = time_stamp;
 
 				/* Decimate audio data from 192kHz to 48kHz (factor 4) */
-				q15_t *audio_block = (q15_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
-				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(q15_t) / 2; /* stereo frames */
+				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
+				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
 				int decimated_frames = decimation_filter_process(audio_block, decimated_audio, num_frames);
 				
 				if (decimated_frames > 0) {
-					uint32_t decimated_size = decimated_frames * 2 * sizeof(q15_t);
+					uint32_t decimated_size = decimated_frames * 2 * sizeof(int16_t);
 					audio_msg.data.size = decimated_size;
 
 					uint32_t data_size[2] = {
