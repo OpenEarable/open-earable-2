@@ -28,6 +28,8 @@
 
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
+#include "decimation_filter.h"
+#include "arm_math.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -193,6 +195,9 @@ int _count = 0;
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
+/* Decimation buffer for SD card logging */
+static q15_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(q15_t) / 4]; /* /4 for decimation factor 4 */
+
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
 {
@@ -229,29 +234,29 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				audio_msg.stream = false;
 	
 				audio_msg.data.id = ID_MICRO;
-				audio_msg.data.size = BLOCK_SIZE_BYTES; // SENQUEUE_FRAME_SIZE;
 				audio_msg.data.time = time_stamp;
 
-				/*k_mutex_lock(&write_mutex, K_FOREVER);
+				/* Decimate audio data from 192kHz to 48kHz (factor 4) */
+				q15_t *audio_block = (q15_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
+				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(q15_t) / 2; /* stereo frames */
+				int decimated_frames = decimation_filter_process(audio_block, decimated_audio, num_frames);
+				
+				if (decimated_frames > 0) {
+					uint32_t decimated_size = decimated_frames * 2 * sizeof(q15_t);
+					audio_msg.data.size = decimated_size;
 
-				uint32_t data_size = sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time); // + audio_msg.data.size;
+					uint32_t data_size[2] = {
+						sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
+						decimated_size
+					};
 
-				uint32_t bytes_written = ring_buf_put(&ring_buffer, (uint8_t *) &audio_msg.data, data_size);
-				bytes_written += ring_buf_put(&ring_buffer, audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
+					const void *data_ptrs[2] = {
+						&audio_msg.data,
+						decimated_audio
+					};
 
-				k_mutex_unlock(&write_mutex);*/
-
-				uint32_t data_size[2] = {sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time), BLOCK_SIZE_BYTES};
-
-				const void *data_ptrs[2] = {
-					&audio_msg.data,
-					audio_item.data + (i * BLOCK_SIZE_BYTES)
-				};
-
-				sdlogger_write_data(&data_ptrs, data_size, 2);
-
-				//sdlogger_write_data(&audio_msg.data, data_size);
-				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
+					sdlogger_write_data(&data_ptrs, data_size, 2);
+				}
 			}
 
 			k_yield();
@@ -288,6 +293,12 @@ void record_to_sd(bool active) {
 void start_data_thread(void)
 {
 	if (data_thread_id == NULL) {
+		/* Initialize decimation filter for 192kHz -> 48kHz (factor 4) */
+		int ret = decimation_filter_init(4);
+		if (ret) {
+			LOG_ERR("Failed to initialize decimation filter: %d", ret);
+		}
+		
 		data_thread_id = k_thread_create(&data_thread_data, data_thread_stack, CONFIG_ENCODER_STACK_SIZE,
 						data_thread, NULL, NULL, NULL,
 						K_PRIO_PREEMPT(5), 0, K_NO_WAIT); //CONFIG_DATA_THREAD_PRIO
