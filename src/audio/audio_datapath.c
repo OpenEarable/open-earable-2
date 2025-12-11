@@ -644,6 +644,9 @@ static void tone_stop_worker(struct k_work *work)
 	tone_active = false;
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
 	LOG_DBG("Tone stopped");
+
+	struct sensor_config mic = {ID_MICRO, 0, 0};
+	config_sensor(&mic);
 }
 
 K_WORK_DEFINE(tone_stop_work, tone_stop_worker);
