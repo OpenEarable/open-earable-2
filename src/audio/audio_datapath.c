@@ -32,6 +32,10 @@
 #include "mulitone.h"
 #include "arm_math.h"
 
+#include "../SensorManager/SensorManager.h"
+#include "openearable_common.h"
+#include "SensorScheme.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
@@ -95,6 +99,9 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
 /* How often to print under-run warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
+
+int16_t seal_check_mic[48000];
+int seal_check_mic_index = 0;
 
 enum drift_comp_state {
 	DRIFT_STATE_INIT,   /* Waiting for data to be received */
@@ -1434,6 +1441,9 @@ static int cmd_i2s_multitone_play(const struct shell *shell, size_t argc, const 
 		return -EINVAL;
 	}
 
+	struct sensor_config mic = {ID_MICRO, 0, DATA_STORAGE};
+	config_sensor(&mic);
+
 	shell_print(shell, "Setting multitone for %d ms", dur_ms);
 	ret = audio_datapath_multitone_play(dur_ms, amplitude);
 
@@ -1458,6 +1468,9 @@ static int cmd_i2s_multitone_stop(const struct shell *shell, size_t argc, const 
 	ARG_UNUSED(argv);
 
 	audio_datapath_multitone_stop();
+
+	struct sensor_config mic = {ID_MICRO, 0, 0};
+	config_sensor(&mic);
 
 	shell_print(shell, "Multitone stop");
 
