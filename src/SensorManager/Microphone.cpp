@@ -62,6 +62,8 @@ void Microphone::start(int sample_rate_idx) {
 
 	record_to_sd(true);
 
+	LOG_INF("Starting Microphone at %d Hz", sample_rates.sample_rates[sample_rate_idx]);
+
 	audio_datapath_decimator_init(sample_rates.reg_vals[sample_rate_idx]);
 
 	audio_datapath_aquire(&fifo_rx);

@@ -92,16 +92,6 @@ int main(void) {
 
 	init_sensor_manager();
 
-	//sensor_config imu = {ID_IMU, 80, 0};
-	//sensor_config imu = {ID_PPG, 400, 0};
-	//sensor_config temp = {ID_OPTTEMP, 10, 0};
-	// sensor_config temp = {ID_BONE_CONDUCTION, 100, 0};
-
-	//config_sensor(&temp);
-
-	//sensor_config ppg = {ID_PPG, 400, 0};
-	//config_sensor(&ppg);
-
     ret = init_led_service();
 	ERR_CHK(ret);
 
