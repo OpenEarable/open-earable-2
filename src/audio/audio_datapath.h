@@ -36,6 +36,21 @@ int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude);
 void audio_datapath_tone_stop(void);
 
 /**
+ * @brief Mixes a multitone into the I2S TX stream
+ *
+ * @param dur_ms Multitone duration [ms]. 0 = forever
+ * @param amplitude Multitone amplitude [0, 1]
+ *
+ * @return 0 if successful, error otherwise
+ */
+int audio_datapath_multitone_play(uint16_t dur_ms, float amplitude);
+
+/**
+ * @brief Stops multitone playback
+ */
+void audio_datapath_multitone_stop(void);
+
+/**
  * @brief Set the presentation delay
  *
  * @param delay_us The presentation delay in µs

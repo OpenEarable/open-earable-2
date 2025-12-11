@@ -29,6 +29,7 @@
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
 #include "decimation_filter.h"
+#include "mulitone.h"
 #include "arm_math.h"
 
 #include <zephyr/logging/log.h>
@@ -324,6 +325,11 @@ static bool tone_active;
 /* Buffer which can hold max 1 period test tone at 100 Hz */
 static uint16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 100];
 static size_t test_tone_size;
+
+static bool multitone_active;
+static uint32_t multitone_pos;
+static uint16_t multitone_dur_ms;
+static float multitone_amplitude;
 
 /**
  * @brief	Calculate error between sdu_ref and frame_start_ts_us.
@@ -645,6 +651,7 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 static void tone_stop_worker(struct k_work *work)
 {
 	tone_active = false;
+	multitone_active = false;
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
 	LOG_DBG("Tone stopped");
 }
@@ -687,25 +694,78 @@ int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude)
 	return 0;
 }
 
+int audio_datapath_multitone_play(uint16_t dur_ms, float amplitude)
+{
+	if (multitone_active) {
+		return -EBUSY;
+	}
+
+	if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
+		multitone_pos = 0;
+		multitone_amplitude = amplitude;
+		multitone_dur_ms = dur_ms;
+	} else {
+		LOG_WRN("Test tone disabled");
+		return -ENOTSUP;
+	}
+
+	/* If duration is 0, play forever */
+	if (dur_ms != 0) {
+		k_timer_start(&tone_stop_timer, K_MSEC(dur_ms), K_NO_WAIT);
+	}
+
+	multitone_active = true;
+	LOG_DBG("Multitone started");
+	return 0;
+}
+
 void audio_datapath_tone_stop(void)
 {
 	k_timer_stop(&tone_stop_timer);
 	k_work_submit(&tone_stop_work);
 }
 
+void audio_datapath_multitone_stop(void)
+{
+	k_timer_stop(&tone_stop_timer);
+	multitone_active = false;
+	LOG_DBG("Multitone stopped");
+}
+
 static void tone_mix(uint8_t *tx_buf)
 {
 	int ret;
-	int8_t tone_buf_continuous[BLK_MONO_SIZE_OCTETS];
-	static uint32_t finite_pos;
 
-	ret = contin_array_create(tone_buf_continuous, BLK_MONO_SIZE_OCTETS, test_tone_buf,
-				  test_tone_size, &finite_pos);
-	ERR_CHK(ret);
+	if (tone_active) {
+		int8_t tone_buf_continuous[BLK_MONO_SIZE_OCTETS];
+		static uint32_t finite_pos;
 
-	ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, tone_buf_continuous, BLK_MONO_SIZE_OCTETS,
-		      B_MONO_INTO_A_STEREO_L);
-	ERR_CHK(ret);
+		ret = contin_array_create(tone_buf_continuous, BLK_MONO_SIZE_OCTETS, test_tone_buf,
+					  test_tone_size, &finite_pos);
+		ERR_CHK(ret);
+
+		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, tone_buf_continuous, BLK_MONO_SIZE_OCTETS,
+			      B_MONO_INTO_A_STEREO_L);
+		ERR_CHK(ret);
+	} else if (multitone_active) {
+		int8_t multitone_buf[BLK_MONO_SIZE_OCTETS];
+		int samples_per_block = BLK_MONO_SIZE_OCTETS / sizeof(int16_t);
+
+		/* Copy multitone samples to buffer with amplitude scaling */
+		for (int i = 0; i < samples_per_block; i++) {
+			if (multitone_pos >= multitone_length) {
+				multitone_pos = 0; /* Loop the multitone */
+			}
+			int16_t sample = (int16_t)(multitone[multitone_pos] * multitone_amplitude);
+			multitone_buf[i * 2] = sample & 0xFF;
+			multitone_buf[i * 2 + 1] = (sample >> 8) & 0xFF;
+			multitone_pos++;
+		}
+
+		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, multitone_buf, BLK_MONO_SIZE_OCTETS,
+			      B_MONO_INTO_A_STEREO_L);
+		ERR_CHK(ret);
+	}
 }
 
 /* Alternate-buffers used when there is no active audio stream.
@@ -835,7 +895,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 				memset(tx_buf, 0, BLK_STEREO_SIZE_OCTETS);
 			}
 
-			if (tone_active) {
+			if (tone_active || multitone_active) {
 				tone_mix(tx_buf);
 			}
 		}
@@ -1350,6 +1410,60 @@ static int cmd_i2s_tone_stop(const struct shell *shell, size_t argc, const char 
 	return 0;
 }
 
+static int cmd_i2s_multitone_play(const struct shell *shell, size_t argc, const char **argv)
+{
+	int ret;
+	uint16_t dur_ms;
+	float amplitude;
+
+	if (argc != 3) {
+		shell_error(shell, "2 arguments (dur [ms] and amplitude [0-1.0]) must be provided");
+		return -EINVAL;
+	}
+
+	if (!isdigit((int)argv[1][0])) {
+		shell_error(shell, "Argument 1 is not numeric");
+		return -EINVAL;
+	}
+
+	dur_ms = strtoul(argv[1], NULL, 10);
+	amplitude = strtof(argv[2], NULL);
+
+	if (amplitude <= 0 || amplitude > 1) {
+		shell_error(shell, "Make sure amplitude is 0 < [float] <= 1");
+		return -EINVAL;
+	}
+
+	shell_print(shell, "Setting multitone for %d ms", dur_ms);
+	ret = audio_datapath_multitone_play(dur_ms, amplitude);
+
+	if (ret == -EBUSY) {
+		/* Abort continuous running multitone with new multitone */
+		audio_datapath_multitone_stop();
+		ret = audio_datapath_multitone_play(dur_ms, amplitude);
+	}
+
+	if (ret) {
+		shell_print(shell, "Multitone failed with code %d", ret);
+	}
+
+	shell_print(shell, "Multitone play: %d ms with amplitude %.02f", dur_ms, (double)amplitude);
+
+	return ret;
+}
+
+static int cmd_i2s_multitone_stop(const struct shell *shell, size_t argc, const char **argv)
+{
+	ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+	audio_datapath_multitone_stop();
+
+	shell_print(shell, "Multitone stop");
+
+	return 0;
+}
+
 static int cmd_hfclkaudio_drift_comp_enable(const struct shell *shell, size_t argc,
 					    const char **argv)
 {
@@ -1416,6 +1530,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(test_cmd,
 					      "Start local tone from nRF5340", cmd_i2s_tone_play),
 			       SHELL_COND_CMD(CONFIG_SHELL, nrf_tone_stop, NULL,
 					      "Stop local tone from nRF5340", cmd_i2s_tone_stop),
+			       SHELL_COND_CMD(CONFIG_SHELL, nrf_multitone_start, NULL,
+					      "Start local multitone from nRF5340", cmd_i2s_multitone_play),
+			       SHELL_COND_CMD(CONFIG_SHELL, nrf_multitone_stop, NULL,
+					      "Stop local multitone from nRF5340", cmd_i2s_multitone_stop),
 			       SHELL_COND_CMD(CONFIG_SHELL, pll_drift_comp_enable, NULL,
 					      "Enable audio PLL auto drift compensation (default)",
 					      cmd_hfclkaudio_drift_comp_enable),
