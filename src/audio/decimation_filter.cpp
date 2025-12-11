@@ -193,11 +193,6 @@ void CascadedDecimator::cleanupStages() {
 }
 
 int CascadedDecimator::init() {
-    if (num_stages_ == 0) {
-        LOG_ERR("No stages configured for total factor %d", total_factor_);
-        return -EINVAL;
-    }
-    
     for (uint8_t i = 0; i < num_stages_; i++) {
         if (!stages_[i]) {
             LOG_ERR("Stage %d is null", i);
