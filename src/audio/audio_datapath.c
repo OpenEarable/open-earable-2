@@ -661,6 +661,9 @@ static void tone_stop_worker(struct k_work *work)
 	multitone_active = false;
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
 	LOG_DBG("Tone stopped");
+
+	struct sensor_config mic = {ID_MICRO, 0, 0};
+	config_sensor(&mic);
 }
 
 K_WORK_DEFINE(tone_stop_work, tone_stop_worker);
@@ -1441,7 +1444,7 @@ static int cmd_i2s_multitone_play(const struct shell *shell, size_t argc, const 
 		return -EINVAL;
 	}
 
-	struct sensor_config mic = {ID_MICRO, 0, DATA_STORAGE};
+	struct sensor_config mic = {ID_MICRO, 6, DATA_STORAGE};
 	config_sensor(&mic);
 
 	shell_print(shell, "Setting multitone for %d ms", dur_ms);
@@ -1468,9 +1471,6 @@ static int cmd_i2s_multitone_stop(const struct shell *shell, size_t argc, const 
 	ARG_UNUSED(argv);
 
 	audio_datapath_multitone_stop();
-
-	struct sensor_config mic = {ID_MICRO, 0, 0};
-	config_sensor(&mic);
 
 	shell_print(shell, "Multitone stop");
 
