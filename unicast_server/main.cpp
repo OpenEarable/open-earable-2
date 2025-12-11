@@ -10,6 +10,7 @@
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
+#include <zephyr/shell/shell_rtt.h>
 
 //#include "../src/modules/sd_card.h"
 
@@ -113,6 +114,15 @@ int main(void) {
 	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
 	));
 
+	/* Wait for shell to be ready */
+	k_sleep(K_MSEC(100));
+	const struct shell *shell = shell_backend_rtt_get_ptr();
+	if (shell) {
+		/* Execute shell commands */
+		shell_execute_cmd(shell, "audio_system start");
+		k_msleep(100); /* Give audio system time to initialize */
+		shell_execute_cmd(shell, "test nrf_multitone_start 1000 1");
+	}
 
 	// error test
 	//long *a = nullptr;
