@@ -115,6 +115,14 @@ struct sensor_config {
 	uint8_t storageOptions;
 } __attribute__((packed));
 
+struct seal_check_data {
+    uint8_t version;
+    uint8_t quality;
+	uint8_t mean_magnitude;
+	uint8_t num_peaks;
+	uint16_t frequencies[9]; // 12.4 fixed point
+	uint16_t magnitudes[9];
+} __attribute__((packed));
 
 struct battery_settings {
     float u_nominal;

@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdint.h>
+#include <zephyr/types.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
@@ -31,10 +33,13 @@
 #include "decimation_filter.h"
 #include "mulitone.h"
 #include "arm_math.h"
+#include "hw_codec.h"
+//#include "../drivers/ADAU1860.h"
 
 #include "../SensorManager/SensorManager.h"
 #include "openearable_common.h"
 #include "SensorScheme.h"
+#include "../bluetooth/gatt_services/seal_check_service.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -214,6 +219,7 @@ static bool multitone_active;
 static uint32_t multitone_pos;
 static uint16_t multitone_dur_ms;
 static float multitone_amplitude;
+static bool multitone_loop;
 
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
@@ -855,14 +861,56 @@ static void tone_stop_worker(struct k_work *work)
 				correlation = numerator / (sqrtf(sum_sq_freq) * sqrtf(sum_sq_amp));
 			}
 
-			float seal_quality = -slope; // Simple mapping for now
+			float seal_quality = fmaxf(0.0f, fminf(100.0f, 100.f - slope * 100)); // Clamp between 0 and 100
 			
 			printk("Linear Regression Results:\n");
 			printk("Valid peaks: %d, Slope: %.3f, Correlation: %.3f\n", 
 				valid_peak_count, (double)slope, (double)correlation);
 			printk("Seal Quality: %.3f\n", (double)seal_quality);
+			
+			// Prepare and send seal check data via GATT service
+			struct seal_check_data gatt_data;
+			gatt_data.version = 1;
+			gatt_data.quality = (uint8_t)(seal_quality); // Scale to 0-255
+			gatt_data.mean_magnitude = (uint8_t)(mean_magnitude * 8.0f > 255.0f ? 255 : (uint8_t)(mean_magnitude * 8.0f));
+			gatt_data.num_peaks = valid_peak_count;
+			
+			// Fill frequency and magnitude arrays
+			for (int i = 0; i < 9; i++) {
+				if (i < valid_peak_count) {
+					// Convert to 12.4 fixed point (multiply by 16)
+					gatt_data.frequencies[i] = (uint16_t)(valid_frequencies[i] * 16.0f);
+					gatt_data.magnitudes[i] = (uint16_t)(valid_amplitudes[i] > 65535.0f ? 65535 : (uint16_t)valid_amplitudes[i]);
+				} else {
+					gatt_data.frequencies[i] = 0;
+					gatt_data.magnitudes[i] = 0;
+				}
+			}
+			
+			// Send via GATT service
+			seal_check_notify_result(&gatt_data);
 		} else {
 			printk("Not enough valid peaks (%d) for linear regression\n", valid_peak_count);
+			
+			// Send minimal data even if regression failed
+			struct seal_check_data gatt_data;
+			gatt_data.version = 1;
+			gatt_data.quality = 0; // No quality measurement possible
+			gatt_data.mean_magnitude = (uint8_t)(mean_magnitude * 8.0f > 255.0f ? 255 : (uint8_t)(mean_magnitude * 8.0f));
+			gatt_data.num_peaks = valid_peak_count;
+			
+			// Fill available data
+			for (int i = 0; i < 9; i++) {
+				if (i < valid_peak_count) {
+					gatt_data.frequencies[i] = (uint16_t)(valid_frequencies[i] * 16.0f);
+					gatt_data.magnitudes[i] = (uint16_t)(valid_amplitudes[i] > 65535.0f ? 65535 : (uint16_t)valid_amplitudes[i]);
+				} else {
+					gatt_data.frequencies[i] = 0;
+					gatt_data.magnitudes[i] = 0;
+				}
+			}
+			
+			seal_check_notify_result(&gatt_data);
 		}
 
 	}
@@ -916,15 +964,21 @@ int audio_datapath_multitone_play(uint16_t dur_ms, float amplitude)
 		multitone_pos = 0;
 		multitone_amplitude = amplitude;
 		multitone_dur_ms = dur_ms;
+		multitone_loop = false; // Play only once
 	} else {
 		LOG_WRN("Test tone disabled");
 		return -ENOTSUP;
 	}
 
-	/* If duration is 0, play forever */
-	if (dur_ms != 0) {
-		k_timer_start(&tone_stop_timer, K_MSEC(dur_ms), K_NO_WAIT);
+	// Start seal check with default parameters
+	// This mimics the shell command behavior		
+	seal_check_mic_index = 0;
+	
+	for (int i = 0; i < NUM_SEAL_CHECK_SAMPLES; i++) {
+		seal_check_mic[i] = 0;
 	}
+
+	// No timer needed - will stop automatically after one playback
 
 	multitone_active = true;
 	LOG_DBG("Multitone started");
@@ -966,7 +1020,14 @@ static void tone_mix(uint8_t *tx_buf)
 		/* Copy multitone samples to buffer with amplitude scaling */
 		for (int i = 0; i < samples_per_block; i++) {
 			if (multitone_pos >= multitone_length) {
-				multitone_pos = 0; /* Loop the multitone */
+				if (multitone_loop) {
+					multitone_pos = 0; /* Loop the multitone */
+				} else {
+					/* Stop after one complete playback */
+					k_work_submit(&tone_stop_work);
+					memset(&multitone_buf[i * 2], 0, (samples_per_block - i) * 2);
+					break;
+				}
 			}
 			int16_t sample = (int16_t)(multitone[multitone_pos] * multitone_amplitude);
 			multitone_buf[i * 2] = sample & 0xFF;
@@ -1622,7 +1683,7 @@ static int cmd_i2s_tone_stop(const struct shell *shell, size_t argc, const char 
 	return 0;
 }
 
-static int cmd_i2s_multitone_play(const struct shell *shell, size_t argc, const char **argv)
+static int cmd_i2s_seal_check(const struct shell *shell, size_t argc, const char **argv)
 {
 	int ret;
 	uint16_t dur_ms;
@@ -1652,10 +1713,12 @@ static int cmd_i2s_multitone_play(const struct shell *shell, size_t argc, const 
 		seal_check_mic[i] = 0;
 	}
 
+	ret = hw_codec_volume_set(0xB0);
+
 	struct sensor_config mic = {ID_MICRO, 6, DATA_STORAGE};
 	config_sensor(&mic);
 
-	shell_print(shell, "Setting multitone for %d ms", dur_ms);
+	shell_print(shell, "Starting seal check analysis");
 	ret = audio_datapath_multitone_play(dur_ms, amplitude);
 
 	if (ret == -EBUSY) {
@@ -1665,24 +1728,12 @@ static int cmd_i2s_multitone_play(const struct shell *shell, size_t argc, const 
 	}
 
 	if (ret) {
-		shell_print(shell, "Multitone failed with code %d", ret);
+		shell_print(shell, "Seal check failed with code %d", ret);
 	}
 
-	shell_print(shell, "Multitone play: %d ms with amplitude %.02f", dur_ms, (double)amplitude);
+	shell_print(shell, "Seal check: amplitude %.02f", (double)amplitude);
 
 	return ret;
-}
-
-static int cmd_i2s_multitone_stop(const struct shell *shell, size_t argc, const char **argv)
-{
-	ARG_UNUSED(argc);
-	ARG_UNUSED(argv);
-
-	audio_datapath_multitone_stop();
-
-	shell_print(shell, "Multitone stop");
-
-	return 0;
 }
 
 static int cmd_hfclkaudio_drift_comp_enable(const struct shell *shell, size_t argc,
@@ -1751,10 +1802,8 @@ SHELL_STATIC_SUBCMD_SET_CREATE(test_cmd,
 					      "Start local tone from nRF5340", cmd_i2s_tone_play),
 			       SHELL_COND_CMD(CONFIG_SHELL, nrf_tone_stop, NULL,
 					      "Stop local tone from nRF5340", cmd_i2s_tone_stop),
-			       SHELL_COND_CMD(CONFIG_SHELL, nrf_multitone_start, NULL,
-					      "Start local multitone from nRF5340", cmd_i2s_multitone_play),
-			       SHELL_COND_CMD(CONFIG_SHELL, nrf_multitone_stop, NULL,
-					      "Stop local multitone from nRF5340", cmd_i2s_multitone_stop),
+			       SHELL_COND_CMD(CONFIG_SHELL, nrf_seal_check, NULL,
+					      "Start seal check analysis", cmd_i2s_seal_check),
 			       SHELL_COND_CMD(CONFIG_SHELL, pll_drift_comp_enable, NULL,
 					      "Enable audio PLL auto drift compensation (default)",
 					      cmd_hfclkaudio_drift_comp_enable),

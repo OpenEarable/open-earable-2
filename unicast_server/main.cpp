@@ -29,6 +29,7 @@
 #include "button_service.h"
 #include "sensor_service.h"
 #include "led_service.h"
+#include "seal_check_service.h"
 
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
@@ -109,6 +110,9 @@ int main(void) {
 	ERR_CHK(ret);
 
 	ret = init_sensor_service();
+	ERR_CHK(ret);
+
+	ret = init_seal_check_service();
 	ERR_CHK(ret);
 
 	bt_mgmt_conn_interval_init(new ConnIntvlLinear(
