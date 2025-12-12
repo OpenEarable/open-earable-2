@@ -100,8 +100,18 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 /* How often to print under-run warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
 
-int16_t seal_check_mic[48000];
+#define NUM_SEAL_CHECK_SAMPLES 2048
+#define INITIAL_SEAL_CHECK_DROP 128
+
+int16_t seal_check_mic[NUM_SEAL_CHECK_SAMPLES];
 int seal_check_mic_index = 0;
+
+static q15_t fft_output[NUM_SEAL_CHECK_SAMPLES * 2]; // Complex output needs double size
+static q15_t magnitude[NUM_SEAL_CHECK_SAMPLES / 2]; // Magnitude spectrum
+
+#define num_bins 9
+const int bin_tolerance = 2;
+static float center_freq_bins[] = {20.48, 30.72, 46.08, 69.12, 103.68, 155.52, 233.28, 349.92, 524.88};
 
 enum drift_comp_state {
 	DRIFT_STATE_INIT,   /* Waiting for data to be received */
@@ -200,6 +210,11 @@ bool _record_to_sd = false;
 
 int _count = 0;
 
+static bool multitone_active;
+static uint32_t multitone_pos;
+static uint16_t multitone_dur_ms;
+static float multitone_amplitude;
+
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
@@ -252,6 +267,17 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 				uint32_t decimated_size = decimated_frames * 2 * sizeof(int16_t);
 				audio_msg.data.size = decimated_size;
+
+				if (multitone_active) {
+					for(int i = 0; i < decimated_frames; i++) {
+						if (seal_check_mic_index < NUM_SEAL_CHECK_SAMPLES + INITIAL_SEAL_CHECK_DROP) {
+							if (seal_check_mic_index >= INITIAL_SEAL_CHECK_DROP) {
+								seal_check_mic[seal_check_mic_index - INITIAL_SEAL_CHECK_DROP] = decimated_audio[2 * i + 1];
+							}
+							seal_check_mic_index++;
+						}
+					}
+				}
 
 				uint32_t data_size[2] = {
 					sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
@@ -332,11 +358,6 @@ static bool tone_active;
 /* Buffer which can hold max 1 period test tone at 100 Hz */
 static uint16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 100];
 static size_t test_tone_size;
-
-static bool multitone_active;
-static uint32_t multitone_pos;
-static uint16_t multitone_dur_ms;
-static float multitone_amplitude;
 
 /**
  * @brief	Calculate error between sdu_ref and frame_start_ts_us.
@@ -664,6 +685,86 @@ static void tone_stop_worker(struct k_work *work)
 
 	struct sensor_config mic = {ID_MICRO, 0, 0};
 	config_sensor(&mic);
+
+	if (seal_check_mic_index < NUM_SEAL_CHECK_SAMPLES + INITIAL_SEAL_CHECK_DROP) {
+		LOG_WRN("Seal check incomplete, only %d samples collected", seal_check_mic_index - INITIAL_SEAL_CHECK_DROP);
+	} else {
+		// Compute RFFT Q15 for seal check analysis
+		static arm_rfft_instance_q15 rfft_instance;
+		static bool rfft_initialized = false;
+		
+		if (!rfft_initialized) {
+			arm_status status = arm_rfft_init_q15(&rfft_instance, NUM_SEAL_CHECK_SAMPLES, 0, 1);
+			if (status == ARM_MATH_SUCCESS) {
+				rfft_initialized = true;
+				LOG_INF("RFFT Q15 initialized for %d samples", NUM_SEAL_CHECK_SAMPLES);
+			} else {
+				LOG_ERR("RFFT Q15 initialization failed with status %d", status);
+				return;
+			}
+		}
+		
+		// Perform RFFT
+		arm_rfft_q15(&rfft_instance, seal_check_mic, fft_output);
+		
+		// Calculate magnitude spectrum
+		arm_cmplx_mag_q15(fft_output, magnitude, NUM_SEAL_CHECK_SAMPLES / 2);
+		
+		LOG_INF("Seal check RFFT completed, %d frequency bins calculated", NUM_SEAL_CHECK_SAMPLES / 2);
+		
+		// Find the 10 highest peaks
+		struct peak_info {
+			uint16_t index;
+			q15_t magnitude;
+			float frequency;
+		} peaks[10];
+		
+		// Initialize peaks array
+		for (int i = 0; i < 10; i++) {
+			peaks[i].magnitude = 0;
+			peaks[i].index = 0;
+			peaks[i].frequency = 0.0f;
+		}
+		
+		// Find peaks (skip DC component at index 0)
+		for (int i = 1; i < NUM_SEAL_CHECK_SAMPLES / 2; i++) {
+			q15_t current_mag = magnitude[i];
+			
+			// Check if this magnitude is higher than any of the current top 10
+			for (int j = 0; j < 10; j++) {
+				if (current_mag > peaks[j].magnitude) {
+					// Shift lower peaks down
+					for (int k = 9; k > j; k--) {
+						peaks[k] = peaks[k-1];
+					}
+					// Insert new peak
+					peaks[j].magnitude = current_mag;
+					peaks[j].index = i;
+					peaks[j].frequency = (float)i * 4000.0f / NUM_SEAL_CHECK_SAMPLES;
+					break;
+				}
+			}
+		}
+		
+		// Print the top 10 peaks
+		printk("Top 10 frequency peaks (sampling rate: 4000 Hz):\n");
+		for (int i = 0; i < 10; i++) {
+			printk("Peak %d: %.2f Hz, Magnitude: %d (bin %d)\n", 
+				i + 1, (double)peaks[i].frequency, peaks[i].magnitude, peaks[i].index);
+		}
+		
+		// Print all magnitude values, 16 per line
+		/*for (int i = 0; i < 128; i += 16) {
+			//printk("FFT[%04d]: ", i);
+			for (int j = 0; j < 16 && (i + j) < NUM_SEAL_CHECK_SAMPLES / 2; j++) {
+				printk("%6d ", magnitude[i + j]);
+			}
+			printk("\n");
+		}*/
+
+
+
+	}
 }
 
 K_WORK_DEFINE(tone_stop_work, tone_stop_worker);
@@ -1442,6 +1543,12 @@ static int cmd_i2s_multitone_play(const struct shell *shell, size_t argc, const 
 	if (amplitude <= 0 || amplitude > 1) {
 		shell_error(shell, "Make sure amplitude is 0 < [float] <= 1");
 		return -EINVAL;
+	}
+
+	seal_check_mic_index = 0;
+
+	for (int i = 0; i < 4000; i++) {
+		seal_check_mic[i] = 0;
 	}
 
 	struct sensor_config mic = {ID_MICRO, 6, DATA_STORAGE};
