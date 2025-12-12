@@ -111,7 +111,7 @@ static q15_t magnitude[NUM_SEAL_CHECK_SAMPLES / 2]; // Magnitude spectrum
 
 #define num_bins 9
 const int bin_tolerance = 2;
-static float center_freq_bins[] = {20.48, 30.72, 46.08, 69.12, 103.68, 155.52, 233.28, 349.92, 524.88};
+static float center_freq_bins[] = {40.0, 60.0, 90.0, 135.0, 202.5, 303.75, 455.625, 683.4375, 1025.15625};
 
 enum drift_comp_state {
 	DRIFT_STATE_INIT,   /* Waiting for data to be received */
@@ -712,57 +712,158 @@ static void tone_stop_worker(struct k_work *work)
 		
 		LOG_INF("Seal check RFFT completed, %d frequency bins calculated", NUM_SEAL_CHECK_SAMPLES / 2);
 		
-		// Find the 10 highest peaks
-		struct peak_info {
-			uint16_t index;
-			q15_t magnitude;
-			float frequency;
-		} peaks[10];
-		
-		// Initialize peaks array
-		for (int i = 0; i < 10; i++) {
-			peaks[i].magnitude = 0;
-			peaks[i].index = 0;
-			peaks[i].frequency = 0.0f;
+		// Calculate mean magnitude of the spectrum
+		float spectrum_sum = 0.0f;
+		int valid_bins = 0;
+		for (int bin = 1; bin < NUM_SEAL_CHECK_SAMPLES / 2; bin++) {
+			spectrum_sum += (float)magnitude[bin];
+			valid_bins++;
 		}
+		float mean_magnitude = spectrum_sum / valid_bins;
+		float peak_threshold = 4.0f * mean_magnitude;
 		
-		// Find peaks (skip DC component at index 0)
-		for (int i = 1; i < NUM_SEAL_CHECK_SAMPLES / 2; i++) {
-			q15_t current_mag = magnitude[i];
+		// Analyze center frequencies with magnitude weighting
+		printk("Center frequency analysis (sampling rate: 4000 Hz, mean_mag: %.1f, threshold: %.1f):\n", 
+			(double)mean_magnitude, (double)peak_threshold);
+		
+		// Arrays for linear regression
+		float valid_frequencies[num_bins];
+		float valid_amplitudes[num_bins];
+		int valid_peak_count = 0;
+		
+		for (int center_idx = 0; center_idx < num_bins; center_idx++) {
+			float center_freq = center_freq_bins[center_idx];
+			int center_bin = (int)(center_freq * NUM_SEAL_CHECK_SAMPLES / 4000.0f + 0.5f);
 			
-			// Check if this magnitude is higher than any of the current top 10
-			for (int j = 0; j < 10; j++) {
-				if (current_mag > peaks[j].magnitude) {
-					// Shift lower peaks down
-					for (int k = 9; k > j; k--) {
-						peaks[k] = peaks[k-1];
-					}
-					// Insert new peak
-					peaks[j].magnitude = current_mag;
-					peaks[j].index = i;
-					peaks[j].frequency = (float)i * 4000.0f / NUM_SEAL_CHECK_SAMPLES;
-					break;
+			// Define search range
+			int start_bin = MAX(1, center_bin - bin_tolerance);
+			int end_bin = MIN(NUM_SEAL_CHECK_SAMPLES / 2 - 1, center_bin + bin_tolerance);
+			
+			// Calculate weighted center frequency and total magnitude
+			float weighted_freq_sum = 0.0f;
+			float total_magnitude = 0.0f;
+			q15_t peak_magnitude = 0;
+			int peak_bin = center_bin;
+			
+			for (int bin = start_bin; bin <= end_bin; bin++) {
+				float bin_freq = (float)bin * 4000.0f / NUM_SEAL_CHECK_SAMPLES;
+				float magnitude_weight = (float)magnitude[bin];
+				
+				weighted_freq_sum += bin_freq * magnitude_weight;
+				total_magnitude += magnitude_weight;
+				
+				// Track peak for amplitude calculation
+				if (magnitude[bin] > peak_magnitude) {
+					peak_magnitude = magnitude[bin];
+					peak_bin = bin;
 				}
 			}
-		}
-		
-		// Print the top 10 peaks
-		printk("Top 10 frequency peaks (sampling rate: 4000 Hz):\n");
-		for (int i = 0; i < 10; i++) {
-			printk("Peak %d: %.2f Hz, Magnitude: %d (bin %d)\n", 
-				i + 1, (double)peaks[i].frequency, peaks[i].magnitude, peaks[i].index);
-		}
-		
-		// Print all magnitude values, 16 per line
-		/*for (int i = 0; i < 128; i += 16) {
-			//printk("FFT[%04d]: ", i);
-			for (int j = 0; j < 16 && (i + j) < NUM_SEAL_CHECK_SAMPLES / 2; j++) {
-				printk("%6d ", magnitude[i + j]);
+			
+			// Calculate weighted center frequency
+			float actual_center_freq = 0.0f;
+			bool valid_peak = false;
+			
+			if (total_magnitude > 0) {
+				actual_center_freq = weighted_freq_sum / total_magnitude;
+			} else {
+				actual_center_freq = center_freq; // fallback to expected center
 			}
-			printk("\n");
-		}*/
+			
+			// Check if peak is valid (higher than threshold)
+			if (peak_magnitude > peak_threshold) {
+				valid_peak = true;
+			}
+			
+			// Interpolate peak amplitude for better accuracy (only for valid peaks)
+			float interpolated_amplitude = (float)peak_magnitude;
+			//if (valid_peak && peak_bin > 0 && peak_bin < NUM_SEAL_CHECK_SAMPLES / 2 - 1) {
+			if (peak_bin > 0 && peak_bin < NUM_SEAL_CHECK_SAMPLES / 2 - 1) {
+				// Parabolic interpolation for peak refinement
+				float y1 = (float)magnitude[peak_bin - 1];
+				float y2 = (float)magnitude[peak_bin];
+				float y3 = (float)magnitude[peak_bin + 1];
+				
+				float a = (y1 - 2*y2 + y3) / 2;
+				float b = (y3 - y1) / 2;
+				
+				if (a != 0) {
+					float peak_offset = -b / (2*a);
+					// Limit offset to reasonable range
+					if (peak_offset > -1.0f && peak_offset < 1.0f) {
+						interpolated_amplitude = y2 - (b*b)/(4*a);
+						actual_center_freq += peak_offset * (4000.0f / NUM_SEAL_CHECK_SAMPLES);
+					}
+				}
+			}
+			
+			// Store valid peaks for linear regression
+			if (valid_peak) {
+				valid_frequencies[valid_peak_count] = actual_center_freq;
+				valid_amplitudes[valid_peak_count] = interpolated_amplitude;
+				valid_peak_count++;
+			}
+			
+			printk("Bin %d: Expected %.2f Hz, Found %.2f Hz, Amplitude: %.1f (raw: %d, total_mag: %.1f) %s\n", 
+				center_idx, 
+				(double)center_freq, 
+				(double)actual_center_freq, 
+				(double)interpolated_amplitude,
+				peak_magnitude,
+				(double)total_magnitude,
+				valid_peak ? "VALID" : "WEAK");
+		}
+		
+		// Perform linear regression on valid peaks
+		if (valid_peak_count >= 2) {
+			// Calculate means
+			float mean_freq = 0.0f;
+			float mean_amp = 0.0f;
+			for (int i = 0; i < valid_peak_count; i++) {
+				mean_freq += valid_frequencies[i];
+				mean_amp += valid_amplitudes[i];
+			}
+			mean_freq /= valid_peak_count;
+			mean_amp /= valid_peak_count;
+			
+			// Calculate slope (linear regression)
+			float numerator = 0.0f;
+			float denominator = 0.0f;
+			for (int i = 0; i < valid_peak_count; i++) {
+				float freq_diff = valid_frequencies[i] - mean_freq;
+				float amp_diff = valid_amplitudes[i] - mean_amp;
+				numerator += freq_diff * amp_diff;
+				denominator += freq_diff * freq_diff;
+			}
+			
+			float slope = 0.0f;
+			if (denominator != 0.0f) {
+				slope = numerator / denominator;
+			}
+			
+			// Calculate correlation coefficient for quality assessment
+			float sum_sq_freq = 0.0f;
+			float sum_sq_amp = 0.0f;
+			for (int i = 0; i < valid_peak_count; i++) {
+				float freq_diff = valid_frequencies[i] - mean_freq;
+				float amp_diff = valid_amplitudes[i] - mean_amp;
+				sum_sq_freq += freq_diff * freq_diff;
+				sum_sq_amp += amp_diff * amp_diff;
+			}
+			
+			float correlation = 0.0f;
+			if (sum_sq_freq > 0.0f && sum_sq_amp > 0.0f) {
+				correlation = numerator / (sqrtf(sum_sq_freq) * sqrtf(sum_sq_amp));
+			}
 
-
+			float seal_quality = -slope; // Simple mapping for now
+			
+			printk("Linear Regression Results:\n");
+			printk("Valid peaks: %d, Slope: %.3f, Correlation: %.3f\n", 
+				valid_peak_count, (double)slope, (double)correlation);
+			printk("Seal Quality: %.3f\n", (double)seal_quality);
+		} else {
+			printk("Not enough valid peaks (%d) for linear regression\n", valid_peak_count);
+		}
 
 	}
 }
@@ -1547,7 +1648,7 @@ static int cmd_i2s_multitone_play(const struct shell *shell, size_t argc, const 
 
 	seal_check_mic_index = 0;
 
-	for (int i = 0; i < 4000; i++) {
+	for (int i = 0; i < NUM_SEAL_CHECK_SAMPLES; i++) {
 		seal_check_mic[i] = 0;
 	}
 
