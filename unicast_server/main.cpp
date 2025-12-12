@@ -29,6 +29,7 @@
 #include "button_service.h"
 #include "sensor_service.h"
 #include "led_service.h"
+#include "seal_check_service.h"
 
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
@@ -108,21 +109,14 @@ int main(void) {
 	ret = init_sensor_service();
 	ERR_CHK(ret);
 
+	ret = init_seal_check_service();
+	ERR_CHK(ret);
+
 	bt_mgmt_conn_interval_init(new ConnIntvlLinear(
 	    4,                // linear increase step (8ms units)
 	    CONFIG_BLE_ACL_CONN_INTERVAL,
 	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
 	));
-
-	/* Wait for shell to be ready */
-	k_sleep(K_MSEC(100));
-	const struct shell *shell = shell_backend_rtt_get_ptr();
-	if (shell) {
-		/* Execute shell commands */
-		shell_execute_cmd(shell, "audio_system start");
-		k_msleep(100); /* Give audio system time to initialize */
-		shell_execute_cmd(shell, "test nrf_multitone_start 1000 1");
-	}
 
 	// error test
 	//long *a = nullptr;
