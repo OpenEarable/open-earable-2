@@ -23,11 +23,6 @@ static_assert(BUFFER_SIZE % SD_BLOCK_SIZE == 0, "BUFFER_SIZE must be a multiple 
 
 // Singleton pattern
 class SDLogger {
-protected:
-        // Add static instance pointer for work handler
-        //static SDLogger* instance_ptr;
-        //friend void sd_work_handler(struct k_work* work);
-        
 private:
 
         SDCardManager* sd_card = nullptr;
@@ -80,14 +75,23 @@ private:
         */
         int write_sensor_data(const void* const* data_blocks, const size_t* lengths, size_t block_count);
 
+        /**
+         * @brief Write a single sensor_data message to the log file
+         * @param msg The sensor_data message to write
+         * @return 0 on success, negative error code on failure
+         */
         int write_sensor_data(const sensor_data& msg);
 
         /**
-        * @brief End logging and close the current file
-        * @return 0 on success, negative error code on failure
-        */
+         * @brief End logging and close the current file
+         * @return 0 on success, negative error code on failure
+         */
         int end();
 
+        /**
+         * @brief Check if the logger is currently recording
+         * @return true if active, false otherwise
+         */
         bool is_active();
 
         SDLogger(SDLogger const&) = delete;
