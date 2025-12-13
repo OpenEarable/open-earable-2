@@ -260,23 +260,12 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 			unsigned int logger_signaled;
 			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
 
-			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
-				struct sensor_msg audio_msg;
-	
-				audio_msg.sd = true;
-				audio_msg.stream = false;
-	
-				audio_msg.data.id = ID_MICRO;
-				audio_msg.data.time = time_stamp;
-
-				/* Decimate audio data from 192kHz to 48kHz (factor 4) using CascadedDecimator */
+			if (ret == 0 && (multitone_active || _record_to_sd)) {
+				/* Decimate audio data from 48kHz to the desired sampling rate */
 				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
 				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
-				
-				int decimated_frames = audio_datapath_decimator_process(audio_block, decimated_audio, num_frames);
 
-				uint32_t decimated_size = decimated_frames * 2 * sizeof(int16_t);
-				audio_msg.data.size = decimated_size;
+				int decimated_frames = audio_datapath_decimator_process(audio_block, decimated_audio, num_frames);
 
 				if (multitone_active) {
 					for(int i = 0; i < decimated_frames; i++) {
@@ -289,22 +278,34 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					}
 				}
 
-				uint32_t data_size[2] = {
-					sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
-					decimated_size
-				};
+				if (logger_signaled != 0 && _record_to_sd) {
+					struct sensor_msg audio_msg;
+		
+					audio_msg.sd = true;
+					audio_msg.stream = false;
+		
+					audio_msg.data.id = ID_MICRO;
+					audio_msg.data.time = time_stamp;
 
-				void *data_ptrs[2] = {
-					&audio_msg.data,
-					decimated_audio
-				};
+					audio_msg.data.size = decimated_frames * 2 * sizeof(int16_t);
 
-				if (decimated_frames == num_frames) {
-					data_ptrs[1] = audio_block;
-				}
-	
-				if (decimated_frames > 0) {
-					sdlogger_write_data(&data_ptrs, data_size, 2);
+					uint32_t data_size[2] = {
+						sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
+						audio_msg.data.size
+					};
+
+					void *data_ptrs[2] = {
+						&audio_msg.data,
+						decimated_audio
+					};
+
+					if (decimated_frames == num_frames) {
+						data_ptrs[1] = audio_block;
+					}
+		
+					if (decimated_frames > 0) {
+						sdlogger_write_data(&data_ptrs, data_size, 2);
+					}
 				}
 			}
 
