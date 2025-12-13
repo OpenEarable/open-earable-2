@@ -631,7 +631,7 @@ int PowerManager::power_down(bool fault) {
     ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
     ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
+    ret = pm_device_action_run(cons,   PM_DEVICE_ACTION_SUSPEND);
 
     /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
@@ -666,27 +666,7 @@ void PowerManager::charge_task() {
         battery_controller.enable_charge();
     }
 
-    //if (last_charging_state != charging_state ||  ) {
-        k_work_submit(&fuel_gauge_work);
-        //state_inidicator.set_state()
-        /*switch (charging_state) {
-        case 0:
-            LOG_INF("charging state: ready");
-            break;
-        case 1:
-            LOG_INF("charging state: charging");
-            break;
-        case 2:
-            LOG_INF("charging state: done");
-            break;
-        case 3:
-            LOG_WRN("charging state: fault");
-
-            //battery_controller.setup(_battery_settings);
-            
-            break;
-        }*/
-    //}
+    k_work_submit(&fuel_gauge_work);
 
     last_charging_state = charging_state;
 }

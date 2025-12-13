@@ -116,7 +116,11 @@ static q15_t magnitude[NUM_SEAL_CHECK_SAMPLES / 2]; // Magnitude spectrum
 
 #define num_bins 9
 const int bin_tolerance = 2;
-static float center_freq_bins[] = {40.0, 60.0, 90.0, 135.0, 202.5, 303.75, 455.625, 683.4375, 1025.15625};
+static float avg_magnitude = 119.0f;
+static float avg_slope = -0.07382279460490486;
+static float target_frequencies[] = {40.0, 60.0, 90.0, 135.0, 202.5, 303.75, 455.625, 683.4375, 1025.15625};
+static float target_magnitudes[] = {0.90833731, 1.18334124, 1.38796968, 1.16634027, 0.85781358,
+       0.65981396, 0.84768657, 0.98236069, 1.00633671};
 
 enum drift_comp_state {
 	DRIFT_STATE_INIT,   /* Waiting for data to be received */
@@ -738,7 +742,7 @@ static void tone_stop_worker(struct k_work *work)
 		int valid_peak_count = 0;
 		
 		for (int center_idx = 0; center_idx < num_bins; center_idx++) {
-			float center_freq = center_freq_bins[center_idx];
+			float center_freq = target_frequencies[center_idx];
 			int center_bin = (int)(center_freq * NUM_SEAL_CHECK_SAMPLES / 4000.0f + 0.5f);
 			
 			// Define search range
@@ -819,26 +823,32 @@ static void tone_stop_worker(struct k_work *work)
 				valid_peak ? "VALID" : "WEAK");
 		}
 		
-		// Perform linear regression on valid peaks
+		// Perform linear regression on valid peaks (magnitude vs log(frequency))
 		if (valid_peak_count >= 2) {
+			// Calculate log frequencies for regression
+			float log_frequencies[num_bins];
+			for (int i = 0; i < valid_peak_count; i++) {
+				log_frequencies[i] = logf(valid_frequencies[i]);
+			}
+			
 			// Calculate means
-			float mean_freq = 0.0f;
+			float mean_log_freq = 0.0f;
 			float mean_amp = 0.0f;
 			for (int i = 0; i < valid_peak_count; i++) {
-				mean_freq += valid_frequencies[i];
+				mean_log_freq += log_frequencies[i];
 				mean_amp += valid_amplitudes[i];
 			}
-			mean_freq /= valid_peak_count;
+			mean_log_freq /= valid_peak_count;
 			mean_amp /= valid_peak_count;
 			
-			// Calculate slope (linear regression)
+			// Calculate slope (linear regression: magnitude vs log(frequency))
 			float numerator = 0.0f;
 			float denominator = 0.0f;
 			for (int i = 0; i < valid_peak_count; i++) {
-				float freq_diff = valid_frequencies[i] - mean_freq;
+				float log_freq_diff = log_frequencies[i] - mean_log_freq;
 				float amp_diff = valid_amplitudes[i] - mean_amp;
-				numerator += freq_diff * amp_diff;
-				denominator += freq_diff * freq_diff;
+				numerator += log_freq_diff * amp_diff;
+				denominator += log_freq_diff * log_freq_diff;
 			}
 			
 			float slope = 0.0f;
@@ -847,25 +857,39 @@ static void tone_stop_worker(struct k_work *work)
 			}
 			
 			// Calculate correlation coefficient for quality assessment
-			float sum_sq_freq = 0.0f;
+			/*float sum_sq_log_freq = 0.0f;
 			float sum_sq_amp = 0.0f;
 			for (int i = 0; i < valid_peak_count; i++) {
-				float freq_diff = valid_frequencies[i] - mean_freq;
+				float log_freq_diff = log_frequencies[i] - mean_log_freq;
 				float amp_diff = valid_amplitudes[i] - mean_amp;
-				sum_sq_freq += freq_diff * freq_diff;
+				sum_sq_log_freq += log_freq_diff * log_freq_diff;
 				sum_sq_amp += amp_diff * amp_diff;
 			}
 			
 			float correlation = 0.0f;
-			if (sum_sq_freq > 0.0f && sum_sq_amp > 0.0f) {
-				correlation = numerator / (sqrtf(sum_sq_freq) * sqrtf(sum_sq_amp));
-			}
+			if (sum_sq_log_freq > 0.0f && sum_sq_amp > 0.0f) {
+				correlation = numerator / (sqrtf(sum_sq_log_freq) * sqrtf(sum_sq_amp));
+			}*/
 
-			float seal_quality = fmaxf(0.0f, fminf(100.0f, 100.f - slope * 100)); // Clamp between 0 and 100
+			float avg_peak_mag = 0.0f;
+			for (int i = 0; i < valid_peak_count; i++) {
+				avg_peak_mag += valid_amplitudes[i];
+			}
+			avg_peak_mag /= valid_peak_count;
+
+			float mse = 0.0f;
+			for (int i = 0; i < valid_peak_count; i++) {
+				float freq_error = valid_amplitudes[i] / avg_peak_mag - target_magnitudes[i];
+				mse += freq_error * freq_error;
+			}
+			mse /= valid_peak_count;
+
+			float seal_quality = fminf(avg_peak_mag / avg_magnitude, 1.f) - mse - (slope / avg_magnitude - avg_slope);
+			seal_quality = fmaxf(0.0f, fminf(100.0f, seal_quality * 100.f)); // Clamp between 0 and 100
 			
-			printk("Linear Regression Results:\n");
-			printk("Valid peaks: %d, Slope: %.3f, Correlation: %.3f\n", 
-				valid_peak_count, (double)slope, (double)correlation);
+			printk("Linear Regression Results (magnitude vs log(frequency)):\n");
+			printk("Valid peaks: %d, Slope: %.3f\n", //, Correlation: %.3f\n", 
+				valid_peak_count, (double)slope / avg_magnitude); //, (double)correlation);
 			printk("Seal Quality: %.3f\n", (double)seal_quality);
 			
 			// Prepare and send seal check data via GATT service
