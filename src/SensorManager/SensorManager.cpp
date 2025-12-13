@@ -196,6 +196,10 @@ static void config_work_handler(struct k_work *work) {
 		sensor->stop();
 		active_sensors--;
 
+		if (config.sensorId == ID_MICRO) {
+			Microphone::sensor.record(false);
+		}
+
 		if (active_sensors < 0) {
 			LOG_WRN("Active sensors is already 0");
 			active_sensors = 0;
@@ -225,6 +229,9 @@ static void config_work_handler(struct k_work *work) {
 			std::string filename = recording_name_prefix + std::to_string(micros());
 			int ret = sdlogger.begin(filename);
 			if (ret == 0) state_indicator.set_sd_state(SD_RECORDING);
+			if (config.sensorId == ID_MICRO) {
+				Microphone::sensor.record(true);
+			}
 		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);

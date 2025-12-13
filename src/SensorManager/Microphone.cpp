@@ -60,7 +60,7 @@ void Microphone::start(int sample_rate_idx) {
 
 	if (!_active) return;
 
-	record_to_sd(true);
+	//record_to_sd(true);
 
 	LOG_INF("Starting Microphone at %d Hz", sample_rates.sample_rates[sample_rate_idx]);
 
@@ -77,11 +77,15 @@ void Microphone::stop() {
 
 	if (!_running) return;
 
-	record_to_sd(false);
+	//record_to_sd(false);
 
 	audio_datapath_release();
 
 	audio_datapath_decimator_cleanup();
 
 	_running = false;
+}
+
+void Microphone::record(bool active) {
+	record_to_sd(active);
 }
