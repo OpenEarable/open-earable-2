@@ -28,8 +28,7 @@ const int bin_tolerance = 2;
 static float avg_magnitude = 119.0f;
 static float avg_slope = -0.07382279460490486;
 static float target_frequencies[] = {40.0, 60.0, 90.0, 135.0, 202.5, 303.75, 455.625, 683.4375, 1025.15625};
-static float target_magnitudes[] = {0.90833731, 1.18334124, 1.38796968, 1.16634027, 0.85781358,
-       0.65981396, 0.84768657, 0.98236069, 1.00633671};
+static float target_magnitudes[] = {0.90833731, 1.18334124, 1.38796968, 1.16634027, 0.85781358, 0.65981396, 0.84768657, 0.98236069, 1.00633671};
 
 // Service state
 static uint8_t seal_check_start_value = 0x00;
