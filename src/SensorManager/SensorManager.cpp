@@ -270,7 +270,6 @@ void senscheck(SensorScheme *sensors, int sensor_count)
 
 	for (int i=0;i<sensor_count;i++)
 	{
-		if(i==2)continue;
 		EdgeMlSensor * sensor = get_sensor((enum sensor_id) sensors[i].id);
 		if (sensor->init(&sensor_queue)) {
 			if (active_sensors == 0) start_sensor_manager();
