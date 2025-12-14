@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include "../../SensorManager/SensorManager.h"
+#include <data_fifo.h>
 
 LOG_MODULE_REGISTER(seal_check_service, CONFIG_LOG_DEFAULT_LEVEL);
 
@@ -17,6 +18,8 @@ extern int audio_datapath_multitone_play(uint16_t dur_ms, float amplitude);
 extern int hw_codec_volume_set(uint8_t volume);
 extern int seal_check_mic_index;
 extern int16_t seal_check_mic[];
+
+extern struct data_fifo fifo_rx;
 
 // Callback for start characteristic write
 static ssize_t write_seal_check_start(struct bt_conn *conn,
@@ -38,15 +41,33 @@ static ssize_t write_seal_check_start(struct bt_conn *conn,
 		LOG_INF("Seal check started via BLE");
 		seal_check_start_value = 0xFF;
 		
+		// Configure sensor for recording
+		//struct sensor_config mic = {ID_MICRO, 6, 2}; // DATA_STORAGE = 2
+		//config_sensor(&mic);
+
+		//microphone_start(6); // 6 = 8kHz
+
+		int ret;
+		if (!fifo_rx.initialized) {
+			ret = data_fifo_init(&fifo_rx);
+			if (ret) {
+				LOG_ERR("Failed to set up rx FIFO: %d", ret);
+				return ret;
+			}
+		}
+
+		//audio_system_start();
+
+		seal_check_mic_index = 0;
+
 		// Set volume and start multitone
 		hw_codec_volume_set(0xB0);
-		
-		// Configure sensor for recording
-		struct sensor_config mic = {ID_MICRO, 6, 2}; // DATA_STORAGE = 2
-		config_sensor(&mic);
+
+		audio_datapath_decimator_init(12); // 12 = 4kHz
+		audio_datapath_aquire(&fifo_rx);
 		
 		// Start multitone playback (1000ms, 1.0 amplitude)
-		int ret = audio_datapath_multitone_play(1000, 1.0f);
+		ret = audio_datapath_multitone_play(1000, 1.0f);
 		
 		if (ret != 0) {
 			LOG_ERR("Failed to start seal check: %d", ret);

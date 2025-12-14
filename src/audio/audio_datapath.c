@@ -694,8 +694,13 @@ static void tone_stop_worker(struct k_work *work)
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
 	LOG_DBG("Tone stopped");
 
-	struct sensor_config mic = {ID_MICRO, 0, 0};
-	config_sensor(&mic);
+	//struct sensor_config mic = {ID_MICRO, 0, 0};
+	//config_sensor(&mic);
+
+	//microphone_stop();
+
+	audio_datapath_release();
+	//audio_datapath_decimator_cleanup();
 
 	if (seal_check_mic_index < NUM_SEAL_CHECK_SAMPLES + INITIAL_SEAL_CHECK_DROP) {
 		LOG_WRN("Seal check incomplete, only %d samples collected", seal_check_mic_index - INITIAL_SEAL_CHECK_DROP);
@@ -997,13 +1002,11 @@ int audio_datapath_multitone_play(uint16_t dur_ms, float amplitude)
 
 	// Start seal check with default parameters
 	// This mimics the shell command behavior		
-	seal_check_mic_index = 0;
+	/*seal_check_mic_index = 0;
 	
 	for (int i = 0; i < NUM_SEAL_CHECK_SAMPLES; i++) {
 		seal_check_mic[i] = 0;
-	}
-
-	// No timer needed - will stop automatically after one playback
+	}*/
 
 	multitone_active = true;
 	LOG_DBG("Multitone started");
@@ -1740,8 +1743,10 @@ static int cmd_i2s_seal_check(const struct shell *shell, size_t argc, const char
 
 	ret = hw_codec_volume_set(0xB0);
 
-	struct sensor_config mic = {ID_MICRO, 6, DATA_STORAGE};
-	config_sensor(&mic);
+	//microphone_start(6); // 6 = 8kHz
+
+	//struct sensor_config mic = {ID_MICRO, 6, DATA_STORAGE};
+	//config_sensor(&mic);
 
 	shell_print(shell, "Starting seal check analysis");
 	ret = audio_datapath_multitone_play(dur_ms, amplitude);
