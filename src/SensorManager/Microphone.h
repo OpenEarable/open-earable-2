@@ -20,4 +20,16 @@ private:
     bool _active = false;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// C wrapper functions for C code to call C++ methods
+void microphone_start(int sample_rate_idx);
+void microphone_stop(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

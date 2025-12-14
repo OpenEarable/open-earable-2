@@ -89,3 +89,14 @@ void Microphone::stop() {
 void Microphone::record(bool active) {
 	record_to_sd(active);
 }
+
+// C wrapper functions for C code
+extern "C" {
+    void microphone_start(int sample_rate_idx) {
+        Microphone::sensor.start(sample_rate_idx);
+    }
+    
+    void microphone_stop(void) {
+        Microphone::sensor.stop();
+    }
+}
