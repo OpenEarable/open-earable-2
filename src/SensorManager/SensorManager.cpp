@@ -101,7 +101,6 @@ void init_sensor_manager() {
 	k_poll_signal_init(&sensor_manager_sig);
 
 	sdlogger.init();
-	senscheck();
 }
 
 void start_sensor_manager() {
@@ -263,34 +262,35 @@ void config_sensor(struct sensor_config * config) {
 	//k_work_queue_unplug(&sensor_work_q);
 }
 
-void senscheck()
+void senscheck(SensorScheme *sensors, int sensor_count)
 {
-	int Sens[5]={0,4,6,1,7};//change the array use. use the predefined arrays
-	float sr[5]={50.0,84.0,8.0,6.25,50.0};//use the predefined arrays.
-	bool senscheck[5]={false, false, false, false, false};
+	// int Sens[5]={0,4,6,1,7};//change the array use. use the predefined arrays
+	// float sr[5]={50.0,84.0,8.0,6.25,50.0};//use the predefined arrays.
+	bool senscheck[6]={false, false, false, false, false, false};
 
-	for (int i=0;i<5;i++)
+	for (int i=0;i<sensor_count;i++)
 	{
-		EdgeMlSensor * sensor = get_sensor((enum sensor_id) Sens[i]);
+		if(i==2)continue;
+		EdgeMlSensor * sensor = get_sensor((enum sensor_id) sensors[i].id);
 		if (sensor->init(&sensor_queue)) {
 			if (active_sensors == 0) start_sensor_manager();
-			sensor->start(sr[i]);
+			int default_sensor_index=sensors[i].configOptions.frequencyOptions.defaultFrequencyIndex;
+			sensor->start(default_sensor_index);
 			if (sensor->is_running()) {
 				senscheck[i]=true;
-				LOG_INF("The sensor with ID %u is working",(enum sensor_id) Sens[i]);
+			//LOG_INF("The sensor with ID %d is working",sensors[i].id);
 			}
 			sensor->stop();
-		}
 	}
-for (int i=0;i<5;i++)
+	}
+for (int i=0;i<sensor_count;i++)
 	{
 		if(false==senscheck[i])
 		{
-		LOG_INF("The sensor with ID %u is not working",(enum sensor_id) Sens[i]);
+		LOG_INF("%s is not working",sensors[i].name);
 		led_controller.blink(LED_RED, 100, 200);
 		k_sleep(K_SECONDS(1));
 		state_indicator.set_pairing_state(SET_PAIRING);
-		break;
 		}
 		else
 		{
