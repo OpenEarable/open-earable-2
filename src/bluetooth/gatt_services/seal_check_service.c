@@ -10,13 +10,15 @@
 #include "audio_datapath.h"
 #include "decimation_filter.h"
 
+#include "multitone.h"
+
 LOG_MODULE_REGISTER(seal_check_service, CONFIG_LOG_DEFAULT_LEVEL);
 
 #define NUM_SEAL_CHECK_SAMPLES 2048
 #define INITIAL_SEAL_CHECK_DROP 128
 
 int16_t seal_check_mic[NUM_SEAL_CHECK_SAMPLES];
-int seal_check_mic_index = 0;
+//int seal_check_mic_index = 0;
 
 static q15_t fft_output[NUM_SEAL_CHECK_SAMPLES * 2]; // Complex output needs double size
 static q15_t magnitude[NUM_SEAL_CHECK_SAMPLES / 2]; // Magnitude spectrum
@@ -35,18 +37,15 @@ static struct seal_check_data seal_check_result_data;
 static bool ccc_enabled = false;
 
 // Function prototypes
-extern int audio_datapath_multitone_play(uint16_t dur_ms, float amplitude);
+//extern int audio_datapath_multitone_play(uint16_t dur_ms, float amplitude);
 extern int hw_codec_volume_set(uint8_t volume);
-extern bool multitone_active;
 
 extern struct data_fifo fifo_rx;
 
-// Timer for checking multitone completion
-static struct k_timer multitone_check_timer;
-static bool timer_active = false;
-
 // Work item for seal check completion
 static struct k_work seal_check_complete_work;
+
+void seal_check_callback();
 
 // Callback for start characteristic write
 static ssize_t write_seal_check_start(struct bt_conn *conn,
@@ -73,12 +72,9 @@ static ssize_t write_seal_check_start(struct bt_conn *conn,
 			ret = data_fifo_init(&fifo_rx);
 			if (ret) {
 				LOG_ERR("Failed to set up rx FIFO: %d", ret);
-				return ret;
+				return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
 			}
 		}
-
-		// reset buffer index
-		seal_check_mic_index = 0;
 
 		// Set volume and start multitone
 		hw_codec_volume_set(0xB0);
@@ -86,18 +82,16 @@ static ssize_t write_seal_check_start(struct bt_conn *conn,
 		audio_datapath_decimator_init(12); // 12 = 4kHz
 		audio_datapath_aquire(&fifo_rx);
 		
-		// Start multitone playbook (1000ms, 1.0 amplitude)
-		ret = audio_datapath_multitone_play(1000, 1.0f);
+		// Start multitone playbook (1.0 amplitude)
+		ret = audio_datapath_buffer_play((int16_t*)multitone, multitone_length, false, 1.0f, NULL);
+
+		record_to_buffer(seal_check_mic, NUM_SEAL_CHECK_SAMPLES, INITIAL_SEAL_CHECK_DROP, false, true, seal_check_callback);
 		
 		if (ret != 0) {
 			LOG_ERR("Failed to start seal check: %d", ret);
 			seal_check_start_value = 0x00;
 			return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
 		}
-		
-		// Start timer to check multitone completion
-		timer_active = true;
-		k_timer_start(&multitone_check_timer, K_MSEC(10), K_MSEC(10));
 		
 		LOG_INF("Seal check started successfully");
 	}
@@ -148,8 +142,8 @@ static void seal_check_complete_work_handler(struct k_work *work)
 }
 
 void on_seal_check_complete() {
-	k_timer_stop(&multitone_check_timer);
-	
+	audio_datapath_buffer_stop();
+
 	audio_datapath_release();
 	audio_datapath_decimator_cleanup();
 
@@ -158,247 +152,242 @@ void on_seal_check_complete() {
 
 void compute_seal_check_result()
 {
-	if (seal_check_mic_index < NUM_SEAL_CHECK_SAMPLES + INITIAL_SEAL_CHECK_DROP) {
-		LOG_WRN("Seal check incomplete, only %d samples collected", seal_check_mic_index - INITIAL_SEAL_CHECK_DROP);
-	} else {
-		// Compute RFFT Q15 for seal check analysis
-		static arm_rfft_instance_q15 rfft_instance;
-		static bool rfft_initialized = false;
-		
-		if (!rfft_initialized) {
-			arm_status status = arm_rfft_init_q15(&rfft_instance, NUM_SEAL_CHECK_SAMPLES, 0, 1);
-			if (status == ARM_MATH_SUCCESS) {
-				rfft_initialized = true;
-				LOG_INF("RFFT Q15 initialized for %d samples", NUM_SEAL_CHECK_SAMPLES);
-			} else {
-				LOG_ERR("RFFT Q15 initialization failed with status %d", status);
-				return;
-			}
-		}
-		
-		// Perform RFFT
-		arm_rfft_q15(&rfft_instance, seal_check_mic, fft_output);
-		
-		// Calculate magnitude spectrum
-		arm_cmplx_mag_q15(fft_output, magnitude, NUM_SEAL_CHECK_SAMPLES / 2);
-		
-		LOG_INF("Seal check RFFT completed, %d frequency bins calculated", NUM_SEAL_CHECK_SAMPLES / 2);
-		
-		// Calculate mean magnitude of the spectrum
-		float spectrum_sum = 0.0f;
-		int valid_bins = 0;
-		for (int bin = 1; bin < NUM_SEAL_CHECK_SAMPLES / 2; bin++) {
-			spectrum_sum += (float)magnitude[bin];
-			valid_bins++;
-		}
-		float mean_magnitude = spectrum_sum / valid_bins;
-		float peak_threshold = 4.0f * mean_magnitude;
-		
-		// Analyze center frequencies with magnitude weighting
-		printk("Center frequency analysis (sampling rate: 4000 Hz, mean_mag: %.1f, threshold: %.1f):\n", 
-			(double)mean_magnitude, (double)peak_threshold);
-		
-		// Arrays for linear regression
-		float valid_frequencies[num_bins];
-		float valid_amplitudes[num_bins];
-		int valid_peak_count = 0;
-		
-		for (int center_idx = 0; center_idx < num_bins; center_idx++) {
-			float center_freq = target_frequencies[center_idx];
-			int center_bin = (int)(center_freq * NUM_SEAL_CHECK_SAMPLES / 4000.0f + 0.5f);
-			
-			// Define search range
-			int start_bin = MAX(1, center_bin - bin_tolerance);
-			int end_bin = MIN(NUM_SEAL_CHECK_SAMPLES / 2 - 1, center_bin + bin_tolerance);
-			
-			// Calculate weighted center frequency and total magnitude
-			float weighted_freq_sum = 0.0f;
-			float total_magnitude = 0.0f;
-			q15_t peak_magnitude = 0;
-			int peak_bin = center_bin;
-			
-			for (int bin = start_bin; bin <= end_bin; bin++) {
-				float bin_freq = (float)bin * 4000.0f / NUM_SEAL_CHECK_SAMPLES;
-				float magnitude_weight = (float)magnitude[bin];
-				
-				weighted_freq_sum += bin_freq * magnitude_weight;
-				total_magnitude += magnitude_weight;
-				
-				// Track peak for amplitude calculation
-				if (magnitude[bin] > peak_magnitude) {
-					peak_magnitude = magnitude[bin];
-					peak_bin = bin;
-				}
-			}
-			
-			// Calculate weighted center frequency
-			float actual_center_freq = 0.0f;
-			bool valid_peak = false;
-			
-			if (total_magnitude > 0) {
-				actual_center_freq = weighted_freq_sum / total_magnitude;
-			} else {
-				actual_center_freq = center_freq; // fallback to expected center
-			}
-			
-			// Check if peak is valid (higher than threshold)
-			if (peak_magnitude > peak_threshold) {
-				valid_peak = true;
-			}
-			
-			// Interpolate peak amplitude for better accuracy (only for valid peaks)
-			float interpolated_amplitude = (float)peak_magnitude;
-			//if (valid_peak && peak_bin > 0 && peak_bin < NUM_SEAL_CHECK_SAMPLES / 2 - 1) {
-			if (peak_bin > 0 && peak_bin < NUM_SEAL_CHECK_SAMPLES / 2 - 1) {
-				// Parabolic interpolation for peak refinement
-				float y1 = (float)magnitude[peak_bin - 1];
-				float y2 = (float)magnitude[peak_bin];
-				float y3 = (float)magnitude[peak_bin + 1];
-				
-				float a = (y1 - 2*y2 + y3) / 2;
-				float b = (y3 - y1) / 2;
-				
-				if (a != 0) {
-					float peak_offset = -b / (2*a);
-					// Limit offset to reasonable range
-					if (peak_offset > -1.0f && peak_offset < 1.0f) {
-						interpolated_amplitude = y2 - (b*b)/(4*a);
-						actual_center_freq += peak_offset * (4000.0f / NUM_SEAL_CHECK_SAMPLES);
-					}
-				}
-			}
-			
-			// Store valid peaks for linear regression
-			if (valid_peak) {
-				valid_frequencies[valid_peak_count] = actual_center_freq;
-				valid_amplitudes[valid_peak_count] = interpolated_amplitude;
-				valid_peak_count++;
-			}
-			
-			printk("Bin %d: Expected %.2f Hz, Found %.2f Hz, Amplitude: %.1f (raw: %d, total_mag: %.1f) %s\n", 
-				center_idx, 
-				(double)center_freq, 
-				(double)actual_center_freq, 
-				(double)interpolated_amplitude,
-				peak_magnitude,
-				(double)total_magnitude,
-				valid_peak ? "VALID" : "WEAK");
-		}
-		
-		// Perform linear regression on valid peaks (magnitude vs log(frequency))
-		if (valid_peak_count >= 2) {
-			// Calculate log frequencies for regression
-			float log_frequencies[num_bins];
-			for (int i = 0; i < valid_peak_count; i++) {
-				log_frequencies[i] = logf(valid_frequencies[i]);
-			}
-			
-			// Calculate means
-			float mean_log_freq = 0.0f;
-			float mean_amp = 0.0f;
-			for (int i = 0; i < valid_peak_count; i++) {
-				mean_log_freq += log_frequencies[i];
-				mean_amp += valid_amplitudes[i];
-			}
-			mean_log_freq /= valid_peak_count;
-			mean_amp /= valid_peak_count;
-			
-			// Calculate slope (linear regression: magnitude vs log(frequency))
-			float numerator = 0.0f;
-			float denominator = 0.0f;
-			for (int i = 0; i < valid_peak_count; i++) {
-				float log_freq_diff = log_frequencies[i] - mean_log_freq;
-				float amp_diff = valid_amplitudes[i] - mean_amp;
-				numerator += log_freq_diff * amp_diff;
-				denominator += log_freq_diff * log_freq_diff;
-			}
-			
-			float slope = 0.0f;
-			if (denominator != 0.0f) {
-				slope = numerator / denominator;
-			}
-			
-			// Calculate correlation coefficient for quality assessment
-			/*float sum_sq_log_freq = 0.0f;
-			float sum_sq_amp = 0.0f;
-			for (int i = 0; i < valid_peak_count; i++) {
-				float log_freq_diff = log_frequencies[i] - mean_log_freq;
-				float amp_diff = valid_amplitudes[i] - mean_amp;
-				sum_sq_log_freq += log_freq_diff * log_freq_diff;
-				sum_sq_amp += amp_diff * amp_diff;
-			}
-			
-			float correlation = 0.0f;
-			if (sum_sq_log_freq > 0.0f && sum_sq_amp > 0.0f) {
-				correlation = numerator / (sqrtf(sum_sq_log_freq) * sqrtf(sum_sq_amp));
-			}*/
-
-			float avg_peak_mag = 0.0f;
-			for (int i = 0; i < valid_peak_count; i++) {
-				avg_peak_mag += valid_amplitudes[i];
-			}
-			avg_peak_mag /= valid_peak_count;
-
-			float mse = 0.0f;
-			for (int i = 0; i < valid_peak_count; i++) {
-				float freq_error = valid_amplitudes[i] / avg_peak_mag - target_magnitudes[i];
-				mse += freq_error * freq_error;
-			}
-			mse /= valid_peak_count;
-
-			float seal_quality = fminf(avg_peak_mag / avg_magnitude, 1.f) - mse - (slope / avg_magnitude - avg_slope);
-			seal_quality = fmaxf(0.0f, fminf(100.0f, seal_quality * 100.f)); // Clamp between 0 and 100
-			
-			printk("Linear Regression Results (magnitude vs log(frequency)):\n");
-			printk("Valid peaks: %d, Slope: %.3f\n", //, Correlation: %.3f\n", 
-				valid_peak_count, (double)slope / avg_magnitude); //, (double)correlation);
-			printk("Seal Quality: %.3f\n", (double)seal_quality);
-			
-			// Prepare and send seal check data via GATT service
-			struct seal_check_data gatt_data;
-			gatt_data.version = 1;
-			gatt_data.quality = (uint8_t)(seal_quality); // Scale to 0-255
-			gatt_data.mean_magnitude = (uint8_t)(mean_magnitude * 8.0f > 255.0f ? 255 : (uint8_t)(mean_magnitude * 8.0f));
-			gatt_data.num_peaks = valid_peak_count;
-			
-			// Fill frequency and magnitude arrays
-			for (int i = 0; i < 9; i++) {
-				if (i < valid_peak_count) {
-					// Convert to 12.4 fixed point (multiply by 16)
-					gatt_data.frequencies[i] = (uint16_t)(valid_frequencies[i] * 16.0f);
-					gatt_data.magnitudes[i] = (uint16_t)(valid_amplitudes[i] > 65535.0f ? 65535 : (uint16_t)valid_amplitudes[i]);
-				} else {
-					gatt_data.frequencies[i] = 0;
-					gatt_data.magnitudes[i] = 0;
-				}
-			}
-			
-			// Send via GATT service
-			seal_check_notify_result(&gatt_data);
+	// Compute RFFT Q15 for seal check analysis
+	static arm_rfft_instance_q15 rfft_instance;
+	static bool rfft_initialized = false;
+	
+	if (!rfft_initialized) {
+		arm_status status = arm_rfft_init_q15(&rfft_instance, NUM_SEAL_CHECK_SAMPLES, 0, 1);
+		if (status == ARM_MATH_SUCCESS) {
+			rfft_initialized = true;
+			LOG_INF("RFFT Q15 initialized for %d samples", NUM_SEAL_CHECK_SAMPLES);
 		} else {
-			printk("Not enough valid peaks (%d) for linear regression\n", valid_peak_count);
+			LOG_ERR("RFFT Q15 initialization failed with status %d", status);
+			return;
+		}
+	}
+	
+	// Perform RFFT
+	arm_rfft_q15(&rfft_instance, seal_check_mic, fft_output);
+	
+	// Calculate magnitude spectrum
+	arm_cmplx_mag_q15(fft_output, magnitude, NUM_SEAL_CHECK_SAMPLES / 2);
+	
+	LOG_INF("Seal check RFFT completed, %d frequency bins calculated", NUM_SEAL_CHECK_SAMPLES / 2);
+	
+	// Calculate mean magnitude of the spectrum
+	float spectrum_sum = 0.0f;
+	int valid_bins = 0;
+	for (int bin = 1; bin < NUM_SEAL_CHECK_SAMPLES / 2; bin++) {
+		spectrum_sum += (float)magnitude[bin];
+		valid_bins++;
+	}
+	float mean_magnitude = spectrum_sum / valid_bins;
+	float peak_threshold = 4.0f * mean_magnitude;
+	
+	// Analyze center frequencies with magnitude weighting
+	printk("Center frequency analysis (sampling rate: 4000 Hz, mean_mag: %.1f, threshold: %.1f):\n", 
+		(double)mean_magnitude, (double)peak_threshold);
+	
+	// Arrays for linear regression
+	float valid_frequencies[num_bins];
+	float valid_amplitudes[num_bins];
+	int valid_peak_count = 0;
+	
+	for (int center_idx = 0; center_idx < num_bins; center_idx++) {
+		float center_freq = target_frequencies[center_idx];
+		int center_bin = (int)(center_freq * NUM_SEAL_CHECK_SAMPLES / 4000.0f + 0.5f);
+		
+		// Define search range
+		int start_bin = MAX(1, center_bin - bin_tolerance);
+		int end_bin = MIN(NUM_SEAL_CHECK_SAMPLES / 2 - 1, center_bin + bin_tolerance);
+		
+		// Calculate weighted center frequency and total magnitude
+		float weighted_freq_sum = 0.0f;
+		float total_magnitude = 0.0f;
+		q15_t peak_magnitude = 0;
+		int peak_bin = center_bin;
+		
+		for (int bin = start_bin; bin <= end_bin; bin++) {
+			float bin_freq = (float)bin * 4000.0f / NUM_SEAL_CHECK_SAMPLES;
+			float magnitude_weight = (float)magnitude[bin];
 			
-			// Send minimal data even if regression failed
-			struct seal_check_data gatt_data;
-			gatt_data.version = 1;
-			gatt_data.quality = 0; // No quality measurement possible
-			gatt_data.mean_magnitude = (uint8_t)(mean_magnitude * 8.0f > 255.0f ? 255 : (uint8_t)(mean_magnitude * 8.0f));
-			gatt_data.num_peaks = valid_peak_count;
+			weighted_freq_sum += bin_freq * magnitude_weight;
+			total_magnitude += magnitude_weight;
 			
-			// Fill available data
-			for (int i = 0; i < 9; i++) {
-				if (i < valid_peak_count) {
-					gatt_data.frequencies[i] = (uint16_t)(valid_frequencies[i] * 16.0f);
-					gatt_data.magnitudes[i] = (uint16_t)(valid_amplitudes[i] > 65535.0f ? 65535 : (uint16_t)valid_amplitudes[i]);
-				} else {
-					gatt_data.frequencies[i] = 0;
-					gatt_data.magnitudes[i] = 0;
+			// Track peak for amplitude calculation
+			if (magnitude[bin] > peak_magnitude) {
+				peak_magnitude = magnitude[bin];
+				peak_bin = bin;
+			}
+		}
+		
+		// Calculate weighted center frequency
+		float actual_center_freq = 0.0f;
+		bool valid_peak = false;
+		
+		if (total_magnitude > 0) {
+			actual_center_freq = weighted_freq_sum / total_magnitude;
+		} else {
+			actual_center_freq = center_freq; // fallback to expected center
+		}
+		
+		// Check if peak is valid (higher than threshold)
+		if (peak_magnitude > peak_threshold) {
+			valid_peak = true;
+		}
+		
+		// Interpolate peak amplitude for better accuracy (only for valid peaks)
+		float interpolated_amplitude = (float)peak_magnitude;
+		//if (valid_peak && peak_bin > 0 && peak_bin < NUM_SEAL_CHECK_SAMPLES / 2 - 1) {
+		if (peak_bin > 0 && peak_bin < NUM_SEAL_CHECK_SAMPLES / 2 - 1) {
+			// Parabolic interpolation for peak refinement
+			float y1 = (float)magnitude[peak_bin - 1];
+			float y2 = (float)magnitude[peak_bin];
+			float y3 = (float)magnitude[peak_bin + 1];
+			
+			float a = (y1 - 2*y2 + y3) / 2;
+			float b = (y3 - y1) / 2;
+			
+			if (a != 0) {
+				float peak_offset = -b / (2*a);
+				// Limit offset to reasonable range
+				if (peak_offset > -1.0f && peak_offset < 1.0f) {
+					interpolated_amplitude = y2 - (b*b)/(4*a);
+					actual_center_freq += peak_offset * (4000.0f / NUM_SEAL_CHECK_SAMPLES);
 				}
 			}
-			
-			seal_check_notify_result(&gatt_data);
 		}
+		
+		// Store valid peaks for linear regression
+		if (valid_peak) {
+			valid_frequencies[valid_peak_count] = actual_center_freq;
+			valid_amplitudes[valid_peak_count] = interpolated_amplitude;
+			valid_peak_count++;
+		}
+		
+		printk("Bin %d: Expected %.2f Hz, Found %.2f Hz, Amplitude: %.1f (raw: %d, total_mag: %.1f) %s\n", 
+			center_idx, 
+			(double)center_freq, 
+			(double)actual_center_freq, 
+			(double)interpolated_amplitude,
+			peak_magnitude,
+			(double)total_magnitude,
+			valid_peak ? "VALID" : "WEAK");
+	}
+	
+	// Perform linear regression on valid peaks (magnitude vs log(frequency))
+	if (valid_peak_count >= 2) {
+		// Calculate log frequencies for regression
+		float log_frequencies[num_bins];
+		for (int i = 0; i < valid_peak_count; i++) {
+			log_frequencies[i] = logf(valid_frequencies[i]);
+		}
+		
+		// Calculate means
+		float mean_log_freq = 0.0f;
+		float mean_amp = 0.0f;
+		for (int i = 0; i < valid_peak_count; i++) {
+			mean_log_freq += log_frequencies[i];
+			mean_amp += valid_amplitudes[i];
+		}
+		mean_log_freq /= valid_peak_count;
+		mean_amp /= valid_peak_count;
+		
+		// Calculate slope (linear regression: magnitude vs log(frequency))
+		float numerator = 0.0f;
+		float denominator = 0.0f;
+		for (int i = 0; i < valid_peak_count; i++) {
+			float log_freq_diff = log_frequencies[i] - mean_log_freq;
+			float amp_diff = valid_amplitudes[i] - mean_amp;
+			numerator += log_freq_diff * amp_diff;
+			denominator += log_freq_diff * log_freq_diff;
+		}
+		
+		float slope = 0.0f;
+		if (denominator != 0.0f) {
+			slope = numerator / denominator;
+		}
+		
+		// Calculate correlation coefficient for quality assessment
+		/*float sum_sq_log_freq = 0.0f;
+		float sum_sq_amp = 0.0f;
+		for (int i = 0; i < valid_peak_count; i++) {
+			float log_freq_diff = log_frequencies[i] - mean_log_freq;
+			float amp_diff = valid_amplitudes[i] - mean_amp;
+			sum_sq_log_freq += log_freq_diff * log_freq_diff;
+			sum_sq_amp += amp_diff * amp_diff;
+		}
+		
+		float correlation = 0.0f;
+		if (sum_sq_log_freq > 0.0f && sum_sq_amp > 0.0f) {
+			correlation = numerator / (sqrtf(sum_sq_log_freq) * sqrtf(sum_sq_amp));
+		}*/
 
+		float avg_peak_mag = 0.0f;
+		for (int i = 0; i < valid_peak_count; i++) {
+			avg_peak_mag += valid_amplitudes[i];
+		}
+		avg_peak_mag /= valid_peak_count;
+
+		float mse = 0.0f;
+		for (int i = 0; i < valid_peak_count; i++) {
+			float freq_error = valid_amplitudes[i] / avg_peak_mag - target_magnitudes[i];
+			mse += freq_error * freq_error;
+		}
+		mse /= valid_peak_count;
+
+		float seal_quality = fminf(avg_peak_mag / avg_magnitude, 1.f) - mse - (slope / avg_magnitude - avg_slope);
+		seal_quality = fmaxf(0.0f, fminf(100.0f, seal_quality * 100.f)); // Clamp between 0 and 100
+		
+		printk("Linear Regression Results (magnitude vs log(frequency)):\n");
+		printk("Valid peaks: %d, Slope: %.3f\n", //, Correlation: %.3f\n", 
+			valid_peak_count, (double)slope / avg_magnitude); //, (double)correlation);
+		printk("Seal Quality: %.3f\n", (double)seal_quality);
+		
+		// Prepare and send seal check data via GATT service
+		struct seal_check_data gatt_data;
+		gatt_data.version = 1;
+		gatt_data.quality = (uint8_t)(seal_quality); // Scale to 0-255
+		gatt_data.mean_magnitude = (uint8_t)(mean_magnitude * 8.0f > 255.0f ? 255 : (uint8_t)(mean_magnitude * 8.0f));
+		gatt_data.num_peaks = valid_peak_count;
+		
+		// Fill frequency and magnitude arrays
+		for (int i = 0; i < 9; i++) {
+			if (i < valid_peak_count) {
+				// Convert to 12.4 fixed point (multiply by 16)
+				gatt_data.frequencies[i] = (uint16_t)(valid_frequencies[i] * 16.0f);
+				gatt_data.magnitudes[i] = (uint16_t)(valid_amplitudes[i] > 65535.0f ? 65535 : (uint16_t)valid_amplitudes[i]);
+			} else {
+				gatt_data.frequencies[i] = 0;
+				gatt_data.magnitudes[i] = 0;
+			}
+		}
+		
+		// Send via GATT service
+		seal_check_notify_result(&gatt_data);
+	} else {
+		printk("Not enough valid peaks (%d) for linear regression\n", valid_peak_count);
+		
+		// Send minimal data even if regression failed
+		struct seal_check_data gatt_data;
+		gatt_data.version = 1;
+		gatt_data.quality = 0; // No quality measurement possible
+		gatt_data.mean_magnitude = (uint8_t)(mean_magnitude * 8.0f > 255.0f ? 255 : (uint8_t)(mean_magnitude * 8.0f));
+		gatt_data.num_peaks = valid_peak_count;
+		
+		// Fill available data
+		for (int i = 0; i < 9; i++) {
+			if (i < valid_peak_count) {
+				gatt_data.frequencies[i] = (uint16_t)(valid_frequencies[i] * 16.0f);
+				gatt_data.magnitudes[i] = (uint16_t)(valid_amplitudes[i] > 65535.0f ? 65535 : (uint16_t)valid_amplitudes[i]);
+			} else {
+				gatt_data.frequencies[i] = 0;
+				gatt_data.magnitudes[i] = 0;
+			}
+		}
+		
+		seal_check_notify_result(&gatt_data);
 	}
 }
 
@@ -429,23 +418,13 @@ int seal_check_notify_result(const struct seal_check_data *data)
 	return 0;
 }
 
-// Timer callback function to check multitone completion
-static void multitone_check_timer_handler(struct k_timer *timer)
-{
-	if (!multitone_active && timer_active) {
-		LOG_INF("Multitone playback completed, starting analysis");
-		timer_active = false;
-		//k_timer_stop(&multitone_check_timer);
-		k_work_submit(&seal_check_complete_work);
-	}
+void seal_check_callback() {
+	k_work_submit(&seal_check_complete_work);
 }
 
 // Service initialization
 int init_seal_check_service(void)
-{
-	// Initialize timer
-	k_timer_init(&multitone_check_timer, multitone_check_timer_handler, NULL);
-	
+{	
 	// Initialize work item
 	k_work_init(&seal_check_complete_work, seal_check_complete_work_handler);
 	
