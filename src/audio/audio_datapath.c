@@ -31,7 +31,6 @@
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
 #include "decimation_filter.h"
-#include "mulitone.h"
 #include "arm_math.h"
 #include "hw_codec.h"
 //#include "../drivers/ADAU1860.h"
@@ -206,8 +205,6 @@ static struct {
 
 static struct k_msgq * sensor_queue;
 
-//extern struct audio_data fifo_rx;
-
 //K_MSGQ_DEFINE(rx_queue, sizeof(struct audio_data), 16, 4);
 extern struct k_msgq_t encoder_queue;
 
@@ -221,13 +218,23 @@ static k_tid_t data_thread_id;
 
 bool _record_to_sd = false;
 
+// Buffer recording variables
+static bool _record_to_buffer = false;
+static int16_t *_record_buffer = NULL;
+static int _record_num_samples = 0;
+static int _record_current_index = 0;
+static bool _record_left = false;
+static bool _record_right = false;
+static void (*_record_callback)(void) = NULL;
+
 int _count = 0;
 
-bool multitone_active;
-static uint32_t multitone_pos;
-static uint16_t multitone_dur_ms;
-static float multitone_amplitude;
-static bool multitone_loop;
+static int16_t *buffer_play_data = NULL;
+static uint32_t buffer_play_pos;
+static int buffer_play_num_samples;
+static float buffer_play_amplitude;
+static bool buffer_play_loop;
+static void (*buffer_play_callback)(void) = NULL;
 
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
@@ -264,20 +271,51 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 			unsigned int logger_signaled;
 			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
 
-			if (ret == 0 && (multitone_active || _record_to_sd)) {
+			if (ret == 0 && (_record_to_sd || _record_to_buffer)) {
 				/* Decimate audio data from 48kHz to the desired sampling rate */
 				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
 				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
 
 				int decimated_frames = audio_datapath_decimator_process(audio_block, decimated_audio, num_frames);
 
-				if (multitone_active) {
+				// Generic buffer recording
+				if (_record_to_buffer && _record_buffer != NULL) {
 					for(int i = 0; i < decimated_frames; i++) {
-						if (seal_check_mic_index < NUM_SEAL_CHECK_SAMPLES + INITIAL_SEAL_CHECK_DROP) {
-							if (seal_check_mic_index >= INITIAL_SEAL_CHECK_DROP) {
-								seal_check_mic[seal_check_mic_index - INITIAL_SEAL_CHECK_DROP] = decimated_audio[2 * i + 1];
+						_record_current_index++;
+						
+						// Skip samples during initial drop period
+						if (_record_current_index <= 0) {
+							continue;
+						}
+						
+						// Calculate actual buffer index (after initial drop)
+						int buffer_index = _record_current_index - 1;
+						
+						if (buffer_index < _record_num_samples) {
+							if (_record_left && _record_right) {
+								// Stereo recording - store both channels
+								if (buffer_index * 2 + 1 < _record_num_samples) {
+									_record_buffer[buffer_index * 2] = decimated_audio[2 * i];     // Left
+									_record_buffer[buffer_index * 2 + 1] = decimated_audio[2 * i + 1]; // Right
+								}
+							} else if (_record_left) {
+								// Left channel only
+								_record_buffer[buffer_index] = decimated_audio[2 * i];
+							} else if (_record_right) {
+								// Right channel only
+								_record_buffer[buffer_index] = decimated_audio[2 * i + 1];
 							}
-							seal_check_mic_index++;
+							
+						}
+						
+						// Check if recording is complete
+						if (buffer_index >= _record_num_samples || 
+						    (_record_left && _record_right && buffer_index * 2 >= _record_num_samples)) {
+							_record_to_buffer = false;
+							if (_record_callback) {
+								_record_callback();
+							}
+							break;
 						}
 					}
 				}
@@ -328,11 +366,6 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     }
 }
 
-/*void set_ring_buffer(struct ring_buf *buf)
-{
-	ring_buffer = buf;
-}*/
-
 void set_sensor_queue(struct k_msgq *queue)
 {
 	sensor_queue = queue;
@@ -341,6 +374,23 @@ void set_sensor_queue(struct k_msgq *queue)
 
 void record_to_sd(bool active) {
 	_record_to_sd = active;
+}
+
+void record_to_buffer(int16_t *buffer, int num_samples, int initial_drop, bool left, bool right, void (*callback)(void)) {
+	if (buffer == NULL || num_samples <= 0) {
+		LOG_ERR("Invalid buffer recording parameters");
+		return;
+	}
+	
+	_record_buffer = buffer;
+	_record_num_samples = num_samples;
+	_record_current_index = -initial_drop;
+	_record_left = left;
+	_record_right = right;
+	_record_callback = callback;
+	_record_to_buffer = true;
+	
+	LOG_INF("Started buffer recording: %d samples, initial_drop=%d, left=%d, right=%d", num_samples, initial_drop, left, right);
 }
 
 // Funktion, um den neuen Thread zu starten
@@ -694,14 +744,18 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 static void tone_stop_worker(struct k_work *work)
 {
 	tone_active = false;
-	multitone_active = false;
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
+
+	LOG_INF("Tone playback stopped");
+	
+	// Call buffer playback callback if set
+	if (buffer_play_callback) {
+		buffer_play_callback();
+		buffer_play_callback = NULL;
+	}
+	buffer_play_data = NULL;
+	
 	LOG_DBG("Tone stopped");
-
-	//struct sensor_config mic = {ID_MICRO, 0, 0};
-	//config_sensor(&mic);
-
-	//microphone_stop();
 }
 
 K_WORK_DEFINE(tone_stop_work, tone_stop_worker);
@@ -742,32 +796,30 @@ int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude)
 	return 0;
 }
 
-int audio_datapath_multitone_play(uint16_t dur_ms, float amplitude)
+int audio_datapath_buffer_play(int16_t *buffer, int num_samples, bool loop, float amplitude, void (*callback)(void))
 {
-	if (multitone_active) {
+	if (buffer_play_data != NULL) {
 		return -EBUSY;
 	}
 
-	if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
-		multitone_pos = 0;
-		multitone_amplitude = amplitude;
-		multitone_dur_ms = dur_ms;
-		multitone_loop = false; // Play only once
-	} else {
+	if (!IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
 		LOG_WRN("Test tone disabled");
 		return -ENOTSUP;
 	}
 
-	// Start seal check with default parameters
-	// This mimics the shell command behavior		
-	/*seal_check_mic_index = 0;
-	
-	for (int i = 0; i < NUM_SEAL_CHECK_SAMPLES; i++) {
-		seal_check_mic[i] = 0;
-	}*/
+	if (buffer == NULL || num_samples <= 0) {
+		LOG_ERR("Invalid buffer play parameters");
+		return -EINVAL;
+	}
 
-	multitone_active = true;
-	LOG_DBG("Multitone started");
+	buffer_play_data = buffer;
+	buffer_play_pos = 0;
+	buffer_play_num_samples = num_samples;
+	buffer_play_amplitude = amplitude;
+	buffer_play_loop = loop;
+	buffer_play_callback = callback;
+
+	LOG_DBG("Buffer playback started: %d samples, loop=%d, amplitude=%.2f", num_samples, loop, (double)amplitude);
 	return 0;
 }
 
@@ -777,11 +829,15 @@ void audio_datapath_tone_stop(void)
 	k_work_submit(&tone_stop_work);
 }
 
-void audio_datapath_multitone_stop(void)
+void audio_datapath_buffer_stop(void)
 {
 	k_timer_stop(&tone_stop_timer);
-	multitone_active = false;
-	LOG_DBG("Multitone stopped");
+	buffer_play_data = NULL;
+	if (buffer_play_callback) {
+		buffer_play_callback();
+		buffer_play_callback = NULL;
+	}
+	LOG_DBG("Buffer playback stopped");
 }
 
 static void tone_mix(uint8_t *tx_buf)
@@ -799,29 +855,29 @@ static void tone_mix(uint8_t *tx_buf)
 		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, tone_buf_continuous, BLK_MONO_SIZE_OCTETS,
 			      B_MONO_INTO_A_STEREO_L);
 		ERR_CHK(ret);
-	} else if (multitone_active) {
-		int8_t multitone_buf[BLK_MONO_SIZE_OCTETS];
+	} else if (buffer_play_data != NULL) {
+		int8_t buffer_play_buf[BLK_MONO_SIZE_OCTETS];
 		int samples_per_block = BLK_MONO_SIZE_OCTETS / sizeof(int16_t);
 
-		/* Copy multitone samples to buffer with amplitude scaling */
+		/* Copy buffer samples to playback buffer with amplitude scaling */
 		for (int i = 0; i < samples_per_block; i++) {
-			if (multitone_pos >= multitone_length) {
-				if (multitone_loop) {
-					multitone_pos = 0; /* Loop the multitone */
+			if (buffer_play_pos >= buffer_play_num_samples) {
+				if (buffer_play_loop) {
+					buffer_play_pos = 0; /* Loop the buffer */
 				} else {
 					/* Stop after one complete playback */
 					k_work_submit(&tone_stop_work);
-					memset(&multitone_buf[i * 2], 0, (samples_per_block - i) * 2);
+					memset(&buffer_play_buf[i * 2], 0, (samples_per_block - i) * 2);
 					break;
 				}
 			}
-			int16_t sample = (int16_t)(multitone[multitone_pos] * multitone_amplitude);
-			multitone_buf[i * 2] = sample & 0xFF;
-			multitone_buf[i * 2 + 1] = (sample >> 8) & 0xFF;
-			multitone_pos++;
+			int16_t sample = (int16_t)(buffer_play_data[buffer_play_pos] * buffer_play_amplitude);
+			buffer_play_buf[i * 2] = sample & 0xFF;
+			buffer_play_buf[i * 2 + 1] = (sample >> 8) & 0xFF;
+			buffer_play_pos++;
 		}
 
-		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, multitone_buf, BLK_MONO_SIZE_OCTETS,
+		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, buffer_play_buf, BLK_MONO_SIZE_OCTETS,
 			      B_MONO_INTO_A_STEREO_L);
 		ERR_CHK(ret);
 	}
@@ -954,7 +1010,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 				memset(tx_buf, 0, BLK_STEREO_SIZE_OCTETS);
 			}
 
-			if (tone_active || multitone_active) {
+			if (tone_active || buffer_play_data != NULL) {
 				tone_mix(tx_buf);
 			}
 		}
@@ -1469,61 +1525,6 @@ static int cmd_i2s_tone_stop(const struct shell *shell, size_t argc, const char 
 	return 0;
 }
 
-static int cmd_i2s_seal_check(const struct shell *shell, size_t argc, const char **argv)
-{
-	int ret;
-	uint16_t dur_ms;
-	float amplitude;
-
-	if (argc != 3) {
-		shell_error(shell, "2 arguments (dur [ms] and amplitude [0-1.0]) must be provided");
-		return -EINVAL;
-	}
-
-	if (!isdigit((int)argv[1][0])) {
-		shell_error(shell, "Argument 1 is not numeric");
-		return -EINVAL;
-	}
-
-	dur_ms = strtoul(argv[1], NULL, 10);
-	amplitude = strtof(argv[2], NULL);
-
-	if (amplitude <= 0 || amplitude > 1) {
-		shell_error(shell, "Make sure amplitude is 0 < [float] <= 1");
-		return -EINVAL;
-	}
-
-	seal_check_mic_index = 0;
-
-	for (int i = 0; i < NUM_SEAL_CHECK_SAMPLES; i++) {
-		seal_check_mic[i] = 0;
-	}
-
-	ret = hw_codec_volume_set(0xB0);
-
-	//microphone_start(6); // 6 = 8kHz
-
-	//struct sensor_config mic = {ID_MICRO, 6, DATA_STORAGE};
-	//config_sensor(&mic);
-
-	shell_print(shell, "Starting seal check analysis");
-	ret = audio_datapath_multitone_play(dur_ms, amplitude);
-
-	if (ret == -EBUSY) {
-		/* Abort continuous running multitone with new multitone */
-		audio_datapath_multitone_stop();
-		ret = audio_datapath_multitone_play(dur_ms, amplitude);
-	}
-
-	if (ret) {
-		shell_print(shell, "Seal check failed with code %d", ret);
-	}
-
-	shell_print(shell, "Seal check: amplitude %.02f", (double)amplitude);
-
-	return ret;
-}
-
 static int cmd_hfclkaudio_drift_comp_enable(const struct shell *shell, size_t argc,
 					    const char **argv)
 {
@@ -1590,8 +1591,6 @@ SHELL_STATIC_SUBCMD_SET_CREATE(test_cmd,
 					      "Start local tone from nRF5340", cmd_i2s_tone_play),
 			       SHELL_COND_CMD(CONFIG_SHELL, nrf_tone_stop, NULL,
 					      "Stop local tone from nRF5340", cmd_i2s_tone_stop),
-			       SHELL_COND_CMD(CONFIG_SHELL, nrf_seal_check, NULL,
-					      "Start seal check analysis", cmd_i2s_seal_check),
 			       SHELL_COND_CMD(CONFIG_SHELL, pll_drift_comp_enable, NULL,
 					      "Enable audio PLL auto drift compensation (default)",
 					      cmd_hfclkaudio_drift_comp_enable),
