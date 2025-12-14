@@ -104,24 +104,6 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 /* How often to print under-run warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
 
-#define NUM_SEAL_CHECK_SAMPLES 2048
-#define INITIAL_SEAL_CHECK_DROP 128
-
-/*
-int16_t seal_check_mic[NUM_SEAL_CHECK_SAMPLES];
-int seal_check_mic_index = 0;
-
-static q15_t fft_output[NUM_SEAL_CHECK_SAMPLES * 2]; // Complex output needs double size
-static q15_t magnitude[NUM_SEAL_CHECK_SAMPLES / 2]; // Magnitude spectrum
-
-#define num_bins 9
-const int bin_tolerance = 2;
-static float avg_magnitude = 119.0f;
-static float avg_slope = -0.07382279460490486;
-static float target_frequencies[] = {40.0, 60.0, 90.0, 135.0, 202.5, 303.75, 455.625, 683.4375, 1025.15625};
-static float target_magnitudes[] = {0.90833731, 1.18334124, 1.38796968, 1.16634027, 0.85781358,
-       0.65981396, 0.84768657, 0.98236069, 1.00633671};*/
-
 extern int seal_check_mic_index;
 extern int16_t seal_check_mic[];
 
