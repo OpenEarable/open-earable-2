@@ -5,6 +5,9 @@
 #include <zephyr/devicetree.h>
 
 #include <zephyr/kernel.h>
+#include <zephyr/sys/byteorder.h>
+#include <string.h>
+#include <limits.h>
 
 #include "openearable_common.h"
 
@@ -36,13 +39,28 @@ struct __packed time_sync_packet {
     uint64_t t3_dev_tx;     // device transmit time
 };
 
-struct time_sync_packet time_sync_packet = {};
 int64_t time_offset_us = 0;
 
 bool notify_rtt_enabled = false;
 
-inline uint64_t oe_micros() {
+uint64_t oe_micros() {
     return get_current_time_us();
+}
+
+static int parse_time_sync_packet_le(const void *buf, uint16_t len, struct time_sync_packet *out)
+{
+    if (len != sizeof(struct time_sync_packet) || out == NULL || buf == NULL) {
+        return -EINVAL;
+    }
+
+    const uint8_t *p = (const uint8_t *)buf;
+    out->version  = p[0];
+    out->op       = p[1];
+    out->seq      = sys_get_le16(&p[2]);
+    out->t1_phone = sys_get_le64(&p[4]);
+    out->t2_dev_rx = sys_get_le64(&p[12]);
+    out->t3_dev_tx = sys_get_le64(&p[20]);
+    return 0;
 }
 
 static ssize_t write_rtt_request(
@@ -63,34 +81,38 @@ static ssize_t write_rtt_request(
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
-    memcpy(&time_sync_packet, buf, sizeof(struct time_sync_packet));
+    struct time_sync_packet pkt = {0};
+    int pret = parse_time_sync_packet_le(buf, len, &pkt);
+    if (pret != 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
 
     LOG_DBG("Received time sync RTT request, len: %u, handle: %u, conn: %p", len, attr->handle, (void *)conn);
-    LOG_DBG("Request data: version: %d, op: %d, seq: %d, t1_phone: %llu, t2_dev_rx: %llu, t3_dev_tx: %llu",
-        time_sync_packet.version,
-        time_sync_packet.op,
-        time_sync_packet.seq,
-        time_sync_packet.t1_phone,
-        time_sync_packet.t2_dev_rx,
-        time_sync_packet.t3_dev_tx
+    LOG_DBG("Request data: version: %u, op: %u, seq: %u, t1_phone: %llu, t2_dev_rx: %llu, t3_dev_tx: %llu",
+        pkt.version,
+        pkt.op,
+        pkt.seq,
+        pkt.t1_phone,
+        pkt.t2_dev_rx,
+        pkt.t3_dev_tx
     );
 
-    if (time_sync_packet.version != 1) {
-        LOG_ERR("Unsupported time sync packet version: %d", time_sync_packet.version);
+    if (pkt.version != 1) {
+        LOG_ERR("Unsupported time sync packet version: %u", pkt.version);
         return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
     }
 
-    if (time_sync_packet.op != TIME_SYNC_OP_REQUEST) {
-        LOG_ERR("Unsupported time sync packet operation: %d", time_sync_packet.op);
+    if (pkt.op != TIME_SYNC_OP_REQUEST) {
+        LOG_ERR("Unsupported time sync packet operation: %u", pkt.op);
         return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
     }
 
-    time_sync_packet.op = TIME_SYNC_OP_RESPONSE;
-    time_sync_packet.t2_dev_rx = rx_time;
-    time_sync_packet.t3_dev_tx = get_current_time_us();
+    pkt.op = TIME_SYNC_OP_RESPONSE;
+    pkt.t2_dev_rx = rx_time;
+    pkt.t3_dev_tx = get_current_time_us();
 
     if (notify_rtt_enabled) {
-        bt_gatt_notify(conn, attr, &time_sync_packet, sizeof(struct time_sync_packet));
+        (void)bt_gatt_notify(conn, attr, &pkt, sizeof(pkt));
     }
 
     return len;
@@ -101,14 +123,21 @@ static ssize_t write_time_offset(
     const struct bt_gatt_attr *attr,
     const void *buf,
     uint16_t len,
-    uint16_t offset,uint8_t flags
+    uint16_t offset,
+    uint8_t flags
 ) {
+    if (offset != 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
+    }
+
     if (len != sizeof(int64_t)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
-    time_offset_us += *(int64_t *)buf;
-    LOG_DBG("Received time offset update: %lld us, new time offset: %lld us", *(int64_t *)buf, time_offset_us);
+    int64_t delta;
+    memcpy(&delta, buf, sizeof(delta));
+    time_offset_us += delta;
+    LOG_DBG("Received time offset update: %lld us, new time offset: %lld us", delta, time_offset_us);
 
     return len;
 }
@@ -124,7 +153,18 @@ int init_time_sync(void) {
 }
 
 inline uint64_t get_current_time_us() {
-    return get_time_since_boot_us() + time_offset_us;
+   uint64_t base_u = get_time_since_boot_us();
+   int64_t base_s = (base_u > (uint64_t)INT64_MAX) ? INT64_MAX : (int64_t)base_u;
+   int64_t now_s = base_s + time_offset_us;
+   if (now_s < 0) {
+       LOG_WRN("Current time underflow, returning 0");
+       return 0;
+    }
+    if (now_s != base_u + time_offset_us) {
+        LOG_WRN("Current time overflow, returning UINT64_MAX");
+        return UINT64_MAX;
+    }
+    return (uint64_t)now_s;
 }
 
 inline uint64_t get_time_since_boot_us() {
@@ -147,7 +187,7 @@ BT_GATT_SERVICE_DEFINE(time_sync_service,
     BT_GATT_CHARACTERISTIC(BT_UUID_TIME_SYNC_RTT_CHARAC,
                 BT_GATT_CHRC_WRITE | BT_GATT_CHRC_NOTIFY,
                 BT_GATT_PERM_WRITE,
-                NULL, write_rtt_request, &time_sync_packet),
+                NULL, write_rtt_request, NULL),
     BT_GATT_CCC(rtt_cfg_changed,
                 BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
