@@ -36,6 +36,16 @@ int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude);
 void audio_datapath_tone_stop(void);
 
 /**
+ * @brief Stops buffer recording safely
+ */
+void record_to_buffer_stop(void);
+
+/**
+ * @brief Stops all audio recording safely (buffer and SD)
+ */
+void audio_datapath_stop_recording(void);
+
+/**
  * @brief Set the presentation delay
  *
  * @param delay_us The presentation delay in µs
