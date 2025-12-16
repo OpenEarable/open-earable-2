@@ -122,33 +122,5 @@ private:
     void setupStages();
     void cleanupStages();
 };
-
-extern "C" {
 #endif
-
-/**
- * @brief Initialize decimation filter (C interface)
- * @param decimation_factor Decimation factor
- * @return 0 on success, -EINVAL on error
- */
-int decimation_filter_init(uint8_t decimation_factor);
-
-/**
- * @brief Process stereo int16 audio with decimation (C interface)
- * @param input Input buffer (interleaved stereo int16)
- * @param output Output buffer (interleaved stereo int16)
- * @param num_frames Number of input stereo frames
- * @return Number of output frames, or negative on error
- */
-int decimation_filter_process(const int16_t *input, int16_t *output, uint32_t num_frames);
-
-/**
- * @brief Reset filter state (C interface)
- */
-void decimation_filter_reset(void);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* _DECIMATION_FILTER_H_ */
