@@ -144,7 +144,7 @@ void on_seal_check_complete() {
 	audio_datapath_buffer_stop();
 
 	audio_datapath_release();
-	audio_datapath_decimator_cleanup();
+	//audio_datapath_decimator_cleanup();
 
 	compute_seal_check_result();
 }

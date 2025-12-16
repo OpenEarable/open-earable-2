@@ -259,6 +259,11 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
 
 				int decimated_frames = audio_datapath_decimator_process(audio_block, decimated_audio, num_frames);
+				
+				// If decimator returns 0 frames (e.g. during cleanup), skip processing
+				if (decimated_frames <= 0) {
+					continue;
+				}
 
 				// Generic buffer recording
 				if (_record_to_buffer && _record_buffer != NULL) {
@@ -356,6 +361,25 @@ void set_sensor_queue(struct k_msgq *queue)
 
 void record_to_sd(bool active) {
 	_record_to_sd = active;
+}
+
+void audio_datapath_stop_recording(void) {
+	// Stop buffer recording
+	_record_to_buffer = false;
+	_record_buffer = NULL;
+	_record_callback = NULL;
+	
+	// Stop SD recording
+	_record_to_sd = false;
+	
+	LOG_DBG("Audio recording stopped safely");
+}
+
+void record_to_buffer_stop(void) {
+	_record_to_buffer = false;
+	_record_buffer = NULL;
+	_record_callback = NULL;
+	LOG_DBG("Buffer recording stopped");
 }
 
 void record_to_buffer(int16_t *buffer, int num_samples, int initial_drop, bool left, bool right, void (*callback)(void)) {
