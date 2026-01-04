@@ -38,24 +38,22 @@ jobs:
             --prerelease \
             --title "Open PR builds" \
             --notes "Rolling prerelease containing build outputs from all open PRs."
-
       - name: List open PRs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr list --repo "${{ github.repository }}" --state open --json number,headRefOid --limit 200 > prs.json
-
+          gh pr list --repo "${{ github.repository }}" --state open --json number,headRefOid,title --limit 200 > prs.json
       - name: Download artifacts from each PR's latest successful build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           rm -rf collected && mkdir -p collected
-
           jq -c '.[]' prs.json | while read -r pr; do
             num=$(echo "$pr" | jq -r .number)
             sha=$(echo "$pr" | jq -r .headRefOid)
-
+            title=$(echo "$pr" | jq -r .title)
+            safe_title=$(echo "$title" | sed 's/[^a-zA-Z0-9_-]/_/g' | cut -c1-50)
             run_id=$(gh run list \
               --repo "${{ github.repository }}" \
               --workflow "$BUILD_WORKFLOW_NAME" \
@@ -64,63 +62,56 @@ jobs:
               --limit 1 \
               --json databaseId \
               --jq '.[0].databaseId')
-
             if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
               echo "PR #$num: no successful run found"
               continue
             fi
-
             out="collected/pr-$num"
             rm -rf "$out" && mkdir -p "$out"
-
             if ! gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_firmware.elf" -D "$out/elf" 2>&1; then
               echo "PR #$num: failed to download firmware.elf artifact (may be expired)"
               rm -rf "$out"
               continue
             fi
-
             if ! gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_fota.zip" -D "$out/fota" 2>&1; then
               echo "PR #$num: failed to download fota.zip artifact (may be expired)"
               rm -rf "$out"
               continue
             fi
-
             (cd "$out/fota" && zip -r "../openearable_v2_fota.zip" .)
-
             mv "$out/elf/openearable_v2_firmware.elf" "$out/openearable_v2_firmware.elf"
-            mv "$out/openearable_v2_fota.zip" "$out/openearable_v2_fota.zip"
-
             rm -rf "$out/elf" "$out/fota"
             
-            echo "PR #$num: artifacts downloaded and prepared successfully"
+            echo "$safe_title" > "$out/title.txt"
+            
+            echo "PR #$num ($title): artifacts downloaded and prepared successfully"
           done
-
-
       - name: Upload all PR assets to prerelease (overwrite)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-
+          mkdir -p collected/upload
           find collected -type f \( -name "*.elf" -o -name "*.zip" \) | while read -r f; do
             pr=$(echo "$f" | sed -n 's#.*/pr-\([0-9]\+\)/.*#\1#p')
             base=$(basename "$f")
-            asset="pr-${pr}-${base}"
-            gh release upload "$TAG" "$f" --repo "${{ github.repository }}" --clobber --name "$asset"
+            title_file="collected/pr-$pr/title.txt"
+            if [ -f "$title_file" ]; then
+              safe_title=$(cat "$title_file")
+              asset="pr-${pr}-${safe_title}-${base}"
+            else
+              asset="pr-${pr}-${base}"
+            fi
+            cp "$f" "collected/upload/$asset"
+            gh release upload "$TAG" "collected/upload/$asset" --repo "${{ github.repository }}" --clobber
           done
-
           # delete assets of closed PRs
           open_prs="$(jq -r '.[].number' prs.json || true)"
-
           gh release view "$TAG" --repo "${{ github.repository }}" --json assets -q '.assets[].name' | while read -r asset; do
             pr="$(echo "$asset" | sed -n 's/^pr-\([0-9]\+\)-.*$/\1/p')"
             [ -n "$pr" ] || continue
-
             if ! echo "$open_prs" | grep -qx "$pr"; then
               echo "Deleting asset $asset (PR #$pr is closed/merged)"
               gh release delete-asset "$TAG" "$asset" --repo "${{ github.repository }}" --yes
             fi
           done
-
-
-      
