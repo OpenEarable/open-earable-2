@@ -214,6 +214,11 @@ static void config_work_handler(struct k_work *work) {
 			if (sensor->is_running()) {
 				active_sensors++;
 				LOG_INF("The active sensors are: %d",active_sensors);
+				for(int i=0;i<3;i++)
+				{
+					sampleratecheck(config.sensorId);
+				}
+				
 			}
 		}
 	}
@@ -299,4 +304,19 @@ for (int i=0;i<sensor_count;i++)
 		}
 	}
 	stop_sensor_manager();
+}
+
+void sampleratecheck(uint8_t sensorid)
+{
+	struct sensor_msg data;
+    int ret;
+	// static uint64_t timediff=0;
+    // static uint64_t last_msg_timestamp[6] = {0};
+    // static uint32_t msg_count[6] = {0};
+    // static double calculated_rates[6] = {0.0f};
+	ret = zbus_chan_read(&sensor_chan, &data, K_NO_WAIT);
+
+	LOG_INF("the time : %llu",data.data.time);
+	LOG_INF("the data  %u",data.data.data);
+
 }

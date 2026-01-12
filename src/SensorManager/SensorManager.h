@@ -24,7 +24,7 @@ void init_sensor_manager();
 void start_sensor_manager();
 
 void stop_sensor_manager();
-
+void sampleratecheck(uint8_t sensorid);
 void config_sensor(struct sensor_config * config);
 
 #ifdef __cplusplus
