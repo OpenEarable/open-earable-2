@@ -136,7 +136,5 @@ int main(void) {
 
 	file_transfer_service_init();
 
-	init_mp();
-
 	return 0;
 }

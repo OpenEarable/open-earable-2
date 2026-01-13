@@ -1,7 +1,7 @@
 #include "file_transfer_service.h"
 
 #include "SD_Card_Manager.h"
-#include "LittleFSManager.h"
+// #include "LittleFSManager.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/bluetooth/gatt.h>
@@ -17,7 +17,7 @@ static size_t pending_command_length = 0;
 
 static struct bt_conn *current_conn = NULL;
 
-LittleFsManager littlefs_manager = LittleFsManager();
+// LittleFsManager littlefs_manager = LittleFsManager();
 
 bool notify_enabled = false;
 
@@ -201,7 +201,7 @@ void command_remove_file(std::string path) {
 
 void command_list_files(std::string path) {
     if (path == "/") {
-        send_status("[DIR ]\tsd\n[DIR ]\tflash\n", current_conn);
+        send_status("[DIR ]\tsd\n", current_conn);
         return;
     }
 
@@ -248,9 +248,9 @@ void get_fs_manager(std::string path, FSManager *&fs) {
     if (path.rfind("/sd", 0) == 0) {
         fs = &sdcard_manager;
         LOG_DBG("Using SD Card Manager for path: %s", path.c_str());
-    } else if (path.rfind("/flash", 0) == 0) {
-        fs = &littlefs_manager;
-        LOG_DBG("Using LittleFS Manager for path: %s", path.c_str());
+    // } else if (path.rfind("/flash", 0) == 0) {
+    //     fs = &littlefs_manager;
+    //     LOG_DBG("Using LittleFS Manager for path: %s", path.c_str());
     } else {
         LOG_WRN("Unknown filesystem: %s", path.c_str());
         fs = nullptr;
