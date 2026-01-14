@@ -28,7 +28,6 @@
 #include <sensor_service.h>
 #include "led_service.h"
 LOG_MODULE_DECLARE(sensor_manager);
-
 std::set<int> ble_sensors = {};
 std::set<int> sd_sensors = {};
 
