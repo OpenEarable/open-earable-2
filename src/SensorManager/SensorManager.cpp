@@ -54,7 +54,9 @@ struct sensor_msg msg;
 struct k_thread sensor_publish;
 
 static k_tid_t sensor_pub_id;
-
+static struct k_work_delayable auto_stop_work;
+static uint8_t auto_stop_sensor_id = 0;
+static bool auto_stop_initialized = false;
 static struct k_work config_work;
 
 struct k_work_q sensor_work_q;
@@ -63,7 +65,54 @@ K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE)
 
 int active_sensors = 0;
 
+
+static struct k_thread samplerate_thread;
+static k_tid_t samplerate_thread_id;
+K_THREAD_STACK_DEFINE(samplerate_stack, 1024);  
+static uint8_t monitor_sensor_id = 0;
+static bool monitor_running = false;
+static uint32_t total_samples_counted = 0;
+
 static void config_work_handler(struct k_work *work);
+
+static void samplerate_monitor_thread(void *sensor_id_ptr, void *p2, void *p3) {
+    uint8_t sensor_id = *(uint8_t*)sensor_id_ptr;
+    uint32_t sample_count = 0;
+    uint64_t start_time = k_uptime_get();
+    uint64_t last_print_time = start_time;
+    
+    LOG_INF("Sample rate monitor STARTED for sensor: %u", sensor_id);
+    
+    while (monitor_running) {
+        struct sensor_msg data;
+        int ret = zbus_chan_read(&sensor_chan, &data, K_NO_WAIT);
+        
+        if (ret == 0 && data.data.id == sensor_id) {
+            sample_count++;
+            total_samples_counted++;
+            
+            uint64_t current_time = k_uptime_get();
+            if (current_time - last_print_time >= 1000) {
+                double rate_hz = (double)sample_count * 1000.0 / 
+                                (double)(current_time - last_print_time);
+                double total_rate = (double)total_samples_counted * 1000.0 / 
+                                   (double)(current_time - start_time);
+                
+                LOG_INF("[Sensor %u] %u samples, %.1f Hz (Current)", 
+                       sensor_id, sample_count, rate_hz);
+                LOG_INF("[Sensor %u] %u total samples, %.1f Hz (Average)", 
+                       sensor_id, total_samples_counted, total_rate);
+                
+                sample_count = 0;
+                last_print_time = current_time;
+            }
+        }
+        
+        k_sleep(K_MSEC(1));
+    }
+    
+    LOG_INF("Sample rate monitor STOPPED for sensor: %u", sensor_id);
+}
 
 void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
@@ -213,11 +262,8 @@ static void config_work_handler(struct k_work *work) {
 			if (sensor->is_running()) {
 				active_sensors++;
 				LOG_INF("The active sensors are: %d",active_sensors);
-				for(int i=0;i<3;i++)
-				{
-					sampleratecheck(config.sensorId);
-				}
-				
+    			start_samplerate_monitor_thread(config.sensorId);
+    			schedule_auto_stop(config.sensorId, 5);  
 			}
 		}
 	}
@@ -268,8 +314,6 @@ void config_sensor(struct sensor_config * config) {
 
 void senscheck(SensorScheme *sensors, int sensor_count)
 {
-	// int Sens[5]={0,4,6,1,7};//change the array use. use the predefined arrays
-	// float sr[5]={50.0,84.0,8.0,6.25,50.0};//use the predefined arrays.
 	bool senscheck[6]={false, false, false, false, false, false};
 
 	for (int i=0;i<sensor_count;i++)
@@ -281,7 +325,6 @@ void senscheck(SensorScheme *sensors, int sensor_count)
 			sensor->start(default_sensor_index);
 			if (sensor->is_running()) {
 				senscheck[i]=true;
-			//LOG_INF("The sensor with ID %d is working",sensors[i].id);
 			}
 			sensor->stop();
 	}
@@ -304,18 +347,57 @@ for (int i=0;i<sensor_count;i++)
 	}
 	stop_sensor_manager();
 }
-
-void sampleratecheck(uint8_t sensorid)
-{
-	struct sensor_msg data;
-    int ret;
-	// static uint64_t timediff=0;
-    // static uint64_t last_msg_timestamp[6] = {0};
-    // static uint32_t msg_count[6] = {0};
-    // static double calculated_rates[6] = {0.0f};
-	ret = zbus_chan_read(&sensor_chan, &data, K_NO_WAIT);
-
-	LOG_INF("the time : %llu",data.data.time);
-	LOG_INF("the data  %u",data.data.data);
-
+static void auto_stop_work_handler(struct k_work *work) {
+    LOG_INF("Auto-stopping monitor for sensor %u", auto_stop_sensor_id);
+    stop_samplerate_monitor_thread();
 }
+void start_samplerate_monitor_thread(uint8_t sensor_id) {
+    if (monitor_running) {
+        LOG_WRN("Monitor already running. Stopping current monitor first.");
+        stop_samplerate_monitor_thread();
+        k_sleep(K_MSEC(50));  // Brief pause
+    }
+    
+    monitor_sensor_id = sensor_id;
+    monitor_running = true;
+    total_samples_counted = 0;
+    
+    samplerate_thread_id = k_thread_create(
+        &samplerate_thread,
+        samplerate_stack,
+        K_THREAD_STACK_SIZEOF(samplerate_stack),
+        samplerate_monitor_thread,
+        &monitor_sensor_id,
+        NULL,
+        NULL,
+        K_PRIO_PREEMPT(6),
+        0,
+        K_NO_WAIT
+    );
+    
+    LOG_INF("Started samplerate monitor for sensor ID: %u", sensor_id);
+    
+    if (!auto_stop_initialized) {
+        k_work_init_delayable(&auto_stop_work, auto_stop_work_handler);
+        auto_stop_initialized = true;
+    }
+}
+
+void schedule_auto_stop(uint8_t sensor_id, uint32_t seconds) {
+    auto_stop_sensor_id = sensor_id;
+    k_work_reschedule(&auto_stop_work, K_SECONDS(seconds));
+    LOG_INF("Scheduled auto-stop for sensor %u in %u seconds", sensor_id, seconds);
+}
+
+void stop_samplerate_monitor_thread(void) {
+    if (!monitor_running) {
+        LOG_WRN("Monitor not running");
+        return;
+    }
+    
+    monitor_running = false;
+    
+    
+    LOG_INF("Samplerate monitor stopped");
+}
+

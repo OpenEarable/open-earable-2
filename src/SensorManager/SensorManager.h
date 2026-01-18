@@ -10,6 +10,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+void start_samplerate_monitor_thread(uint8_t sensor_id);
+void stop_samplerate_monitor_thread(void);
+void schedule_auto_stop(uint8_t sensor_id, uint32_t seconds);
 enum sensor_manager_state {
     INIT,
     RUNNING,

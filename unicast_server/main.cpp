@@ -90,6 +90,7 @@ int main(void) {
 	init_sensor_manager();
 	senscheck( defaultSensors, SENSOR_COUNT);
 
+
 	//sensor_config imu = {ID_IMU, 80, 0};
 	//sensor_config imu = {ID_PPG, 400, 0};
 	//sensor_config temp = {ID_OPTTEMP, 10, 0};
