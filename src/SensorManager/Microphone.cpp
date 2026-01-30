@@ -60,7 +60,7 @@ void Microphone::start(int sample_rate_idx) {
 
 	if (!_active) return;
 
-	LOG_INF("Starting Microphone at %d Hz", sample_rates.sample_rates[sample_rate_idx]);
+	LOG_INF("Starting Microphone at %f Hz", sample_rates.sample_rates[sample_rate_idx]);
 
 	audio_datapath_aquire(&fifo_rx);
 
