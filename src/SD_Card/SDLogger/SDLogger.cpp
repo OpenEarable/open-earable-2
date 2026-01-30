@@ -89,6 +89,10 @@ void sd_listener_callback(const struct zbus_channel *chan)
     }
 }
 
+inline void reset_logger_signal() {
+    k_poll_signal_reset(&logger_sig);
+    logger_evt.state = K_POLL_STATE_NOT_READY;
+}
 
 void SDLogger::sensor_sd_task() {
     int ret;
@@ -112,7 +116,7 @@ void SDLogger::sensor_sd_task() {
 
         // If a close/flush is in progress, do not write concurrently.
         if (atomic_get(&g_stop_writing)) {
-            k_poll_signal_reset(&logger_sig);
+            reset_logger_signal();
             continue;
         }
 
@@ -122,7 +126,7 @@ void SDLogger::sensor_sd_task() {
             ring_buf_reset(&ring_buffer);
             k_mutex_unlock(&ring_mutex);
             sdlogger.is_open = false;
-            k_poll_signal_reset(&logger_sig);
+            reset_logger_signal();
             continue;
         }
 
@@ -148,7 +152,7 @@ void SDLogger::sensor_sd_task() {
 
             if (claimed == 0 || data == nullptr) {
                 // Nothing to write right now.
-                k_poll_signal_reset(&logger_sig);
+                reset_logger_signal();
                 continue;
             }
 
@@ -165,7 +169,7 @@ void SDLogger::sensor_sd_task() {
 
                 // Do not advance the ring buffer on error.
                 // Wakeups will continue; user can call end().
-                k_poll_signal_reset(&logger_sig);
+                reset_logger_signal();
                 continue;
             }
 
@@ -177,7 +181,7 @@ void SDLogger::sensor_sd_task() {
             k_yield();
         }
 
-        k_poll_signal_reset(&logger_sig);
+        reset_logger_signal();
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
