@@ -225,9 +225,8 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
 			unsigned int logger_signaled;
-			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
 
-			if (ret == 0 && _record_to_sd) {
+			if (_record_to_sd) {
 				/* Decimate audio data from 48kHz to the desired sampling rate */
 				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
 				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
@@ -239,34 +238,32 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					continue;
 				}
 
-				if (logger_signaled != 0 && _record_to_sd) {
-					struct sensor_msg audio_msg;
-		
-					audio_msg.sd = true;
-					audio_msg.stream = false;
-		
-					audio_msg.data.id = ID_MICRO;
-					audio_msg.data.time = time_stamp;
+				struct sensor_msg audio_msg;
+	
+				audio_msg.sd = true;
+				audio_msg.stream = false;
+	
+				audio_msg.data.id = ID_MICRO;
+				audio_msg.data.time = time_stamp;
 
-					audio_msg.data.size = decimated_frames * 2 * sizeof(int16_t);
+				audio_msg.data.size = decimated_frames * 2 * sizeof(int16_t);
 
-					uint32_t data_size[2] = {
-						sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
-						audio_msg.data.size
-					};
+				uint32_t data_size[2] = {
+					sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
+					audio_msg.data.size
+				};
 
-					void *data_ptrs[2] = {
-						&audio_msg.data,
-						decimated_audio
-					};
+				void *data_ptrs[2] = {
+					&audio_msg.data,
+					decimated_audio
+				};
 
-					if (decimated_frames == num_frames) {
-						data_ptrs[1] = audio_block;
-					}
-		
-					if (decimated_frames > 0) {
-						sdlogger_write_data(&data_ptrs, data_size, 2);
-					}
+				if (decimated_frames == num_frames) {
+					data_ptrs[1] = audio_block;
+				}
+	
+				if (decimated_frames > 0) {
+					sdlogger_write_data(&data_ptrs, data_size, 2);
 				}
 			}
 
@@ -284,11 +281,6 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 		}
     }
 }
-
-/*void set_ring_buffer(struct ring_buf *buf)
-{
-	ring_buffer = buf;
-}*/
 
 void set_sensor_queue(struct k_msgq *queue)
 {
