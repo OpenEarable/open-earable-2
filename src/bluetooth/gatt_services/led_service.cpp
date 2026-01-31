@@ -30,9 +30,6 @@ static ssize_t write_state(struct bt_conn *conn,
 			 const void *buf,
 			 uint16_t len, uint16_t offset, uint8_t flags)
 {
-	//printk("Attribute write, handle: %u, conn: %p", attr->handle,
-		//(void *)conn);
-
 	if (len != 1U) {
 		LOG_INF("Write led: Incorrect data length");
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);

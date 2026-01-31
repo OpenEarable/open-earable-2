@@ -243,10 +243,8 @@ uint8_t BQ25120a::write_LDO_voltage_control(float volt) {
 
         readReg(registers::LS_LDO_CTRL, &status, sizeof(status));
 
-        //status |= (((uint16_t)((volt - 0.8) * 10)) & 0x1F) << 2;
         status &= 1 << 7;
         status |= ((uint8_t)((volt - 0.8f) * 10 + EPS)) << 2;
-        //status |= 1 << 7;
 
         writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));
 
@@ -291,8 +289,6 @@ chrg_state BQ25120a::read_termination_control() {
         bool ret = readReg(registers::TERM_CTRL, (uint8_t *) &status, sizeof(status));
 
         struct chrg_state chrg;
-
-        // if (!ret) printk("failed to read\n");
 
         chrg.enabled = status & 0x2;
         //chrg.high_impedance = status & 0x1;
@@ -342,8 +338,6 @@ ilim_uvlo BQ25120a::read_uvlo_ilim() {
         uint8_t status = 0;
 
         bool ret = readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
-
-        // if (!ret) printk("failed to read\n");
 
         param.uvlo_v = CLAMP(3.0f- 0.2f * ((status & 0x7) - 2), 2.2, 3.0);
         param.lim_mA = 50.f + 50.f * ((status >> 3) & 0x7);
@@ -409,8 +403,6 @@ button_state BQ25120a::read_button_state() {
 
         uint8_t status = 0;
         bool ret = readReg(registers::BTN_CTRL, (uint8_t *) &status, sizeof(status));
-
-        // if (!ret) printk("failed to read\n");
 
         btn.wake_1 = status & 0x2;
         btn.wake_2 = status & 0x1;
