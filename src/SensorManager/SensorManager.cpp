@@ -231,6 +231,7 @@ static void config_work_handler(struct k_work *work) {
 			std::string filename = recording_name_prefix + std::to_string(micros());
 			int ret = sdlogger.begin(filename);
 			if (ret == 0) state_indicator.set_sd_state(SD_RECORDING);
+			else LOG_ERR("Failed to start SDLogger, ret: %d", ret);
 		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);

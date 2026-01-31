@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdint.h>
+#include <zephyr/types.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
@@ -30,6 +32,13 @@
 #include "sdlogger_wrapper.h"
 #include "decimation_filter.h"
 #include "arm_math.h"
+#include "hw_codec.h"
+//#include "../drivers/ADAU1860.h"
+
+#include "../SensorManager/SensorManager.h"
+#include "openearable_common.h"
+#include "SensorScheme.h"
+#include "../bluetooth/gatt_services/seal_check_service.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -94,6 +103,9 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
 /* How often to print under-run warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
+
+extern int seal_check_mic_index;
+extern int16_t seal_check_mic[];
 
 enum drift_comp_state {
 	DRIFT_STATE_INIT,   /* Waiting for data to be received */
@@ -175,8 +187,6 @@ static struct {
 
 static struct k_msgq * sensor_queue;
 
-//extern struct audio_data fifo_rx;
-
 //K_MSGQ_DEFINE(rx_queue, sizeof(struct audio_data), 16, 4);
 extern struct k_msgq_t encoder_queue;
 
@@ -190,7 +200,23 @@ static k_tid_t data_thread_id;
 
 bool _record_to_sd = false;
 
+// Buffer recording variables
+static bool _record_to_buffer = false;
+static int16_t *_record_buffer = NULL;
+static int _record_num_samples = 0;
+static int _record_current_index = 0;
+static bool _record_left = false;
+static bool _record_right = false;
+static void (*_record_callback)(void) = NULL;
+
 int _count = 0;
+
+static int16_t *buffer_play_data = NULL;
+static uint32_t buffer_play_pos;
+static int buffer_play_num_samples;
+static float buffer_play_amplitude;
+static bool buffer_play_loop;
+static void (*buffer_play_callback)(void) = NULL;
 
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
@@ -226,7 +252,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 			unsigned int logger_signaled;
 
-			if (_record_to_sd) {
+			if (_record_to_sd || _record_to_buffer) {
 				/* Decimate audio data from 48kHz to the desired sampling rate */
 				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
 				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
@@ -236,6 +262,48 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				// If decimator returns 0 frames (e.g. during cleanup), skip processing
 				if (decimated_frames <= 0) {
 					continue;
+				}
+
+				// Generic buffer recording
+				if (_record_to_buffer && _record_buffer != NULL) {
+					for(int i = 0; i < decimated_frames; i++) {
+						_record_current_index++;
+						
+						// Skip samples during initial drop period
+						if (_record_current_index <= 0) {
+							continue;
+						}
+						
+						// Calculate actual buffer index (after initial drop)
+						int buffer_index = _record_current_index - 1;
+						
+						if (buffer_index < _record_num_samples) {
+							if (_record_left && _record_right) {
+								// Stereo recording - store both channels
+								if (buffer_index * 2 + 1 < _record_num_samples) {
+									_record_buffer[buffer_index * 2] = decimated_audio[2 * i];     // Left
+									_record_buffer[buffer_index * 2 + 1] = decimated_audio[2 * i + 1]; // Right
+								}
+							} else if (_record_left) {
+								// Left channel only
+								_record_buffer[buffer_index] = decimated_audio[2 * i];
+							} else if (_record_right) {
+								// Right channel only
+								_record_buffer[buffer_index] = decimated_audio[2 * i + 1];
+							}
+							
+						}
+						
+						// Check if recording is complete
+						if (buffer_index >= _record_num_samples || 
+						    (_record_left && _record_right && buffer_index * 2 >= _record_num_samples)) {
+							_record_to_buffer = false;
+							if (_record_callback) {
+								_record_callback();
+							}
+							break;
+						}
+					}
 				}
 
 				struct sensor_msg audio_msg;
@@ -293,10 +361,39 @@ void record_to_sd(bool active) {
 }
 
 void audio_datapath_stop_recording(void) {
+	// Stop buffer recording
+	_record_to_buffer = false;
+	_record_buffer = NULL;
+	_record_callback = NULL;
+	
 	// Stop SD recording
 	_record_to_sd = false;
 	
 	LOG_DBG("Audio recording stopped safely");
+}
+
+void record_to_buffer_stop(void) {
+	_record_to_buffer = false;
+	_record_buffer = NULL;
+	_record_callback = NULL;
+	LOG_DBG("Buffer recording stopped");
+}
+
+void record_to_buffer(int16_t *buffer, int num_samples, int initial_drop, bool left, bool right, void (*callback)(void)) {
+	if (buffer == NULL || num_samples <= 0) {
+		LOG_ERR("Invalid buffer recording parameters");
+		return;
+	}
+	
+	_record_buffer = buffer;
+	_record_num_samples = num_samples;
+	_record_current_index = -initial_drop;
+	_record_left = left;
+	_record_right = right;
+	_record_callback = callback;
+	_record_to_buffer = true;
+	
+	LOG_INF("Started buffer recording: %d samples, initial_drop=%d, left=%d, right=%d", num_samples, initial_drop, left, right);
 }
 
 // Funktion, um den neuen Thread zu starten
@@ -651,6 +748,16 @@ static void tone_stop_worker(struct k_work *work)
 {
 	tone_active = false;
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
+
+	LOG_INF("Tone playback stopped");
+	
+	// Call buffer playback callback if set
+	if (buffer_play_callback) {
+		buffer_play_callback();
+		buffer_play_callback = NULL;
+	}
+	buffer_play_data = NULL;
+	
 	LOG_DBG("Tone stopped");
 
 	struct sensor_config mic = {ID_MICRO, 0, 0};
@@ -695,25 +802,91 @@ int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude)
 	return 0;
 }
 
+int audio_datapath_buffer_play(int16_t *buffer, int num_samples, bool loop, float amplitude, void (*callback)(void))
+{
+	if (buffer_play_data != NULL) {
+		return -EBUSY;
+	}
+
+	if (!IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
+		LOG_WRN("Test tone disabled");
+		return -ENOTSUP;
+	}
+
+	if (buffer == NULL || num_samples <= 0) {
+		LOG_ERR("Invalid buffer play parameters");
+		return -EINVAL;
+	}
+
+	buffer_play_data = buffer;
+	buffer_play_pos = 0;
+	buffer_play_num_samples = num_samples;
+	buffer_play_amplitude = amplitude;
+	buffer_play_loop = loop;
+	buffer_play_callback = callback;
+
+	LOG_DBG("Buffer playback started: %d samples, loop=%d, amplitude=%.2f", num_samples, loop, (double)amplitude);
+	return 0;
+}
+
 void audio_datapath_tone_stop(void)
 {
 	k_timer_stop(&tone_stop_timer);
 	k_work_submit(&tone_stop_work);
 }
 
+void audio_datapath_buffer_stop(void)
+{
+	k_timer_stop(&tone_stop_timer);
+	buffer_play_data = NULL;
+	if (buffer_play_callback) {
+		buffer_play_callback();
+		buffer_play_callback = NULL;
+	}
+	LOG_DBG("Buffer playback stopped");
+}
+
 static void tone_mix(uint8_t *tx_buf)
 {
 	int ret;
-	int8_t tone_buf_continuous[BLK_MONO_SIZE_OCTETS];
-	static uint32_t finite_pos;
 
-	ret = contin_array_create(tone_buf_continuous, BLK_MONO_SIZE_OCTETS, test_tone_buf,
-				  test_tone_size, &finite_pos);
-	ERR_CHK(ret);
+	if (tone_active) {
+		int8_t tone_buf_continuous[BLK_MONO_SIZE_OCTETS];
+		static uint32_t finite_pos;
 
-	ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, tone_buf_continuous, BLK_MONO_SIZE_OCTETS,
-		      B_MONO_INTO_A_STEREO_L);
-	ERR_CHK(ret);
+		ret = contin_array_create(tone_buf_continuous, BLK_MONO_SIZE_OCTETS, test_tone_buf,
+					  test_tone_size, &finite_pos);
+		ERR_CHK(ret);
+
+		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, tone_buf_continuous, BLK_MONO_SIZE_OCTETS,
+			      B_MONO_INTO_A_STEREO_L);
+		ERR_CHK(ret);
+	} else if (buffer_play_data != NULL) {
+		int8_t buffer_play_buf[BLK_MONO_SIZE_OCTETS];
+		int samples_per_block = BLK_MONO_SIZE_OCTETS / sizeof(int16_t);
+
+		/* Copy buffer samples to playback buffer with amplitude scaling */
+		for (int i = 0; i < samples_per_block; i++) {
+			if (buffer_play_pos >= buffer_play_num_samples) {
+				if (buffer_play_loop) {
+					buffer_play_pos = 0; /* Loop the buffer */
+				} else {
+					/* Stop after one complete playback */
+					k_work_submit(&tone_stop_work);
+					memset(&buffer_play_buf[i * 2], 0, (samples_per_block - i) * 2);
+					break;
+				}
+			}
+			int16_t sample = (int16_t)(buffer_play_data[buffer_play_pos] * buffer_play_amplitude);
+			buffer_play_buf[i * 2] = sample & 0xFF;
+			buffer_play_buf[i * 2 + 1] = (sample >> 8) & 0xFF;
+			buffer_play_pos++;
+		}
+
+		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, buffer_play_buf, BLK_MONO_SIZE_OCTETS,
+			      B_MONO_INTO_A_STEREO_L);
+		ERR_CHK(ret);
+	}
 }
 
 /* Alternate-buffers used when there is no active audio stream.
@@ -843,7 +1016,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 				memset(tx_buf, 0, BLK_STEREO_SIZE_OCTETS);
 			}
 
-			if (tone_active) {
+			if (tone_active || buffer_play_data != NULL) {
 				tone_mix(tx_buf);
 			}
 		}
