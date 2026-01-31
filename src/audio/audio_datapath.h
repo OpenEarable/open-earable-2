@@ -35,6 +35,50 @@ int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude);
  */
 void audio_datapath_tone_stop(void);
 
+
+
+
+
+/**
+ * @brief Plays a buffer over I2S TX stream
+ *
+ * @param buffer Pointer to audio buffer to play
+ * @param num_samples Number of samples in buffer
+ * @param loop Whether to loop the buffer continuously
+ * @param amplitude Playback amplitude [0, 1]
+ * @param callback Callback function called when playback completes (optional)
+ *
+ * @return 0 if successful, error otherwise
+ */
+int audio_datapath_buffer_play(int16_t *buffer, int num_samples, bool loop, float amplitude, void (*callback)(void));
+
+/**
+ * @brief Stops buffer playback
+ */
+void audio_datapath_buffer_stop(void);
+
+/**
+ * @brief Records audio data to a buffer
+ *
+ * @param buffer Pointer to buffer where audio will be stored
+ * @param num_samples Number of samples to record
+ * @param initial_drop Number of initial samples to drop before recording
+ * @param left Whether to record left channel
+ * @param right Whether to record right channel
+ * @param callback Callback function called when recording completes (optional)
+ */
+void record_to_buffer(int16_t *buffer, int num_samples, int initial_drop, bool left, bool right, void (*callback)(void));
+
+/**
+ * @brief Stops buffer recording safely
+ */
+void record_to_buffer_stop(void);
+
+/**
+ * @brief Stops all audio recording safely (buffer and SD)
+ */
+void audio_datapath_stop_recording(void);
+
 /**
  * @brief Stops buffer recording safely
  */
