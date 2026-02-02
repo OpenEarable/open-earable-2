@@ -32,6 +32,8 @@
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
 
+#include "time_sync.h"
+
 #include "../src/SD_Card/SDLogger/SDLogger.h"
 
 #include "uicr.h"
@@ -39,6 +41,9 @@
 #include "streamctrl.h"
 
 #include "bt_mgmt.h"
+
+#include "bt_mgmt_conn_interval.h"
+#include "conn_interval/conn_intvl_linear.h"
 
 //#include "sd_card.h"
 
@@ -49,6 +54,7 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
 /* STEP 5.4 - Include header for USB */
 #include <zephyr/usb/usb_device.h>
+
 
 int main(void) {
 	int ret;
@@ -112,6 +118,15 @@ int main(void) {
 	ERR_CHK(ret);
 
 	ret = init_sensor_service();
+	ERR_CHK(ret);
+
+	bt_mgmt_conn_interval_init(new ConnIntvlLinear(
+	    4,                // linear increase step (8ms units)
+	    CONFIG_BLE_ACL_CONN_INTERVAL,
+	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
+	));
+
+	ret = init_time_sync();
 	ERR_CHK(ret);
 
 	// error test

@@ -102,7 +102,9 @@ void PPG::update_sensor(struct k_work *work) {
 
             msg_ppg.data.id = ID_PPG;
             msg_ppg.data.size = to_write * _size + sizeof(uint16_t);
-            msg_ppg.data.time = _time_stamp - (num_samples - written) * PPG::sensor.t_sample_us;
+
+            const uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)PPG::sensor.t_sample_us);
+            msg_ppg.data.time = _time_stamp - dt_us;
 
             if (to_write > 1) {
                 uint16_t t_diff = PPG::sensor.t_sample_us;

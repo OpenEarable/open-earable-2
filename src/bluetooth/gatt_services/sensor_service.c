@@ -29,7 +29,6 @@ static struct sensor_data sensor_data;
 static struct sensor_config config;
 
 static bool notify_enabled = false;
-static bool temp_ntf_disable = false;
 static bool sensor_config_status_ntfy_enabled = false;
 
 void set_sensor_recording_name(const char *name);
@@ -46,7 +45,9 @@ ZBUS_LISTENER_DEFINE(sensor_queue_listener, sensor_queue_listener_cb);
 
 static bool connection_complete = false;
 
-static struct k_mutex notify_mutex;
+int notify_count = 0;
+
+int MAX_NOTIFIES_IN_FLIGHT = 4;
 
 static void connect_evt_handler(const struct zbus_channel *chan)
 {
@@ -61,19 +62,18 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 
 	case BT_MGMT_DISCONNECTED:
 		connection_complete = false;
+		notify_enabled = false;
+		k_msgq_purge(&gatt_queue);
 		break;
 	}
-}
-
-void temp_disable_notifies(bool disable) {
-	LOG_DBG("Disabling notifies");
-	temp_ntf_disable = disable;
 }
 
 static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
 	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
+
+	LOG_INF("Sensor data notifications %s", notify_enabled ? "enabled" : "disabled");
 
 	k_msgq_purge(&gatt_queue);
 }
@@ -196,10 +196,14 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_RECORDING_NAME,
 );
 
 static void notify_complete() {
-	k_mutex_unlock(&notify_mutex);
+	notify_count--;
+
+	if (notify_count < 0) {
+		notify_count = 0;
+		LOG_WRN("Notify count went below zero!");
+	}
 }
 
-//static void gatt_work_handler(struct k_work * work) {
 static void notification_task(void) {
 	int ret;
 
@@ -211,7 +215,7 @@ static void notification_task(void) {
 			continue;
 		}
 
-		if (connection_complete && notify_enabled && !temp_ntf_disable) {
+		if (connection_complete && notify_enabled) {
 			const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) + sizeof(sensor_data.time) + sensor_data.size;
 
 			static struct bt_gatt_notify_params params;
@@ -221,14 +225,14 @@ static void notification_task(void) {
 			params.func = notify_complete;
 			params.user_data = NULL;
 
-			ret = k_mutex_lock(&notify_mutex, K_MSEC(100));
-			if (ret != 0) {
-				LOG_ERR("Unable to lock notify mutex.");
+			while(notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
+				k_yield(); // maybe replace with k_sleep?
 			}
+
+			notify_count++;
 
 			ret = bt_gatt_notify_cb(NULL, &params);
 			if (ret != 0) {
-				k_mutex_unlock(&notify_mutex);
 				LOG_WRN("Failed to send data: %d.\n", ret);
 			}
 		}
@@ -350,8 +354,6 @@ int init_sensor_service() {
 	}
 
 	init_sensor_config_status();
-
-	k_mutex_init(&notify_mutex);
 
     return 0;
 }

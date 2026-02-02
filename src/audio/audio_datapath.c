@@ -219,10 +219,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
-			unsigned int logger_signaled;
-			k_poll_signal_check(&logger_sig, &logger_signaled, &ret);
-
-			if (ret == 0 && logger_signaled != 0 && _record_to_sd) {
+			if (_record_to_sd) {
 				struct sensor_msg audio_msg;
 	
 				audio_msg.sd = true;
@@ -755,6 +752,11 @@ static void alt_buffer_free_both(void)
 	alt.buf_1_in_use = false;
 }
 
+__attribute__((weak)) void bt_mgmt_report_audio_underrun(uint32_t count) {
+	LOG_ERR("Audio underrun reported to bt_mgmt");
+}
+
+
 /*
  * This handler function is called every time I2S needs new buffers for
  * TX and RX data.
@@ -792,6 +794,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 					underrun_condition = false;
 					LOG_WRN("Data received, total under-runs: %d",
 						ctrl_blk.out.total_blk_underruns);
+					bt_mgmt_report_audio_underrun(ctrl_blk.out.total_blk_underruns);
 				}
 
 				tx_buf = (uint8_t *)&ctrl_blk.out

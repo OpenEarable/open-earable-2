@@ -76,7 +76,9 @@ void BoneConduction::update_sensor(struct k_work *work) {
 
         msg_bc.data.id = ID_BONE_CONDUCTION;
         msg_bc.data.size = to_write * _size + sizeof(uint16_t);
-        msg_bc.data.time = _time_stamp - (num_samples - written) * BoneConduction::sensor.t_sample_us;
+
+        uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)BoneConduction::sensor.t_sample_us);
+        msg_bc.data.time = _time_stamp - dt_us;
 
         if (to_write > 1) {
             uint16_t t_diff = BoneConduction::sensor.t_sample_us;
