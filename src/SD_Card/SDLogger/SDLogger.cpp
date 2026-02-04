@@ -426,7 +426,6 @@ int SDLogger::end() {
     }
 
     if (!sd_card->is_mounted()) {
-        //k_poll_signal_reset(&logger_sig);
         is_open = false;
         return -ENODEV;
     }
@@ -449,13 +448,13 @@ int SDLogger::end() {
     ret = sd_card->close_file();
     k_mutex_unlock(&file_mutex);
     if (ret < 0) {
-        k_poll_signal_reset(&logger_sig);
+        reset_logger_signal();
         return ret;
     }
 
     is_open = false;
 
-    k_poll_signal_reset(&logger_sig);
+    reset_logger_signal();
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
 
