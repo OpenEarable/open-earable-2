@@ -147,7 +147,7 @@ void SDLogger::sensor_sd_task() {
 
             // Claim up to one SD block from the ring buffer under lock.
             k_mutex_lock(&ring_mutex, K_FOREVER);
-            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill - (fill % SD_BLOCK_SIZE));
             k_mutex_unlock(&ring_mutex);
 
             if (claimed == 0 || data == nullptr) {
@@ -358,7 +358,9 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
 
     k_mutex_unlock(&ring_mutex);
 
-    k_poll_signal_raise(&logger_sig, 0);
+    if (ring_buf_size_get(&ring_buffer) >= SD_BLOCK_SIZE) {
+        k_poll_signal_raise(&logger_sig, 0);
+    }
     return 0;
 }
 
