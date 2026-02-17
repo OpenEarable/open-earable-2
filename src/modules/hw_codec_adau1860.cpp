@@ -308,6 +308,34 @@ int hw_codec_stop_audio(void)
 	return 0;
 }
 
+/* Microphone (DMIC) gain control using ADAU186x DMIC_VOL0/1 registers.
+ * Per ADAU186x datasheet register DMIC_VOL0 (addr 0x4000C045):
+ *   0x00      = +24 dB
+ *   0x01-0x3F = +23.625 to +0.375 dB (decrement by 0.375 dB per step)
+ *   0x40      = 0 dB (reset value)
+ *   0x41-0xFD = -0.375 to -70.875 dB (decrement by 0.375 dB per step)
+ *   0xFE      = -71.25 dB
+ *   0xFF      = Mute
+ */
+int hw_codec_mic_gain_set(uint8_t gain_left_reg, uint8_t gain_right_reg)
+{
+	/* Write DMIC gain for channels 0 and 1 */
+	dac.mic_gain_write(0, gain_left_reg);
+	dac.mic_gain_write(1, gain_right_reg);
+	LOG_INF("DMIC gain set: L=0x%02x, R=0x%02x", gain_left_reg, gain_right_reg);
+	return 0;
+}
+
+uint8_t hw_codec_mic_gain_get_left(void)
+{
+	return dac.mic_gain_read(0);
+}
+
+uint8_t hw_codec_mic_gain_get_right(void)
+{
+	return dac.mic_gain_read(1);
+}
+
 int hw_codec_soft_reset(void)
 {
 	int ret;
