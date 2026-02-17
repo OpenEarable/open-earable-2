@@ -210,6 +210,8 @@ int ADAU1860::begin() {
 
                 // DMIC_VOL0
                 uint8_t dmic_vol = 0x20; // 12dB
+                // 0 - left - external mic
+                // 1 - right - internal mic
                 writeReg(registers::DMIC_VOL0, &dmic_vol, sizeof(dmic_vol));
                 writeReg(registers::DMIC_VOL1, &dmic_vol, sizeof(dmic_vol));
 
@@ -493,6 +495,18 @@ uint8_t ADAU1860::fdsp_get_volume() {
         uint8_t dac_vol = 0;
         readReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol));
         return 0xFF-dac_vol;
+}
+
+void ADAU1860::mic_gain_write(uint8_t channel, uint8_t gain) {
+        uint32_t reg = (channel == 0) ? registers::DMIC_VOL0 : registers::DMIC_VOL1;
+        writeReg(reg, &gain, sizeof(gain));
+}
+
+uint8_t ADAU1860::mic_gain_read(uint8_t channel) {
+        uint8_t val = 0;
+        uint32_t reg = (channel == 0) ? registers::DMIC_VOL0 : registers::DMIC_VOL1;
+        readReg(reg, &val, sizeof(val));
+        return val;
 }
 
 int ADAU1860::soft_reset(bool full_reset) {
