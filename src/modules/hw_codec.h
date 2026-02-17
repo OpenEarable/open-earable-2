@@ -119,6 +119,20 @@ int hw_codec_set_audio_mode(enum audio_mode mode);
 
 enum audio_mode hw_codec_get_audio_mode();
 
+/* Microphone (DMIC) gain control (ADAU186x DMIC_VOL registers).
+ * Register mapping (per ADAU186x datasheet DMIC_VOL0 @ 0x4000C045):
+ *   0x00      = +24 dB
+ *   0x01-0x3F = +23.625 to +0.375 dB (decrement by 0.375 dB per step)
+ *   0x40      = 0 dB (reset value)
+ *   0x41-0xFD = -0.375 to -70.875 dB (decrement by 0.375 dB per step)
+ *   0xFE      = -71.25 dB
+ *   0xFF      = Mute
+ * Recommended BLE range: 0x00-0x40 for +24 dB to 0 dB.
+ */
+int hw_codec_mic_gain_set(uint8_t gain_left_reg, uint8_t gain_right_reg);
+uint8_t hw_codec_mic_gain_get_left(void);
+uint8_t hw_codec_mic_gain_get_right(void);
+
 #ifdef __cplusplus
 }
 #endif
