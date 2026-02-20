@@ -48,7 +48,7 @@ public:
     BQ25120a(TWIM * i2c);
 
     int begin();
-    int set_wakeup_int();
+    int set_wakeup_int(bool wake_on_power_good = false);
 
     int reset();
 
@@ -79,6 +79,7 @@ public:
     uint8_t write_LS_control(bool enable);
 
     button_state read_button_state();
+    void clear_interrupt_latches();
 
     int set_power_connect_callback(gpio_callback_handler_t handler);
     int set_int_callback(gpio_callback_handler_t handler);

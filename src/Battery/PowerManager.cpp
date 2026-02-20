@@ -583,10 +583,10 @@ int PowerManager::power_down(bool fault) {
     bool charging = battery_controller.power_connected();
 
     if (!charging) {
-        ret = battery_controller.set_wakeup_int();
-        if (ret != 0) return ret;
+        battery_controller.exit_high_impedance();
+        battery_controller.clear_interrupt_latches();
 
-        ret = fuel_gauge.set_wakeup_int();
+        ret = battery_controller.set_wakeup_int(false);
         if (ret != 0) return ret;
         
         // check battery good

@@ -67,7 +67,7 @@ int BQ25120a::reset() {
         return 0;
 }
 
-int BQ25120a::set_wakeup_int() {
+int BQ25120a::set_wakeup_int(bool wake_on_power_good) {
         int ret;
 
         ret = device_is_ready(pg_pin.port); //bool
@@ -76,19 +76,35 @@ int BQ25120a::set_wakeup_int() {
                 return -1;
         }
 
-        ret = gpio_pin_interrupt_configure_dt(&pg_pin, GPIO_INT_LEVEL_ACTIVE);
-        if (ret != 0) {
-                LOG_ERR("Failed to setup interrupt on PG.\n");
-                return ret;
-        }
-
         ret = gpio_pin_interrupt_configure_dt(&int_pin, GPIO_INT_LEVEL_ACTIVE);
         if (ret != 0) {
                 LOG_ERR("Failed to setup interrupt on INT.\n");
                 return ret;
         }
 
+        ret = gpio_pin_interrupt_configure_dt(&pg_pin,
+                                              wake_on_power_good ? GPIO_INT_LEVEL_ACTIVE :
+                                                                   GPIO_INT_DISABLE);
+        if (ret != 0) {
+                LOG_ERR("Failed to setup interrupt on PG.\n");
+                return ret;
+        }
+
         return 0;
+}
+
+void BQ25120a::clear_interrupt_latches() {
+        for (int attempt = 0; attempt < 3; ++attempt) {
+                (void)read_fault();
+                (void)read_ts_fault();
+
+                button_state btn = read_button_state();
+                if (!btn.wake_1 && !btn.wake_2) {
+                        break;
+                }
+
+                k_msleep(10);
+        }
 }
 
 bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
