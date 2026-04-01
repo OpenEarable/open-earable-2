@@ -75,6 +75,8 @@ static ssize_t write_seal_check_start(struct bt_conn *conn,
 			}
 		}
 
+		hw_codec_volume_unmute();
+
 		// Set volume and start multitone
 		hw_codec_volume_set(0xB0);
 
