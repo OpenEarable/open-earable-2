@@ -74,7 +74,7 @@ bool IMU::init(struct k_msgq * queue) {
     }
 
 	imu.setAccelRange(eAccelRange_2G);
-
+	imu.setGyroRange(eGyroRange_500DPS); 
 	sensor_queue = queue;
 	
 	k_work_init(&sensor.sensor_work, update_sensor);
@@ -89,7 +89,7 @@ void IMU::start(int sample_rate_idx) {
     k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
 
 	imu.setAccelODR(sample_rates.reg_vals[sample_rate_idx]);
-
+	imu.setGyroODR(sample_rates.reg_vals[sample_rate_idx]); 
 	_running = true;
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
