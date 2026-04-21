@@ -10,6 +10,7 @@
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
 #define MAX_SENSOR_REC_NAME_LENGTH 64
+#define MAX_NOTIFIES_IN_FLIGHT 4
 
 static struct k_thread thread_data_notify;
 
@@ -24,8 +25,7 @@ static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_SENSOR_GATT_NOTIFY_STAC
 
 K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_data), CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE, 4);
 
-//static struct sensor_msg msg;
-static struct sensor_data sensor_data;
+static struct sensor_data sensor_data_value;
 static struct sensor_config config;
 
 static bool notify_enabled = false;
@@ -45,9 +45,78 @@ ZBUS_LISTENER_DEFINE(sensor_queue_listener, sensor_queue_listener_cb);
 
 static bool connection_complete = false;
 
-int notify_count = 0;
+/**
+ * @brief Tracks one in-flight GATT notification and its dedicated payload copy.
+ *
+ * @details The Bluetooth stack completes notifications asynchronously, so each
+ * pending notification needs stable storage until the completion callback runs.
+ */
+struct sensor_notify_context {
+	struct bt_gatt_notify_params params;
+	struct sensor_data payload;
+	bool in_use;
+};
 
-int MAX_NOTIFIES_IN_FLIGHT = 4;
+static int notify_count = 0;
+static struct sensor_notify_context notify_contexts[MAX_NOTIFIES_IN_FLIGHT];
+
+/**
+ * @brief Reset volatile notification state after a disconnect or local teardown.
+ */
+static void reset_sensor_notification_state(void)
+{
+	notify_enabled = false;
+	sensor_config_status_ntfy_enabled = false;
+	connection_complete = false;
+	notify_count = 0;
+
+	for (size_t i = 0; i < ARRAY_SIZE(notify_contexts); i++) {
+		notify_contexts[i].in_use = false;
+	}
+
+	k_msgq_purge(&gatt_queue);
+}
+
+/**
+ * @brief Reserve a context for the next asynchronous notification.
+ *
+ * @retval Pointer to a free notification context.
+ * @retval NULL No context is currently available.
+ */
+static struct sensor_notify_context *acquire_notify_context(void)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(notify_contexts); i++) {
+		if (!notify_contexts[i].in_use) {
+			notify_contexts[i].in_use = true;
+			return &notify_contexts[i];
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * @brief Release an in-flight notification context and update backpressure state.
+ *
+ * @param[in] context Context to release. May be NULL.
+ */
+static void release_notify_context(struct sensor_notify_context *context)
+{
+	if (context != NULL) {
+		if (!context->in_use) {
+			return;
+		}
+
+		context->in_use = false;
+	}
+
+	if (notify_count > 0) {
+		notify_count--;
+	} else {
+		LOG_WRN("Notify count went below zero!");
+		notify_count = 0;
+	}
+}
 
 static void connect_evt_handler(const struct zbus_channel *chan)
 {
@@ -61,9 +130,7 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 		break;
 
 	case BT_MGMT_DISCONNECTED:
-		connection_complete = false;
-		notify_enabled = false;
-		k_msgq_purge(&gatt_queue);
+		reset_sensor_notification_state();
 		break;
 	}
 }
@@ -76,6 +143,12 @@ static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 	LOG_INF("Sensor data notifications %s", notify_enabled ? "enabled" : "disabled");
 
 	k_msgq_purge(&gatt_queue);
+	if (!notify_enabled) {
+		notify_count = 0;
+		for (size_t i = 0; i < ARRAY_SIZE(notify_contexts); i++) {
+			notify_contexts[i].in_use = false;
+		}
+	}
 }
 
 static void sensor_config_status_ccc_cfg_changed(const struct bt_gatt_attr *attr,
@@ -180,7 +253,7 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG,
 BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_DATA,
 			BT_GATT_CHRC_NOTIFY,
 			BT_GATT_PERM_NONE,
-			NULL, NULL, &sensor_data),
+			NULL, NULL, &sensor_data_value),
 BT_GATT_CCC(sensor_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG_STATUS,
@@ -195,17 +268,19 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_RECORDING_NAME,
 			read_sensor_rec_name, write_sensor_rec_name, NULL),
 );
 
-static void notify_complete() {
-	notify_count--;
+/**
+ * @brief Release notification resources after the Bluetooth stack completes a send.
+ */
+static void notify_complete(struct bt_conn *conn, void *user_data)
+{
+	ARG_UNUSED(conn);
 
-	if (notify_count < 0) {
-		notify_count = 0;
-		LOG_WRN("Notify count went below zero!");
-	}
+	release_notify_context((struct sensor_notify_context *)user_data);
 }
 
 static void notification_task(void) {
 	int ret;
+	struct sensor_data sensor_data;
 
 	while (1) {
 		ret = k_msgq_get(&gatt_queue, &sensor_data, K_FOREVER);
@@ -217,23 +292,31 @@ static void notification_task(void) {
 
 		if (connection_complete && notify_enabled) {
 			const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) + sizeof(sensor_data.time) + sensor_data.size;
-
-			static struct bt_gatt_notify_params params;
-			params.attr = &sensor_service.attrs[4];
-			params.data = &sensor_data;
-			params.len = size;
-			params.func = notify_complete;
-			params.user_data = NULL;
+			struct sensor_notify_context *context;
 
 			while(notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
-				k_yield(); // maybe replace with k_sleep?
+				k_sleep(K_MSEC(1));
 			}
+
+			context = acquire_notify_context();
+			if (context == NULL) {
+				LOG_WRN("No free GATT notify context available");
+				continue;
+			}
+
+			context->payload = sensor_data;
+			context->params.attr = &sensor_service.attrs[4];
+			context->params.data = &context->payload;
+			context->params.len = size;
+			context->params.func = notify_complete;
+			context->params.user_data = context;
 
 			notify_count++;
 
-			ret = bt_gatt_notify_cb(NULL, &params);
+			ret = bt_gatt_notify_cb(NULL, &context->params);
 			if (ret != 0) {
 				LOG_WRN("Failed to send data: %d.\n", ret);
+				release_notify_context(context);
 			}
 		}
 	}
