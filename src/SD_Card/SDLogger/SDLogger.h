@@ -6,6 +6,7 @@
 #include "zbus_common.h"
 #include "SD_Card_Manager.h"
 #include <string>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/sys/ring_buffer.h>
 
 
@@ -31,7 +32,7 @@ protected:
 private:
 
         SDCardManager* sd_card = nullptr;
-        bool is_open = false;
+        atomic_t is_open = ATOMIC_INIT(0);
 
         //uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
         //size_t buffer_pos = 0;

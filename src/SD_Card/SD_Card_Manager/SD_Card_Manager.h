@@ -190,6 +190,7 @@ private:
 
     int aquire_ls();
     int release_ls();
+    void reset_state_locked();
 
     bool ls_aquired = false;
 
