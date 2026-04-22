@@ -78,9 +78,11 @@ void sd_listener_callback(const struct zbus_channel *chan)
 {
     const struct sd_msg * sd_msg_event = (sd_msg *)zbus_chan_const_msg(&sd_card_chan);
 
-    if (sdlogger.is_open && sd_msg_event->removed) {
+    if (sdlogger.is_active() && sd_msg_event->removed) {
         // Signal SD thread to stop writing immediately.
+        atomic_set(&g_stop_writing, 1);
         atomic_set(&g_sd_removed, 1);
+        atomic_clear(&sdlogger.is_open);
         state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("SD card removed mid recording. Stop recording.");
 
@@ -125,7 +127,7 @@ void SDLogger::sensor_sd_task() {
             k_mutex_lock(&ring_mutex, K_FOREVER);
             ring_buf_reset(&ring_buffer);
             k_mutex_unlock(&ring_mutex);
-            sdlogger.is_open = false;
+            atomic_clear(&sdlogger.is_open);
             reset_logger_signal();
             continue;
         }
@@ -238,7 +240,7 @@ int SDLogger::init() {
 int SDLogger::begin(const std::string& filename) {
     int ret;
 
-    if (is_open) {
+    if (is_active()) {
         LOG_ERR("Logger already open");
         return -EBUSY;
     }
@@ -269,7 +271,7 @@ int SDLogger::begin(const std::string& filename) {
     atomic_clear(&g_sd_removed);
 
     current_file = full_filename;
-    is_open = true;
+    atomic_set(&is_open, 1);
 
     k_mutex_lock(&ring_mutex, K_FOREVER);
     ring_buf_reset(&ring_buffer);
@@ -303,7 +305,7 @@ int SDLogger::write_header() {
 }
 
 int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* lengths, size_t block_count) {
-    if (!is_open || data_blocks == nullptr || lengths == nullptr || block_count == 0) {
+    if (!is_active() || data_blocks == nullptr || lengths == nullptr || block_count == 0) {
         return -ENODEV;
     }
 
@@ -423,12 +425,17 @@ int SDLogger::flush() {
 int SDLogger::end() {
     int ret;
     
-    if (!is_open) {
-        return -ENODEV;
+    if (!is_active()) {
+        atomic_clear(&g_stop_writing);
+        atomic_clear(&g_sd_removed);
+        return 0;
     }
 
     if (!sd_card->is_mounted()) {
-        is_open = false;
+        atomic_clear(&is_open);
+        reset_logger_signal();
+        atomic_clear(&g_stop_writing);
+        atomic_clear(&g_sd_removed);
         return -ENODEV;
     }
 
@@ -454,7 +461,7 @@ int SDLogger::end() {
         return ret;
     }
 
-    is_open = false;
+    atomic_clear(&is_open);
 
     reset_logger_signal();
     atomic_clear(&g_stop_writing);
@@ -464,7 +471,7 @@ int SDLogger::end() {
 }
 
 bool SDLogger::is_active() {
-    return is_open;
+    return atomic_get(&is_open) != 0;
 }
 
 SDLogger sdlogger;

@@ -9,13 +9,15 @@
 
 1. [Setup](#setup)
 
-2. [Battery States](#battery-states)
+2. [Contributing](#contributing)
 
-3. [Connection States](#connection-states)  
+3. [Battery States](#battery-states)
 
-4. [SD Card](#sd-card)
+4. [Connection States](#connection-states)  
    
-5. [Citing](#citing)
+5. [SD Card](#sd-card)
+
+6. [Citing](#citing)
 
 
 ## Setup
@@ -126,6 +128,11 @@
 
 
 
+## Contributing
+Contributor workflow, validation steps, code documentation expectations, and repository-specific Git guidance are defined in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+If you change build behavior, flashing scripts, repository structure, or public firmware APIs, update that guide in the same change so the contributor documentation stays aligned with the repository.
+
 ## Battery States
 Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
 
@@ -133,7 +140,7 @@ Battery states will overwrite LED connection states. All LED states can be manua
 
 | LED State         | Description                                                                 |
 |------------------|-----------------------------------------------------------------------------|
-| 🟥 Red - Solid      | Battery fault or deep discharge*, charging current = 0                       |
+| 🟥 Red - Solid      | > 20 seconds = battery fault or deep discharge*                       |
 | 🔴 Red - Pulsing    | Pre-charge phase or system-down voltage not yet cleared                     |
 | 🟧 Orange - Solid   | Power connected, but charging current is not verified or not at desired level |
 | 🟠 Orange - Pulsing | At least 80% of the target charging current is reached                      |
@@ -185,8 +192,6 @@ If you are using OpenEarable, please cite is as follows:
      publisher={ACM New York, NY, USA}
 }
 ```
-
-
 
 
 

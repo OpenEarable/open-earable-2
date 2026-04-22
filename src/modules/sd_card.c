@@ -30,6 +30,7 @@ static struct k_mem_slab slab_A;
 static struct k_mem_slab slab_B;
 
 static const char *sd_root_path = "/SD:";
+static const char *sd_dev = "SD";
 static FATFS fat_fs;
 static bool sd_init_success;
 
@@ -37,6 +38,50 @@ static struct fs_mount_t mnt_pt = {
 	.type = FS_FATFS,
 	.fs_data = &fat_fs,
 };
+
+#define SD_STATE_NODE DT_NODELABEL(sd_state)
+
+#if DT_NODE_EXISTS(SD_STATE_NODE)
+static const struct gpio_dt_spec sd_state_pin = GPIO_DT_SPEC_GET(SD_STATE_NODE, gpios);
+#endif
+
+static bool sd_card_present(void)
+{
+#if DT_NODE_EXISTS(SD_STATE_NODE)
+	if (!device_is_ready(sd_state_pin.port)) {
+		return true;
+	}
+
+	return gpio_pin_get_dt(&sd_state_pin) == 1;
+#else
+	return true;
+#endif
+}
+
+static void sd_card_force_deinit(void)
+{
+	bool force = true;
+	int ret = disk_access_ioctl(sd_dev, DISK_IOCTL_CTRL_DEINIT, &force);
+
+	if (ret && ret != -EINVAL) {
+		LOG_WRN("Forced SD deinit failed: %d", ret);
+	}
+}
+
+static void sd_card_cleanup_stale_mount(void)
+{
+	int ret;
+
+	if (sd_init_success) {
+		ret = fs_unmount(&mnt_pt);
+		if (ret) {
+			LOG_WRN("Failed to unmount stale SD mount: %d", ret);
+		}
+	}
+
+	sd_card_force_deinit();
+	sd_init_success = false;
+}
 
 /**
  * @brief	Replaces first carriage return or line feed with null terminator.
@@ -204,8 +249,9 @@ int sd_card_list_files(char const *const path, char *buf, size_t *buf_size, bool
 	char abs_path_name[PATH_MAX_LEN + 1] = SD_ROOT_PATH;
 	size_t used_buf_size = 0;
 
-	if (!sd_init_success) {
-		return -ENODEV;
+	ret = sd_card_init();
+	if (ret) {
+		return ret;
 	}
 
 	fs_dir_t_init(&dirp);
@@ -286,8 +332,9 @@ int sd_card_open_write_close(char const *const filename, char const *const data,
 	struct fs_file_t f_entry;
 	char abs_path_name[PATH_MAX_LEN + 1] = SD_ROOT_PATH;
 
-	if (!sd_init_success) {
-		return -ENODEV;
+	ret = sd_card_init();
+	if (ret) {
+		return ret;
 	}
 
 	if (strlen(filename) > PATH_MAX_LEN) {
@@ -334,8 +381,9 @@ int sd_card_open_read_close(char const *const filename, char *const buf, size_t 
 	struct fs_file_t f_entry;
 	char abs_path_name[PATH_MAX_LEN + 1] = SD_ROOT_PATH;
 
-	if (!sd_init_success) {
-		return -ENODEV;
+	ret = sd_card_init();
+	if (ret) {
+		return ret;
 	}
 
 	if (strlen(filename) > PATH_MAX_LEN) {
@@ -378,8 +426,9 @@ int sd_card_open(char const *const filename, struct fs_file_t *f_seg_read_entry)
 	char abs_path_name[PATH_MAX_LEN + 1] = SD_ROOT_PATH;
 	size_t available_path_space = PATH_MAX_LEN - strlen(SD_ROOT_PATH);
 
-	if (!sd_init_success) {
-		return -ENODEV;
+	ret = sd_card_init();
+	if (ret) {
+		return ret;
 	}
 
 	if (strlen(filename) > CONFIG_FS_FATFS_MAX_LFN) {
@@ -438,10 +487,27 @@ int sd_card_close(struct fs_file_t *f_seg_read_entry)
 int sd_card_init(void)
 {
 	int ret;
-	static const char *sd_dev = "SD";
 	uint64_t sd_card_size_bytes;
 	uint32_t sector_count;
 	size_t sector_size;
+
+	if (!sd_card_present()) {
+		if (sd_init_success) {
+			sd_card_cleanup_stale_mount();
+		}
+
+		return -ENODEV;
+	}
+
+	if (sd_init_success) {
+		ret = disk_access_status(sd_dev);
+		if (ret == DISK_STATUS_OK) {
+			return 0;
+		}
+
+		LOG_WRN("SD card status changed (%d), reinitializing", ret);
+		sd_card_cleanup_stale_mount();
+	}
 
 	ret = disk_access_init(sd_dev);
 	if (ret) {
@@ -452,6 +518,7 @@ int sd_card_init(void)
 	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_COUNT, &sector_count);
 	if (ret) {
 		LOG_ERR("Unable to get sector count");
+		sd_card_force_deinit();
 		return ret;
 	}
 
@@ -460,6 +527,7 @@ int sd_card_init(void)
 	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_SIZE, &sector_size);
 	if (ret) {
 		LOG_ERR("Unable to get sector size");
+		sd_card_force_deinit();
 		return ret;
 	}
 
@@ -474,6 +542,7 @@ int sd_card_init(void)
 	ret = fs_mount(&mnt_pt);
 	if (ret) {
 		LOG_ERR("Mnt. disk failed, could be format issue. should be FAT/exFAT");
+		sd_card_force_deinit();
 		return ret;
 	}
 
