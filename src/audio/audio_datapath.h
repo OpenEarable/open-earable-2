@@ -36,6 +36,16 @@ int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude);
 void audio_datapath_tone_stop(void);
 
 /**
+ * @brief Stops buffer recording safely
+ */
+void record_to_buffer_stop(void);
+
+/**
+ * @brief Stops all audio recording safely (buffer and SD)
+ */
+void audio_datapath_stop_recording(void);
+
+/**
  * @brief Set the presentation delay
  *
  * @param delay_us The presentation delay in µs
@@ -102,6 +112,33 @@ int audio_datapath_aquire(struct data_fifo *fifo_rx);
 int audio_datapath_release();
 
 //void set_ring_buffer(struct ring_buf *ring_buf);
+
+/**
+ * @brief C wrapper for decimator initialization
+ */
+int audio_datapath_decimator_init(uint8_t factor);
+
+/**
+ * @brief C wrapper for decimator processing
+ */
+int audio_datapath_decimator_process(const int16_t* input, int16_t* output, uint32_t num_frames);
+
+/**
+ * @brief C wrapper for decimator cleanup
+ */
+void audio_datapath_decimator_cleanup(void);
+
+/**
+ * @brief C wrapper for decimator reset
+ */
+void audio_datapath_decimator_reset(void);
+
+/**
+ * @brief Get current decimation factor
+ * @return Current total decimation factor, or 0 if not initialized
+ */
+uint8_t audio_datapath_decimator_get_factor(void);
+
 
 #ifdef __cplusplus
 }

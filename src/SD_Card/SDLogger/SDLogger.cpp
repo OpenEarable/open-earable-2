@@ -91,6 +91,10 @@ void sd_listener_callback(const struct zbus_channel *chan)
     }
 }
 
+inline void reset_logger_signal() {
+    k_poll_signal_reset(&logger_sig);
+    logger_evt.state = K_POLL_STATE_NOT_READY;
+}
 
 void SDLogger::sensor_sd_task() {
     int ret;
@@ -114,7 +118,7 @@ void SDLogger::sensor_sd_task() {
 
         // If a close/flush is in progress, do not write concurrently.
         if (atomic_get(&g_stop_writing)) {
-            k_poll_signal_reset(&logger_sig);
+            reset_logger_signal();
             continue;
         }
 
@@ -124,7 +128,7 @@ void SDLogger::sensor_sd_task() {
             ring_buf_reset(&ring_buffer);
             k_mutex_unlock(&ring_mutex);
             atomic_clear(&sdlogger.is_open);
-            k_poll_signal_reset(&logger_sig);
+            reset_logger_signal();
             continue;
         }
 
@@ -145,12 +149,12 @@ void SDLogger::sensor_sd_task() {
 
             // Claim up to one SD block from the ring buffer under lock.
             k_mutex_lock(&ring_mutex, K_FOREVER);
-            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill - (fill % SD_BLOCK_SIZE));
             k_mutex_unlock(&ring_mutex);
 
             if (claimed == 0 || data == nullptr) {
                 // Nothing to write right now.
-                k_poll_signal_reset(&logger_sig);
+                reset_logger_signal();
                 continue;
             }
 
@@ -167,7 +171,7 @@ void SDLogger::sensor_sd_task() {
 
                 // Do not advance the ring buffer on error.
                 // Wakeups will continue; user can call end().
-                k_poll_signal_reset(&logger_sig);
+                reset_logger_signal();
                 continue;
             }
 
@@ -179,7 +183,7 @@ void SDLogger::sensor_sd_task() {
             k_yield();
         }
 
-        k_poll_signal_reset(&logger_sig);
+        reset_logger_signal();
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
@@ -356,7 +360,9 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
 
     k_mutex_unlock(&ring_mutex);
 
-    k_poll_signal_raise(&logger_sig, 0);
+    if (ring_buf_size_get(&ring_buffer) >= SD_BLOCK_SIZE) {
+        k_poll_signal_raise(&logger_sig, 0);
+    }
     return 0;
 }
 
@@ -427,7 +433,7 @@ int SDLogger::end() {
 
     if (!sd_card->is_mounted()) {
         atomic_clear(&is_open);
-        k_poll_signal_reset(&logger_sig);
+        reset_logger_signal();
         atomic_clear(&g_stop_writing);
         atomic_clear(&g_sd_removed);
         return -ENODEV;
@@ -451,13 +457,13 @@ int SDLogger::end() {
     ret = sd_card->close_file();
     k_mutex_unlock(&file_mutex);
     if (ret < 0) {
-        k_poll_signal_reset(&logger_sig);
+        reset_logger_signal();
         return ret;
     }
 
     atomic_clear(&is_open);
 
-    k_poll_signal_reset(&logger_sig);
+    reset_logger_signal();
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
 
