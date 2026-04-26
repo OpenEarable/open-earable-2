@@ -29,6 +29,7 @@
 
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
+#include "AutoOffManager.h"
 
 #include <zephyr/logging/log_ctrl.h>
 
@@ -435,6 +436,11 @@ int PowerManager::begin() {
     device_id[1] = nrf_ficr_deviceid_get(NRF_FICR, 1);
 
     oe_boot_state.device_id = (((uint64_t) device_id[1]) << 32) | device_id[0];
+
+    ret = auto_off_manager.init();
+    if (ret && ret != -EALREADY) {
+        LOG_WRN("Failed to initialize auto-off manager: %d", ret);
+    }
 
     return 0;
 }
