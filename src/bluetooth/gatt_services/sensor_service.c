@@ -3,7 +3,7 @@
 #include <zephyr/kernel.h>
 #include "../SensorManager/SensorManager.h"
 #include "../ParseInfo/SensorScheme.h"
-
+#include "error_definitions.h"
 #include "macros_common.h"
 
 #include <zephyr/logging/log.h>
@@ -27,7 +27,6 @@ K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_data), CONFIG_SENSOR_GATT_SUB_QUE
 //static struct sensor_msg msg;
 static struct sensor_data sensor_data;
 static struct sensor_config config;
-
 static bool notify_enabled = false;
 static bool sensor_config_status_ntfy_enabled = false;
 
@@ -82,6 +81,17 @@ static void sensor_config_status_ccc_cfg_changed(const struct bt_gatt_attr *attr
 				  uint16_t value)
 {
 	sensor_config_status_ntfy_enabled = (value == BT_GATT_CCC_NOTIFY);
+}
+
+// Add these with other static variables
+static bool error_notify_enabled = false;
+static sensor_error_data_t sensor_error_data;
+
+// Add this callback (before the GATT service definition)
+static void error_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
+{
+    error_notify_enabled = (value == BT_GATT_CCC_NOTIFY);
+    LOG_INF("Error notifications %s", error_notify_enabled ? "enabled" : "disabled");
 }
 
 static ssize_t write_config(struct bt_conn *conn,
@@ -193,6 +203,12 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_RECORDING_NAME,
 			BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
 			BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
 			read_sensor_rec_name, write_sensor_rec_name, NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_ERROR,
+                          BT_GATT_CHRC_NOTIFY,
+                          BT_GATT_PERM_NONE,
+                          NULL, NULL, &sensor_error_data),
+    BT_GATT_CCC(error_ccc_cfg_changed,
+                BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
 static void notify_complete() {
@@ -377,4 +393,32 @@ void set_sensor_recording_name(const char *name) {
 
 	strncpy(sensor_recording_name, name, sizeof(sensor_recording_name) - 1);
 	sensor_recording_name[sizeof(sensor_recording_name) - 1] = '\0';
+}
+
+int send_sensor_error(uint8_t error_code, uint8_t sensor_id, const char* message)
+{
+    if (!error_notify_enabled) {
+        LOG_WRN("Error notifications not enabled by app");
+        return -ENOENT;
+    }
+
+    // Populate the error structure
+    sensor_error_data.error_code = error_code;
+    sensor_error_data.sensor_id = sensor_id;
+    sensor_error_data.timestamp = k_uptime_get();
+    strncpy(sensor_error_data.message, message, sizeof(sensor_error_data.message) - 1);
+    sensor_error_data.message[sizeof(sensor_error_data.message) - 1] = '\0';
+
+    // Send notification using index 12 (error value attribute)
+    int err = bt_gatt_notify(NULL, &sensor_service.attrs[12], 
+                             &sensor_error_data, sizeof(sensor_error_data));
+    
+    if (err) {
+        LOG_ERR("Failed to send error notification: %d", err);
+    } else {
+        LOG_INF("Error notification sent: code=0x%02X, sensor=%d, msg=%s", 
+                error_code, sensor_id, message);
+    }
+    
+    return err;
 }

@@ -5,7 +5,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
-
+#include<sensor_service.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(BMX160);
 
@@ -49,6 +49,7 @@ void IMU::update_sensor(struct k_work *work) {
 	ret = k_msgq_put(sensor_queue, &msg_imu, K_NO_WAIT);
 	if (ret) {
 		LOG_WRN("sensor msg queue full");
+		send_sensor_error(0xFF, 0, "IMU has stopped the queue is full");
 	}
 }
 

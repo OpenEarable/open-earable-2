@@ -67,12 +67,11 @@ static void config_work_handler(struct k_work *work);
 
 void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
-
+  static bool test_error_sent = false; 
 	while (1) {
 		ret = k_poll(&sensor_manager_evt, 1, K_FOREVER);
 
 		k_msgq_get(&sensor_queue, &msg, K_FOREVER);
-
 		ret = zbus_chan_pub(&sensor_chan, &msg, K_FOREVER); //K_NO_WAIT
 		if (ret) {
 			LOG_ERR("Failed to publish sensor msg, ret: %d", ret);
@@ -121,6 +120,7 @@ void start_sensor_manager() {
 	k_poll_signal_raise(&sensor_manager_sig, 0);
 
 	_state = RUNNING;
+	send_sensor_error(0x01,9,"Error streaming is initialized");
 }
 
 void stop_sensor_manager() {
