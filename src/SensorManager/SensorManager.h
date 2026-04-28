@@ -29,6 +29,16 @@ void stop_sensor_manager();
 
 void config_sensor(struct sensor_config * config);
 
+/**
+ * @brief Get the number of currently active (running) sensors.
+ *
+ * Sensor Manager internally keeps track of the number of sensors it has
+ * started and stopped.
+ *
+ * @return Number of sensors currently running.
+ */
+int sensor_manager_get_active_sensor_count(void);
+
 #ifdef __cplusplus
 }
 #endif

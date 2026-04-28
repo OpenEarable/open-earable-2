@@ -47,6 +47,7 @@ zephyr_library_include_directories(
     src/Battery
     src/Wire
     src/bluetooth
+    src/SensorManager
     src/drivers
     src/modules
     src/utils

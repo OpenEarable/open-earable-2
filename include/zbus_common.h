@@ -100,4 +100,27 @@ struct content_control_msg {
 	enum content_control_evt_type event;
 };
 
+/**
+ * @brief Sensor lifecycle events emitted by SensorManager.
+ *
+ * These events represent sensor start/stop state transitions after sensor
+ * configuration is applied (typically triggered by app/user requests).
+ * The intent is to provide control-plane lifecycle signals for components
+ * such as power policy, instead of inferring lifecycle from `sensor_chan`
+ * sample traffic, because sample traffic timing can have large intentional gaps at low
+ * sample rates (e.g., 0.001 Hz barometer updates every ~1000 s), which can
+ * exceed minute-scale auto-off timeouts.
+ */
+enum sensor_activity_evt_type {
+	/** Sensor transitioned from not running to running. */
+	SENSOR_ACTIVITY_EVT_STARTED = 1,
+	/** Sensor transitioned from running to not running. */
+	SENSOR_ACTIVITY_EVT_STOPPED,
+};
+
+struct sensor_activity_msg {
+	enum sensor_activity_evt_type event;
+	uint8_t sensor_id;
+};
+
 #endif /* _ZBUS_COMMON_H_ */

@@ -42,8 +42,22 @@ K_MSGQ_DEFINE(config_queue, sizeof(struct sensor_config), 16, 4);
 
 K_THREAD_STACK_DEFINE(sensor_work_q_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
 
+/**
+ * @brief Sensor sample data channel.
+ *
+ * Publishes runtime sensor data messages (`sensor_msg`) for data consumers
+ * such as BLE streaming and SD logging.
+ */
 ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
+/**
+ * @brief Sensor lifecycle event channel.
+ *
+ * Publishes sensor start/stop lifecycle events only. Unlike `sensor_chan`,
+ * this channel does not carry sensor sample payloads.
+ */
+ZBUS_CHAN_DEFINE(sensor_lifecycle_chan, struct sensor_activity_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
+		 ZBUS_MSG_INIT(SENSOR_ACTIVITY_EVT_STOPPED, 0));
 
 static struct k_poll_signal sensor_manager_sig;
 static struct k_poll_event sensor_manager_evt =
@@ -64,6 +78,7 @@ K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE)
 int active_sensors = 0;
 
 static void config_work_handler(struct k_work *work);
+static void publish_sensor_activity_event(enum sensor_activity_evt_type event, uint8_t sensor_id);
 
 void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
@@ -169,6 +184,22 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 	}
 }
 
+int sensor_manager_get_active_sensor_count(void) {
+	return active_sensors;
+}
+
+static void publish_sensor_activity_event(enum sensor_activity_evt_type event, uint8_t sensor_id) {
+	struct sensor_activity_msg msg = {
+		.event = event,
+		.sensor_id = sensor_id,
+	};
+
+	int ret = zbus_chan_pub(&sensor_lifecycle_chan, &msg, K_NO_WAIT);
+	if (ret) {
+		LOG_WRN("Failed to publish sensor activity event: %d", ret);
+	}
+}
+
 // Worker-Funktion für die Sensor-Konfiguration
 static void config_work_handler(struct k_work *work) {
 	int ret;
@@ -200,6 +231,8 @@ static void config_work_handler(struct k_work *work) {
 			LOG_WRN("Active sensors is already 0");
 			active_sensors = 0;
 		}
+
+		publish_sensor_activity_event(SENSOR_ACTIVITY_EVT_STOPPED, config.sensorId);
 	}
 
 	sensor->sd_logging(config.storageOptions & DATA_STORAGE);
@@ -211,6 +244,7 @@ static void config_work_handler(struct k_work *work) {
 			sensor->start(config.sampleRateIndex);
 			if (sensor->is_running()) {
 				active_sensors++;
+				publish_sensor_activity_event(SENSOR_ACTIVITY_EVT_STARTED, config.sensorId);
 			}
 		}
 	}
