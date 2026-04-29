@@ -64,6 +64,8 @@ int initParseInfoService(struct ParseInfoScheme* scheme, struct SensorScheme* se
 
 struct SensorScheme* getSensorSchemeForId(uint8_t id);
 struct ParseInfoScheme* getParseInfoScheme();
+size_t getParseInfoStorageSize();
+ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize);
 
 float getSampleRateForSensorId(uint8_t id, uint8_t frequencyIndex);
 float getSampleRateForSensor(struct SensorScheme* sensorScheme, uint8_t frequencyIndex);
