@@ -221,6 +221,8 @@ static void config_work_handler(struct k_work *work) {
 		}
 	}
 
+	set_sensor_config_status(config);
+
 	if (config.storageOptions & DATA_STORAGE) {
 		sd_sensors.insert(config.sensorId);
 
@@ -247,8 +249,6 @@ static void config_work_handler(struct k_work *work) {
 
 		// TODO: if (ble_sensors.empty()) ...
 	}
-
-	set_sensor_config_status(config);
 
 	if (active_sensors == 0) stop_sensor_manager();
 }
