@@ -219,3 +219,4 @@ The blob starts with the existing `Sensor List` serialization and then stores ea
 | ...   | Sensor Scheme      | byte[] |
 
 Each `Sensor Scheme` payload uses the existing `Single Sensor Scheme` serialization already documented above.
+For schemes embedded in an `.oe` header, `Default Frequency Index` is set to the active runtime sampling-rate index at the time the header is written.
