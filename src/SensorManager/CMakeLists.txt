@@ -15,4 +15,6 @@ target_sources(app PRIVATE
 		   ${CMAKE_CURRENT_SOURCE_DIR}/BoneConduction.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/Microphone.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/Microphone.c
+		   ${CMAKE_CURRENT_SOURCE_DIR}/MicrophoneBle.cpp
+		   ${CMAKE_CURRENT_SOURCE_DIR}/MicBleStreamer.cpp
 )

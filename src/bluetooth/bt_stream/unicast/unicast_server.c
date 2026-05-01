@@ -15,7 +15,7 @@
  #include <zephyr/bluetooth/audio/csip.h>
  #include <zephyr/bluetooth/audio/cap.h>
  #include <zephyr/bluetooth/audio/lc3.h>
- 
+
  #include "macros_common.h"
  #include "zbus_common.h"
  #include "bt_mgmt.h"
@@ -767,17 +767,21 @@ static uint8_t device_identifier[] = {
 		 return ret;
 	 }
  
-	 ret = bt_pacs_set_supported_contexts(BT_AUDIO_DIR_SOURCE, AVAILABLE_SOURCE_CONTEXT);
- 
-	 if (ret) {
-		 LOG_ERR("Supported context set failed. Err: %d", ret);
-		 return ret;
-	 }
- 
-	 ret = bt_pacs_set_available_contexts(BT_AUDIO_DIR_SOURCE, AVAILABLE_SOURCE_CONTEXT);
-	 if (ret) {
-		 LOG_ERR("Available context set failed. Err: %d", ret);
-		 return ret;
+	 if (IS_ENABLED(CONFIG_BT_PAC_SRC)) {
+		 ret = bt_pacs_set_supported_contexts(BT_AUDIO_DIR_SOURCE,
+						      AVAILABLE_SOURCE_CONTEXT);
+
+		 if (ret) {
+			 LOG_ERR("Supported context set failed. Err: %d", ret);
+			 return ret;
+		 }
+
+		 ret = bt_pacs_set_available_contexts(BT_AUDIO_DIR_SOURCE,
+						      AVAILABLE_SOURCE_CONTEXT);
+		 if (ret) {
+			 LOG_ERR("Available context set failed. Err: %d", ret);
+			 return ret;
+		 }
 	 }
  
 	 for (int i = 0; i < ARRAY_SIZE(cap_audio_streams); i++) {
@@ -797,9 +801,8 @@ static uint8_t device_identifier[] = {
 			 return ret;
 		 }
 	 }
- 
+
 	 initialized = true;
- 
+
 	 return 0;
- }
- 
+}

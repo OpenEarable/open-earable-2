@@ -25,9 +25,11 @@
 #include "audio_system.h"
 #include "streamctrl.h"
 #include "sd_card_playback.h"
+#include "audio_sync_timer.h"
 
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
+#include "../SensorManager/MicBleStreamer.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -173,6 +175,69 @@ static struct {
 
 static struct k_msgq * sensor_queue;
 
+K_MSGQ_DEFINE(rx_timestamp_queue, sizeof(uint64_t),
+	      CONFIG_FIFO_RX_FRAME_COUNT * CONFIG_FIFO_FRAME_SPLIT_NUM + 2, 4);
+
+static uint32_t rx_audio_ts_base_us;
+static uint64_t rx_time_base_us;
+static bool rx_time_base_valid;
+
+static void rx_timestamp_reset(void)
+{
+	k_msgq_purge(&rx_timestamp_queue);
+	rx_audio_ts_base_us = audio_sync_timer_capture();
+	rx_time_base_us = micros();
+	rx_time_base_valid = true;
+}
+
+static uint64_t rx_audio_ts_to_time_us(uint32_t audio_ts_us)
+{
+	if (!rx_time_base_valid) {
+		return micros();
+	}
+
+	return rx_time_base_us + (uint32_t)(audio_ts_us - rx_audio_ts_base_us);
+}
+
+static void rx_timestamp_push(uint32_t frame_start_ts_us)
+{
+	uint64_t block_time_us;
+	uint32_t block_start_ts_us = frame_start_ts_us - BLK_PERIOD_US;
+
+	block_time_us = rx_audio_ts_to_time_us(block_start_ts_us);
+
+	int ret = k_msgq_put(&rx_timestamp_queue, &block_time_us, K_NO_WAIT);
+	if (ret != 0) {
+		uint64_t dropped;
+
+		(void)k_msgq_get(&rx_timestamp_queue, &dropped, K_NO_WAIT);
+		ret = k_msgq_put(&rx_timestamp_queue, &block_time_us, K_NO_WAIT);
+		if (ret != 0) {
+			LOG_WRN("RX timestamp queue full");
+		}
+	}
+}
+
+static uint64_t rx_timestamp_pop(void)
+{
+	uint64_t block_time_us;
+	int ret = k_msgq_get(&rx_timestamp_queue, &block_time_us, K_NO_WAIT);
+
+	if (ret != 0) {
+		LOG_WRN("RX timestamp missing");
+		return micros();
+	}
+
+	return block_time_us;
+}
+
+static void rx_timestamp_drop_oldest(void)
+{
+	uint64_t dropped;
+
+	(void)k_msgq_get(&rx_timestamp_queue, &dropped, K_NO_WAIT);
+}
+
 //extern struct audio_data fifo_rx;
 
 //K_MSGQ_DEFINE(rx_queue, sizeof(struct audio_data), 16, 4);
@@ -213,9 +278,12 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
             ret = data_fifo_pointer_last_filled_get(ctrl_blk.in.fifo, &tmp_pcm_raw_data[i], &pcm_block_size, K_FOREVER);
             ERR_CHK(ret);
 
-			uint64_t time_stamp = micros();
+			uint64_t time_stamp = rx_timestamp_pop();
     
             memcpy(audio_item.data + (i * BLOCK_SIZE_BYTES), tmp_pcm_raw_data[i], pcm_block_size);
+
+			mic_ble_streamer_process_i2s_block(tmp_pcm_raw_data[i], pcm_block_size,
+							   time_stamp);
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
@@ -832,13 +900,15 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	static uint32_t *rx_buf;
 	static int prev_ret;
 
-	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
+	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_MIC_BLE_STREAM) ||
+	     (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
 		/* Lock last filled buffer into message queue */
 		if (rx_buf_released != NULL) {
 			ret = data_fifo_block_lock(ctrl_blk.in.fifo, (void **)&rx_buf_released,
 						   BLOCK_SIZE_BYTES);
 
 			ERR_CHK_MSG(ret, "Unable to lock block RX");
+			rx_timestamp_push(frame_start_ts_us);
 		}
 
 		/* Get new empty buffer to send to I2S HW */
@@ -864,6 +934,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 			ERR_CHK(ret);
 
 			data_fifo_block_free(ctrl_blk.in.fifo, data);
+			rx_timestamp_drop_oldest();
 
 			ret = data_fifo_pointer_first_vacant_get(ctrl_blk.in.fifo, (void **)&rx_buf,
 								 K_NO_WAIT);
@@ -903,7 +974,8 @@ static void audio_datapath_i2s_start(void)
 	}
 
 	/* RX */
-	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
+	if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_MIC_BLE_STREAM) ||
+	     (CONFIG_AUDIO_DEV == GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_MIC_I2S)) {
 		uint32_t alloced_cnt;
 		uint32_t locked_cnt;
 
@@ -1179,6 +1251,7 @@ int audio_datapath_start(struct data_fifo *fifo_rx)
 		/* Clear counters and mute initial audio */
 		memset(&ctrl_blk.out, 0, sizeof(ctrl_blk.out));
 
+		rx_timestamp_reset();
 		audio_datapath_i2s_start();
 		ctrl_blk.stream_started = true;
 
@@ -1201,6 +1274,8 @@ int audio_datapath_stop(void)
 		pres_comp_state_set(PRES_STATE_INIT);
 
 		data_fifo_empty(ctrl_blk.in.fifo);
+		k_msgq_purge(&rx_timestamp_queue);
+		rx_time_base_valid = false;
 
 		return 0;
 	} else {

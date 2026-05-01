@@ -156,7 +156,8 @@ int ADAU1860::begin() {
         //uint8_t asrci_route01 = 0x0; // ASRCI0_EN 
         //writeReg(registers::ASRCI_ROUTE01, &asrci_route01, sizeof(asrci_route01));
 
-        if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) && (CONFIG_AUDIO_DEV == HEADSET)) {
+        if ((IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_MIC_BLE_STREAM)) &&
+            (CONFIG_AUDIO_DEV == HEADSET)) {
                 // I2S_IN enable | I2S_OUT enable | MIC enable
                 uint8_t sai_clk_pwr = 0x01 | (1 << 1) | (1 << 4);
                 writeReg(registers::SAI_CLK_PWR, &sai_clk_pwr, sizeof(sai_clk_pwr));
