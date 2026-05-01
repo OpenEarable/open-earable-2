@@ -128,12 +128,19 @@ config AUDIO_SOURCE_I2S
 	bool "Use I2S as audio source"
 endchoice
 
+config MIC_BLE_STREAM
+	bool "Use I2S microphone for BLE sensor streaming"
+	default n
+	help
+	  Enables microphone capture for the sensor BLE service without exposing
+	  the microphone as a bidirectional LE Audio source.
+
 choice AUDIO_MIC_SOURCE
-	depends on STREAM_BIDIRECTIONAL
+	depends on STREAM_BIDIRECTIONAL || MIC_BLE_STREAM
 	prompt "Audio microphone source for bidirectional stream"
 	default AUDIO_MIC_I2S
 	help
-	  Select microphone source for the bidrectional le audio.
+	  Select microphone source for bidirectional LE Audio or BLE sensor streaming.
 
 config AUDIO_MIC_PDM
 	bool "Use Mic via PDM"

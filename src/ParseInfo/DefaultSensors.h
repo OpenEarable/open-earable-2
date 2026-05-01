@@ -12,6 +12,7 @@
 #include "../SensorManager/Temp.h"
 #include "../SensorManager/BoneConduction.h"
 #include "../SensorManager/Microphone.h"
+#include "../SensorManager/MicrophoneBle.h"
 
 
 // ============= Microphones =============
@@ -25,6 +26,24 @@ SensorComponent microComponenents[MICRO_CHANNEL_COUNT] = {
 #define MICRO_GROUP_COUNT 1
 SensorComponentGroup microGroups[MICRO_GROUP_COUNT] = {
     { .name = "MICROPHONE", .componentCount = MICRO_CHANNEL_COUNT, .components = microComponenents },
+};
+
+#define MICRO_BLE_CHANNEL_COUNT 1
+SensorComponent microBleInnerComponents[MICRO_BLE_CHANNEL_COUNT] = {
+    { .name = "INNER", .unit = "ADC", .parseType = PARSE_TYPE_INT16 },
+};
+
+SensorComponent microBleOuterComponents[MICRO_BLE_CHANNEL_COUNT] = {
+    { .name = "OUTER", .unit = "ADC", .parseType = PARSE_TYPE_INT16 },
+};
+
+#define MICRO_BLE_GROUP_COUNT 1
+SensorComponentGroup microBleInnerGroups[MICRO_BLE_GROUP_COUNT] = {
+    { .name = "INNER_MICROPHONE", .componentCount = MICRO_BLE_CHANNEL_COUNT, .components = microBleInnerComponents },
+};
+
+SensorComponentGroup microBleOuterGroups[MICRO_BLE_GROUP_COUNT] = {
+    { .name = "OUTER_MICROPHONE", .componentCount = MICRO_BLE_CHANNEL_COUNT, .components = microBleOuterComponents },
 };
 
 // ============= IMU =============
@@ -118,7 +137,7 @@ SensorComponentGroup baroGroups[BARO_GROUP_COUNT] = {
 
 // ============= Sensors =============
 
-#define SENSOR_COUNT 6
+#define SENSOR_COUNT 8
 SensorScheme defaultSensors[SENSOR_COUNT] = {
     {
         .name = "9-Axis IMU",
@@ -147,6 +166,36 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
                 .defaultFrequencyIndex = 1,
                 .maxBleFrequencyIndex = 1,
                 .frequencies = Microphone::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "Inner Microphone",
+        .id = ID_MICRO_INNER,
+        .groupCount = MICRO_BLE_GROUP_COUNT,
+        .groups = microBleInnerGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(MicrophoneBle::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 0,
+                .maxBleFrequencyIndex = 0,
+                .frequencies = MicrophoneBle::sample_rates.sample_rates,
+            },
+        },
+    },
+    {
+        .name = "Outer Microphone",
+        .id = ID_MICRO_OUTER,
+        .groupCount = MICRO_BLE_GROUP_COUNT,
+        .groups = microBleOuterGroups,
+        .configOptions = {
+            .availableOptions = DATA_STREAMING | FREQUENCIES_DEFINED,
+            .frequencyOptions = {
+                .frequencyCount = sizeof(MicrophoneBle::sample_rates.reg_vals),
+                .defaultFrequencyIndex = 0,
+                .maxBleFrequencyIndex = 0,
+                .frequencies = MicrophoneBle::sample_rates.sample_rates,
             },
         },
     },
@@ -214,7 +263,7 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
 
 ParseInfoScheme defaultSensorIds = {
     .sensorCount = SENSOR_COUNT,
-    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO },
+    .sensorIds = (uint8_t[]){ ID_IMU, ID_PPG, ID_OPTTEMP, ID_TEMP_BARO, ID_BONE_CONDUCTION, ID_MICRO, ID_MICRO_INNER, ID_MICRO_OUTER },
 };
 
 #endif // _DEFAULT_SENSORS_H

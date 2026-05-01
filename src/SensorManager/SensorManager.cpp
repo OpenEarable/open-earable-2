@@ -13,6 +13,7 @@
 #include "Temp.h"
 #include "BoneConduction.h"
 #include "Microphone.h"
+#include "MicrophoneBle.h"
 
 #include "openearable_common.h"
 #include "StateIndicator.h"
@@ -134,6 +135,8 @@ void stop_sensor_manager() {
 	Temp::sensor.stop();
 	BoneConduction::sensor.stop();
 	Microphone::sensor.stop();
+	MicrophoneBle::inner.stop();
+	MicrophoneBle::outer.stop();
 
 	active_sensors = 0;
 
@@ -164,6 +167,10 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 		return &(BoneConduction::sensor);
 	case ID_MICRO:
 		return &(Microphone::sensor);
+	case ID_MICRO_INNER:
+		return &(MicrophoneBle::inner);
+	case ID_MICRO_OUTER:
+		return &(MicrophoneBle::outer);
 	default:
 		return NULL;
 	}
