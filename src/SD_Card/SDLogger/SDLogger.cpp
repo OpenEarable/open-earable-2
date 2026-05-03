@@ -42,6 +42,9 @@ uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
 static atomic_t g_stop_writing;   // 1 while end()/flush/close is in progress
 static atomic_t g_sd_removed;     // 1 if SD was removed while recording
 
+static constexpr int64_t LOG_SYNC_INTERVAL_MS = 60 * 1000;
+static int64_t last_sync_uptime_ms;
+
 uint32_t count_max_buffer_fill = 0;
 
 struct k_poll_signal logger_sig;
@@ -94,9 +97,11 @@ void SDLogger::sensor_sd_task() {
     int ret;
 
     while (1) {
-        ret = k_poll(&logger_evt, 1, K_FOREVER);
+        ret = k_poll(&logger_evt, 1, K_MSEC(LOG_SYNC_INTERVAL_MS));
 
-        if (ret < 0) {
+        if (ret == -EAGAIN) {
+            /* Timeout is used to give low-rate logging a periodic sync point. */
+        } else if (ret < 0) {
             LOG_ERR("k_poll failed: %d", ret);
             continue;
         }
@@ -105,7 +110,7 @@ void SDLogger::sensor_sd_task() {
         int result;
         k_poll_signal_check(&logger_sig, &signaled, &result);
 
-        if (signaled == 0) {
+        if (signaled == 0 && ret != -EAGAIN) {
             LOG_DBG("Poll woke up without signal");
             continue;
         }
@@ -122,6 +127,11 @@ void SDLogger::sensor_sd_task() {
             ring_buf_reset(&ring_buffer);
             k_mutex_unlock(&ring_mutex);
             sdlogger.is_open = false;
+            k_poll_signal_reset(&logger_sig);
+            continue;
+        }
+
+        if (!sdlogger.is_open) {
             k_poll_signal_reset(&logger_sig);
             continue;
         }
@@ -177,6 +187,17 @@ void SDLogger::sensor_sd_task() {
             k_yield();
         }
 
+        if (sdlogger.is_open &&
+            (k_uptime_get() - last_sync_uptime_ms) >= LOG_SYNC_INTERVAL_MS) {
+            ret = sdlogger.sync_pending_data();
+            if (ret < 0) {
+                state_indicator.set_sd_state(SD_FAULT);
+                LOG_ERR("Failed to sync SD log file: %d", ret);
+            } else {
+                last_sync_uptime_ms = k_uptime_get();
+            }
+        }
+
         k_poll_signal_reset(&logger_sig);
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
@@ -192,6 +213,7 @@ int SDLogger::init() {
 
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
+    last_sync_uptime_ms = k_uptime_get();
 
     //set_ring_buffer(&ring_buffer);
 
@@ -266,6 +288,7 @@ int SDLogger::begin(const std::string& filename) {
 
     current_file = full_filename;
     is_open = true;
+    last_sync_uptime_ms = k_uptime_get();
 
     k_mutex_lock(&ring_mutex, K_FOREVER);
     ring_buf_reset(&ring_buffer);
@@ -275,6 +298,15 @@ int SDLogger::begin(const std::string& filename) {
     if (ret < 0) {
         state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("Failed to write header: %d", ret);
+        return ret;
+    }
+
+    k_mutex_lock(&file_mutex, K_FOREVER);
+    ret = sd_card->sync();
+    k_mutex_unlock(&file_mutex);
+    if (ret < 0) {
+        state_indicator.set_sd_state(SD_FAULT);
+        LOG_ERR("Failed to sync log header: %d", ret);
         return ret;
     }
 
@@ -412,6 +444,56 @@ int SDLogger::flush() {
     }
 
     return (int)total_written;
+}
+
+int SDLogger::sync_pending_data() {
+    if (!is_open || atomic_get(&g_sd_removed)) {
+        return -ENODEV;
+    }
+
+    for (;;) {
+        uint8_t *data = nullptr;
+        uint32_t fill;
+
+        k_mutex_lock(&ring_mutex, K_FOREVER);
+        fill = ring_buf_size_get(&ring_buffer);
+        if (fill == 0) {
+            k_mutex_unlock(&ring_mutex);
+            break;
+        }
+
+        uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill);
+        k_mutex_unlock(&ring_mutex);
+
+        if (claimed == 0 || data == nullptr) {
+            break;
+        }
+
+        size_t req = claimed;
+        int written;
+        k_mutex_lock(&file_mutex, K_FOREVER);
+        written = sd_card->write((char*)data, &req, false);
+        k_mutex_unlock(&file_mutex);
+
+        if (written < 0) {
+            LOG_ERR("Failed to write pending SD data before sync: %d", written);
+            return written;
+        }
+
+        k_mutex_lock(&ring_mutex, K_FOREVER);
+        ring_buf_get_finish(&ring_buffer, (uint32_t)written);
+        k_mutex_unlock(&ring_mutex);
+
+        if ((uint32_t)written < claimed) {
+            k_yield();
+        }
+    }
+
+    k_mutex_lock(&file_mutex, K_FOREVER);
+    int ret = sd_card->sync();
+    k_mutex_unlock(&file_mutex);
+
+    return ret;
 }
 
 int SDLogger::end() {

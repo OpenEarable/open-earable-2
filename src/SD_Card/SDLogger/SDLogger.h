@@ -39,6 +39,7 @@ private:
 
         int write_header(); //Write file header with version and timestamp
         int flush(); // Flush any buffered data to the SD card
+        int sync_pending_data(); // Flush buffered data and sync the file to storage
         
         static constexpr uint16_t SENSOR_LOG_VERSION = 0x0002;
 
