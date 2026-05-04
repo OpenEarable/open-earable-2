@@ -1,5 +1,6 @@
 #include "SensorManager.h"
 
+#include <errno.h>
 #include <zephyr/kernel.h>
 
 #include "macros_common.h"
@@ -16,6 +17,7 @@
 
 #include "openearable_common.h"
 #include "StateIndicator.h"
+#include "AutoOffManager.h"
 
 #include <SensorScheme.h>
 #include "../SD_Card/SDLogger/SDLogger.h"
@@ -62,6 +64,7 @@ struct k_work_q sensor_work_q;
 K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE);
 
 int active_sensors = 0;
+static const char sensor_manager_auto_off_token[] = "SensorManager";
 
 static void config_work_handler(struct k_work *work);
 
@@ -100,6 +103,15 @@ void init_sensor_manager() {
 	k_poll_signal_init(&sensor_manager_sig);
 
 	sdlogger.init();
+
+	int ret = auto_off_manager.register_participant(
+		sensor_manager_auto_off_token,
+		(power_saving_level_t)CONFIG_POWER_SAVING_LEVEL_SENSOR_MANAGER);
+	if (ret && ret != -EALREADY) {
+		LOG_WRN("Failed to register SensorManager with auto-off: %d", ret);
+	} else {
+		auto_off_manager.allow(sensor_manager_auto_off_token);
+	}
 }
 
 void start_sensor_manager() {
@@ -136,6 +148,7 @@ void stop_sensor_manager() {
 	Microphone::sensor.stop();
 
 	active_sensors = 0;
+	auto_off_manager.allow(sensor_manager_auto_off_token);
 
 	k_work_queue_drain(&sensor_work_q, true);
 
@@ -211,6 +224,7 @@ static void config_work_handler(struct k_work *work) {
 			sensor->start(config.sampleRateIndex);
 			if (sensor->is_running()) {
 				active_sensors++;
+				auto_off_manager.prohibit(sensor_manager_auto_off_token);
 			}
 		}
 	}
@@ -244,7 +258,10 @@ static void config_work_handler(struct k_work *work) {
 
 	set_sensor_config_status(config);
 
-	if (active_sensors == 0) stop_sensor_manager();
+	if (active_sensors == 0) {
+		auto_off_manager.allow(sensor_manager_auto_off_token);
+		stop_sensor_manager();
+	}
 }
 
 void config_sensor(struct sensor_config * config) {
