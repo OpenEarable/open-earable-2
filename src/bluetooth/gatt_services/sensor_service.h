@@ -35,15 +35,6 @@ int init_sensor_service();
 const char *get_sensor_recording_name();
 //int send_sensor_data(); //struct sensor_data * data);
 
-/**
- * @brief Copy the active runtime configuration for a sensor.
- *
- * @param sensor_id Sensor identifier to query.
- * @param config Destination for the active configuration.
- * @return 0 on success, or a negative errno value if no active config exists.
- */
-int get_sensor_config_status(uint8_t sensor_id, struct sensor_config *config);
-
 int set_sensor_config_status(struct sensor_config config);
 
 void temp_disable_notifies(bool disable);

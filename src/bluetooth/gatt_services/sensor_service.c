@@ -6,8 +6,6 @@
 
 #include "macros_common.h"
 
-#include <errno.h>
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
@@ -447,21 +445,6 @@ int init_sensor_config_status() {
 
 	LOG_DBG("Sensor config status initialized");
 	return 0;
-}
-
-int get_sensor_config_status(uint8_t sensor_id, struct sensor_config *config) {
-	if (config == NULL) {
-		return -EINVAL;
-	}
-
-	for (size_t i = 0; i < active_sensor_configs_size; i++) {
-		if (active_sensor_configs[i].sensorId == sensor_id) {
-			*config = active_sensor_configs[i];
-			return 0;
-		}
-	}
-
-	return -ENOENT;
 }
 
 int set_sensor_config_status(struct sensor_config config) {
