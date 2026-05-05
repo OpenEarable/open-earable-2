@@ -235,36 +235,6 @@ ssize_t serializeSensorScheme(SensorScheme* scheme, char* buffer, size_t bufferS
     return buffer - bufferStart;
 }
 
-/**
- * @brief Return a sensor scheme copy whose default frequency index matches runtime state.
- */
-static SensorScheme getSensorSchemeWithActiveFrequency(SensorScheme* scheme) {
-    SensorScheme activeScheme = *scheme;
-    if (!(scheme->configOptions.availableOptions & FREQUENCIES_DEFINED)) {
-        return activeScheme;
-    }
-
-    struct sensor_config activeConfig;
-    int ret = get_sensor_config_status(scheme->id, &activeConfig);
-    if (ret < 0) {
-        return activeScheme;
-    }
-
-    if (activeConfig.sampleRateIndex >= scheme->configOptions.frequencyOptions.frequencyCount) {
-        LOG_WRN(
-            "Ignoring invalid active sample rate index %u for sensor %u",
-            activeConfig.sampleRateIndex,
-            scheme->id
-        );
-        return activeScheme;
-    }
-
-    activeScheme.configOptions = scheme->configOptions;
-    activeScheme.configOptions.frequencyOptions = scheme->configOptions.frequencyOptions;
-    activeScheme.configOptions.frequencyOptions.defaultFrequencyIndex = activeConfig.sampleRateIndex;
-    return activeScheme;
-}
-
 size_t getSchemeSize(ParseInfoScheme* scheme) {
     size_t size = 0;
     size += 1; // sensorCount
@@ -405,13 +375,8 @@ size_t getParseInfoStorageSize() {
             return 0;
         }
 
-        size_t sensorSchemeSize = getSensorSchemeSize(scheme);
-        if (sensorSchemeSize > UINT16_MAX) {
-            return 0;
-        }
-
         size += sizeof(uint16_t);
-        size += sensorSchemeSize;
+        size += getSensorSchemeSize(scheme);
     }
 
     return size;
@@ -446,8 +411,7 @@ ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize) {
         memcpy(buffer, &encodedSchemeSize, sizeof(encodedSchemeSize));
         buffer += sizeof(encodedSchemeSize);
 
-        SensorScheme activeScheme = getSensorSchemeWithActiveFrequency(scheme);
-        ssize_t writtenSize = serializeSensorScheme(&activeScheme, buffer, bufferSize - (buffer - bufferStart));
+        ssize_t writtenSize = serializeSensorScheme(scheme, buffer, bufferSize - (buffer - bufferStart));
         if (writtenSize < 0) {
             return writtenSize;
         }
