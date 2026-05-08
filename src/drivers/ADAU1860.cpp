@@ -213,7 +213,7 @@ int ADAU1860::begin() {
                 writeReg(registers::DMIC_VOL0, &dmic_vol, sizeof(dmic_vol));
                 writeReg(registers::DMIC_VOL1, &dmic_vol, sizeof(dmic_vol));
 
-                uint8_t dmic_ctrl1 = 0x34; // ... | 6.144 MHz
+                uint8_t dmic_ctrl1 = 0x33; // ... | 3.072 MHz
                 writeReg(registers::DMIC_CTRL1, &dmic_ctrl1, sizeof(dmic_ctrl1));
 
                 uint8_t dmic_ctrl2 = 0x04; // 192kHz
