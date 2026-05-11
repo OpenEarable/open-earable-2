@@ -21,6 +21,13 @@ typedef enum power_saving_level {
 } power_saving_level_t;
 
 /**
+ * @brief C wrapper for AutoOffManager::init().
+ *
+ * See AutoOffManager::init() for documentation.
+ */
+int auto_off_init(void);
+
+/**
  * @brief C wrapper for AutoOffManager::register_participant().
  *
  * See AutoOffManager::register_participant() for documentation.

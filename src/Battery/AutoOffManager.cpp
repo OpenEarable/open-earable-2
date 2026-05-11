@@ -288,6 +288,11 @@ void auto_off_work_handler(struct k_work *work)
 	auto_off_manager.handle_timeout();
 }
 
+int auto_off_init(void)
+{
+	return auto_off_manager.init();
+}
+
 int auto_off_register_participant(const char *participant_token, power_saving_level_t level)
 {
 	return auto_off_manager.register_participant(participant_token, level);
