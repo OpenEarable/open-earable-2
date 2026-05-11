@@ -64,7 +64,7 @@ bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
-        _i2c->aquire();
+        _i2c->acquire();
 
         ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
         if (ret) LOG_WRN("I2C read failed: %d\n", ret);
@@ -83,7 +83,7 @@ void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
-        _i2c->aquire();
+        _i2c->acquire();
 
         ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
         if (ret) LOG_WRN("I2C write failed: %d", ret);
@@ -182,7 +182,7 @@ float BQ27220::state_of_health() {
 
 float BQ27220::current() {
         int16_t mA = 0;
-        bool ret = readReg(registers::NAC, (uint8_t *) &mA, sizeof(mA));
+        bool ret = readReg(registers::CURR, (uint8_t *) &mA, sizeof(mA));
         return mA;
 }
 

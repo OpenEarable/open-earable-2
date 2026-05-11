@@ -38,9 +38,8 @@ private:
     bool readReg(uint8_t reg, uint8_t *buffer, uint16_t len);
     void writeReg(uint8_t reg, uint8_t *buffer, uint16_t len);
 
-    int address = 0x30;
+    int address = DT_REG_ADDR(DT_NODELABEL(ktd2026));
 
-    //TwoWire * _pWire = &Wire;
     TWIM * _i2c = &I2C1;
 
     bool _active = false;

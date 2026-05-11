@@ -9,7 +9,7 @@
 LOG_MODULE_REGISTER(LED, CONFIG_MAIN_LOG_LEVEL);
 
 bool KTD2026::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
-        _i2c->aquire();
+        _i2c->acquire();
 
         int ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
         if (ret) LOG_WRN("I2C read failed: %d\n", ret);
@@ -20,40 +20,61 @@ bool KTD2026::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 }
 
 void KTD2026::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
-        _i2c->aquire();
+        _i2c->acquire();
 
         int ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
-        if (ret) LOG_WRN("I2C write failed: %d", ret);
+        if (ret) LOG_WRN("I2C write reg 0x%02x failed: %d", reg, ret);
 
         _i2c->release();
 }
 
 void KTD2026::begin() {
-        int ret;
-
         if (_active) return;
 
 	_active = true;
-        
-        ret = pm_device_runtime_get(ls_1_8);
-        ret = pm_device_runtime_get(ls_3_3);
 
+        /* KTD2026 VIN is on ls_3_3; i2c1 pull-ups are on the permanent supply. */
+        pm_device_runtime_get(ls_3_3);
+
+        k_usleep(200);  /* datasheet recovery time after reset command */
         _i2c->begin();
+        k_usleep(200);  /* datasheet recovery time after reset command */
 
         reset();
 }
 
 void KTD2026::reset() {
+        /* Datasheet page 13: after power-up or VIN dropping below 2.7V, write
+         * Reg0[2:0]=111 ("Reset Complete Chip") then wait 200 µs.
+         *
+         * Empirical observation: on any MCU-only reboot (sys_reboot, incl.
+         * SYS_REBOOT_COLD), the chip NACKs this reset write, but still ACKs
+         * writes to other registers (Reg 4/6 etc.), so subsequent LED ops work
+         * fine. The exact reason is not documented.
+         *
+         * We issue the command anyway so true cold power cycles (battery
+         * disconnect, or sys_poweroff→wake which disables the LS/LDO) still
+         * get the datasheet-recommended sequence, and log the NACK at DBG. */
+        _i2c->acquire();
         uint8_t val = 0x7;
-        writeReg(registers::CTRL, &val, sizeof(val));
-        k_usleep(200);
+        int ret = i2c_burst_write(_i2c->master, address, registers::CTRL, &val, sizeof(val));
+        _i2c->release();
+        if (ret) {
+                LOG_DBG("reset NACK (expected when VIN did not drop below UVLO): %d", ret);
+        }
+        k_usleep(200);  /* datasheet recovery time after reset command */
 }
 
 void KTD2026::power_off() {
+        if (!_active) return;
+
+        /* Reg0 = 0x08 → Reg0[4:3]=01 = "Device ON when SCL=H AND SDA toggling;
+         * shutdown when SCL goes low or SDA stops toggling" (datasheet p.13).
+         * Bus goes idle right after this write, so the chip drops into
+         * shutdown mode (<1 µA per datasheet p.1) before we release ls_3_3. */
         uint8_t val = 0x8;
         writeReg(registers::CTRL, &val, sizeof(val));
-        int ret = pm_device_runtime_put(ls_1_8);
-        ret = pm_device_runtime_put(ls_3_3);
+        pm_device_runtime_put(ls_3_3);
 
 	_active = false;
 }
@@ -61,7 +82,7 @@ void KTD2026::power_off() {
 void KTD2026::setColor(const RGBColor& color) {
         uint8_t channel_enable = 0;
         RGBColor _color;
-        memcpy(_color, color, sizeof(RGBColor));  // Korrekte Array-Kopie
+        memcpy(_color, color, sizeof(RGBColor));
         
         for (int i = 0; i < 3; i++) {
                 if (_color[i] > 0) {
