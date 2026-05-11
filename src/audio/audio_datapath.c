@@ -27,7 +27,7 @@
 #include "sd_card_playback.h"
 
 #include "Equalizer.h"
-#include "sdlogger_wrapper.h"
+#include "sensor_sink.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -171,18 +171,12 @@ static struct {
 
 #define SENQUEUE_FRAME_SIZE 32
 
-static struct k_msgq * sensor_queue;
-
-//extern struct audio_data fifo_rx;
-
-//K_MSGQ_DEFINE(rx_queue, sizeof(struct audio_data), 16, 4);
-extern struct k_msgq_t encoder_queue;
+extern struct k_msgq encoder_queue;
 
 // Definition eines zbus-Kanals
 ZBUS_CHAN_DEFINE(audio_channel, struct audio_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY, ZBUS_MSG_INIT(0));
 
-// Thread-Stack und Daten
-K_THREAD_STACK_DEFINE(data_thread_stack, CONFIG_ENCODER_STACK_SIZE); //CONFIG_DATA_THREAD_STACK_SIZE
+K_THREAD_STACK_DEFINE(data_thread_stack, CONFIG_ENCODER_STACK_SIZE);
 static struct k_thread data_thread_data;
 static k_tid_t data_thread_id;
 
@@ -193,21 +187,16 @@ int _count = 0;
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
-// Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
 {
-    //struct audio_data audio_item;
     void *tmp_pcm_raw_data[CONFIG_FIFO_FRAME_SPLIT_NUM];
-    //char pcm_raw_data[FRAME_SIZE_BYTES];
     size_t pcm_block_size;
     int ret;
 
 	struct audio_rx_data audio_item;
-	//memcpy(audio_item.data, pcm_raw_data, FRAME_SIZE_BYTES);
 	audio_item.size = FRAME_SIZE_BYTES;
 
     while (1) {
-        // Daten aus der data_queue lesen
         for (int i = 0; i < CONFIG_FIFO_FRAME_SPLIT_NUM; i++) {
 			// wait for next sample block to be available
             ret = data_fifo_pointer_last_filled_get(ctrl_blk.in.fifo, &tmp_pcm_raw_data[i], &pcm_block_size, K_FOREVER);
@@ -245,10 +234,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					audio_item.data + (i * BLOCK_SIZE_BYTES)
 				};
 
-				sdlogger_write_data(&data_ptrs, data_size, 2);
-
-				//sdlogger_write_data(&audio_msg.data, data_size);
-				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
+				sensor_sink_write_sd(data_ptrs, data_size, 2);
 			}
 
 			k_yield();
@@ -271,17 +257,10 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 	ring_buffer = buf;
 }*/
 
-void set_sensor_queue(struct k_msgq *queue)
-{
-	sensor_queue = queue;
-}
-
-
 void record_to_sd(bool active) {
 	_record_to_sd = active;
 }
 
-// Funktion, um den neuen Thread zu starten
 void start_data_thread(void)
 {
 	if (data_thread_id == NULL) {
@@ -1209,7 +1188,7 @@ int audio_datapath_stop(void)
 }
 
 // TODO: not clean with the argument --> move to init?
-int audio_datapath_aquire(struct data_fifo *fifo_rx) {
+int audio_datapath_acquire(struct data_fifo *fifo_rx) {
 	int ret = 0;
 	if (_count == 0) {
 		uint32_t alloced_cnt;

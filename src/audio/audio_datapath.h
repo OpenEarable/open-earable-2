@@ -96,12 +96,8 @@ void start_data_thread(void);
 
 void record_to_sd(bool active);
 
-void set_sensor_queue(struct k_msgq *queue);
-
-int audio_datapath_aquire(struct data_fifo *fifo_rx);
+int audio_datapath_acquire(struct data_fifo *fifo_rx);
 int audio_datapath_release();
-
-//void set_ring_buffer(struct ring_buf *ring_buf);
 
 #ifdef __cplusplus
 }

@@ -18,7 +18,7 @@
 
 #include "macros_common.h"
 #include "zbus_common.h"
-#include "button_assignments.h"
+#include "button_manager.h"
 
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"
@@ -26,6 +26,9 @@
 #include "bt_mgmt_conn_interval.h"
 
 #include "BootState.h"
+#include "uicr.h"
+
+#include <stdio.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
@@ -83,18 +86,9 @@ static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CON
 //callback
 static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
 {
-	struct bt_mgmt_msg msg;
-	int ret;
-
 	LOG_INF("Conn params updated: interval %d unit, latency %d, timeout: %d0 ms",interval, latency, timeout);
 
 	bt_mgmt_ci_on_conn_param_updated(conn, interval, latency, timeout);
-
-	/*msg.event = BT_MGMT_CONNECTED;
-	msg.conn = conn;
-
-	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
-	ERR_CHK(ret);*/
 }
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)
@@ -163,7 +157,7 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	err = bt_conn_le_param_update(conn, conn_param);
 	if (err) {
 		LOG_ERR("Cannot update conneciton parameter (err: %d)", err);
-		return err;
+		return;
 	}
 	LOG_INF("Connection parameters update requested: interval_min %d interval_max %d latency %d timeout %d",
 		conn_param->interval_min, conn_param->interval_max,
@@ -408,7 +402,7 @@ int bt_mgmt_init(void)
 	bt_gatt_cb_register(&gatt_callbacks);
 
 	uint32_t sirk = uicr_sirk_get();
-	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X", CONFIG_BT_DEVICE_NAME, (sirk != 0xFFFFFFFFU ? sirk : oe_boot_state.device_id) & 0xFFFF);
+	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X", CONFIG_BT_DEVICE_NAME, (unsigned int)((sirk != 0xFFFFFFFFU ? sirk : (uint32_t)oe_boot_state.device_id) & 0xFFFF));
 
 	ret = bt_set_name(name);
     if (ret) {

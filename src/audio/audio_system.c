@@ -428,7 +428,7 @@ void audio_system_start(void)
 	ERR_CHK(ret);
 #else
 
-	ret = audio_datapath_aquire(&fifo_rx);
+	ret = audio_datapath_acquire(&fifo_rx);
 	ERR_CHK(ret);
 	
 	ret = hw_codec_default_conf_enable();

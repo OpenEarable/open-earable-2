@@ -27,6 +27,10 @@
 #include "fw_info_app.h"
 
 #include "BootState.h"
+#include "uicr.h"
+#include "channel_assignment.h"
+
+#include <stdio.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(streamctrl, CONFIG_MAIN_LOG_LEVEL);
@@ -539,21 +543,16 @@ static void write_sirk(uint32_t sirk) {
 	else LOG_ERR("UICR writing error: %i", ret);
 }
 
-// Callback-Funktion für gefundene Geräte
 static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, struct net_buf_simple *ad)
 {
-    char addr_str[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
-
-    int ret;
-	bool is_le_audio_device = false;
+    bool is_le_audio_device = false;
 	uint8_t csis_rsi[6];
 	uint8_t chip_id[8];
 
     while (ad->len > 0) {
         uint8_t len = net_buf_simple_pull_u8(ad);
         if (len == 0 || len > ad->len) {
-            break; // Ungültige Länge
+            break;
         }
 
         uint8_t type = net_buf_simple_pull_u8(ad);
@@ -600,9 +599,9 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 		channel_assignment_get(&channel);
 
 		if (channel == AUDIO_CH_L) {
-			LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
-			LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
-			LOG_INF("New Sirk: %016X", new_sirk);
+			LOG_INF("Device ID 1: %08X", (uint32_t)oe_boot_state.device_id);
+			LOG_INF("Device ID 2: %08X", *((uint32_t *) chip_id));
+			LOG_INF("New Sirk: %08X", new_sirk);
 
 			//TODO: check if the device wants to pair (sirk == device_id)
 			//TODO: check channel
@@ -617,7 +616,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 
 			if ((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(7)) ||
 			((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(6)) == 0)) {
-				LOG_WRN("Invalid r %s", bt_hex(r, BT_CSIP_CRYPTO_PRAND_SIZE));
+				LOG_WRN("Invalid r");
 			}
 
 			// r' = padding || r
@@ -625,9 +624,9 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 			memcpy(res, r, BT_CSIP_CRYPTO_PRAND_SIZE);
 
 			memset(sirk, 0, BT_CSIP_CRYPTO_KEY_SIZE + 1);
-			snprintf(sirk, BT_CSIP_SIRK_SIZE, "%08X", new_sirk);
+			snprintf((char *)sirk, BT_CSIP_SIRK_SIZE, "%08X", new_sirk);
 
-			int err = bt_encrypt_le(sirk, res, res);
+			(void)bt_encrypt_le(sirk, res, res);
 
 			memcpy(out, res, BT_CSIP_CRYPTO_HASH_SIZE);
 

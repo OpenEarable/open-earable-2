@@ -8,8 +8,13 @@
 #include <zephyr/sys/byteorder.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
+#include <ff.h>
 
 #include "openearable_common.h"
+
+#include <zephyr/shell/shell.h>
+#include <stdlib.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(time_sync, LOG_LEVEL_DBG);
@@ -177,6 +182,78 @@ void rtt_cfg_changed(const struct bt_gatt_attr *attr,
     notify_rtt_enabled = (value == BT_GATT_CCC_NOTIFY);
 }
 
+
+DWORD get_fattime(void)
+{
+    uint64_t now_us = get_current_time_us();
+    time_t secs = (time_t)(now_us / 1000000ULL);
+    struct tm tm;
+    gmtime_r(&secs, &tm);
+
+    return ((DWORD)(tm.tm_year - 80) << 25) |
+           ((DWORD)(tm.tm_mon + 1) << 21) |
+           ((DWORD)tm.tm_mday << 16) |
+           ((DWORD)tm.tm_hour << 11) |
+           ((DWORD)tm.tm_min << 5) |
+           ((DWORD)(tm.tm_sec / 2));
+}
+
+/* --- Shell commands ---------------------------------------------------- */
+
+/* time set <epoch_us>  – set wall-clock from host */
+static int cmd_time_set(const struct shell *sh, size_t argc, char **argv)
+{
+    if (argc < 2) {
+        shell_error(sh, "Usage: time set <epoch_microseconds>");
+        return -EINVAL;
+    }
+
+    uint64_t epoch_us = strtoull(argv[1], NULL, 10);
+    if (epoch_us == 0) {
+        shell_error(sh, "Invalid timestamp");
+        return -EINVAL;
+    }
+
+    uint64_t uptime = get_time_since_boot_us();
+    time_offset_us = (int64_t)(epoch_us - uptime);
+
+    time_t secs = (time_t)(epoch_us / 1000000ULL);
+    struct tm tm;
+    gmtime_r(&secs, &tm);
+    shell_print(sh, "Time set: %04d-%02d-%02d %02d:%02d:%02d UTC (offset=%lld us)",
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                tm.tm_hour, tm.tm_min, tm.tm_sec,
+                (long long)time_offset_us);
+    return 0;
+}
+
+/* time get – show current wall-clock */
+static int cmd_time_get(const struct shell *sh, size_t argc, char **argv)
+{
+    ARG_UNUSED(argc);
+    ARG_UNUSED(argv);
+
+    uint64_t now_us = get_current_time_us();
+    time_t secs = (time_t)(now_us / 1000000ULL);
+    struct tm tm;
+    gmtime_r(&secs, &tm);
+    shell_print(sh, "%04d-%02d-%02d %02d:%02d:%02d.%06llu UTC (%llu us)",
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+                tm.tm_hour, tm.tm_min, tm.tm_sec,
+                (unsigned long long)(now_us % 1000000ULL),
+                (unsigned long long)now_us);
+    return 0;
+}
+
+SHELL_STATIC_SUBCMD_SET_CREATE(time_cmds,
+    SHELL_CMD_ARG(set, NULL,
+        "Set wall-clock: time set <epoch_microseconds>",
+        cmd_time_set, 2, 0),
+    SHELL_CMD(get, NULL, "Show current wall-clock time", cmd_time_get),
+    SHELL_SUBCMD_SET_END
+);
+
+SHELL_CMD_REGISTER(time, &time_cmds, "Time sync commands", NULL);
 
 BT_GATT_SERVICE_DEFINE(time_sync_service,
     BT_GATT_PRIMARY_SERVICE(BT_UUID_TIME_SYNC_SERVICE),

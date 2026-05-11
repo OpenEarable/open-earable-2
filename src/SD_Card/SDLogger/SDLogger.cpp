@@ -8,6 +8,7 @@
 #include "PowerManager.h"
 #include <errno.h>
 #include "audio_datapath.h"
+#include "channel_assignment.h"
 
 #include "StateIndicator.h"
 
@@ -16,15 +17,7 @@ LOG_MODULE_REGISTER(sd_logger, CONFIG_LOG_DEFAULT_LEVEL);
 
 ZBUS_CHAN_DECLARE(sd_card_chan);
 
-void sensor_listener_cb(const struct zbus_channel *chan);
-
-K_MSGQ_DEFINE(sd_sensor_queue, sizeof(sensor_data), CONFIG_SENSOR_SD_SUB_QUEUE_SIZE, 4);
-ZBUS_LISTENER_DEFINE(sensor_data_listener, sensor_listener_cb);
-
-// Define thread stack
 K_THREAD_STACK_DEFINE(thread_stack, CONFIG_SENSOR_SD_STACK_SIZE);
-
-ZBUS_CHAN_DECLARE(sensor_chan);
 
 void sd_listener_callback(const struct zbus_channel *chan);
 
@@ -36,13 +29,23 @@ static k_tid_t thread_id;
 struct ring_buf ring_buffer;
 struct k_mutex ring_mutex;   // Protects ring_buffer operations
 struct k_mutex file_mutex;   // Protects sd_card open/write/close
-uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
+uint8_t buffer[BUFFER_SIZE];
 
 // Coordination flags (atomic because they are accessed from multiple threads)
 static atomic_t g_stop_writing;   // 1 while end()/flush/close is in progress
 static atomic_t g_sd_removed;     // 1 if SD was removed while recording
 
 uint32_t count_max_buffer_fill = 0;
+
+static struct {
+    uint32_t ring_full;
+    uint32_t ring_mutex_fail;
+    uint32_t sd_writes;
+    uint32_t sd_write_max_us;
+    uint64_t sd_write_total_us;
+    uint32_t bytes_written;
+    uint32_t bytes_dropped;
+} sd_stats;
 
 struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt =
@@ -59,20 +62,6 @@ SDLogger::SDLogger() {
 SDLogger::~SDLogger() {
 
 }
-
-//static bool _prio_boost = false;
-
-void sensor_listener_cb(const struct zbus_channel *chan) {
-    const sensor_msg* msg = (sensor_msg*)zbus_chan_const_msg(chan);
-
-	if (msg->sd) {
-        int ret = sdlogger.write_sensor_data(msg->data);
-        if (ret < 0) {
-            LOG_WRN("Failed to enqueue sensor data for SD: %d", ret);
-        }
-	}
-}
-
 
 void sd_listener_callback(const struct zbus_channel *chan)
 {
@@ -110,9 +99,13 @@ void SDLogger::sensor_sd_task() {
             continue;
         }
 
+        // Reset signal early so signals raised during the drain loop
+        // are preserved for the next k_poll wakeup.
+        k_poll_signal_reset(&logger_sig);
+        logger_evt.state = K_POLL_STATE_NOT_READY;
+
         // If a close/flush is in progress, do not write concurrently.
         if (atomic_get(&g_stop_writing)) {
-            k_poll_signal_reset(&logger_sig);
             continue;
         }
 
@@ -122,7 +115,6 @@ void SDLogger::sensor_sd_task() {
             ring_buf_reset(&ring_buffer);
             k_mutex_unlock(&ring_mutex);
             sdlogger.is_open = false;
-            k_poll_signal_reset(&logger_sig);
             continue;
         }
 
@@ -132,52 +124,59 @@ void SDLogger::sensor_sd_task() {
             return;
         }
 
-        uint32_t fill = ring_buf_size_get(&ring_buffer);
+        // Drain all available full blocks from the ring buffer.
+        while (ring_buf_size_get(&ring_buffer) >= SD_BLOCK_SIZE) {
+            if (atomic_get(&g_stop_writing) || atomic_get(&g_sd_removed)) {
+                break;
+            }
 
-        if (fill >= SD_BLOCK_SIZE) {
+            uint32_t fill = ring_buf_size_get(&ring_buffer);
             if (fill > count_max_buffer_fill) {
                 count_max_buffer_fill = fill;
             }
 
             uint8_t *data = nullptr;
 
-            // Claim up to one SD block from the ring buffer under lock.
+            // Claim up to 4 SD blocks from the ring buffer under lock.
             k_mutex_lock(&ring_mutex, K_FOREVER);
-            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, 4 * SD_BLOCK_SIZE);
             k_mutex_unlock(&ring_mutex);
 
             if (claimed == 0 || data == nullptr) {
-                // Nothing to write right now.
-                k_poll_signal_reset(&logger_sig);
-                continue;
+                break;
             }
 
             // Write the claimed bytes under file lock.
             size_t write_size = claimed;
             int written;
+            uint64_t t0 = micros();
             k_mutex_lock(&file_mutex, K_FOREVER);
             written = sdlogger.sd_card->write((char*)data, &write_size, false);
             k_mutex_unlock(&file_mutex);
+            uint32_t elapsed = (uint32_t)(micros() - t0);
+
+            sd_stats.sd_writes++;
+            sd_stats.sd_write_total_us += elapsed;
+            if (elapsed > sd_stats.sd_write_max_us) {
+                sd_stats.sd_write_max_us = elapsed;
+            }
 
             if (written < 0) {
                 state_indicator.set_sd_state(SD_FAULT);
                 LOG_ERR("SD write failed: %d", written);
-
-                // Do not advance the ring buffer on error.
-                // Wakeups will continue; user can call end().
-                k_poll_signal_reset(&logger_sig);
-                continue;
+                break;
             }
+
+            sd_stats.bytes_written += (uint32_t)written;
 
             // Advance ring buffer by the number of bytes actually written.
             k_mutex_lock(&ring_mutex, K_FOREVER);
             ring_buf_get_finish(&ring_buffer, (uint32_t)written);
             k_mutex_unlock(&ring_mutex);
-        } else {
+
+            // Let lower-priority threads (sensor work queue) run between writes
             k_yield();
         }
-
-        k_poll_signal_reset(&logger_sig);
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
@@ -186,14 +185,10 @@ void SDLogger::sensor_sd_task() {
 int SDLogger::init() {
     int ret;
 
-    sd_card->init();
-
     ring_buf_init(&ring_buffer, BUFFER_SIZE, buffer);
 
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
-
-    //set_ring_buffer(&ring_buffer);
 
     k_poll_signal_init(&logger_sig);
 
@@ -207,12 +202,6 @@ int SDLogger::init() {
 		LOG_ERR("Failed to create sensor_msg thread");
 		return ret;
 	}
-
-    ret = zbus_chan_add_obs(&sensor_chan, &sensor_data_listener, ZBUS_ADD_OBS_TIMEOUT_MS);
-    if (ret) {
-        LOG_ERR("Failed to add sensor sub");
-        return ret;
-    }
 
     ret = zbus_chan_add_obs(&sd_card_chan, &sd_card_event_listener, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
@@ -271,6 +260,9 @@ int SDLogger::begin(const std::string& filename) {
     ring_buf_reset(&ring_buffer);
     k_mutex_unlock(&ring_mutex);
 
+    memset(&sd_stats, 0, sizeof(sd_stats));
+    count_max_buffer_fill = 0;
+
     ret = write_header();
     if (ret < 0) {
         state_indicator.set_sd_state(SD_FAULT);
@@ -290,6 +282,11 @@ int SDLogger::write_header() {
 
     header->version = SENSOR_LOG_VERSION;
     header->timestamp = micros();
+    header->device_id = oe_boot_state.device_id;
+
+    enum audio_channel ch;
+    channel_assignment_get(&ch);
+    header->channel = (uint8_t)ch;
 
     int ret;
     k_mutex_lock(&file_mutex, K_FOREVER);
@@ -320,8 +317,11 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
         return -ENODEV;
     }
 
-    // Do not block producers; if mutex is contended, drop quickly
-    if (k_mutex_lock(&ring_mutex, K_NO_WAIT) != 0) {
+    // Allow a short wait for mutex contention to clear.
+    // The writer holds ring_mutex only during fast ring_buf operations.
+    if (k_mutex_lock(&ring_mutex, K_USEC(200)) != 0) {
+        sd_stats.ring_mutex_fail++;
+        sd_stats.bytes_dropped += total_length;
         return -EAGAIN;
     }
 
@@ -329,8 +329,9 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
     // in SD_BLOCK_SIZE chunks to keep SD writer alignment and minimize partial writes.
     uint32_t space = ring_buf_space_get(&ring_buffer);
     if (space < total_length) {
-        LOG_ERR("Ring buffer low on space: have %u, need %zu. Skipping data",
-            space, total_length);
+        sd_stats.ring_full++;
+        sd_stats.bytes_dropped += total_length;
+        LOG_DBG("Ring buffer full: have %u, need %zu", space, total_length);
         k_mutex_unlock(&ring_mutex);
         return -ENOSPC;
     }
@@ -439,7 +440,13 @@ int SDLogger::end() {
 
     LOG_INF("Close File ....");
 
-    LOG_DBG("Max buffer fill: %d bytes", count_max_buffer_fill);
+    uint32_t avg_write_us = sd_stats.sd_writes ? (uint32_t)(sd_stats.sd_write_total_us / sd_stats.sd_writes) : 0;
+    LOG_INF("SD stats: ring_full=%u ring_mutex_fail=%u bytes_dropped=%u",
+            sd_stats.ring_full, sd_stats.ring_mutex_fail, sd_stats.bytes_dropped);
+    LOG_INF("SD stats: writes=%u bytes=%u max_fill=%u/%u",
+            sd_stats.sd_writes, sd_stats.bytes_written, count_max_buffer_fill, (unsigned)BUFFER_SIZE);
+    LOG_INF("SD stats: write_avg=%u us write_max=%u us",
+            avg_write_us, sd_stats.sd_write_max_us);
 
     k_mutex_lock(&file_mutex, K_FOREVER);
     ret = sd_card->close_file();
@@ -454,6 +461,9 @@ int SDLogger::end() {
     k_poll_signal_reset(&logger_sig);
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
+
+    /* Unmount the SD card so USB MSC can re-enable for host access. */
+    sd_card->unmount();
 
     return 0;
 }
