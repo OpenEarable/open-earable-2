@@ -5,5 +5,6 @@
 #
 
 target_sources(app PRIVATE
-		   ${CMAKE_CURRENT_SOURCE_DIR}/DFRobot_BMX160.cpp
+		   ${CMAKE_CURRENT_SOURCE_DIR}/bmi160.c
+		   ${CMAKE_CURRENT_SOURCE_DIR}/BMX160_Sensor.cpp
 )

@@ -6,7 +6,6 @@
 #include <array>
 #include <utility>
 
-//#include "MAX30102/MAX30102.h"
 #include "MAXM86161/MAXM86161.h"
 #include "EdgeMLSensor.h"
 
@@ -19,11 +18,9 @@ enum led_order {
 
 class PPG : public EdgeMlSensor {
 public:
-    //PulseOximeter(int _samplerate);
-
     static PPG sensor;
 
-    bool init(struct k_msgq * queue) override;
+    bool init() override;
     void start(int sample_rate_idx) override;
     void stop() override;
 

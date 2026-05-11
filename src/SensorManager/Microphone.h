@@ -9,7 +9,7 @@ class Microphone : public EdgeMlSensor {
 public:
     static Microphone sensor;
 
-    bool init(struct k_msgq * queue) override;
+    bool init() override;
     void start(int sample_rate_idx) override;
     void stop() override;
 

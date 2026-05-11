@@ -27,7 +27,6 @@
 
 #pragma once
 
-//#include <Wire.h>
 #include <TWIM.h>
 
 //The default I2C address for the MLX90632 on the SparkX breakout is 0x3B. 0x3A is also possible.
@@ -165,4 +164,14 @@ class MLX90632 {
     TWIM *_i2c = &I2C3; //The generic connection to user's chosen I2C hardware
     uint8_t _deviceAddress = DT_REG_ADDR(DT_NODELABEL(mlx90632)); //Keeps track of I2C address. setI2CAddress changes this. Either 0x3A or 0x3B (default)
 
+    /* Calibration constants loaded from EEPROM. Kept as float so that
+     * the Cortex-M33 single-precision FPU handles the temperature math
+     * natively — double math would be emulated in software. */
+    float P_R = 0, P_G = 0, P_T = 0, P_O = 0;
+    float Ea = 0, Eb = 0, Fa = 0, Fb = 0, Ga = 0;
+    float Gb = 0, Ka = 0, Ha = 0, Hb = 0;
+
+    float TOdut = 25.0f;
+    float TO0   = 25.0f;
+    float TA0   = 25.0f;
 };

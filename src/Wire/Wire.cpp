@@ -152,7 +152,7 @@ void arduino::MbedI2C::onRequest(voidFuncPtr cb) {
 	onRequestCb = cb;
 }
 
-void arduino::MbedI2C::aquire() {
+void arduino::MbedI2C::acquire() {
 	k_mutex_lock(&mutex, K_FOREVER);
 }
 

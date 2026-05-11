@@ -15,16 +15,12 @@ static struct k_thread thread_data_notify;
 
 static k_tid_t thread_id_notify;
 
-ZBUS_SUBSCRIBER_DEFINE(sensor_gatt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
-
-ZBUS_CHAN_DECLARE(sensor_chan);
 ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
 static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_SENSOR_GATT_NOTIFY_STACK_SIZE);
 
 K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_data), CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE, 4);
 
-//static struct sensor_msg msg;
 static struct sensor_data sensor_data;
 static struct sensor_config config;
 
@@ -38,14 +34,11 @@ static struct sensor_config *active_sensor_configs;
 static size_t active_sensor_configs_size = 0;
 
 static void connect_evt_handler(const struct zbus_channel *chan);
-ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen2, connect_evt_handler); //static
-
-void sensor_queue_listener_cb(const struct zbus_channel *chan);
-ZBUS_LISTENER_DEFINE(sensor_queue_listener, sensor_queue_listener_cb);
+ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen2, connect_evt_handler);
 
 static bool connection_complete = false;
 
-int notify_count = 0;
+static struct k_sem notify_sem;
 
 int MAX_NOTIFIES_IN_FLIGHT = 4;
 
@@ -196,12 +189,7 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_RECORDING_NAME,
 );
 
 static void notify_complete() {
-	notify_count--;
-
-	if (notify_count < 0) {
-		notify_count = 0;
-		LOG_WRN("Notify count went below zero!");
-	}
+	k_sem_give(&notify_sem);
 }
 
 static void notification_task(void) {
@@ -225,33 +213,20 @@ static void notification_task(void) {
 			params.func = notify_complete;
 			params.user_data = NULL;
 
-			while(notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
-				k_yield(); // maybe replace with k_sleep?
-			}
-
-			notify_count++;
+			k_sem_take(&notify_sem, K_FOREVER);
 
 			ret = bt_gatt_notify_cb(NULL, &params);
 			if (ret != 0) {
 				LOG_WRN("Failed to send data: %d.\n", ret);
+				k_sem_give(&notify_sem);
 			}
 		}
 	}
 }
 
-void sensor_queue_listener_cb(const struct zbus_channel *chan) {
-	int ret;
-	const struct sensor_msg * msg;
-    
-    msg = (struct sensor_msg *)zbus_chan_const_msg(&sensor_chan);
-
-	if (msg->stream) {
-		ret = k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
-
-		if (ret) {
-			LOG_WRN("ble sensor stream queue full");
-		}
-	}
+int sensor_gatt_queue_put(const struct sensor_data *data)
+{
+	return k_msgq_put(&gatt_queue, data, K_NO_WAIT);
 }
 
 int init_sensor_config_status() {
@@ -330,6 +305,8 @@ int set_sensor_config_status(struct sensor_config config) {
 int init_sensor_service() {
 	int ret;
 
+	k_sem_init(&notify_sem, MAX_NOTIFIES_IN_FLIGHT, MAX_NOTIFIES_IN_FLIGHT);
+
 	thread_id_notify = k_thread_create(
 		&thread_data_notify, thread_stack_notify,
 		CONFIG_SENSOR_GATT_NOTIFY_STACK_SIZE, (k_thread_entry_t)notification_task, NULL,
@@ -338,12 +315,6 @@ int init_sensor_service() {
 	ret = k_thread_name_set(thread_id_notify, "SENSOR_GATT_NOTIFY");
 	if (ret) {
 		LOG_ERR("Failed to create sensor_msg thread");
-		return ret;
-	}
-
-    ret = zbus_chan_add_obs(&sensor_chan, &sensor_queue_listener, ZBUS_ADD_OBS_TIMEOUT_MS);
-	if (ret) {
-		LOG_ERR("Failed to add sensor sub");
 		return ret;
 	}
 

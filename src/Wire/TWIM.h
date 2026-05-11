@@ -32,7 +32,7 @@ class TWIM
 
     virtual void setClock(uint32_t speed = I2C_SPEED_FAST);
 
-    void aquire();
+    void acquire();
     void release();
 
     const struct device * master = NULL;

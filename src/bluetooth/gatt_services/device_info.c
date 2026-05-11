@@ -1,6 +1,8 @@
 #include "device_info.h"
 #include <generated/version.h>
 
+#include <stdio.h>
+
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/gatt.h>
 
@@ -17,7 +19,7 @@ static ssize_t read_device_identifier(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	snprintf(device_identifier, sizeof(device_identifier), "0x%08X", oe_boot_state.device_id);
+	snprintf(device_identifier, sizeof(device_identifier), "0x%08X", (uint32_t)oe_boot_state.device_id);
 	
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, device_identifier,
 					 sizeof(device_identifier));

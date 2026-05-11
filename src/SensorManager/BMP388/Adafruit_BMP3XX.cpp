@@ -59,7 +59,7 @@ Adafruit_BMP3XX::Adafruit_BMP3XX(void) {
 }
 
 bool Adafruit_BMP3XX::detect(int address) {
-  dev_inf.i2c_dev->aquire();
+  dev_inf.i2c_dev->acquire();
   uint8_t dummy = 0;
   int ret = i2c_write(dev_inf.i2c_dev->master, &dummy, 0, address);
   dev_inf.i2c_dev->release();
@@ -140,7 +140,6 @@ bool Adafruit_BMP3XX::_init(void) {
   printk("P9 = %i\n", the_sensor.calib_data.reg_calib_data.par_p9);
   printk("P10 = %i\n", the_sensor.calib_data.reg_calib_data.par_p10);
   printk("P11 = %i\n", the_sensor.calib_data.reg_calib_data.par_p11);
-  // printk("T lin = %i\n", the_sensor.calib_data.reg_calib_data.t_lin);
 #endif
 
   setTemperatureOversampling(BMP3_NO_OVERSAMPLING);
@@ -148,8 +147,17 @@ bool Adafruit_BMP3XX::_init(void) {
   setIIRFilterCoeff(BMP3_IIR_FILTER_DISABLE);
   setOutputDataRate(BMP3_ODR_25_HZ);
 
-  // don't do anything till we request a reading
-  the_sensor.settings.op_mode = BMP3_MODE_FORCED;
+  the_sensor.settings.temp_en = BMP3_ENABLE;
+  the_sensor.settings.press_en = BMP3_ENABLE;
+  uint16_t settings_sel = BMP3_SEL_TEMP_EN | BMP3_SEL_PRESS_EN | BMP3_SEL_ODR;
+  int8_t settings_rslt = bmp3_set_sensor_settings(settings_sel, &the_sensor);
+  if (settings_rslt != BMP3_OK)
+    return false;
+
+  the_sensor.settings.op_mode = BMP3_MODE_NORMAL;
+  settings_rslt = bmp3_set_op_mode(&the_sensor);
+  if (settings_rslt != BMP3_OK)
+    return false;
 
   return true;
 }
@@ -218,84 +226,22 @@ float Adafruit_BMP3XX::readAltitude(float seaLevel) {
 */
 /**************************************************************************/
 bool Adafruit_BMP3XX::performReading(void) {
-  //g_i2c_dev = i2c_dev;
-  //g_spi_dev = spi_dev;
   int8_t rslt;
-  /* Used to select the settings user needs to change */
-  uint16_t settings_sel = 0;
-  /* Variable used to select the sensor component */
-  uint8_t sensor_comp = 0;
-
-  /* Select the pressure and temperature sensor to be enabled */
-  the_sensor.settings.temp_en = BMP3_ENABLE;
-  settings_sel |= BMP3_SEL_TEMP_EN;
-  sensor_comp |= BMP3_TEMP;
-  if (_tempOSEnabled) {
-    settings_sel |= BMP3_SEL_TEMP_OS;
-  }
-
-  the_sensor.settings.press_en = BMP3_ENABLE;
-  settings_sel |= BMP3_SEL_PRESS_EN;
-  sensor_comp |= BMP3_PRESS;
-  if (_presOSEnabled) {
-    settings_sel |= BMP3_SEL_PRESS_OS;
-  }
-
-  if (_filterEnabled) {
-    settings_sel |= BMP3_SEL_IIR_FILTER;
-  }
-
-  if (_ODREnabled) {
-    settings_sel |= BMP3_SEL_ODR;
-  }
-
-  // set interrupt to data ready
-  // settings_sel |= BMP3_DRDY_EN_SEL | BMP3_LEVEL_SEL | BMP3_LATCH_SEL;
-
-  /* Set the desired sensor configuration */
-#ifdef BMP3XX_DEBUG
-  printk("Setting sensor settings\n");
-#endif
-  rslt = bmp3_set_sensor_settings(settings_sel, &the_sensor);
-
-  if (rslt != BMP3_OK)
-    return false;
-
-  /* Set the power mode */
-  the_sensor.settings.op_mode = BMP3_MODE_FORCED;
-#ifdef BMP3XX_DEBUG
-  printk("Setting power mode\n");
-#endif
-  rslt = bmp3_set_op_mode(&the_sensor);
-  if (rslt != BMP3_OK)
-    return false;
-
-  /* Variable used to store the compensated data */
   struct bmp3_data data;
 
-  /* Temperature and Pressure data are read and stored in the bmp3_data instance
-   */
-#ifdef BMP3XX_DEBUG
-  printk("Getting sensor data\n");
-#endif
-  rslt = bmp3_get_sensor_data(sensor_comp, &data, &the_sensor);
+  rslt = bmp3_get_sensor_data(BMP3_TEMP | BMP3_PRESS, &data, &the_sensor);
   if (rslt != BMP3_OK)
     return false;
 
-  /*
-#ifdef BMP3XX_DEBUG
-  Serial.println(F("Analyzing sensor data"));
-#endif
-  rslt = analyze_sensor_data(&data);
-  if (rslt != BMP3_OK)
-    return false;
-    */
-
-  /* Save the temperature and pressure data */
   temperature = data.temperature;
   pressure = data.pressure;
 
   return true;
+}
+
+bool Adafruit_BMP3XX::sleep(void) {
+  the_sensor.settings.op_mode = BMP3_MODE_SLEEP;
+  return bmp3_set_op_mode(&the_sensor) == BMP3_OK;
 }
 
 /**************************************************************************/
@@ -403,7 +349,7 @@ int8_t i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len,
 
   BMP3XX_dev_inf * dev_info = (BMP3XX_dev_inf *) intf_ptr;
 
-  dev_info->i2c_dev->aquire();
+  dev_info->i2c_dev->acquire();
 
   int ret = i2c_burst_read(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
   if (ret) LOG_WRN("I2C read failed: %d\n", ret);
@@ -422,7 +368,7 @@ int8_t i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
                  void *intf_ptr) {
   BMP3XX_dev_inf * dev_info = (BMP3XX_dev_inf *) intf_ptr;
 
-  dev_info->i2c_dev->aquire();
+  dev_info->i2c_dev->acquire();
 
   int ret = i2c_burst_write(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
   if (ret) LOG_WRN("I2C write failed: %d", ret);

@@ -7,8 +7,6 @@ LOG_MODULE_REGISTER(twim, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 TWIM::TWIM(const struct device * _device) : master(_device) {}
 
 void TWIM::begin() {
-	int ret;
-
 	if (_active) return;
 	_active = true;
 
@@ -42,7 +40,7 @@ void TWIM::setClock(uint32_t speed) {
 	}
 }
 
-void TWIM::aquire() {
+void TWIM::acquire() {
 	k_mutex_lock(&mutex, K_FOREVER);
 }
 
