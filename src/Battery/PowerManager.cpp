@@ -2,7 +2,6 @@
 
 #include "macros_common.h"
 
-#include <errno.h>
 #include <stdio.h>
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/reboot.h>

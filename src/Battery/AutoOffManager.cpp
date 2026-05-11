@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include <zephyr/kernel.h>
+#include <zephyr/settings/settings.h>
 #include <zephyr/sys/util.h>
 
 #include "PowerManager.h"
@@ -24,13 +25,18 @@ struct PowerSavingModeConfig {
 
 /* Indexed by power_saving_level_t. Keep the order in sync with the enum values. */
 constexpr std::array<PowerSavingModeConfig, POWER_SAVING_LEVEL_COUNT> power_saving_modes = { {
-	{ "off", 0 },
-	{ "minimal", CONFIG_AUTO_OFF_TIMEOUT_MINIMAL },
-	{ "balanced", CONFIG_AUTO_OFF_TIMEOUT_BALANCED },
-	{ "aggressive", CONFIG_AUTO_OFF_TIMEOUT_AGGRESSIVE },
+	{ "Off", 0 },
+	{ "Minimal", CONFIG_AUTO_OFF_TIMEOUT_MINIMAL },
+	{ "Balanced", CONFIG_AUTO_OFF_TIMEOUT_BALANCED },
+	{ "Aggressive", CONFIG_AUTO_OFF_TIMEOUT_AGGRESSIVE },
 } };
 static_assert(power_saving_modes.size() == POWER_SAVING_LEVEL_COUNT,
 	      "power_saving_modes must contain every concrete power saving level");
+
+constexpr const char *auto_off_settings_mode_key = "auto_off/mode";
+
+power_saving_level_t loaded_mode = (power_saving_level_t)CONFIG_AUTO_OFF_DEFAULT_POWER_SAVING_MODE;
+bool loaded_mode_is_valid = false;
 
 K_MUTEX_DEFINE(auto_off_mutex);
 K_WORK_DELAYABLE_DEFINE(auto_off_work, auto_off_work_handler);
@@ -51,6 +57,53 @@ public:
 	AutoOffLock(const AutoOffLock &) = delete;
 	AutoOffLock &operator=(const AutoOffLock &) = delete;
 };
+
+int auto_off_settings_set(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
+{
+	if (std::strcmp(name, "mode") != 0) {
+		return -ENOENT;
+	}
+
+	if (len != sizeof(int)) {
+		LOG_WRN("Ignoring auto-off mode setting with invalid size %zu", len);
+		return 0;
+	}
+
+	int stored_mode;
+	const int ret = read_cb(cb_arg, &stored_mode, sizeof(stored_mode));
+	if (ret < 0) {
+		return ret;
+	}
+
+	if (ret != sizeof(stored_mode)) {
+		LOG_WRN("Ignoring incomplete auto-off mode setting read: %d", ret);
+		return 0;
+	}
+
+	const auto mode = static_cast<power_saving_level_t>(stored_mode);
+	if (!auto_off_mode_is_supported(mode)) {
+		LOG_WRN("Ignoring invalid stored auto-off mode %d", stored_mode);
+		return 0;
+	}
+
+	loaded_mode = mode;
+	loaded_mode_is_valid = true;
+
+	return 0;
+}
+
+SETTINGS_STATIC_HANDLER_DEFINE(auto_off, "auto_off", nullptr, auto_off_settings_set, nullptr,
+			       nullptr);
+
+void save_auto_off_mode(power_saving_level_t mode)
+{
+	const int stored_mode = static_cast<int>(mode);
+	const int ret = settings_save_one(auto_off_settings_mode_key, &stored_mode,
+					  sizeof(stored_mode));
+	if (ret) {
+		LOG_WRN("Failed to persist auto-off mode %d: %d", stored_mode, ret);
+	}
+}
 
 }
 
@@ -132,10 +185,11 @@ int AutoOffManager::init()
 		return -EALREADY;
 	}
 
-	current_mode = (power_saving_level_t)CONFIG_AUTO_OFF_DEFAULT_POWER_SAVING_MODE;
+	current_mode = loaded_mode_is_valid ?
+		       loaded_mode :
+		       (power_saving_level_t)CONFIG_AUTO_OFF_DEFAULT_POWER_SAVING_MODE;
 
-	if (current_mode < POWER_SAVING_LEVEL_OFF ||
-	    static_cast<size_t>(current_mode) >= power_saving_modes.size()) {
+	if (!auto_off_mode_is_supported(current_mode)) {
 		LOG_WRN("Invalid default auto-off mode %d, disabling auto-off", current_mode);
 		current_mode = POWER_SAVING_LEVEL_OFF;
 	}
@@ -239,20 +293,27 @@ void AutoOffManager::prohibit(const char *participant_token)
 
 void AutoOffManager::set_mode(power_saving_level_t mode)
 {
-	if (mode < POWER_SAVING_LEVEL_OFF ||
-	    static_cast<size_t>(mode) >= power_saving_modes.size()) {
+	if (!auto_off_mode_is_supported(mode)) {
 		LOG_WRN("Ignoring invalid auto-off mode %d", mode);
 		return;
 	}
 
 	const auto &mode_config = power_saving_modes[static_cast<size_t>(mode)];
+	bool mode_changed = false;
 
-	AutoOffLock lock;
+	{
+		AutoOffLock lock;
 
-	if (current_mode != mode) {
-		current_mode = mode;
-		LOG_INF("Auto-off mode set to %s", mode_config.name);
-		evaluate();
+		if (current_mode != mode) {
+			current_mode = mode;
+			mode_changed = true;
+			LOG_INF("Auto-off mode set to %s", mode_config.name);
+			evaluate();
+		}
+	}
+
+	if (mode_changed) {
+		save_auto_off_mode(mode);
 	}
 }
 
@@ -316,6 +377,26 @@ void auto_off_set_mode(power_saving_level_t mode)
 power_saving_level_t auto_off_get_mode(void)
 {
 	return auto_off_manager.get_mode();
+}
+
+uint8_t auto_off_get_supported_mode_count(void)
+{
+	return static_cast<uint8_t>(power_saving_modes.size());
+}
+
+const char *auto_off_get_mode_name(power_saving_level_t mode)
+{
+	if (!auto_off_mode_is_supported(mode)) {
+		return nullptr;
+	}
+
+	return power_saving_modes[static_cast<size_t>(mode)].name;
+}
+
+int auto_off_mode_is_supported(power_saving_level_t mode)
+{
+	return mode >= POWER_SAVING_LEVEL_OFF &&
+	       static_cast<size_t>(mode) < power_saving_modes.size();
 }
 
 AutoOffManager auto_off_manager;

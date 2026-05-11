@@ -1,6 +1,8 @@
 #ifndef _AUTO_OFF_MANAGER_H
 #define _AUTO_OFF_MANAGER_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -61,6 +63,31 @@ void auto_off_set_mode(power_saving_level_t mode);
  * See AutoOffManager::get_mode() for documentation.
  */
 power_saving_level_t auto_off_get_mode(void);
+
+/**
+ * @brief Get the number of selectable power saving modes.
+ *
+ * @return Number of selectable modes in the firmware-defined mode table.
+ */
+uint8_t auto_off_get_supported_mode_count(void);
+
+/**
+ * @brief Get the display name for a selectable power saving mode.
+ *
+ * @param mode Power saving mode identifier.
+ *
+ * @return Null-terminated mode name, or NULL if @p mode is not supported.
+ */
+const char *auto_off_get_mode_name(power_saving_level_t mode);
+
+/**
+ * @brief Check whether a power saving mode identifier is supported.
+ *
+ * @param mode Power saving mode identifier.
+ *
+ * @return 1 if @p mode is supported, otherwise 0.
+ */
+int auto_off_mode_is_supported(power_saving_level_t mode);
 
 #ifdef __cplusplus
 }
