@@ -23,35 +23,35 @@ typedef enum power_saving_level {
 /**
  * @brief C wrapper for AutoOffManager::register_participant().
  *
- * See AutoOffManager::register_participant() for token and return-value semantics.
+ * See AutoOffManager::register_participant() for documentation.
  */
-int auto_off_register(const char *participant_token, power_saving_level_t level);
+int auto_off_register_participant(const char *participant_token, power_saving_level_t level);
 
 /**
  * @brief C wrapper for AutoOffManager::allow().
  *
- * See AutoOffManager::allow() for token semantics.
+ * See AutoOffManager::allow() for documentation.
  */
 void auto_off_allow(const char *participant_token);
 
 /**
  * @brief C wrapper for AutoOffManager::prohibit().
  *
- * See AutoOffManager::prohibit() for token semantics.
+ * See AutoOffManager::prohibit() for documentation.
  */
 void auto_off_prohibit(const char *participant_token);
 
 /**
  * @brief C wrapper for AutoOffManager::set_mode().
  *
- * See AutoOffManager::set_mode() for mode semantics.
+ * See AutoOffManager::set_mode() for documentation.
  */
 void auto_off_set_mode(power_saving_level_t mode);
 
 /**
  * @brief C wrapper for AutoOffManager::get_mode().
  *
- * See AutoOffManager::get_mode() for mode semantics.
+ * See AutoOffManager::get_mode() for documentation.
  */
 power_saving_level_t auto_off_get_mode(void);
 
@@ -79,6 +79,8 @@ public:
 	 *
 	 * @param participant_token Unique, stable token identifying the participant.
 	 * @param level First power saving mode where this participant participates.
+     * Higher level means the participant can prevent an auto-off even at a more
+     * aggressive power saving mode
 	 *
 	 * @return 0 on success, -EINVAL for invalid arguments, -EALREADY if the
 	 * token was already registered, or -ENOMEM if the registry is full.
@@ -114,6 +116,8 @@ public:
 	power_saving_level_t get_mode();
 
 private:
+	static constexpr int max_participants = 8;
+
 	struct ParticipantEntry {
 		const char *token = nullptr;
 		power_saving_level_t level = POWER_SAVING_LEVEL_OFF;
@@ -131,9 +135,9 @@ private:
 	void evaluate();
 	void handle_timeout();
 
-	std::array<ParticipantEntry, CONFIG_AUTO_OFF_MAX_PARTICIPANTS> participants_{};
-	power_saving_level_t current_mode_ = POWER_SAVING_LEVEL_OFF;
-	bool initialized_ = false;
+	std::array<ParticipantEntry, max_participants> participants{};
+	power_saving_level_t current_mode = POWER_SAVING_LEVEL_OFF;
+	bool initialized = false;
 };
 
 /** @brief Global AutoOffManager singleton. */

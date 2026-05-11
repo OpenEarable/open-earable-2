@@ -1,6 +1,5 @@
 #include "AutoOffManager.h"
 
-#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstring>
@@ -36,6 +35,7 @@ static_assert(power_saving_modes.size() == POWER_SAVING_LEVEL_COUNT,
 K_MUTEX_DEFINE(auto_off_mutex);
 K_WORK_DELAYABLE_DEFINE(auto_off_work, auto_off_work_handler);
 
+// RAII implementation for k_mutext instead of std::lock_guard<std::mutex>
 class AutoOffLock {
 public:
 	AutoOffLock()
@@ -54,35 +54,31 @@ public:
 
 }
 
-bool AutoOffManager::participant_is_considered(const ParticipantEntry &entry) const
+bool AutoOffManager::participant_is_considered(const ParticipantEntry &participant) const
 {
-	if (!entry.registered || current_mode_ == POWER_SAVING_LEVEL_OFF ||
-	    entry.level == POWER_SAVING_LEVEL_OFF) {
+	if (!participant.registered || current_mode == POWER_SAVING_LEVEL_OFF ||
+	    participant.level == POWER_SAVING_LEVEL_OFF) {
 		return false;
 	}
 
-	return entry.level >= current_mode_;
+	return participant.level >= current_mode;
 }
 
 AutoOffManager::ParticipantEntry *AutoOffManager::find_participant(const char *participant_token)
 {
-	auto participant = std::find_if(
-		participants_.begin(), participants_.end(),
-		[participant_token](const auto &entry) {
-			return entry.registered &&
-			       std::strcmp(entry.token, participant_token) == 0;
-		});
-
-	if (participant == participants_.end()) {
-		return nullptr;
+	for (auto &entry : participants) {
+		if (entry.registered && std::strcmp(entry.token, participant_token) == 0) {
+			return &entry;
+		}
 	}
 
-	return &(*participant);
+	return nullptr;
 }
+
 
 bool AutoOffManager::all_considered_participants_allow() const
 {
-	for (const auto &participant : participants_) {
+	for (const auto &participant : participants) {
 		if (participant_is_considered(participant) && !participant.allowed) {
 			return false;
 		}
@@ -93,13 +89,13 @@ bool AutoOffManager::all_considered_participants_allow() const
 
 void AutoOffManager::schedule() const
 {
-	if (current_mode_ < POWER_SAVING_LEVEL_OFF ||
-	    static_cast<size_t>(current_mode_) >= power_saving_modes.size()) {
-		LOG_WRN("Cannot schedule auto-off for invalid mode %d", current_mode_);
+	if (current_mode < POWER_SAVING_LEVEL_OFF ||
+	    static_cast<size_t>(current_mode) >= power_saving_modes.size()) {
+		LOG_WRN("Cannot schedule auto-off for invalid mode %d", current_mode);
 		return;
 	}
 
-	const auto &mode = power_saving_modes[static_cast<size_t>(current_mode_)];
+	const auto &mode = power_saving_modes[static_cast<size_t>(current_mode)];
 
 	(void)k_work_reschedule(&auto_off_work, K_MINUTES(mode.timeout_minutes));
 	LOG_INF("Auto-off armed for %d min in %s mode", mode.timeout_minutes, mode.name);
@@ -112,11 +108,11 @@ void AutoOffManager::cancel() const
 
 void AutoOffManager::evaluate()
 {
-	if (!initialized_) {
+	if (!initialized) {
 		return;
 	}
 
-	if (current_mode_ == POWER_SAVING_LEVEL_OFF) {
+	if (current_mode == POWER_SAVING_LEVEL_OFF) {
 		cancel();
 		return;
 	}
@@ -132,21 +128,21 @@ int AutoOffManager::init()
 {
 	AutoOffLock lock;
 
-	if (initialized_) {
+	if (initialized) {
 		return -EALREADY;
 	}
 
-	current_mode_ = (power_saving_level_t)CONFIG_AUTO_OFF_DEFAULT_POWER_SAVING_MODE;
+	current_mode = (power_saving_level_t)CONFIG_AUTO_OFF_DEFAULT_POWER_SAVING_MODE;
 
-	if (current_mode_ < POWER_SAVING_LEVEL_OFF ||
-	    static_cast<size_t>(current_mode_) >= power_saving_modes.size()) {
-		LOG_WRN("Invalid default auto-off mode %d, disabling auto-off", current_mode_);
-		current_mode_ = POWER_SAVING_LEVEL_OFF;
+	if (current_mode < POWER_SAVING_LEVEL_OFF ||
+	    static_cast<size_t>(current_mode) >= power_saving_modes.size()) {
+		LOG_WRN("Invalid default auto-off mode %d, disabling auto-off", current_mode);
+		current_mode = POWER_SAVING_LEVEL_OFF;
 	}
 
-	const auto &mode = power_saving_modes[static_cast<size_t>(current_mode_)];
+	const auto &mode = power_saving_modes[static_cast<size_t>(current_mode)];
 
-	initialized_ = true;
+	initialized = true;
 
 	LOG_INF("Auto-off initialized in %s mode", mode.name);
 	evaluate();
@@ -154,15 +150,6 @@ int AutoOffManager::init()
 	return 0;
 }
 
-/*
- * Register one auto-off participant.
- *
- * participant_token is the identity key for a participant. It must be unique
- * across all participants and stable for the lifetime of the registration. A
- * participant must reuse exactly the same token for register_participant(),
- * allow(), and prohibit(); a different token is treated as a different
- * participant and will not update the original registration.
- */
 int AutoOffManager::register_participant(const char *participant_token, power_saving_level_t level)
 {
 	if (participant_token == nullptr || level < POWER_SAVING_LEVEL_OFF ||
@@ -181,26 +168,29 @@ int AutoOffManager::register_participant(const char *participant_token, power_sa
 		return -EALREADY;
 	}
 
-	auto free_participant = std::find_if(
-		participants_.begin(), participants_.end(),
-		[](const auto &entry) { return !entry.registered; });
-
-	if (free_participant != participants_.end()) {
-		free_participant->token = participant_token;
-		free_participant->level = level;
-		free_participant->allowed = false;
-		free_participant->registered = true;
-
-		LOG_INF("Registered auto-off participant token %s at %s level",
-			participant_token, level_config.name);
-		evaluate();
-
-		return 0;
+	ParticipantEntry *free_participant = nullptr;
+	for (auto &participant : participants) {
+		if (!participant.registered) {
+			free_participant = &participant;
+			break;
+		}
 	}
 
-	LOG_WRN("No room to register auto-off participant token %s", participant_token);
+	if (free_participant == nullptr) {
+		LOG_WRN("No room to register auto-off participant token %s", participant_token);
+		return -ENOMEM;
+	}
 
-	return -ENOMEM;
+	free_participant->token = participant_token;
+	free_participant->level = level;
+	free_participant->allowed = false;
+	free_participant->registered = true;
+
+	LOG_INF("Registered auto-off participant token %s at %s level",
+		participant_token, level_config.name);
+	evaluate();
+
+	return 0;
 }
 
 void AutoOffManager::allow(const char *participant_token)
@@ -259,8 +249,8 @@ void AutoOffManager::set_mode(power_saving_level_t mode)
 
 	AutoOffLock lock;
 
-	if (current_mode_ != mode) {
-		current_mode_ = mode;
+	if (current_mode != mode) {
+		current_mode = mode;
 		LOG_INF("Auto-off mode set to %s", mode_config.name);
 		evaluate();
 	}
@@ -270,7 +260,7 @@ power_saving_level_t AutoOffManager::get_mode()
 {
 	AutoOffLock lock;
 
-	return current_mode_;
+	return current_mode;
 }
 
 void AutoOffManager::handle_timeout()
@@ -279,7 +269,7 @@ void AutoOffManager::handle_timeout()
 
 	{
 		AutoOffLock lock;
-		should_power_down = initialized_ && current_mode_ != POWER_SAVING_LEVEL_OFF &&
+		should_power_down = initialized && current_mode != POWER_SAVING_LEVEL_OFF &&
 				    all_considered_participants_allow();
 	}
 
@@ -298,7 +288,7 @@ void auto_off_work_handler(struct k_work *work)
 	auto_off_manager.handle_timeout();
 }
 
-int auto_off_register(const char *participant_token, power_saving_level_t level)
+int auto_off_register_participant(const char *participant_token, power_saving_level_t level)
 {
 	return auto_off_manager.register_participant(participant_token, level);
 }
