@@ -1,13 +1,20 @@
 #!/bin/bash
 
 # Default parameters
-CLOCKSPEED=8000
-CHIP=NRF53
+CLOCKSPEED=4000
+FAMILY=nrf53
+
+# Common nrfutil options
+NRFUTIL_OPTS="--family $FAMILY"
+
+# UICR address range for nRF5340
+UICR_ADDR=0x00FF8000
+UICR_SIZE=4096
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 --snr <serial_number> [--left|--right] [--standalone] [--hw x.y.z]"
-    echo "  --snr: Device serial number (required)"
+    echo "Usage: $0 [--snr <serial_number>] [--left|--right] [--standalone] [--hw x.y.z]"
+    echo "  --snr: Device serial number"
     echo "  --left: Flash left earable configuration"
     echo "  --right: Flash right earable configuration"
     echo "  --standalone: Configure device for standalone mode"
@@ -29,16 +36,15 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Check if SNR is provided
-if [ -z "$SNR" ]; then
-    echo "Error: Serial number (--snr) is required"
-    show_usage
+if [ -n "$SNR" ]; then
+    # Validate serial number is numeric
+    if ! [[ "$SNR" =~ ^[0-9]+$ ]]; then
+        echo "Error: Serial number must be numeric"
+        exit 1
+    fi
+    NRFUTIL_OPTS="--serial-number $SNR $NRFUTIL_OPTS"
 fi
 
-# Validate serial number is numeric
-if ! [[ "$SNR" =~ ^[0-9]+$ ]]; then
-    echo "Error: Serial number must be numeric"
-    exit 1
-fi
 
 # Check if --hw is used without --left or --right
 if [ -n "$HW_VERSION" ] && [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
@@ -74,34 +80,44 @@ if [ -n "$HW_VERSION" ]; then
     HW_VALUE=$(printf "0x%02X%02X%02X00" $HW_MAJOR $HW_MINOR $HW_PATCH)
 fi
 
-if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
-    nrfjprog --readuicr ./tools/flash/uicr_backup.hex -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+# Check if standalone was specified without left/right
+if [ "$STANDALONE" == true ] && [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
+    echo "Error: --standalone can only be used with --left or --right"
+    show_usage
 fi
 
-nrfjprog --program ./build/merged_CPUNET.hex --chiperase --verify -f $CHIP --coprocessor CP_NETWORK --snr $SNR --clockspeed $CLOCKSPEED
 
-nrfjprog --program ./build/merged.hex --chiperase --verify -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
+# First, explicitly recover both cores separately to ensure they are unlocked
+nrfutil device recover --core network $NRFUTIL_OPTS
+nrfutil device recover --core application $NRFUTIL_OPTS
+sleep 1
 
-if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
-    nrfjprog --program ./tools/flash/uicr_backup.hex -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED --verify
-fi
+# Flash network core (CPUNET)
+nrfutil device program --firmware ./build/merged_CPUNET.hex --core network --options chip_erase_mode=ERASE_ALL,verify=VERIFY_READ $NRFUTIL_OPTS
+nrfutil device reset --core network $NRFUTIL_OPTS
+sleep 1
 
+# Flash application core (CPUAPP)
+nrfutil device program --firmware ./build/merged.hex --core application --options verify=VERIFY_READ $NRFUTIL_OPTS
+
+# Set left/right configuration
 if [ "$LEFT" == true ]; then
-    nrfjprog --memwr 0x00FF80F4 --val 0 -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+    nrfutil device write --address 0x00FF80F4 --value 0 $NRFUTIL_OPTS
 elif [ "$RIGHT" == true ]; then
-    nrfjprog --memwr 0x00FF80F4 --val 1 -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+    nrfutil device write --address 0x00FF80F4 --value 1 $NRFUTIL_OPTS
 fi
 
 # Set standalone mode configuration if requested
 if [ "$STANDALONE" == true ]; then
-    nrfjprog --memwr 0x00FF80FC --val 0 -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+    nrfutil device write --address 0x00FF80FC --value 0 $NRFUTIL_OPTS
     echo "Device configured for standalone mode"
 fi
 
 # Set hardware version if provided
 if [ -n "$HW_VERSION" ]; then
-    nrfjprog --memwr 0x00FF8100 --val $HW_VALUE -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+    nrfutil device write --address 0x00FF8100 --value $HW_VALUE $NRFUTIL_OPTS
     echo "Hardware version set to $HW_VERSION"
 fi
 
-nrfjprog --reset -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+# Reset device
+nrfutil device reset --core application $NRFUTIL_OPTS

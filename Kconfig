@@ -1,9 +1,3 @@
-#
-# Copyright (c) 2018 Nordic Semiconductor ASA
-#
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
-#
-
 menuconfig NRF5340_AUDIO
 	 bool "nRF5340 Audio [EXPERIMENTAL]"
 	 select EXPERIMENTAL
@@ -38,23 +32,6 @@ config TRANSPORT_CIS
 
 endchoice
 
-#----------------------------------------------------------------------------#
-# if (TRANSPORT_BIS && AUDIO_DEV = 1)
-# rsource "broadcast_sink/Kconfig.defaults"
-# endif # TRANSPORT_BIS && AUDIO_DEV = 1
-
-# if (TRANSPORT_BIS && AUDIO_DEV = 2)
-# rsource "broadcast_source/Kconfig.defaults"
-# endif # TRANSPORT_BIS && AUDIO_DEV = 2
-
-# if (TRANSPORT_CIS && AUDIO_DEV = 1)
-rsource "unicast_server/Kconfig.defaults"
-# endif # TRANSPORT_CIS && AUDIO_DEV = 1
-
-# if (TRANSPORT_CIS && AUDIO_DEV = 2)
-# rsource "unicast_client/Kconfig.defaults"
-# endif # TRANSPORT_CIS && AUDIO_DEV = 2
-
 rsource "Kconfig.defaults"
 rsource "src/audio/Kconfig"
 rsource "src/bluetooth/Kconfig"
@@ -80,5 +57,7 @@ endmenu # Log levels
 
 #----------------------------------------------------------------------------#
 endif # NRF5340_AUDIO
+
+rsource "$(ZEPHYR_BASE)/samples/subsys/usb/common/Kconfig.sample_usbd"
 
 source "Kconfig.zephyr"

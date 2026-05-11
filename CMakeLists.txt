@@ -1,9 +1,3 @@
-#
-# Copyright (c) 2022 Nordic Semiconductor ASA
-#
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
-#
-
 cmake_minimum_required(VERSION 3.20.0)
 
 # Flag which defines whether application is compiled as gateway/dongle or headset
@@ -14,9 +8,8 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(openearable_v2_1)
 
-#set(OVERLAY_CONFIG 
-#    ${CMAKE_CURRENT_SOURCE_DIR}/unicast_server/overlay-unicast_server.conf
-#)
+# Suppress -Wwrite-strings from Zephyr SDK headers that we cannot fix.
+add_compile_options(-Wno-write-strings)
 
 string(TIMESTAMP NRF5340_AUDIO_CORE_APP_COMP_DATE "%a %b %d %H:%M:%S %Y")
 
@@ -27,17 +20,9 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
 
 # Target sources below are specific to the nRF5340 Audio DK HW
 target_sources(app PRIVATE
-#    src/openearable_common.c
+    src/main.cpp
     ${CMAKE_BINARY_DIR}/fw_info_app.c
     )
-
-if (CONFIG_BT_BAP_BROADCAST_SINK)
-	add_subdirectory(broadcast_sink)
-endif()
-
-if (CONFIG_BT_BAP_UNICAST_SERVER)
-	add_subdirectory(unicast_server)
-endif()
 
 
 # Include application events and configuration headers
@@ -45,6 +30,7 @@ zephyr_library_include_directories(
     include
     src/audio
     src/Battery
+    src/buttons
     src/Wire
     src/bluetooth
     src/drivers
@@ -88,3 +74,8 @@ endif()
 
 include(version.cmake)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
+
+# New USB device stack sample init (provides sample_usbd_init_device)
+if(CONFIG_USB_DEVICE_STACK_NEXT)
+    include(${ZEPHYR_BASE}/samples/subsys/usb/common/common.cmake)
+endif()
