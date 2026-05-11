@@ -30,7 +30,7 @@ static int le_audio_auto_off_init(void)
 {
 	int ret;
 
-	ret = auto_off_register(le_audio_auto_off_token,
+	ret = auto_off_register_participant(le_audio_auto_off_token,
 				(power_saving_level_t)CONFIG_POWER_SAVING_LEVEL_LEAUDIO);
 	if (ret && ret != -EALREADY) {
 		LOG_WRN("Failed to register LE Audio with auto-off: %d", ret);
