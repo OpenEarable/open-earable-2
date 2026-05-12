@@ -8,6 +8,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
+#include <zephyr/sys/atomic.h>
 #include <data_fifo.h>
 #include <contin_array.h>
 #include <pcm_stream_channel_modifier.h>
@@ -45,6 +46,7 @@ static K_SEM_DEFINE(sem_encoder_start, 0, 1);
 
 static struct k_thread encoder_thread_data;
 static k_tid_t encoder_thread_id;
+static atomic_t encoder_started;
 
 struct k_poll_signal encoder_sig;
 
@@ -157,6 +159,11 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 			continue;
 		}
 
+		if (!audio_system_encoder_is_started()) {
+			LOG_DBG("Dropping stale encoder frame while encoder is stopped");
+			continue;
+		}
+
 		if (sw_codec_cfg.encoder.enabled) {
 			if (test_tone_size) {
 				/* Test tone takes over audio stream */
@@ -201,8 +208,17 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 
 void audio_system_encoder_start(void)
 {
+	if (!sw_codec_cfg.initialized || !sw_codec_cfg.encoder.enabled || !sw_codec_is_initialized()) {
+		LOG_WRN("Encoder start ignored because codec is not initialized");
+		atomic_clear(&encoder_started);
+		k_poll_signal_reset(&encoder_sig);
+		k_msgq_purge(&encoder_queue);
+		return;
+	}
+
 	LOG_DBG("Encoder started");
 	k_msgq_purge(&encoder_queue);
+	atomic_set(&encoder_started, true);
 	k_poll_signal_raise(&encoder_sig, 0);
 	/*if (IS_ENABLED(CONFIG_AUDIO_MIC_PDM)) {
 		pdm_mic_start();
@@ -211,7 +227,15 @@ void audio_system_encoder_start(void)
 
 void audio_system_encoder_stop(void)
 {
+	atomic_clear(&encoder_started);
 	k_poll_signal_reset(&encoder_sig);
+	k_msgq_purge(&encoder_queue);
+}
+
+bool audio_system_encoder_is_started(void)
+{
+	return atomic_get(&encoder_started) && sw_codec_cfg.initialized &&
+	       sw_codec_cfg.encoder.enabled && sw_codec_is_initialized();
 }
 
 int audio_system_encode_test_tone_set(uint32_t freq)
@@ -452,6 +476,7 @@ void audio_system_stop(void)
 	}
 
 	LOG_DBG("Stopping codec");
+	audio_system_encoder_stop();
 
 #if ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB)
 	audio_usb_stop();

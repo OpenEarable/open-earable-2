@@ -273,7 +273,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 		unsigned int signaled;
 		k_poll_signal_check(&encoder_sig, &signaled, &ret);
 
-		if (ret == 0 && signaled != 0) {
+		if (ret == 0 && signaled != 0 && audio_system_encoder_is_started()) {
 			ret = k_msgq_put(&encoder_queue, &audio_item, K_NO_WAIT);
 			if (ret) {
 				LOG_WRN("encoder queue full");
