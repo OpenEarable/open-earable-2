@@ -110,6 +110,9 @@ config FILE_SYSTEM
 config FAT_FILESYSTEM_ELM
 	default y
 
+config FS_FATFS_HAS_RTC
+	default y
+
 config FS_FATFS_LFN
 	default y
 choice FS_FATFS_LFN_MODE
