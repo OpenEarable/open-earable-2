@@ -1,6 +1,6 @@
 menu "Battery Configuration"
 
-config AUTO_OFF_DEFAULT_POWER_SAVING_MODE
+config POWER_SAVING_DEFAULT_MODE
 	int "Default auto-off power saving mode"
 	default 2
 	help
@@ -12,14 +12,14 @@ config POWER_SAVING_LEVEL_LEAUDIO
 	default 3
 	help
 	  First power saving mode where LE Audio participates in auto-off.
-	  See AUTO_OFF_DEFAULT_POWER_SAVING_MODE
+	  See POWER_SAVING_DEFAULT_MODE
 
 config POWER_SAVING_LEVEL_SENSOR_MANAGER
 	int "SensorManager auto-off power saving level"
 	default 2
 	help
 	  First power saving mode where SensorManager participates in auto-off.
-	  See AUTO_OFF_DEFAULT_POWER_SAVING_MODE
+	  See POWER_SAVING_DEFAULT_MODE
 
 config AUTO_OFF_TIMEOUT_AGGRESSIVE
 	int "Aggressive auto-off timeout in minutes"

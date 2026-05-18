@@ -35,7 +35,7 @@ static_assert(power_saving_modes.size() == POWER_SAVING_LEVEL_COUNT,
 
 constexpr const char *auto_off_settings_mode_key = "auto_off/mode";
 
-power_saving_level_t loaded_mode = (power_saving_level_t)CONFIG_AUTO_OFF_DEFAULT_POWER_SAVING_MODE;
+power_saving_level_t loaded_mode = (power_saving_level_t)CONFIG_POWER_SAVING_DEFAULT_MODE;
 bool loaded_mode_is_valid = false;
 
 K_MUTEX_DEFINE(auto_off_mutex);
@@ -187,7 +187,7 @@ int AutoOffManager::init()
 
 	current_mode = loaded_mode_is_valid ?
 		       loaded_mode :
-		       (power_saving_level_t)CONFIG_AUTO_OFF_DEFAULT_POWER_SAVING_MODE;
+		       (power_saving_level_t)CONFIG_POWER_SAVING_DEFAULT_MODE;
 
 	if (!auto_off_mode_is_supported(current_mode)) {
 		LOG_WRN("Invalid default auto-off mode %d, disabling auto-off", current_mode);
@@ -206,7 +206,7 @@ int AutoOffManager::init()
 
 int AutoOffManager::register_participant(const char *participant_token, power_saving_level_t level)
 {
-	if (participant_token == nullptr || level < POWER_SAVING_LEVEL_OFF ||
+	if (participant_token == nullptr || level <= POWER_SAVING_LEVEL_OFF ||
 	    static_cast<size_t>(level) >= power_saving_modes.size()) {
 		return -EINVAL;
 	}

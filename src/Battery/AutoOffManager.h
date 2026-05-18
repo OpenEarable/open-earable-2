@@ -98,6 +98,33 @@ struct k_work;
 
 /**
  * @brief Coordinates automatic power-off across dynamically registered participants.
+ *
+ * The manager uses a participant-based permission model. Firmware components
+ * that may need to keep the device awake register themselves as auto-off
+ * participants by providing a unique token and a power saving level. The level
+ * defines the first power saving mode in which the participant is considered by
+ * the auto-off decision. A participant registered for a higher level can still
+ * prevent auto-off in more aggressive modes, but is ignored in less aggressive
+ * modes.
+ *
+ * Once registered, a participant calls prohibit() whenever it enters a critical
+ * region where power-off would be unsafe or disruptive, for example while
+ * writing data, streaming audio, or handling a time-sensitive operation. When
+ * the participant leaves that region, it calls allow(). Auto-off is armed only
+ * when every participant that is relevant for the current power saving mode is
+ * currently allowing power-off. If any relevant participant prohibits auto-off,
+ * the pending auto-off work is cancelled until the system is allowed again.
+ *
+ * The current power saving mode controls both which participants are considered
+ * and which timeout is used before power_down() is called. POWER_SAVING_LEVEL_OFF
+ * disables auto-off. 
+ *
+ * Implementation notes:
+ * - AutoOffManager is used as a process-wide singleton via auto_off_manager.
+ *   The firmware should not create additional instances.
+ * - Public C++ methods have thin C wrappers such as auto_off_allow() and
+ *   auto_off_register_participant() so C firmware modules can use the same
+ *   manager without depending on C++ linkage.
  */
 class AutoOffManager {
 public:
@@ -113,8 +140,9 @@ public:
 	 *
 	 * @param participant_token Unique, stable token identifying the participant.
 	 * @param level First power saving mode where this participant participates.
-     * Higher level means the participant can prevent an auto-off even at a more
-     * aggressive power saving mode
+	 * Higher level means the participant can prevent an auto-off even at a more
+	 * aggressive power saving mode. POWER_SAVING_LEVEL_OFF is not a valid
+	 * participant level.
 	 *
 	 * @return 0 on success, -EINVAL for invalid arguments, -EALREADY if the
 	 * token was already registered, or -ENOMEM if the registry is full.
