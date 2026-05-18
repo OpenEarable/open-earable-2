@@ -17,6 +17,21 @@ LOG_MODULE_REGISTER(power_saving_service, CONFIG_BLE_LOG_LEVEL);
 
 static uint8_t supported_modes_payload[POWER_SAVING_SUPPORTED_MODES_MAX_PAYLOAD_LEN];
 
+/*
+ * Build the value returned by the "supported power saving modes" GATT
+ * characteristic.
+ *
+ * The client needs more than the currently selected mode: it also needs to know
+ * which numeric mode IDs are valid and which labels should be shown in the UI.
+ * This function serializes the AutoOffManager mode table into a compact,
+ * self-describing byte stream:
+ *
+ *   byte 0: number of modes
+ *   repeated for each mode:
+ *     byte 0: mode ID, matching power_saving_level_t
+ *     byte 1: mode name length in bytes
+ *     bytes:  mode name, without a terminating NUL
+ */
 static ssize_t encode_supported_modes(uint8_t *payload, size_t capacity)
 {
 	uint8_t mode_count = auto_off_get_supported_mode_count();
@@ -26,6 +41,7 @@ static ssize_t encode_supported_modes(uint8_t *payload, size_t capacity)
 		return -ENOMEM;
 	}
 
+	/* Prefix the payload with the number of following mode records. */
 	payload[payload_len++] = mode_count;
 
 	for (uint8_t mode_id = 0; mode_id < mode_count; mode_id++) {
@@ -42,6 +58,7 @@ static ssize_t encode_supported_modes(uint8_t *payload, size_t capacity)
 			return -ENOMEM;
 		}
 
+		/* Append one length-prefixed record so clients can parse without NULs. */
 		payload[payload_len++] = mode_id;
 		payload[payload_len++] = (uint8_t)name_len;
 		memcpy(&payload[payload_len], name, name_len);
