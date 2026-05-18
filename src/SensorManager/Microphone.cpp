@@ -11,8 +11,6 @@
 
 #include "ADAU1860.h"
 
-//#include <data_fifo.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,7 +24,6 @@ extern void empty_fifo();
 #endif
 
 #include <zephyr/logging/log.h>
-//LOG_MODULE_DECLARE(BMX160);
 LOG_MODULE_REGISTER(microphone, CONFIG_LOG_DEFAULT_LEVEL);
 
 extern struct data_fifo fifo_rx;
@@ -41,13 +38,8 @@ const SampleRateSetting<1> Microphone::sample_rates = {
 	{ 48000.0 }
 };
 
-bool Microphone::init(struct k_msgq * queue) {
-
+bool Microphone::init() {
 	_active = true;
-
-	sensor_queue = queue;
-
-	set_sensor_queue(queue);
 
 	init_fifo();
 
@@ -63,7 +55,7 @@ void Microphone::start(int sample_rate_idx) {
 
 	record_to_sd(true);
 
-	audio_datapath_aquire(&fifo_rx);
+	audio_datapath_acquire(&fifo_rx);
 
 	_running = true;
 }

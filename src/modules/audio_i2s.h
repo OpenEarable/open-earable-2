@@ -88,4 +88,9 @@ void audio_i2s_blk_comp_cb_register(i2s_blk_comp_callback_t blk_comp_callback);
  */
 void audio_i2s_init(void);
 
+struct audio_rx_data {
+    char data[FRAME_SIZE_BYTES];
+    size_t size;
+};
+
 #endif /* _AUDIO_I2S_H_ */

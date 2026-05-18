@@ -4,7 +4,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 
-//#include "MAX30102/MAX30102.h"
 #include "BMA580/BMA580_Sensor.h"
 #include "EdgeMLSensor.h"
 
@@ -17,11 +16,9 @@ class BoneConduction : public EdgeMlSensor {
 public:
     static BoneConduction sensor;
 
-    bool init(struct k_msgq * queue) override;
+    bool init() override;
     void start(int sample_rate_idx) override;
     void stop() override;
-
-    void reset();
 
     const static SampleRateSetting<10> sample_rates;
 

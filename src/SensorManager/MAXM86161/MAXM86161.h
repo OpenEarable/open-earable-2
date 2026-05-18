@@ -4,7 +4,6 @@
 #ifndef __MAXM86161_H_
 #define __MAXM86161_H_
 
-//#include <Wire.h>
 #include <TWIM.h>
 #include <stdint.h>
 
@@ -67,26 +66,6 @@ class MAXM86161 {
     int set_led3_current(int current);
     /** @brief Set the integration time for the photodiode */   
     int set_ppg_tint(int time);
-
-    // Setting adjustments
-    /** @brief Set the ALC on */  
-    int alc_on(void);
-    /** @brief Set the ALC off */ 
-    int alc_off(void);
-    /** @brief Set the picket fence detection on */ 
-    int picket_on(void);
-    /** @brief Set the picket fence detection off */ 
-    int picket_off(void);
-    /** @brief Set the interrupt to trigger with new values in FIFO */ 
-    int new_value_read_on(void);
-    /** @brief Stop the interrupt from triggering with new values in FIFO */ 
-    int new_value_read_off(void);
-
-    // void read_fifo(int* red, int* green, int* ir);
-    // char read_package_temp();
-
-    // Functions not yet working
-    // char read_status();
 
     int read_interrupt_state(int &value);
 
@@ -198,7 +177,7 @@ private:
 #define REG_S1_HI_RES_DAC1	0x2C
 #define REG_S2_HI_RES_DAC1	0x2D
 #define REG_S3_HI_RES_DAC1	0x2E
-#define REG_S4_HI_RES_DAC1	0x2D
+#define REG_S4_HI_RES_DAC1	0x2F  // per MAXM86161 datasheet Table 2
 #define REG_S5_HI_RES_DAC1	0x30
 #define REG_S6_HI_RES_DAC1	0x31
 

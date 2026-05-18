@@ -33,10 +33,8 @@ extern "C" {
 
 int init_sensor_service();
 const char *get_sensor_recording_name();
-//int send_sensor_data(); //struct sensor_data * data);
-
+int sensor_gatt_queue_put(const struct sensor_data *data);
 int set_sensor_config_status(struct sensor_config config);
-
 void temp_disable_notifies(bool disable);
 
 #ifdef __cplusplus

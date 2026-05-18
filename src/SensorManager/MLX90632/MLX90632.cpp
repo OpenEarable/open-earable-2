@@ -25,32 +25,10 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
-  TODO:
-  check EEPROM write
-  check timing - how fast to take reading? Setting the SOC twice may be doubling time
-  set emissivity
-*/
-
-//Declare global variables for the calibration values
-double P_R;
-double P_G;
-double P_T;
-double P_O;
-double Ea;
-double Eb;
-double Fa;
-double Fb;
-double Ga;
-double Gb;
-double Ka;
-double Ha;
-double Hb;
-
-double TOdut = 25.0; //Assume 25C for first iteration
-double TO0 = 25.0; //object temp from previous calculation
-double TA0 = 25.0; //ambient temp from previous calculation
-double sensorTemp; //Internal temp of the MLX sensor
+/* Calibration constants and iteration state live as float class members in
+ * MLX90632.h — see the datasheet's object-temperature formula. Float keeps
+ * the math on the Cortex-M33 single-precision FPU instead of emulated
+ * double. */
 
 #include "MLX90632.h"
 
@@ -100,7 +78,7 @@ bool MLX90632::begin(uint8_t deviceAddress, TWIM &i2c, status &returnError)
 
   uint16_t thisVersion;
   returnError = readRegister16(EE_VERSION, thisVersion);
-  LOG_WRN("Sensor EEPROM version (usually 0x205): 0x%X",thisVersion);
+  LOG_DBG("Sensor EEPROM version (usually 0x205): 0x%X",thisVersion);
 
   //Wait for eeprom_busy to clear
   uint16_t counter = 0;
@@ -118,36 +96,37 @@ bool MLX90632::begin(uint8_t deviceAddress, TWIM &i2c, status &returnError)
 
   setMode(MODE_SLEEP); //Before reading EEPROM sensor needs to stop taking readings
 
-  //Load all the static calibration factors
+  //Load all the static calibration factors. ldexpf(x, n) is x * 2^n — exact
+  //for these power-of-two scalings and avoids the pow() library call.
   int16_t tempValue16;
   int32_t tempValue32;
   readRegister32(EE_P_R, (uint32_t&)tempValue32);
-  P_R = (double)tempValue32 * pow(2, -8);
+  P_R = ldexpf((float)tempValue32, -8);
   readRegister32(EE_P_G, (uint32_t&)tempValue32);
-  P_G = (double)tempValue32 * pow(2, -20);
+  P_G = ldexpf((float)tempValue32, -20);
   readRegister32(EE_P_T, (uint32_t&)tempValue32);
-  P_T = (double)tempValue32 * pow(2, -44);
+  P_T = ldexpf((float)tempValue32, -44);
   readRegister32(EE_P_O, (uint32_t&)tempValue32);
-  P_O = (double)tempValue32 * pow(2, -8);
+  P_O = ldexpf((float)tempValue32, -8);
   readRegister32(EE_Ea, (uint32_t&)tempValue32);
-  Ea = (double)tempValue32 * pow(2, -16);
+  Ea = ldexpf((float)tempValue32, -16);
   readRegister32(EE_Eb, (uint32_t&)tempValue32);
-  Eb = (double)tempValue32 * pow(2, -8);
+  Eb = ldexpf((float)tempValue32, -8);
   readRegister32(EE_Fa, (uint32_t&)tempValue32);
-  Fa = (double)tempValue32 * pow(2, -46);
+  Fa = ldexpf((float)tempValue32, -46);
   readRegister32(EE_Fb, (uint32_t&)tempValue32);
-  Fb = (double)tempValue32 * pow(2, -36);
+  Fb = ldexpf((float)tempValue32, -36);
   readRegister32(EE_Ga, (uint32_t&)tempValue32);
-  Ga = (double)tempValue32 * pow(2, -36);
-  
+  Ga = ldexpf((float)tempValue32, -36);
+
   readRegister16(EE_Gb, (uint16_t&)tempValue16);
-  Gb = (double)tempValue16 * pow(2, -10);
+  Gb = ldexpf((float)tempValue16, -10);
   readRegister16(EE_Ka, (uint16_t&)tempValue16);
-  Ka = (double)tempValue16 * pow(2, -10);
+  Ka = ldexpf((float)tempValue16, -10);
   readRegister16(EE_Ha, (uint16_t&)tempValue16);
-  Ha = (double)tempValue16 * pow(2, -14); //Ha!
+  Ha = ldexpf((float)tempValue16, -14); //Ha!
   readRegister16(EE_Hb, (uint16_t&)tempValue16);
-  Hb = (double)tempValue16 * pow(2, -14);
+  Hb = ldexpf((float)tempValue16, -14);
 
   LOG_DBG("MLX90632 online");
 
@@ -168,63 +147,43 @@ float MLX90632::getObjectTemp(status& returnError)
 {
   returnError = SENSOR_SUCCESS;
 
-  //If the sensor is not in continuous mode then the tell sensor to take reading
-  if(getMode() != MODE_CONTINUOUS) setSOC();
+  if (getMode() != MODE_CONTINUOUS) setSOC();
 
-  // do not check blocking!
-  if (dataAvailable() == false)
+  // Single status read for data availability and cycle position
+  uint16_t statusReg = getStatus();
+
+  if (!(statusReg & (1 << BIT_NEW_DATA)))
   {
       LOG_WRN("Data available timeout");
       returnError = SENSOR_TIMEOUT_ERROR;
-      return (0.0); //Error
+      return (0.0);
   }
 
-  //Check when new_data = 1
-  /*uint16_t counter = 0;
-  while (dataAvailable() == false)
-  {
-    k_msleep(1);
-    counter++;
-    if (counter == MAX_WAIT)
-    {
-      LOG_WRN("Data available timeout");
-      returnError = SENSOR_TIMEOUT_ERROR;
-      return (0.0); //Error
-    }
-  }*/
-
-  //Write new_data = 0
-  clearNewData();
+  // Clear new_data flag
+  writeRegister16(REG_STATUS, statusReg & ~(1 << BIT_NEW_DATA));
 
   gatherSensorTemp(returnError);
   if (returnError != SENSOR_SUCCESS)
   {
     LOG_WRN("Sensor temperature not found");
-    if(returnError == SENSOR_TIMEOUT_ERROR) LOG_WRN("Timeout");
-    return (0.0); //Error
+    return (0.0);
   }
 
   int16_t lowerRAM = 0;
   int16_t upperRAM = 0;
 
-  //Get RAM_6 and RAM_9
   int16_t sixRAM;
   readRegister16(RAM_6, (uint16_t&)sixRAM);
   int16_t nineRAM;
   readRegister16(RAM_9, (uint16_t&)nineRAM);
 
-  //Read cycle_pos to get measurement pointer
-  int cyclePosition = getCyclePosition();
+  int cyclePosition = (statusReg >> BIT_CYCLE_POS) & 0x1F;
 
-  //If cycle_pos = 1
-  //Calculate TA and TO based on RAM_4, RAM_5, RAM_6, RAM_9
   if (cyclePosition == 1)
   {
     readRegister16(RAM_4, (uint16_t&)lowerRAM);
     readRegister16(RAM_5, (uint16_t&)upperRAM);
   }
-  //If cycle_pos = 2
-  //Calculate TA and TO based on RAM_7, RAM_8, RAM_6, RAM_9
   else if (cyclePosition == 2)
   {
     readRegister16(RAM_7, (uint16_t&)lowerRAM);
@@ -232,33 +191,27 @@ float MLX90632::getObjectTemp(status& returnError)
   }
   else
   {
-    LOG_WRN("Found a cycle position that was not 1 or 2");
+    LOG_DBG("Found a cycle position that was not 1 or 2");
     readRegister16(RAM_4, (uint16_t&)lowerRAM);
     readRegister16(RAM_5, (uint16_t&)upperRAM);
   }
 
-  //Object temp requires 3 iterations
+  // Iterative object temperature computation (3 iterations for convergence)
   for (uint8_t i = 0 ; i < 3 ; i++)
   {
-    double VRta = nineRAM + Gb * (sixRAM / 12.0);
+    float VRta = nineRAM + Gb * (sixRAM / 12.0f);
+    float AMB = (sixRAM / 12.0f) / VRta * 524288.0f;
+    float S = (lowerRAM + upperRAM) / 2.0f;
+    float VRto = nineRAM + Ka * (sixRAM / 12.0f);
+    float Sto = (S / 12.0f) / VRto * 524288.0f;
+    float TAdut = (AMB - Eb) / Ea + 25.0f;
+    float ambientTempK = TAdut + 273.15f;
 
-    double AMB = (sixRAM / 12.0) / VRta * pow(2, 19);
+    float bigFraction = Sto / (Fa * Ha * (1.0f + Ga * (TOdut - TO0) + Fb * (TAdut - TA0)));
 
-    double sensorTemp = P_O + (AMB - P_R) / P_G + P_T * pow((AMB - P_R), 2);
-
-    float S = (float)(lowerRAM + upperRAM) / 2.0;
-    double VRto = nineRAM + Ka * (sixRAM / 12.0);
-    double Sto = (S / 12.0) / VRto * (double)pow(2, 19);
-
-    double TAdut = (AMB - Eb) / Ea + 25.0;
-
-    double ambientTempK = TAdut + 273.15;
-
-    double bigFraction = Sto / (1 * Fa * Ha * (1 + Ga * (TOdut - TO0) + Fb * (TAdut - TA0)));
-
-    double objectTemp = bigFraction + pow(ambientTempK, 4);
-    objectTemp = pow(objectTemp, 0.25); //Take 4th root
-    objectTemp = objectTemp - 273.15 - Hb;
+    float objectTemp = bigFraction + ambientTempK * ambientTempK * ambientTempK * ambientTempK;
+    objectTemp = sqrtf(sqrtf(objectTemp));
+    objectTemp = objectTemp - 273.15f - Hb;
 
     TO0 = objectTemp;
   }
@@ -320,11 +273,12 @@ float MLX90632::gatherSensorTemp(status &returnError)
   int16_t nineRAM;
   readRegister16(RAM_9, (uint16_t&)nineRAM);
 
-  double VRta = nineRAM + Gb * (sixRAM / 12.0);
+  float VRta = nineRAM + Gb * (sixRAM / 12.0f);
 
-  double AMB = (sixRAM / 12.0) / VRta * pow(2, 19);
+  float AMB = (sixRAM / 12.0f) / VRta * 524288.0f; // 2^19
 
-  double sensorTemp = P_O + (AMB - P_R) / P_G + P_T * pow((AMB - P_R), 2);
+  float dAMB = AMB - P_R;
+  float sensorTemp = P_O + dAMB / P_G + P_T * dAMB * dAMB;
 
   return(sensorTemp);
 }
@@ -456,7 +410,7 @@ MLX90632::status MLX90632::readRegister16(uint16_t addr, uint16_t &outputPointer
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
 
-  _i2c->aquire();
+  _i2c->acquire();
 
   // 32-Bit-Adresse in ein Byte-Array umwandeln (Big-Endian)
   uint8_t addr_buf[2] = {
@@ -466,7 +420,7 @@ MLX90632::status MLX90632::readRegister16(uint16_t addr, uint16_t &outputPointer
 
   uint8_t buffer[2];
 
-  // Adresse senden und Daten lesen
+  // Send address and read data
   int ret = i2c_write_read(_i2c->master, _deviceAddress, addr_buf, sizeof(addr_buf), buffer, sizeof(buffer));
   if (ret) {
       returnError = SENSOR_I2C_ERROR;
@@ -485,7 +439,7 @@ MLX90632::status MLX90632::readRegister32(uint16_t addr, uint32_t &outputPointer
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
 
-  _i2c->aquire();
+  _i2c->acquire();
 
   uint8_t addr_buf[2] = {
     (uint8_t)((addr >> 8) & 0xFF),
@@ -494,7 +448,7 @@ MLX90632::status MLX90632::readRegister32(uint16_t addr, uint32_t &outputPointer
 
   uint8_t buffer[4];
 
-  // Adresse senden und Daten lesen
+  // Send address and read data
   int ret = i2c_write_read(_i2c->master, _deviceAddress, addr_buf, sizeof(addr_buf), buffer, sizeof(buffer));
 
   uint16_t lower = (uint16_t)buffer[0] << 8 | buffer[1];
@@ -517,7 +471,7 @@ MLX90632::status MLX90632::writeRegister16(uint16_t addr, uint16_t val)
 {
   MLX90632::status returnError = SENSOR_SUCCESS; //By default, return success
 
-  _i2c->aquire();
+  _i2c->acquire();
 
   struct i2c_msg msg[2];
 
@@ -557,22 +511,15 @@ MLX90632::status MLX90632::writeRegister16(uint16_t addr, uint16_t val)
 //This should work but doesn't. It seems the IC is very sensitive to I2C traffic while
 //the sensor is recording the new EEPROM.
 void MLX90632::writeEEPROM(uint16_t addr, uint16_t val) {
-  
-  //unlock EEPROM
   writeRegister16(0x3005, 0x554C);
-
   writeRegister16(addr, 0x00);
 
-  // wait for EEPROM
-  while (eepromBusy()) k_msleep(1);
+  for (int i = 0; i < MAX_WAIT && eepromBusy(); i++) k_msleep(1);
 
-  // unlock EEPROM
   writeRegister16(0x3005, 0x554C);
-
   writeRegister16(addr, val);
 
-  // wait for EEPROM
-  while (eepromBusy()) k_msleep(1);
+  for (int i = 0; i < MAX_WAIT && eepromBusy(); i++) k_msleep(1);
 }
 
 void MLX90632::reset() {

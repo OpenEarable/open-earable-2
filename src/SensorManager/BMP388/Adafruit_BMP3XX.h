@@ -23,11 +23,6 @@
 #define __BMP3XX_H__
 
 #include "bmp3.h"
-
-//#include "../Adafruit_BusIO/Adafruit_I2CDevice.h"
-//#include "Adafruit_SPIDevice.h"
-
-//#include "Wire.h"
 #include <TWIM.h>
 
 /*=========================================================================
@@ -35,7 +30,6 @@
     -----------------------------------------------------------------------*/
 #define BMP3XX_DEFAULT_ADDRESS (0x76) ///< The default I2C address
 /*=========================================================================*/
-//#define BMP3XX_DEFAULT_SPIFREQ (1000000) ///< The default SPI Clock speed
 
 /** Adafruit_BMP3XX Class for both I2C and SPI usage.
  *  Wraps the Bosch library for Arduino usage
@@ -67,6 +61,10 @@ public:
 
   /// Perform a reading in blocking mode
   bool performReading(void);
+
+  /// Put the sensor into sleep mode (stops conversions).
+  /// Call before cutting power to avoid leaving the chip mid-conversion.
+  bool sleep(void);
 
   /// Temperature (Celsius) assigned after calling performReading()
   double temperature;

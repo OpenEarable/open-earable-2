@@ -1,6 +1,7 @@
 #include "PPG.h"
 
 #include "SensorManager.h"
+#include "sensor_sink.h"
 
 #include "math.h"
 #include "stdlib.h"
@@ -15,6 +16,17 @@ PPG PPG::sensor;
 MAXM86161 PPG::ppg(&I2C2);
 
 static struct sensor_msg msg_ppg;
+static uint32_t ppg_queue_full_count;
+static uint32_t ppg_calls, ppg_max_us;
+static uint64_t ppg_total_us;
+
+/* External LDO enable for the PPG AFE. Separate from ls_1_8/ls_3_3 — must
+ * be driven LOW in stop() so the LDO actually turns off. */
+static const struct gpio_dt_spec ppg_ldo_en = {
+    .port = DEVICE_DT_GET(DT_NODELABEL(gpio0)),
+    .pin = 6,
+    .dt_flags = GPIO_ACTIVE_HIGH,
+};
 
 const SampleRateSetting<16> PPG::sample_rates = {
     { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x0A, 0x0B,
@@ -27,38 +39,33 @@ const SampleRateSetting<16> PPG::sample_rates = {
     32.000, 64.000, 128.000, 256.000, 512.000, 1024.000, 2048.000, 4096.000},
 };
 
-bool PPG::init(struct k_msgq * queue) {
+bool PPG::init() {
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
         pm_device_runtime_get(ls_3_3);
 
-        const struct gpio_dt_spec LDO_EN = {
-            .port = DEVICE_DT_GET(DT_NODELABEL(gpio0)),
-            .pin = 6,
-            .dt_flags = GPIO_ACTIVE_HIGH
-        };
-
-        int ret = gpio_pin_configure_dt(&LDO_EN, GPIO_OUTPUT_ACTIVE);
+        int ret = gpio_pin_configure_dt(&ppg_ldo_en, GPIO_OUTPUT_ACTIVE);
         if (ret != 0) {
-            LOG_WRN("Failed to set GPOUT as input.\n");
+            LOG_WRN("Failed to enable PPG LDO: %d", ret);
+            pm_device_runtime_put(ls_1_8);
+            pm_device_runtime_put(ls_3_3);
             return false;
         }
 
         k_msleep(5);
 
-    	_active = true;
-	}
-    
-    if (ppg.init() != 0) {   // hardware I2C mode, can pass in address & alt Wire
-		LOG_WRN("Could not find a valid PPG sensor, check wiring!");
-        _active = false;
-        pm_device_runtime_put(ls_1_8);
-        pm_device_runtime_put(ls_3_3);
-		return false;
+        _active = true;
     }
 
-	sensor_queue = queue;
-	
+    if (ppg.init() != 0) {   // hardware I2C mode, can pass in address & alt Wire
+        LOG_WRN("Could not find a valid PPG sensor, check wiring!");
+        _active = false;
+        gpio_pin_set_dt(&ppg_ldo_en, 0);
+        pm_device_runtime_put(ls_1_8);
+        pm_device_runtime_put(ls_3_3);
+        return false;
+    }
+
 	k_work_init(&sensor.sensor_work, update_sensor);
 	k_timer_init(&sensor.sensor_timer, sensor_timer_handler, NULL);
 
@@ -66,15 +73,19 @@ bool PPG::init(struct k_msgq * queue) {
 }
 
 void PPG::update_sensor(struct k_work *work) {
+    if (!sensor._running) return;
+    uint64_t t0 = micros();
     int int_status;
     int status;
 
-    uint64_t _time_stamp = micros();
-
-    PPG::sensor._sample_count += (_time_stamp - PPG::sensor._last_time_stamp) / PPG::sensor.t_sample_us;
-    PPG::sensor._last_time_stamp = _time_stamp;
+    PPG::sensor._sample_count += (t0 - PPG::sensor._last_time_stamp) / PPG::sensor.t_sample_us;
+    PPG::sensor._last_time_stamp = t0;
 
     if (PPG::sensor._sample_count < PPG::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
+        uint32_t elapsed = (uint32_t)(micros() - t0);
+        ppg_calls++;
+        ppg_total_us += elapsed;
+        if (elapsed > ppg_max_us) ppg_max_us = elapsed;
         return;
     }
     
@@ -104,7 +115,7 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.data.size = to_write * _size + sizeof(uint16_t);
 
             const uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)PPG::sensor.t_sample_us);
-            msg_ppg.data.time = _time_stamp - dt_us;
+            msg_ppg.data.time = t0 - dt_us;
 
             if (to_write > 1) {
                 uint16_t t_diff = PPG::sensor.t_sample_us;
@@ -116,14 +127,19 @@ void PPG::update_sensor(struct k_work *work) {
                 memcpy(&msg_ppg.data.data, &sensor.data_buffer[written], _size);
             }
 
-            int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
+            int ret = sensor_sink_put(&msg_ppg);
             if (ret) {
-                LOG_WRN("sensor msg queue full");
+                ppg_queue_full_count++;
             }
 
             written += to_write;
         }
     }
+
+    uint32_t elapsed = (uint32_t)(micros() - t0);
+    ppg_calls++;
+    ppg_total_us += elapsed;
+    if (elapsed > ppg_max_us) ppg_max_us = elapsed;
 }
 
 /**
@@ -138,14 +154,13 @@ void PPG::start(int sample_rate_idx) {
 
     t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
 
-    k_timeout_t t = K_USEC(t_sample_us);
-
     _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)), FIFO_SIZE / LED_NUM - 2);
-    
+
     ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
     ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * LED_NUM);
     ppg.start();
 
+    k_timeout_t t = K_USEC(t_sample_us * _num_samples_buffered);
     k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 
     _running = true;
@@ -159,9 +174,20 @@ void PPG::stop() {
 
     _running = false;
 
+    uint32_t avg = ppg_calls ? (uint32_t)(ppg_total_us / ppg_calls) : 0;
+    LOG_INF("ppg: calls=%u avg=%u us max=%u us total=%u ms queue_drops=%u",
+            ppg_calls, avg, ppg_max_us, (uint32_t)(ppg_total_us / 1000), ppg_queue_full_count);
+    ppg_calls = 0; ppg_total_us = 0; ppg_max_us = 0; ppg_queue_full_count = 0;
+
 	k_timer_stop(&sensor.sensor_timer);
+	k_work_cancel(&sensor.sensor_work);
 
     ppg.stop();
+
+    /* Drop the external LDO enable before cutting the load switches —
+     * the LDO stays powered by ls_3_3, so dropping ls_3_3 alone leaves the
+     * LDO in an undefined state. */
+    gpio_pin_set_dt(&ppg_ldo_en, 0);
 
     pm_device_runtime_put(ls_1_8);
     pm_device_runtime_put(ls_3_3);

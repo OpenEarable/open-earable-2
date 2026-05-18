@@ -17,14 +17,14 @@
 // ============= Microphones =============
 
 #define MICRO_CHANNEL_COUNT 2
-SensorComponent microComponenents[MICRO_CHANNEL_COUNT] = {
+SensorComponent microComponents[MICRO_CHANNEL_COUNT] = {
     { .name = "INNER", .unit = "ADC", .parseType = PARSE_TYPE_UINT16 },
-    { .name = "Outer", .unit = "ADC", .parseType = PARSE_TYPE_UINT16 },
+    { .name = "OUTER", .unit = "ADC", .parseType = PARSE_TYPE_UINT16 },
 };
 
 #define MICRO_GROUP_COUNT 1
 SensorComponentGroup microGroups[MICRO_GROUP_COUNT] = {
-    { .name = "MICROPHONE", .componentCount = MICRO_CHANNEL_COUNT, .components = microComponenents },
+    { .name = "MICROPHONE", .componentCount = MICRO_CHANNEL_COUNT, .components = microComponents },
 };
 
 // ============= IMU =============

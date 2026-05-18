@@ -6,7 +6,7 @@
 
 include: [sensor-device.yaml, i2c-device.yaml]
 
-compatible: "analog,adau1860"
+compatible: "adi,adau1860"
 
 properties:
   enable-gpios:

@@ -1,15 +1,17 @@
 #include "Baro.h"
 
 #include "SensorManager.h"
+#include "sensor_sink.h"
 
 #include <zephyr/kernel.h>
-#include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(BMP388);
 
 static struct sensor_msg msg_baro;
+static uint32_t baro_calls, baro_max_us;
+static uint64_t baro_total_us;
 
 Adafruit_BMP3XX Baro::bmp;
 
@@ -17,7 +19,6 @@ Baro Baro::sensor;
 
 static int baro_initial_discard = 1;
 
-// Initialisierung der SampleRateSettings für Baro (BMP3)
 const SampleRateSetting<18> Baro::sample_rates = {
     { BMP3_ODR_0_001_HZ, BMP3_ODR_0_003_HZ, BMP3_ODR_0_006_HZ, BMP3_ODR_0_01_HZ, 
       BMP3_ODR_0_02_HZ, BMP3_ODR_0_05_HZ, BMP3_ODR_0_1_HZ, BMP3_ODR_0_2_HZ, 
@@ -35,9 +36,15 @@ const SampleRateSetting<18> Baro::sample_rates = {
 };
 
 void Baro::update_sensor(struct k_work *work) {
+	if (!sensor._running) return;
+	uint64_t t0 = micros();
+
 	int ret;
 
-	bmp.performReading();
+	if (!bmp.performReading()) {
+		LOG_WRN("BMP388 read failed");
+		return;
+	}
 
 	if (baro_initial_discard > 0) {
 		baro_initial_discard--;
@@ -51,14 +58,16 @@ void Baro::update_sensor(struct k_work *work) {
 	msg_baro.data.size = 2 * sizeof(float);
 	msg_baro.data.time = micros();
 
-	float data[2] = {bmp.temperature, bmp.pressure};
+	float data[2] = {(float)bmp.temperature, (float)bmp.pressure};
 
 	memcpy(msg_baro.data.data, data, 2 * sizeof(float));
 
-	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
-	if (ret) {
-		LOG_WRN("sensor msg queue full");
-	}
+	sensor_sink_put(&msg_baro);
+
+	uint32_t elapsed = (uint32_t)(micros() - t0);
+	baro_calls++;
+	baro_total_us += elapsed;
+	if (elapsed > baro_max_us) baro_max_us = elapsed;
 }
 
 /**
@@ -69,7 +78,7 @@ void Baro::sensor_timer_handler(struct k_timer *dummy)
 	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 };
 
-bool Baro::init(struct k_msgq * queue) {
+bool Baro::init() {
 	if (!_active) {
 		pm_device_runtime_get(ls_1_8);
     	_active = true;
@@ -82,8 +91,6 @@ bool Baro::init(struct k_msgq * queue) {
 		return false;
     }
 
-	sensor_queue = queue;
-	
 	k_work_init(&sensor.sensor_work, update_sensor);
 	k_timer_init(&sensor.sensor_timer, sensor_timer_handler, NULL);
 
@@ -94,9 +101,6 @@ void Baro::start(int sample_rate_idx) {
 	baro_initial_discard = 1;
 
     k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
-    
-    //bmp.set_interrogation_rate(setting.reg_val);
-    //bmp.start();
 
 	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 
@@ -109,7 +113,17 @@ void Baro::stop() {
 
 	_running = false;
 
+	uint32_t avg = baro_calls ? (uint32_t)(baro_total_us / baro_calls) : 0;
+	LOG_INF("baro: calls=%u avg=%u us max=%u us total=%u ms",
+	        baro_calls, avg, baro_max_us, (uint32_t)(baro_total_us / 1000));
+	baro_calls = 0; baro_total_us = 0; baro_max_us = 0;
+
 	k_timer_stop(&sensor.sensor_timer);
+	k_work_cancel(&sensor.sensor_work);
+
+    /* Put BMP388 into sleep before cutting V_LS so the chip isn't mid-
+     * conversion when i2c3 drops. Suspect for the i2c3 dropout regression. */
+    if (!bmp.sleep()) LOG_WRN("BMP388 sleep failed");
 
     pm_device_runtime_put(ls_1_8);
 }
