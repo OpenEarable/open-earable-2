@@ -22,3 +22,5 @@ properties:
     default: 1000
     description: |
       Delay in microseconds before enabling the load switch.
+  "#power-domain-cells":
+    const: 0
