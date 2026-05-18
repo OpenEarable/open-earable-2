@@ -28,7 +28,7 @@ uint64_t oe_micros();
 
 #define load_switch_sd_id DT_NODELABEL(load_switch_sd)
 #define load_switch_1_8_id DT_NODELABEL(load_switch)
-#define load_switch_3_3_id DT_NODELABEL(bq25120a)
+#define load_switch_3_3_id DT_CHILD(DT_NODELABEL(bq25120a), load_switch)
 
 extern const struct device *const cons;
 extern const struct device *const ls_1_8;
@@ -85,7 +85,6 @@ enum sensor_id {
 	ID_TEMP_BARO=1,
 	ID_MICRO=2,
 	ID_PPG=4,
-	ID_PULSOX=5,
 	ID_OPTTEMP=6,
 	ID_BONE_CONDUCTION=7,
 };
@@ -136,13 +135,6 @@ struct battery_settings {
 
 struct sd_msg {
 	bool removed;
-};
-
-#include "audio_i2s.h"
-
-struct audio_rx_data {
-    char data[FRAME_SIZE_BYTES];
-    size_t size;
 };
 
 #endif

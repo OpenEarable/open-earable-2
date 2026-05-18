@@ -23,7 +23,11 @@
  #include "le_audio.h"
 
 #include "BootState.h"
- 
+#include "uicr.h"
+#include "channel_assignment.h"
+
+#include <stdio.h>
+
  #include <zephyr/logging/log.h>
  LOG_MODULE_REGISTER(unicast_server, CONFIG_UNICAST_SERVER_LOG_LEVEL);
  
@@ -706,9 +710,9 @@ static uint8_t device_identifier[] = {
 		memset(sirk_string, 0, sizeof(sirk_string));
 
 		if (sirk != 0xFFFFFFFF) {
-			snprintf(sirk_string, 16, "%08X", sirk); //"%016llX"
+			snprintf((char *)sirk_string, 16, "%08X", sirk);
 		} else {
-			snprintf(sirk_string, 16, "%08X", oe_boot_state.device_id); //"%016llX"
+			snprintf((char *)sirk_string, 16, "%08X", (uint32_t)oe_boot_state.device_id);
 		}
 
 		// LOG_INF("SIRK as String: %s", sirk_string);
