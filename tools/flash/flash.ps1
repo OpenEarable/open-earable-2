@@ -72,13 +72,13 @@ if ($Hw) {
 }
 
 # --- Fixed paths relative to CURRENT WORKING DIRECTORY (repo root) ---
-$netHex = Join-Path (Get-Location) 'build_fota\merged_CPUNET.hex'
-$appHex = Join-Path (Get-Location) 'build_fota\merged.hex'
+$netHex = Join-Path (Get-Location) 'build\merged_CPUNET.hex'
+$appHex = Join-Path (Get-Location) 'build\merged.hex'
 $uicrBackup = Join-Path (Get-Location) 'tools\flash\uicr_backup.hex'
 
 # --- Require application hex; CPUNET is optional ---
 if (-not (Test-Path $appHex)) {
-  Write-Error "Missing file: $appHex  (run from the repo root where build_fota\merged.hex exists)"
+  Write-Error "Missing file: $appHex  (run from the repo root where build\merged.hex exists)"
   exit 1
 }
 $haveNet = Test-Path $netHex

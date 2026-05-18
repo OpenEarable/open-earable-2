@@ -1,7 +1,4 @@
-# nRF5340 Audio DK board configuration
-
-# Copyright (c) 2019 Nordic Semiconductor ASA
-# SPDX-License-Identifier: Apache-2.0
+# OpenEarable v2 board configuration
 
 if BOARD_OPENEARABLE_V2_NRF5340_CPUAPP || BOARD_OPENEARABLE_V2_NRF5340_CPUAPP_NS
 

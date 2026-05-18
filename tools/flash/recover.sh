@@ -28,6 +28,8 @@ if ! [[ "$SNR" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
+CLOCK_SPEED=4000
+
 # Recover both network and application processors
-nrfjprog --recover -f NRF53 --coprocessor CP_NETWORK --snr $SNR --clockspeed 8000
-nrfjprog --recover -f NRF53 --coprocessor CP_APPLICATION --snr $SNR --clockspeed 8000
+nrfutil device recover --serial-number $SNR --family nrf53 --core network --swd-clock-frequency $CLOCK_SPEED
+nrfutil device recover --serial-number $SNR --family nrf53 --core application --swd-clock-frequency $CLOCK_SPEED

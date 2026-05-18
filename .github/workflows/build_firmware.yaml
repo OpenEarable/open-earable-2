@@ -93,8 +93,7 @@ jobs:
           # using VSCode + Nordic Plugins
           west build \
             --board openearable_v2/nrf5340/cpuapp \
-            --pristine=always open-earable-v2 \
-            -- -DFILE_SUFFIX="fota"
+            --pristine=always open-earable-v2
           # print detailed ccache statistics
           ccache -sv
 
