@@ -1447,7 +1447,7 @@ int audio_datapath_init(void)
 		pdm_mic_init();
 	}*/
 	ctrl_blk.datapath_initialized = true;
-	ctrl_blk.drift_comp.enabled = true;
+	ctrl_blk.drift_comp.enabled = false;
 	ctrl_blk.pres_comp.enabled = true;
 
 	_count = 0;
