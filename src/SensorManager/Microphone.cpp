@@ -32,12 +32,12 @@ extern struct data_fifo fifo_rx;
 
 Microphone Microphone::sensor;
 
-const SampleRateSetting<9> Microphone::sample_rates = {
-    { 24, 16, 12, 8, 6, 4, 3, 2, 1 },
+const SampleRateSetting<10> Microphone::sample_rates = {
+    { 24, 16, 12, 8, 6, 4, 3, 2, 1, 0 },
 
-	{ 2000, 3000, 4000, 6000, 8000, 12000, 16000, 24000, 48000 },
+	{ 2000, 3000, 4000, 6000, 8000, 12000, 16000, 24000, 48000, 0 },
 
-	{ 2000.0, 3000.0, 4000.0, 6000.0, 8000.0, 12000.0, 16000.0, 24000.0, 48000.0 }
+	{ 2000.0, 3000.0, 4000.0, 6000.0, 8000.0, 12000.0, 16000.0, 24000.0, 48000.0, 0.0 }
 };
 
 bool Microphone::init(struct k_msgq * queue) {
@@ -56,11 +56,15 @@ bool Microphone::init(struct k_msgq * queue) {
 void Microphone::start(int sample_rate_idx) {
 	//ARG_UNUSED(sample_rate_idx);
 
-	int ret;
-
 	if (!_active) return;
 
-	LOG_INF("Starting Microphone at %f Hz", sample_rates.sample_rates[sample_rate_idx]);
+	LOG_INF("Starting Microphone at %f Hz",
+		static_cast<double>(sample_rates.sample_rates[sample_rate_idx]));
+	if (sample_rates.sample_rates[sample_rate_idx] == 0.0f) {
+		_running = false;
+		return;
+	}
+
 	record_to_sd(_sd_logging);
 
 	audio_datapath_aquire(&fifo_rx);

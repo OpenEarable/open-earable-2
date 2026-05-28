@@ -67,6 +67,33 @@ int active_sensors = 0;
 
 static void config_work_handler(struct k_work *work);
 
+/**
+ * @brief Apply stopped bookkeeping for a configured sensor.
+ *
+ * A zero sample rate is an explicit no-sampling configuration. It should stop
+ * active sensor work and persistent outputs without starting the data path.
+ */
+static void apply_stopped_sensor_config(struct sensor_config config)
+{
+	if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
+		sd_sensors.erase(config.sensorId);
+
+		if (sd_sensors.empty()) {
+			sdlogger.end();
+			state_indicator.set_sd_state(SD_IDLE);
+		}
+	}
+
+	if (ble_sensors.find(config.sensorId) != ble_sensors.end()) {
+		ble_sensors.erase(config.sensorId);
+	}
+
+	config.storageOptions = 0;
+	set_sensor_config_status(config);
+
+	if (active_sensors == 0) stop_sensor_manager();
+}
+
 void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
 
@@ -186,7 +213,7 @@ static void config_work_handler(struct k_work *work) {
 	}
 
     float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
-	if (sampleRate <= 0) {
+	if (sampleRate < 0) {
 		LOG_ERR("Invalid sample rate %f for sensor %i", sampleRate, config.sensorId);
 		return;
 	}
@@ -206,6 +233,11 @@ static void config_work_handler(struct k_work *work) {
 			LOG_WRN("Active sensors is already 0");
 			active_sensors = 0;
 		}
+	}
+
+	if (sampleRate == 0) {
+		apply_stopped_sensor_config(config);
+		return;
 	}
 
 	sensor->sd_logging(config.storageOptions & DATA_STORAGE);
