@@ -132,7 +132,7 @@ struct k_work;
  *
  * The current power saving mode controls both which participants are considered
  * and which timeout is used before power_down() is called. POWER_SAVING_LEVEL_OFF
- * disables auto-off. 
+ * disables auto-off.
  *
  * Implementation notes:
  * - AutoOffManager is used as a process-wide singleton via auto_off_manager.

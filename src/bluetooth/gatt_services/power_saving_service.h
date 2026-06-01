@@ -1,8 +1,6 @@
 #ifndef _POWER_SAVING_SERVICE_H_
 #define _POWER_SAVING_SERVICE_H_
 
-#include <zephyr/bluetooth/conn.h>
-#include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/uuid.h>
 
 /** @brief Power saving service UUID. */
