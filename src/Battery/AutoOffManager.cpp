@@ -41,7 +41,7 @@ bool loaded_mode_is_valid = false;
 K_MUTEX_DEFINE(auto_off_mutex);
 K_WORK_DELAYABLE_DEFINE(auto_off_work, auto_off_work_handler);
 
-// RAII implementation for k_mutext instead of std::lock_guard<std::mutex>
+// RAII implementation for k_mutex instead of std::lock_guard<std::mutex>
 class AutoOffLock {
 public:
 	AutoOffLock()
@@ -114,6 +114,12 @@ bool AutoOffManager::participant_is_considered(const ParticipantEntry &participa
 		return false;
 	}
 
+	/*
+	 * The participant level is the most aggressive power saving mode where it may veto
+	 * auto-off. Example: a Balanced participant is considered in Minimal and
+	 * Balanced modes, but ignored in Aggressive mode. Aggressive power saving
+	 * considers fewer participant vetoes, so auto-offs are more likely.
+	 */
 	return participant.level >= current_mode;
 }
 

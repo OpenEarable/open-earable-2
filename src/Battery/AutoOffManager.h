@@ -12,6 +12,14 @@ extern "C" {
  *
  * Numeric values intentionally match the Kconfig settings:
  * 0=off, 1=minimal, 2=balanced, 3=aggressive.
+ *
+ * When used as the current mode, a higher numeric value means more aggressive
+ * power saving: the auto-off timeout is shorter and fewer participants are
+ * allowed to veto power-off, making auto-off more likely.
+ *
+ * When used as a participant level, a higher numeric value means larger veto
+ * power: that participant may still prohibit auto-off in higher, more
+ * aggressive power saving modes.
  */
 typedef enum power_saving_level {
 	POWER_SAVING_LEVEL_OFF = 0,
@@ -101,11 +109,18 @@ struct k_work;
  *
  * The manager uses a participant-based permission model. Firmware components
  * that may need to keep the device awake register themselves as auto-off
- * participants by providing a unique token and a power saving level. The level
- * defines the first power saving mode in which the participant is considered by
- * the auto-off decision. A participant registered for a higher level can still
- * prevent auto-off in more aggressive modes, but is ignored in less aggressive
- * modes.
+ * participants by providing a unique token and a power saving level.
+ *
+ * The current power saving mode controls how strict auto-off is. More
+ * aggressive modes have shorter timeouts and consider fewer participant vetoes,
+ * so auto-off is more likely to happen.
+ *
+ * A participant's level is its veto power: it defines the most aggressive power
+ * saving mode in which the participant is still considered by the auto-off
+ * decision. A participant registered for level 2 (balanced) can prevent
+ * auto-off in levels 1 and 2, but is ignored in level 3 (aggressive). A
+ * participant registered for level 3 has the largest veto power and may still
+ * block auto-off even in aggressive mode.
  *
  * Once registered, a participant calls prohibit() whenever it enters a critical
  * region where power-off would be unsafe or disruptive, for example while
@@ -139,10 +154,11 @@ public:
 	 * @brief Register an auto-off participant.
 	 *
 	 * @param participant_token Unique, stable token identifying the participant.
-	 * @param level First power saving mode where this participant participates.
-	 * Higher level means the participant can prevent an auto-off even at a more
-	 * aggressive power saving mode. POWER_SAVING_LEVEL_OFF is not a valid
-	 * participant level.
+	 * @param level Most aggressive power saving mode where this participant may
+	 * prohibit auto-off. Higher levels grant larger veto power because the
+	 * participant remains relevant in more aggressive modes. The participant is
+	 * considered when the current mode is less than or equal to this level.
+	 * POWER_SAVING_LEVEL_OFF is not a valid participant level.
 	 *
 	 * @return 0 on success, -EINVAL for invalid arguments, -EALREADY if the
 	 * token was already registered, or -ENOMEM if the registry is full.

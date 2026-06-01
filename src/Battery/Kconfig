@@ -5,21 +5,27 @@ config POWER_SAVING_DEFAULT_MODE
 	default 2
 	help
 	  Default mode for automatic power-off.
-	  Values: 0=off, 1=minimal, 2=balanced, 3=aggressive.
+	  Values: 0=off, 1=minimal, 2=balanced, 3=aggressive. Higher
+	  values are more aggressive: the timeout is shorter and fewer
+	  participants can prohibit auto-off.
 
 config POWER_SAVING_LEVEL_LEAUDIO
 	int "LE Audio auto-off power saving level"
 	default 3
 	help
-	  First power saving mode where LE Audio participates in auto-off.
-	  See POWER_SAVING_DEFAULT_MODE
+	  Most aggressive power saving mode where LE Audio may prohibit
+	  auto-off. A participant is considered when the current mode is
+	  less than or equal to its level.
+	  See POWER_SAVING_DEFAULT_MODE.
 
 config POWER_SAVING_LEVEL_SENSOR_MANAGER
 	int "SensorManager auto-off power saving level"
 	default 2
 	help
-	  First power saving mode where SensorManager participates in auto-off.
-	  See POWER_SAVING_DEFAULT_MODE
+	  Most aggressive power saving mode where SensorManager may prohibit
+	  auto-off. For example, level 2 applies in minimal and balanced
+	  modes, but not in aggressive mode.
+	  See POWER_SAVING_DEFAULT_MODE.
 
 config AUTO_OFF_TIMEOUT_AGGRESSIVE
 	int "Aggressive auto-off timeout in minutes"
