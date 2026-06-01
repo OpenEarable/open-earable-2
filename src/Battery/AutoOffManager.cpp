@@ -134,7 +134,6 @@ AutoOffManager::ParticipantEntry *AutoOffManager::find_participant(const char *p
 	return nullptr;
 }
 
-
 bool AutoOffManager::all_considered_participants_allow() const
 {
 	for (const auto &participant : participants) {

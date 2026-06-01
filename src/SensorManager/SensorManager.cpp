@@ -258,10 +258,7 @@ static void config_work_handler(struct k_work *work) {
 
 	set_sensor_config_status(config);
 
-	if (active_sensors == 0) {
-		auto_off_manager.allow(sensor_manager_auto_off_token);
-		stop_sensor_manager();
-	}
+	if (active_sensors == 0) stop_sensor_manager();
 }
 
 void config_sensor(struct sensor_config * config) {

@@ -8,7 +8,6 @@
 
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/sys/reboot.h>
-#include <errno.h>
 
 #include "unicast_server.h"
 #include "zbus_common.h"
@@ -663,7 +662,7 @@ int streamctrl_start() //streamctrl_start
 	ERR_CHK(ret);
 
 	ret = auto_off_init();
-	ERR_CHK_MSG(ret, "Failed to initialize auto-off manager");
+	ERR_CHK(ret);
 
 	ret = audio_system_init();
 	ERR_CHK(ret);
