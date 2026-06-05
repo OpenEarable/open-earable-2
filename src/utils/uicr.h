@@ -58,6 +58,11 @@ uint8_t uicr_standalone_get(void);
  */
 uint64_t uicr_snr_get(void);
 
+/**
+ * @brief Get hardware revision string from UICR
+ */
+void uicr_hw_revision_get(char *hw_version);
+
 #ifdef __cplusplus
 }
 #endif

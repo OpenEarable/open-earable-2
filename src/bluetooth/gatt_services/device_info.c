@@ -5,9 +5,10 @@
 #include <zephyr/bluetooth/gatt.h>
 
 #include "../../Battery/BootState.h"
+#include "../../utils/uicr.h"
 
 static char device_identifier[sizeof(uint64_t) * 2 + 3];
-static char device_generation[] = "2.0.0";
+char device_generation[16];
 static char firmware[] = FIRMWARE_VERSION;
 
 static ssize_t read_device_identifier(struct bt_conn *conn,
@@ -28,8 +29,10 @@ static ssize_t read_device_generation(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
+	uicr_hw_revision_get(device_generation);
+	
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, device_generation,
-					 sizeof(device_generation));
+					 strlen(device_generation));
 }
 
 static ssize_t read_firmware(struct bt_conn *conn,

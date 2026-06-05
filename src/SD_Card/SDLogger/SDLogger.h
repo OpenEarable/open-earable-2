@@ -40,7 +40,7 @@ private:
         int write_header(); //Write file header with version and timestamp
         int flush(); // Flush any buffered data to the SD card
         
-        static constexpr uint16_t SENSOR_LOG_VERSION = 0x0001;
+        static constexpr uint16_t SENSOR_LOG_VERSION = 0x0002;
 
         struct __attribute__((packed)) FileHeader {
             uint16_t version;

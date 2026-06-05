@@ -15,6 +15,8 @@ Adafruit_BMP3XX Baro::bmp;
 
 Baro Baro::sensor;
 
+static int baro_initial_discard = 1;
+
 // Initialisierung der SampleRateSettings für Baro (BMP3)
 const SampleRateSetting<18> Baro::sample_rates = {
     { BMP3_ODR_0_001_HZ, BMP3_ODR_0_003_HZ, BMP3_ODR_0_006_HZ, BMP3_ODR_0_01_HZ, 
@@ -36,6 +38,11 @@ void Baro::update_sensor(struct k_work *work) {
 	int ret;
 
 	bmp.performReading();
+
+	if (baro_initial_discard > 0) {
+		baro_initial_discard--;
+		return;
+	}
 
 	msg_baro.sd = sensor._sd_logging;
 	msg_baro.stream = sensor._ble_stream;
@@ -84,6 +91,8 @@ bool Baro::init(struct k_msgq * queue) {
 }
 
 void Baro::start(int sample_rate_idx) {
+	baro_initial_discard = 1;
+
     k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
     
     //bmp.set_interrogation_rate(setting.reg_val);

@@ -600,7 +600,6 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 		channel_assignment_get(&channel);
 
 		if (channel == AUDIO_CH_L) {
-
 			LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
 			LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
 			LOG_INF("New Sirk: %016X", new_sirk);
