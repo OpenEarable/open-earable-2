@@ -182,9 +182,10 @@ void DFRobot_BMX160::setGyroRange(eGyroRange_t bits){
             gyroRange = BMX160_GYRO_SENSITIVITY_2000DPS;
             break;
         default:
-            gyroRange = BMX160_GYRO_SENSITIVITY_250DPS;
+            gyroRange = BMX160_GYRO_SENSITIVITY_2000DPS;
             break;
     }
+    writeBmxReg(BMX160_GYRO_RANGE_ADDR, bits);
 }
 
 void DFRobot_BMX160::setAccelRange(eAccelRange_t bits){

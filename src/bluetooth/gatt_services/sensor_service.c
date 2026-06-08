@@ -10,6 +10,7 @@
 LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
 #define MAX_SENSOR_REC_NAME_LENGTH 64
+#define MAX_NOTIFIES_IN_FLIGHT 4
 
 static struct k_thread thread_data_notify;
 
@@ -24,18 +25,19 @@ static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_SENSOR_GATT_NOTIFY_STAC
 
 K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_data), CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE, 4);
 
-//static struct sensor_msg msg;
-static struct sensor_data sensor_data;
+static struct sensor_data sensor_data_value;
 static struct sensor_config config;
 
 static bool notify_enabled = false;
 static bool sensor_config_status_ntfy_enabled = false;
+static struct k_spinlock notify_state_lock;
 
 void set_sensor_recording_name(const char *name);
 static char sensor_recording_name[MAX_SENSOR_REC_NAME_LENGTH] = "sensor_log_";
 
 static struct sensor_config *active_sensor_configs;
 static size_t active_sensor_configs_size = 0;
+static void notify_complete(struct bt_conn *conn, void *user_data);
 
 static void connect_evt_handler(const struct zbus_channel *chan);
 ZBUS_LISTENER_DEFINE(bt_mgmt_evt_listen2, connect_evt_handler); //static
@@ -45,9 +47,110 @@ ZBUS_LISTENER_DEFINE(sensor_queue_listener, sensor_queue_listener_cb);
 
 static bool connection_complete = false;
 
-int notify_count = 0;
+/**
+ * @brief Tracks one in-flight GATT notification and its dedicated payload copy.
+ *
+ * @details The Bluetooth stack completes notifications asynchronously, so each
+ * pending notification needs stable storage until the completion callback runs.
+ */
+enum sensor_notify_context_state {
+	SENSOR_NOTIFY_CONTEXT_FREE = 0,
+	SENSOR_NOTIFY_CONTEXT_RESERVED,
+	SENSOR_NOTIFY_CONTEXT_IN_FLIGHT,
+};
 
-int MAX_NOTIFIES_IN_FLIGHT = 4;
+struct sensor_notify_context {
+	struct bt_gatt_notify_params params;
+	struct sensor_data payload;
+	enum sensor_notify_context_state state;
+	uint32_t generation;
+};
+
+static int notify_count = 0;
+static struct sensor_notify_context notify_contexts[MAX_NOTIFIES_IN_FLIGHT];
+
+/**
+ * @brief Disable new sensor notifications and drop queued payloads.
+ *
+ * @details Reserved or already queued notifications are left to retire through
+ * the normal send-failure or completion paths so that slot ownership remains
+ * well defined across disconnect races.
+ */
+static void reset_sensor_notification_state(void)
+{
+	k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
+
+	notify_enabled = false;
+	sensor_config_status_ntfy_enabled = false;
+	connection_complete = false;
+	k_spin_unlock(&notify_state_lock, key);
+
+	k_msgq_purge(&gatt_queue);
+}
+
+/**
+ * @brief Reserve a context for the next asynchronous notification.
+ *
+ * @param[in] data Payload to copy into the reserved notification context.
+ * @retval Pointer to a free notification context.
+ * @retval NULL No context is currently available.
+ */
+static struct sensor_notify_context *acquire_notify_context(const struct sensor_data *data,
+							    uint32_t *generation);
+
+/**
+ * @brief Mark a reserved context as queued in the Bluetooth stack.
+ *
+ * @param[in] context Context to update.
+ * @param[in] generation Reservation generation owned by the caller.
+ */
+static void mark_notify_context_in_flight(struct sensor_notify_context *context, uint32_t generation)
+{
+	k_spinlock_key_t key;
+
+	if (context == NULL) {
+		return;
+	}
+
+	key = k_spin_lock(&notify_state_lock);
+	if (context->generation == generation &&
+	    context->state == SENSOR_NOTIFY_CONTEXT_RESERVED) {
+		context->state = SENSOR_NOTIFY_CONTEXT_IN_FLIGHT;
+	}
+	k_spin_unlock(&notify_state_lock, key);
+}
+
+/**
+ * @brief Release a reserved or completed notification context.
+ *
+ * @param[in] context Context to release. May be NULL.
+ * @param[in] generation Reservation generation owned by the caller.
+ */
+static void release_notify_context(struct sensor_notify_context *context, uint32_t generation)
+{
+	k_spinlock_key_t key;
+
+	if (context == NULL) {
+		return;
+	}
+
+	key = k_spin_lock(&notify_state_lock);
+	if (context->generation != generation ||
+	    context->state == SENSOR_NOTIFY_CONTEXT_FREE) {
+		k_spin_unlock(&notify_state_lock, key);
+		return;
+	}
+
+	context->state = SENSOR_NOTIFY_CONTEXT_FREE;
+
+	if (notify_count > 0) {
+		notify_count--;
+	} else {
+		LOG_WRN("Notify count went below zero!");
+		notify_count = 0;
+	}
+	k_spin_unlock(&notify_state_lock, key);
+}
 
 static void connect_evt_handler(const struct zbus_channel *chan)
 {
@@ -57,13 +160,15 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 
 	switch (msg->event) {
 	case BT_MGMT_CONNECTED:
+	{
+		k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
 		connection_complete = true;
+		k_spin_unlock(&notify_state_lock, key);
 		break;
+	}
 
 	case BT_MGMT_DISCONNECTED:
-		connection_complete = false;
-		notify_enabled = false;
-		k_msgq_purge(&gatt_queue);
+		reset_sensor_notification_state();
 		break;
 	}
 }
@@ -71,7 +176,10 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
+	k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
+
 	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
+	k_spin_unlock(&notify_state_lock, key);
 
 	LOG_INF("Sensor data notifications %s", notify_enabled ? "enabled" : "disabled");
 
@@ -81,7 +189,9 @@ static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 static void sensor_config_status_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
+	k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
 	sensor_config_status_ntfy_enabled = (value == BT_GATT_CCC_NOTIFY);
+	k_spin_unlock(&notify_state_lock, key);
 }
 
 static ssize_t write_config(struct bt_conn *conn,
@@ -180,7 +290,7 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG,
 BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_DATA,
 			BT_GATT_CHRC_NOTIFY,
 			BT_GATT_PERM_NONE,
-			NULL, NULL, &sensor_data),
+			NULL, NULL, &sensor_data_value),
 BT_GATT_CCC(sensor_ccc_cfg_changed,
 		    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG_STATUS,
@@ -195,17 +305,57 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_RECORDING_NAME,
 			read_sensor_rec_name, write_sensor_rec_name, NULL),
 );
 
-static void notify_complete() {
-	notify_count--;
+static struct sensor_notify_context *acquire_notify_context(const struct sensor_data *data,
+							    uint32_t *generation)
+{
+	k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
 
-	if (notify_count < 0) {
-		notify_count = 0;
-		LOG_WRN("Notify count went below zero!");
+	if (!connection_complete || !notify_enabled || notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
+		k_spin_unlock(&notify_state_lock, key);
+		return NULL;
 	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(notify_contexts); i++) {
+		if (notify_contexts[i].state == SENSOR_NOTIFY_CONTEXT_FREE) {
+			notify_contexts[i].state = SENSOR_NOTIFY_CONTEXT_RESERVED;
+			notify_contexts[i].generation++;
+			notify_contexts[i].payload = *data;
+			notify_contexts[i].params.attr = &sensor_service.attrs[4];
+			notify_contexts[i].params.data = &notify_contexts[i].payload;
+			notify_contexts[i].params.func = notify_complete;
+			notify_contexts[i].params.user_data = &notify_contexts[i];
+			notify_count++;
+			*generation = notify_contexts[i].generation;
+			k_spin_unlock(&notify_state_lock, key);
+			return &notify_contexts[i];
+		}
+	}
+
+	k_spin_unlock(&notify_state_lock, key);
+	return NULL;
+}
+
+/**
+ * @brief Release notification resources after the Bluetooth stack completes a send.
+ */
+static void notify_complete(struct bt_conn *conn, void *user_data)
+{
+	struct sensor_notify_context *context = (struct sensor_notify_context *)user_data;
+	uint32_t generation;
+
+	ARG_UNUSED(conn);
+
+	if (context == NULL) {
+		return;
+	}
+
+	generation = context->generation;
+	release_notify_context(context, generation);
 }
 
 static void notification_task(void) {
 	int ret;
+	struct sensor_data sensor_data;
 
 	while (1) {
 		ret = k_msgq_get(&gatt_queue, &sensor_data, K_FOREVER);
@@ -215,26 +365,41 @@ static void notification_task(void) {
 			continue;
 		}
 
-		if (connection_complete && notify_enabled) {
-			const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) + sizeof(sensor_data.time) + sensor_data.size;
+		while (1) {
+			const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) +
+					       sizeof(sensor_data.time) + sensor_data.size;
+			struct sensor_notify_context *context;
+			uint32_t generation;
 
-			static struct bt_gatt_notify_params params;
-			params.attr = &sensor_service.attrs[4];
-			params.data = &sensor_data;
-			params.len = size;
-			params.func = notify_complete;
-			params.user_data = NULL;
+			context = acquire_notify_context(&sensor_data, &generation);
+			if (context == NULL) {
+				k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
+				bool can_retry = connection_complete && notify_enabled;
+				bool saturated = notify_count >= MAX_NOTIFIES_IN_FLIGHT;
+				k_spin_unlock(&notify_state_lock, key);
 
-			while(notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
-				k_yield(); // maybe replace with k_sleep?
+				if (!can_retry) {
+					break;
+				}
+
+				if (saturated) {
+					k_sleep(K_MSEC(1));
+					continue;
+				}
+
+				LOG_WRN("No free GATT notify context available");
+				break;
 			}
 
-			notify_count++;
-
-			ret = bt_gatt_notify_cb(NULL, &params);
+			context->params.len = size;
+			ret = bt_gatt_notify_cb(NULL, &context->params);
 			if (ret != 0) {
 				LOG_WRN("Failed to send data: %d.\n", ret);
+				release_notify_context(context, generation);
+			} else {
+				mark_notify_context_in_flight(context, generation);
 			}
+			break;
 		}
 	}
 }

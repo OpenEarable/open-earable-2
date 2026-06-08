@@ -5,8 +5,12 @@
 #include "../SensorManager/SensorManager.h"
 #include "macros_common.h"
 #include "SDLogger.h"
+#include "BootState.h"
 #include "PowerManager.h"
+#include "SensorScheme.h"
+#include "channel_assignment.h"
 #include <errno.h>
+#include <stdint.h>
 #include "audio_datapath.h"
 
 #include "StateIndicator.h"
@@ -47,6 +51,28 @@ uint32_t count_max_buffer_fill = 0;
 struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt =
 		 K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &logger_sig);
+
+namespace {
+
+constexpr uint8_t OE_HEADER_SIDE_LEFT = 0x00;
+constexpr uint8_t OE_HEADER_SIDE_RIGHT = 0x01;
+constexpr uint8_t OE_HEADER_SIDE_UNKNOWN = 0xFF;
+
+uint8_t get_header_side() {
+    enum audio_channel channel;
+    channel_assignment_get(&channel);
+
+    if (channel == AUDIO_CH_L) {
+        return OE_HEADER_SIDE_LEFT;
+    }
+    if (channel == AUDIO_CH_R) {
+        return OE_HEADER_SIDE_RIGHT;
+    }
+
+    return OE_HEADER_SIDE_UNKNOWN;
+}
+
+} // namespace
 
 SDLogger::SDLogger() {
     sd_card = &sdcard_manager;
@@ -89,6 +115,10 @@ void sd_listener_callback(const struct zbus_channel *chan)
     }
 }
 
+inline void reset_logger_signal() {
+    k_poll_signal_reset(&logger_sig);
+    logger_evt.state = K_POLL_STATE_NOT_READY;
+}
 
 void SDLogger::sensor_sd_task() {
     int ret;
@@ -112,7 +142,7 @@ void SDLogger::sensor_sd_task() {
 
         // If a close/flush is in progress, do not write concurrently.
         if (atomic_get(&g_stop_writing)) {
-            k_poll_signal_reset(&logger_sig);
+            reset_logger_signal();
             continue;
         }
 
@@ -122,7 +152,7 @@ void SDLogger::sensor_sd_task() {
             ring_buf_reset(&ring_buffer);
             k_mutex_unlock(&ring_mutex);
             sdlogger.is_open = false;
-            k_poll_signal_reset(&logger_sig);
+            reset_logger_signal();
             continue;
         }
 
@@ -143,12 +173,12 @@ void SDLogger::sensor_sd_task() {
 
             // Claim up to one SD block from the ring buffer under lock.
             k_mutex_lock(&ring_mutex, K_FOREVER);
-            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, SD_BLOCK_SIZE);
+            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill - (fill % SD_BLOCK_SIZE));
             k_mutex_unlock(&ring_mutex);
 
             if (claimed == 0 || data == nullptr) {
                 // Nothing to write right now.
-                k_poll_signal_reset(&logger_sig);
+                reset_logger_signal();
                 continue;
             }
 
@@ -165,7 +195,7 @@ void SDLogger::sensor_sd_task() {
 
                 // Do not advance the ring buffer on error.
                 // Wakeups will continue; user can call end().
-                k_poll_signal_reset(&logger_sig);
+                reset_logger_signal();
                 continue;
             }
 
@@ -177,7 +207,7 @@ void SDLogger::sensor_sd_task() {
             k_yield();
         }
 
-        k_poll_signal_reset(&logger_sig);
+        reset_logger_signal();
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
@@ -275,6 +305,11 @@ int SDLogger::begin(const std::string& filename) {
     if (ret < 0) {
         state_indicator.set_sd_state(SD_FAULT);
         LOG_ERR("Failed to write header: %d", ret);
+        k_mutex_lock(&file_mutex, K_FOREVER);
+        sd_card->close_file();
+        k_mutex_unlock(&file_mutex);
+        current_file.clear();
+        is_open = false;
         return ret;
     }
 
@@ -284,17 +319,60 @@ int SDLogger::begin(const std::string& filename) {
 }
 
 int SDLogger::write_header() {
-    size_t header_size = sizeof(FileHeader);
-    uint8_t header_buffer[header_size];
+    const size_t parse_info_size = getParseInfoStorageSize();
+    if (parse_info_size == 0) {
+        LOG_ERR("Parse info scheme is unavailable");
+        return -ENODATA;
+    }
+
+    const size_t header_size = sizeof(FileHeader) + parse_info_size;
+    if ((header_size > UINT32_MAX) || (parse_info_size > UINT32_MAX)) {
+        LOG_ERR("Parse info header too large: header=%zu parse_info=%zu", header_size, parse_info_size);
+        return -EOVERFLOW;
+    }
+
+    uint8_t* header_buffer = static_cast<uint8_t*>(k_malloc(header_size));
+    if (header_buffer == nullptr) {
+        LOG_ERR("Failed to allocate %zu bytes for OE header", header_size);
+        return -ENOMEM;
+    }
+
     FileHeader* header = reinterpret_cast<FileHeader*>(header_buffer);
 
     header->version = SENSOR_LOG_VERSION;
     header->timestamp = micros();
+    header->header_size = header_size;
+    header->parse_info_size = parse_info_size;
+    header->device_id = oe_boot_state.device_id;
+    header->side = get_header_side();
+
+    ssize_t serialized_size = serializeParseInfoStorage(
+        reinterpret_cast<char*>(header_buffer + sizeof(FileHeader)),
+        parse_info_size
+    );
+    if (serialized_size < 0) {
+        k_free(header_buffer);
+        LOG_ERR("Failed to serialize parse info storage: %d", (int)serialized_size);
+        return (int)serialized_size;
+    }
+    if ((size_t)serialized_size != parse_info_size) {
+        k_free(header_buffer);
+        LOG_ERR("Parse info size mismatch: %d != %zu", (int)serialized_size, parse_info_size);
+        return -EIO;
+    }
 
     int ret;
+    size_t bytes_to_write = header_size;
     k_mutex_lock(&file_mutex, K_FOREVER);
-    ret = sd_card->write((char *)header_buffer, &header_size, false);
+    ret = sd_card->write(reinterpret_cast<char*>(header_buffer), &bytes_to_write, false);
     k_mutex_unlock(&file_mutex);
+    k_free(header_buffer);
+
+    if ((ret >= 0) && ((size_t)ret != header_size)) {
+        LOG_ERR("Incomplete header write: %d != %zu", ret, header_size);
+        return -EIO;
+    }
+
     return ret;
 }
 
@@ -354,7 +432,9 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
 
     k_mutex_unlock(&ring_mutex);
 
-    k_poll_signal_raise(&logger_sig, 0);
+    if (ring_buf_size_get(&ring_buffer) >= SD_BLOCK_SIZE) {
+        k_poll_signal_raise(&logger_sig, 0);
+    }
     return 0;
 }
 
@@ -422,7 +502,6 @@ int SDLogger::end() {
     }
 
     if (!sd_card->is_mounted()) {
-        //k_poll_signal_reset(&logger_sig);
         is_open = false;
         return -ENODEV;
     }
@@ -445,13 +524,13 @@ int SDLogger::end() {
     ret = sd_card->close_file();
     k_mutex_unlock(&file_mutex);
     if (ret < 0) {
-        k_poll_signal_reset(&logger_sig);
+        reset_logger_signal();
         return ret;
     }
 
     is_open = false;
 
-    k_poll_signal_reset(&logger_sig);
+    reset_logger_signal();
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
 
