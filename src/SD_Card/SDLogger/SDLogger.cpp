@@ -93,7 +93,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 
 	if (msg->sd) {
         int ret = sdlogger.write_sensor_data(msg->data);
-        if (ret < 0) {
+        if (ret < 0 && ret != -ENODEV) {
             LOG_WRN("Failed to enqueue sensor data for SD: %d", ret);
         }
 	}
