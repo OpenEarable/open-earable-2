@@ -32,8 +32,6 @@
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
 
-#include "time_sync.h"
-
 #include "../src/SD_Card/SDLogger/SDLogger.h"
 
 #include "uicr.h"
@@ -41,9 +39,6 @@
 #include "streamctrl.h"
 
 #include "bt_mgmt.h"
-
-#include "bt_mgmt_conn_interval.h"
-#include "conn_interval/conn_intvl_linear.h"
 
 //#include "sd_card.h"
 
@@ -55,6 +50,8 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 /* STEP 5.4 - Include header for USB */
 #include <zephyr/usb/usb_device.h>
 
+/*custom logging*/
+#include "../src/ModdedLogger/ModdedLogger.h"
 
 int main(void) {
 	int ret;
@@ -63,9 +60,13 @@ int main(void) {
 
 	ret = power_manager.begin();
 	ERR_CHK(ret);
-
 	uint8_t standalone = uicr_standalone_get();
 
+	//Logging to flash
+	ModdedLogger logger;
+	logger.log_flash_inf("Logging to flash with ModdedLogger");
+
+	//LOG_INF("flash from dk");
 	LOG_INF("Standalone mode: %i", standalone);
 
 	/*sdcard_manager.init();
@@ -108,15 +109,6 @@ int main(void) {
 	ERR_CHK(ret);
 
 	ret = init_sensor_service();
-	ERR_CHK(ret);
-
-	bt_mgmt_conn_interval_init(new ConnIntvlLinear(
-	    4,                // linear increase step (8ms units)
-	    CONFIG_BLE_ACL_CONN_INTERVAL,
-	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
-	));
-
-	ret = init_time_sync();
 	ERR_CHK(ret);
 
 	// error test
