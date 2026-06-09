@@ -5,6 +5,7 @@
 #include "math.h"
 #include "stdlib.h"
 
+#include <device_error_service.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(MLX90632);
 
@@ -55,7 +56,8 @@ void Temp::update_sensor(struct k_work *work) {
     float temperature = temp.getObjectTemp(returnError);
 
     if (returnError != MLX90632::SENSOR_SUCCESS) {
-        LOG_WRN("Error reading temperature");
+        device_error_log_wrn(DEVICE_ERROR_CODE_SENSOR_READ_FAILED, ID_OPTTEMP,
+                             "Optical temperature read failed");
         return;
     }
 
@@ -70,7 +72,8 @@ void Temp::update_sensor(struct k_work *work) {
 
     int ret = k_msgq_put(sensor_queue, &msg_temp, K_NO_WAIT);
     if (ret) {
-        LOG_WRN("sensor msg queue full");
+        device_error_log_wrn(DEVICE_ERROR_CODE_SENSOR_QUEUE_FULL, ID_OPTTEMP,
+                             "Optical temperature queue full");
     }
 }
 

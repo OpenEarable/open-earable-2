@@ -26,6 +26,7 @@
 #include "device_info.h"
 #include "battery_service.h"
 #include "button_service.h"
+#include "device_error_service.h"
 #include "sensor_service.h"
 #include "led_service.h"
 
@@ -112,6 +113,9 @@ int main(void) {
 	ERR_CHK(ret);
 
 	ret = init_button_service();
+	ERR_CHK(ret);
+
+	ret = init_device_error_service();
 	ERR_CHK(ret);
 
 	ret = initParseInfoService(&defaultSensorIds, defaultSensors);

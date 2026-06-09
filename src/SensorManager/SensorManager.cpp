@@ -22,6 +22,7 @@
 #include <string>
 #include <set>
 
+#include <device_error_service.h>
 #include <sensor_service.h>
 
 #include <zephyr/logging/log.h>
@@ -120,7 +121,6 @@ void start_sensor_manager() {
 	k_poll_signal_raise(&sensor_manager_sig, 0);
 
 	_state = RUNNING;
-	send_sensor_error(0x01,9,"Error streaming is initialized");
 }
 
 void stop_sensor_manager() {
@@ -181,14 +181,16 @@ static void config_work_handler(struct k_work *work) {
 
     float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
-		LOG_ERR("Invalid sample rate %f for sensor %i", sampleRate, config.sensorId);
+		device_error_log_err(DEVICE_ERROR_CODE_SENSOR_INVALID_SAMPLE_RATE, config.sensorId,
+				     "Invalid sample rate for sensor %i", config.sensorId);
 		return;
 	}
 
 	EdgeMlSensor * sensor = get_sensor((enum sensor_id) config.sensorId);
 
 	if (sensor == NULL) {
-		LOG_ERR("Sensor not found for ID %i", config.sensorId);
+		device_error_log_err(DEVICE_ERROR_CODE_SENSOR_NOT_FOUND, DEVICE_ERROR_SOURCE_SYSTEM,
+				     "Sensor not found for ID %i", config.sensorId);
 		return;
 	}
 
@@ -212,6 +214,9 @@ static void config_work_handler(struct k_work *work) {
 			if (sensor->is_running()) {
 				active_sensors++;
 			}
+		} else {
+			device_error_log_err(DEVICE_ERROR_CODE_SENSOR_INIT_FAILED, config.sensorId,
+					     "Sensor init failed for ID %i", config.sensorId);
 		}
 	}
 
@@ -250,7 +255,8 @@ static void config_work_handler(struct k_work *work) {
 void config_sensor(struct sensor_config * config) {
 	int ret = k_msgq_put(&config_queue, config, K_NO_WAIT);
 	if (ret) {
-		LOG_ERR("Failed to put config in queue, ret: %d", ret);
+		device_error_log_err(DEVICE_ERROR_CODE_SENSOR_CONFIG_QUEUE_FULL, config->sensorId,
+				     "Failed to queue sensor config: %d", ret);
 		return;
 	}
 

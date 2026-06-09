@@ -5,6 +5,7 @@
 #include "math.h"
 #include "stdlib.h"
 
+#include <device_error_service.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(MAXM86161);
 
@@ -81,7 +82,8 @@ void PPG::update_sensor(struct k_work *work) {
     status = ppg.read_interrupt_state(int_status);
     
     if (status != 0) {
-        LOG_ERR("PPG read interrupt state failed: %d", status);
+        device_error_log_err(DEVICE_ERROR_CODE_SENSOR_READ_FAILED, ID_PPG,
+                             "PPG interrupt read failed: %d", status);
         return;
     }
     
@@ -118,7 +120,8 @@ void PPG::update_sensor(struct k_work *work) {
 
             int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
             if (ret) {
-                LOG_WRN("sensor msg queue full");
+                device_error_log_wrn(DEVICE_ERROR_CODE_SENSOR_QUEUE_FULL, ID_PPG,
+                                     "PPG sensor queue full");
             }
 
             written += to_write;

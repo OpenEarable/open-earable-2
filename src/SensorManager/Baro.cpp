@@ -5,6 +5,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/device.h>
+#include <device_error_service.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(BMP388);
@@ -57,7 +58,8 @@ void Baro::update_sensor(struct k_work *work) {
 
 	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
 	if (ret) {
-		LOG_WRN("sensor msg queue full");
+		device_error_log_wrn(DEVICE_ERROR_CODE_SENSOR_QUEUE_FULL, ID_TEMP_BARO,
+				     "Barometer sensor queue full");
 	}
 }
 

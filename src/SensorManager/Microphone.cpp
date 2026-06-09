@@ -12,6 +12,7 @@
 #include "ADAU1860.h"
 
 //#include <data_fifo.h>
+#include <device_error_service.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,7 +64,13 @@ void Microphone::start(int sample_rate_idx) {
 
 	record_to_sd(true);
 
-	audio_datapath_aquire(&fifo_rx);
+	ret = audio_datapath_aquire(&fifo_rx);
+	if (ret) {
+		record_to_sd(false);
+		device_error_log_err(DEVICE_ERROR_CODE_SENSOR_INIT_FAILED, ID_MICRO,
+				     "Microphone datapath start failed: %d", ret);
+		return;
+	}
 
 	_running = true;
 }

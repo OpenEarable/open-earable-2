@@ -48,6 +48,7 @@ See the subpages for detailed documentation of each of the nRF5340 applications 
    doc/user_interface
    doc/configuration
    doc/building
+   doc/ble_device_errors
    broadcast_sink/README
    broadcast_source/README
    unicast_client/README

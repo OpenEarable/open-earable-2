@@ -1,4 +1,4 @@
-#include "sensor_service.h"
+#include <device_error_service.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/atomic.h>
@@ -68,7 +68,8 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 	if (msg->sd) {
         int ret = sdlogger.write_sensor_data(msg->data);
         if (ret < 0) {
-            LOG_WRN("Failed to enqueue sensor data for SD: %d", ret);
+            device_error_log_wrn(DEVICE_ERROR_CODE_SD_BUFFER_FULL, msg->data.id,
+                                 "Failed to enqueue SD data: %d", ret);
         }
 	}
 }
@@ -82,7 +83,8 @@ void sd_listener_callback(const struct zbus_channel *chan)
         // Signal SD thread to stop writing immediately.
         atomic_set(&g_sd_removed, 1);
         state_indicator.set_sd_state(SD_FAULT);
-        LOG_ERR("SD card removed mid recording. Stop recording.");
+        device_error_log_err(DEVICE_ERROR_CODE_SD_REMOVED, DEVICE_ERROR_SOURCE_SYSTEM,
+                             "SD card removed mid recording");
 
         // Wake the SD thread so it can react quickly.
         k_poll_signal_raise(&logger_sig, 0);
@@ -128,7 +130,8 @@ void SDLogger::sensor_sd_task() {
 
         if (!sdcard_manager.is_mounted()) {
             state_indicator.set_sd_state(SD_FAULT);
-            LOG_ERR("SD Card not mounted!");
+            device_error_log_err(DEVICE_ERROR_CODE_SD_NOT_MOUNTED, DEVICE_ERROR_SOURCE_SYSTEM,
+                                 "SD card not mounted");
             return;
         }
 
@@ -161,7 +164,8 @@ void SDLogger::sensor_sd_task() {
 
             if (written < 0) {
                 state_indicator.set_sd_state(SD_FAULT);
-                LOG_ERR("SD write failed: %d", written);
+                device_error_log_err(DEVICE_ERROR_CODE_SD_WRITE_FAILED, DEVICE_ERROR_SOURCE_SYSTEM,
+                                     "SD write failed: %d", written);
 
                 // Do not advance the ring buffer on error.
                 // Wakeups will continue; user can call end().
@@ -243,7 +247,8 @@ int SDLogger::begin(const std::string& filename) {
         ret = sd_card->mount();
         if (ret < 0) {
             state_indicator.set_sd_state(SD_FAULT);
-            LOG_ERR("Failed to mount sd card: %d", ret);
+            device_error_log_err(DEVICE_ERROR_CODE_SD_MOUNT_FAILED, DEVICE_ERROR_SOURCE_SYSTEM,
+                                 "SD mount failed: %d", ret);
             return ret;
         }
     }
@@ -256,7 +261,8 @@ int SDLogger::begin(const std::string& filename) {
     k_mutex_unlock(&file_mutex);
     if (ret < 0) {
         state_indicator.set_sd_state(SD_FAULT);
-        LOG_ERR("Failed to open file: %d", ret);
+        device_error_log_err(DEVICE_ERROR_CODE_SD_OPEN_FAILED, DEVICE_ERROR_SOURCE_SYSTEM,
+                             "SD file open failed: %d", ret);
         return ret;
     }
 
@@ -274,7 +280,8 @@ int SDLogger::begin(const std::string& filename) {
     ret = write_header();
     if (ret < 0) {
         state_indicator.set_sd_state(SD_FAULT);
-        LOG_ERR("Failed to write header: %d", ret);
+        device_error_log_err(DEVICE_ERROR_CODE_SD_HEADER_WRITE_FAILED, DEVICE_ERROR_SOURCE_SYSTEM,
+                             "SD header write failed: %d", ret);
         return ret;
     }
 
@@ -329,8 +336,8 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
     // in SD_BLOCK_SIZE chunks to keep SD writer alignment and minimize partial writes.
     uint32_t space = ring_buf_space_get(&ring_buffer);
     if (space < total_length) {
-        LOG_ERR("Ring buffer low on space: have %u, need %zu. Skipping data",
-            space, total_length);
+        device_error_log_wrn(DEVICE_ERROR_CODE_SD_BUFFER_FULL, DEVICE_ERROR_SOURCE_SYSTEM,
+                             "SD buffer full: have %u need %zu", space, total_length);
         k_mutex_unlock(&ring_mutex);
         return -ENOSPC;
     }
@@ -396,7 +403,8 @@ int SDLogger::flush() {
 
         if (written < 0) {
             state_indicator.set_sd_state(SD_FAULT);
-            LOG_ERR("Failed to flush SD buffer: %d", written);
+            device_error_log_err(DEVICE_ERROR_CODE_SD_FLUSH_FAILED, DEVICE_ERROR_SOURCE_SYSTEM,
+                                 "SD flush failed: %d", written);
             break;
         }
 
@@ -433,7 +441,8 @@ int SDLogger::end() {
 
     ret = flush();
     if (ret < 0) {
-        LOG_ERR("Failed to flush file buffer.");
+        device_error_log_err(DEVICE_ERROR_CODE_SD_FLUSH_FAILED, DEVICE_ERROR_SOURCE_SYSTEM,
+                             "Failed to flush SD file buffer");
         return ret;
     }
 
@@ -445,6 +454,8 @@ int SDLogger::end() {
     ret = sd_card->close_file();
     k_mutex_unlock(&file_mutex);
     if (ret < 0) {
+        device_error_log_err(DEVICE_ERROR_CODE_SD_CLOSE_FAILED, DEVICE_ERROR_SOURCE_SYSTEM,
+                             "SD file close failed: %d", ret);
         k_poll_signal_reset(&logger_sig);
         return ret;
     }
