@@ -56,6 +56,7 @@ zephyr_library_include_directories(
     src/SD_Card/Benchmark
     src/SD_Card/SD_Card_Manager
     src/time_sync
+    ../protocol/generated/c/include
 )
 
 zephyr_library_include_directories(app PRIVATE
@@ -76,6 +77,10 @@ add_subdirectory(src/SD_Card/SDLogger)
 add_subdirectory(src/SD_Card/Benchmark)
 add_subdirectory(src/SD_Card/SD_Card_Manager)
 add_subdirectory(src/time_sync)
+add_subdirectory(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../external/protocol/generated/c
+    ${CMAKE_CURRENT_BINARY_DIR}/protocol_generated_c
+)
 
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
@@ -88,3 +93,5 @@ endif()
 
 include(version.cmake)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
+
+target_link_libraries(app PRIVATE open_earable_protocols)
