@@ -7,3 +7,9 @@ manifest:
       url: https://github.com/nrfconnect/sdk-nrf.git
       revision: v3.0.1
       import: true
+
+    - name: openearable-protocol
+      url: https://github.com/OpenEarable/protocol.git
+      revision: main
+      path: external/protocol
+      # import: true
