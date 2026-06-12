@@ -72,6 +72,45 @@ static ssize_t read_audio_channel(struct bt_conn *conn, const struct bt_gatt_att
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &channel_u8, sizeof(channel));
 }
 
+static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                             const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+    // Mic gain is 2 bytes: [left_reg, right_reg].
+    // Per ADAU186x DMIC_VOL register (0x4000C045):
+    //   0x00      = +24 dB
+    //   0x01-0x3F = +23.625 to +0.375 dB (0.375 dB steps)
+    //   0x40      = 0 dB
+    //   0x41-0xFD = -0.375 to -70.875 dB (0.375 dB steps)
+    //   0xFE      = -71.25 dB
+    //   0xFF      = Mute
+    if (len != 2) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    uint8_t gain_left = ((uint8_t*)buf)[0];
+    uint8_t gain_right = ((uint8_t*)buf)[1];
+
+    int ret = hw_codec_mic_gain_set(gain_left, gain_right);
+    if (ret) {
+        LOG_ERR("Failed to set mic gain: %d", ret);
+        return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+    }
+
+    LOG_INF("DMIC gain via BLE: L=0x%02x R=0x%02x", gain_left, gain_right);
+    return len;
+}
+
+static ssize_t read_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                            void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t gains[2] = {
+        hw_codec_mic_gain_get_left(),
+        hw_codec_mic_gain_get_right()
+    };
+
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, gains, sizeof(gains));
+}
+
 BT_GATT_SERVICE_DEFINE(audio_config_svc,
     BT_GATT_PRIMARY_SERVICE(BT_UUID_AUDIO_CONFIG_SERVICE),
     BT_GATT_CHARACTERISTIC(BT_UUID_AUDIO_MODE,
@@ -86,6 +125,10 @@ BT_GATT_SERVICE_DEFINE(audio_config_svc,
                        BT_GATT_CHRC_READ,
                        BT_GATT_PERM_READ,
                        read_audio_channel, NULL, NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_DMIC_GAIN,
+                       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
+                       BT_GATT_PERM_WRITE | BT_GATT_PERM_READ,
+                       read_dmic_gain, write_dmic_gain, NULL),
 );
 
 int init_audio_config_service(void)
