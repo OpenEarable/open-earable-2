@@ -320,8 +320,8 @@ int hw_codec_stop_audio(void)
 int hw_codec_mic_gain_set(uint8_t gain_left_reg, uint8_t gain_right_reg)
 {
 	/* Write DMIC gain for channels 0 and 1 */
-	dac.mic_gain_write(0, gain_left_reg);
-	dac.mic_gain_write(1, gain_right_reg);
+	dac.mic_gain_write(0, gain_right_reg);
+	dac.mic_gain_write(1, gain_left_reg);
 	LOG_INF("DMIC gain set: L=0x%02x, R=0x%02x", gain_left_reg, gain_right_reg);
 	return 0;
 }
