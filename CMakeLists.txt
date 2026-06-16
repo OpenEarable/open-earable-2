@@ -78,6 +78,8 @@ add_subdirectory(src/SD_Card/SD_Card_Manager)
 add_subdirectory(src/time_sync)
 add_subdirectory(protocol/generated/c)
 
+target_link_libraries(open_earable_protocols PRIVATE zephyr_interface)
+
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
     if (ZEPHYR_CIRRUS_LOGIC_MODULE_DIR)
