@@ -9,6 +9,7 @@
 #include <zephyr/fatal.h>
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/drivers/gpio.h>
+#include <hal/nrf_gpio.h>
 
 /* Print everything from the error handler */
 #include <zephyr/logging/log.h>
@@ -38,19 +39,34 @@ void error_handler(unsigned int reason, const struct arch_esf *esf)
 #endif /* defined(CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP) */
 #if CONFIG_BOARD_OPENEARABLE_V2_NRF5340_CPUAPP
 	irq_lock();
-	const struct gpio_dt_spec button_pin = GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios);
 	const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(led_error), gpios, {0});
 
-	// turn on error led
-	gpio_pin_set_dt(&error_led, 1);
+	// Blink error LED to alert user of the crash
+	for (int i = 0; i < 250; i++) {
+		gpio_pin_set_dt(&error_led, 1);
+		k_busy_wait(100000);
+		gpio_pin_set_dt(&error_led, 0);
+		k_busy_wait(300000);
+	}
 
-	// wait for turning of power switch
+    // Bit-bang peripheral load switches to LOW to prevent power drain during System OFF.
+    // This is safe to call from fault handlers (irq_lock held) unlike zephyr PM APIs.
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(1, 11)); // ls_1_8
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 14)); // ls_3_3
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(1, 12)); // ls_sd
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 6));  // ppg_ldo
+    
+    // Drive PMIC CD (Chip Disable) LOW to enter high-impedance mode
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 17)); // pmic_cd
+
+    // Force network core off so that the main core can enter System OFF
+    NRF_RESET->NETWORK.FORCEOFF = 1;
+
+    sys_poweroff();
+
+	// Fallback in case sys_poweroff() returns
 	while (1) {
-		int button_press = gpio_pin_get_dt(&button_pin);
-		if (button_press == 1) sys_reboot(SYS_REBOOT_COLD);
-
-		k_busy_wait(10000);
-		//__asm__ volatile("nop");
+		k_busy_wait(1000000);
 	}
 #endif
 #else

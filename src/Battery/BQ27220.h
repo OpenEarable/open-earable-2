@@ -5,7 +5,6 @@
 #include <zephyr/drivers/gpio.h>
 
 #include <math.h>
-//#include <Wire.h>
 #include <TWIM.h>
 
 #include "openearable_common.h"
@@ -85,32 +84,32 @@ public:
         SEAL = 0x0030,
     };
 
+    // Standard commands per BQ27220 TRM (SLUUBD4A) Table 2-1
     enum registers : uint8_t {
         CTRL = 0x00,
         TEMP = 0x06,
-        INT_TEMP = 0x28,
         VOLT = 0x08,
-        AI = 0x14,
         FLAGS = 0x0A,
+        CURR = 0x0C,         // Current() — instantaneous current, mA signed
+        RM = 0x10,           // RemainingCapacity(), mAh
+        FCC = 0x12,          // FullChargeCapacity(), mAh
+        AI = 0x14,           // AverageCurrent(), mA signed
         TTE = 0x16,
         TTF = 0x18,
+        SI = 0x1A,           // StandbyCurrent(), mA signed
         TTES = 0x1c,
-        TTECP= 0x26,
-        NAC = 0x0C,
-        FCC = 0x12,
+        RCC = 0x22,          // RawCoulombCount(), mAh
+        AP = 0x24,           // AveragePower(), mW signed
+        INT_TEMP = 0x28,
         CYCT = 0x2A,
-        AE = 0x22,
         SOC = 0x2C,
         SOH = 0x2E,
+        CC = 0x32,           // ChargingCurrent(), mA
+        OP_STAT = 0x3A,
         DCAP = 0x3C,
-        AP = 0x24,
-        CC = 0x32,
-        SI = 0x1A,
-        RM = 0x10,
         DATA = 0x40,
         CHECK_SUM = 0x60,
         DATA_LEN = 0x61,
-        OP_STAT = 0x3A,
     };
 
     BQ27220(TWIM * i2c);
@@ -163,14 +162,11 @@ private:
 
     gpio_callback int_cb_data;
 
-    //const struct gpio_dt_spec gpout_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq27220), gpout_gpios);
     const struct gpio_dt_spec gpout_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq27220), gpout_gpios, {0});
 
     TWIM *_i2c;
 };
 
 extern BQ27220 fuel_gauge;
-
-//extern BQ27220 battery_gauge;
 
 #endif

@@ -1,6 +1,7 @@
 #ifndef _STATE_INDICATOR_H
 #define _STATE_INDICATOR_H
 
+#include <zephyr/kernel.h>
 #include "openearable_common.h"
 
 static const RGBColor LED_OFF = {0, 0, 0};
@@ -25,9 +26,13 @@ public:
     void set_indication_mode(enum led_mode state);
     void set_custom_color(const RGBColor &color);
 
+    void show_charging_indication();
+    void show_device_indication();
+
 private:
     earable_state _state;
     RGBColor color;
+    bool _alternating = false;
 };
 
 extern StateIndicator state_indicator;
