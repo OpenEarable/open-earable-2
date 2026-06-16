@@ -8,6 +8,14 @@ rsource "Kconfig.defaults"
 
 menu "Bluetooth"
 
+config AUDIO_RESPONSE_MAX_SAMPLES
+	int "Maximum uploaded audio response samples"
+	range 1 48000
+	default 32000
+	help
+	  Maximum number of signed 16-bit PCM samples retained by the audio
+	  response service. Storage for this buffer is reserved at build time.
+
 rsource "bt_management/Kconfig"
 
 #----------------------------------------------------------------------------#
