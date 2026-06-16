@@ -38,7 +38,6 @@
 #include "../SensorManager/SensorManager.h"
 #include "openearable_common.h"
 #include "SensorScheme.h"
-#include "../bluetooth/gatt_services/seal_check_service.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -103,9 +102,6 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
 /* How often to print under-run warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
-
-extern int seal_check_mic_index;
-extern int16_t seal_check_mic[];
 
 enum drift_comp_state {
 	DRIFT_STATE_INIT,   /* Waiting for data to be received */
