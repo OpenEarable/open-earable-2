@@ -52,6 +52,7 @@ private:
     bool readReg(uint8_t reg, uint8_t *buffer, uint16_t len);
     bool writeReg(uint8_t reg, const uint8_t *buffer, uint16_t len, bool ignore_reset_nack = false);
     void resetRegisterCache();
+    void clearCachedColor();
 
     int address = 0x30;
 

@@ -114,12 +114,16 @@ void KTD2026::reset() {
 }
 
 void KTD2026::power_off() {
+        uint8_t channel_enable = 0;
+        (void)writeReg(registers::EN_CH, &channel_enable, sizeof(channel_enable));
+
         uint8_t val = KTD2026_CTRL_SHUTDOWN;
-        if (writeReg(registers::CTRL, &val, sizeof(val))) {
-                clearColor(current_color);
-        }
+        (void)writeReg(registers::CTRL, &val, sizeof(val));
+
         int ret = pm_device_runtime_put(ls_1_8);
         ret = pm_device_runtime_put(ls_3_3);
+
+        clearCachedColor();
 
 	_active = false;
 }
@@ -239,6 +243,11 @@ void KTD2026::getColor(RGBColor * color) {
 
 void KTD2026::resetRegisterCache() {
         memcpy(_register_cache, KTD2026_RESET_DEFAULTS, sizeof(_register_cache));
+}
+
+void KTD2026::clearCachedColor() {
+        _register_cache[registers::EN_CH] = 0;
+        clearColor(current_color);
 }
 
 KTD2026 led_controller;
