@@ -55,6 +55,8 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 /* STEP 5.4 - Include header for USB */
 #include <zephyr/usb/usb_device.h>
 
+//bluetooth logging
+#include "device_error_service.h"
 
 int main(void) {
 	int ret;
@@ -105,6 +107,9 @@ int main(void) {
 	ERR_CHK(ret);
 
 	ret = initParseInfoService(&defaultSensorIds, defaultSensors);
+	ERR_CHK(ret);
+
+	ret = init_device_error_service();
 	ERR_CHK(ret);
 
 	ret = init_sensor_service();
