@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/crc.h>
+#include <zephyr/sys/util.h>
 
 #include "arm_math.h"
 #include "audio_datapath.h"
@@ -17,11 +18,14 @@ LOG_MODULE_REGISTER(audio_response_service, CONFIG_LOG_DEFAULT_LEVEL);
 #define AUDIO_RESPONSE_CAPTURE_SAMPLES 2048
 #define AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE 4000U
 #define AUDIO_RESPONSE_INITIAL_DROP 128
-#define AUDIO_RESPONSE_RESULT_POINTS 9
+#define AUDIO_RESPONSE_DEFAULT_POINTS 9
 #define AUDIO_RESPONSE_TRANSFER_CREDITS 1
 #define AUDIO_RESPONSE_TRANSFER_TIMEOUT K_SECONDS(30)
 #define AUDIO_RESPONSE_STATUS_ENCODED_SIZE 9
-#define AUDIO_RESPONSE_RESULT_ENCODED_SIZE (2 + (AUDIO_RESPONSE_RESULT_POINTS * 4))
+#define AUDIO_RESPONSE_RESULT_ENCODED_SIZE (2 + (CONFIG_AUDIO_RESPONSE_MAX_POINTS * 4))
+
+BUILD_ASSERT(CONFIG_AUDIO_RESPONSE_MAX_POINTS >= AUDIO_RESPONSE_DEFAULT_POINTS,
+	     "Default audio response points must fit CONFIG_AUDIO_RESPONSE_MAX_POINTS");
 
 enum audio_response_transfer_status {
 	AUDIO_RESPONSE_TRANSFER_READY = 0,
@@ -53,7 +57,7 @@ struct transfer_control_dispatch_context {
 	ssize_t result;
 };
 
-static const uint16_t target_frequencies[AUDIO_RESPONSE_RESULT_POINTS] = {
+static const uint16_t default_frequencies[AUDIO_RESPONSE_DEFAULT_POINTS] = {
 	40, 60, 90, 135, 203, 304, 456, 683, 1025,
 };
 
@@ -61,8 +65,10 @@ static int16_t captured_samples[AUDIO_RESPONSE_CAPTURE_SAMPLES];
 static int16_t uploaded_samples[CONFIG_AUDIO_RESPONSE_MAX_SAMPLES];
 static q15_t fft_output[AUDIO_RESPONSE_CAPTURE_SAMPLES * 2];
 static q15_t magnitudes[AUDIO_RESPONSE_CAPTURE_SAMPLES / 2];
-static uint16_t result_frequencies[AUDIO_RESPONSE_RESULT_POINTS];
-static uint16_t result_response[AUDIO_RESPONSE_RESULT_POINTS];
+static uint16_t requested_frequencies[CONFIG_AUDIO_RESPONSE_MAX_POINTS];
+static uint16_t decoded_config_frequencies[UINT8_MAX];
+static uint16_t result_frequencies[CONFIG_AUDIO_RESPONSE_MAX_POINTS];
+static uint16_t result_response[CONFIG_AUDIO_RESPONSE_MAX_POINTS];
 static uint8_t result_payload[AUDIO_RESPONSE_RESULT_ENCODED_SIZE];
 
 static struct audio_response_transfer transfer;
@@ -80,6 +86,9 @@ extern struct data_fifo fifo_rx;
 extern const struct bt_gatt_service_static audio_response_svc;
 
 static int notify_transfer_status(enum audio_response_transfer_status status, uint16_t credits);
+static uint32_t response_frequency_to_bin(uint16_t frequency);
+static bool is_valid_response_frequency(uint16_t frequency);
+static int select_response_points(audio_response_config_t *config);
 static void reset_transfer(void);
 
 /**
@@ -124,6 +133,60 @@ static const char *transfer_control_type_name(audio_response_transfer_control_ty
 	default:
 		return "unknown";
 	}
+}
+
+/**
+ * Return the nearest FFT magnitude bin for a requested response frequency.
+ */
+static uint32_t response_frequency_to_bin(uint16_t frequency)
+{
+	return ((uint32_t)frequency * AUDIO_RESPONSE_CAPTURE_SAMPLES +
+		AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE / 2) /
+	       AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE;
+}
+
+/**
+ * Validate that a requested response frequency maps to a captured FFT bin.
+ */
+static bool is_valid_response_frequency(uint16_t frequency)
+{
+	return response_frequency_to_bin(frequency) < ARRAY_SIZE(magnitudes);
+}
+
+/**
+ * Copy the requested response points into service-owned storage.
+ *
+ * A zero-point request selects the firmware default table. Nonzero requests
+ * use the protocol-provided frequency list after validating that every
+ * frequency maps to the captured FFT range.
+ */
+static int select_response_points(audio_response_config_t *config)
+{
+	const uint16_t *frequencies = config->frequencies;
+	uint8_t points = config->points;
+
+	if (points == 0) {
+		points = ARRAY_SIZE(default_frequencies);
+		frequencies = default_frequencies;
+		LOG_DBG("Using default audio response points: points=%u", points);
+	} else if (points > CONFIG_AUDIO_RESPONSE_MAX_POINTS) {
+		LOG_WRN("Audio response config rejected: points=%u max_points=%u", points,
+			CONFIG_AUDIO_RESPONSE_MAX_POINTS);
+		return -EINVAL;
+	}
+
+	for (size_t index = 0; index < points; ++index) {
+		if (!is_valid_response_frequency(frequencies[index])) {
+			LOG_WRN("Audio response config rejected: frequency=%u index=%u capture_rate=%u",
+				frequencies[index], index, AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE);
+			return -EINVAL;
+		}
+		requested_frequencies[index] = frequencies[index];
+	}
+
+	config->points = points;
+	config->frequencies = requested_frequencies;
+	return 0;
 }
 
 /**
@@ -446,21 +509,27 @@ static ssize_t write_audio_response_config(struct bt_conn *conn, const struct bt
 {
 	audio_response_config_t config;
 	size_t bytes_read = 0;
+	int ret;
 
 	if (offset != 0) {
 		LOG_WRN("Audio response config rejected: invalid offset=%u len=%u", offset, len);
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
 	}
+	config.frequencies = decoded_config_frequencies;
 	if (audio_response_config_decode(&config, buf, len, &bytes_read) != PROTOCOL_OK ||
 	    bytes_read != len) {
 		LOG_WRN("Audio response config decode failed: bytes_read=%u len=%u", bytes_read, len);
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
 	}
-	LOG_INF("Audio response config requested: id=%u transfer_id=%u volume=%.2f", config.id,
-		config.transfer_id, (double)config.volume);
+	LOG_INF("Audio response config requested: id=%u transfer_id=%u volume=%.2f points=%u",
+		config.id, config.transfer_id, (double)config.volume, config.points);
 	if (!isfinite(config.volume) || config.volume < 0.0f || config.volume > 1.0f) {
 		LOG_WRN("Audio response config rejected: invalid volume=%.3f",
 			(double)config.volume);
+		return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+	}
+	ret = select_response_points(&config);
+	if (ret != 0) {
 		return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
 	}
 
@@ -476,8 +545,8 @@ static ssize_t write_audio_response_config(struct bt_conn *conn, const struct bt
 	k_mutex_unlock(&service_mutex);
 
 	k_work_submit(&measurement_work);
-	LOG_INF("Audio response measurement queued: id=%u transfer_id=%u", pending_config.id,
-		pending_config.transfer_id);
+	LOG_INF("Audio response measurement queued: id=%u transfer_id=%u points=%u",
+		pending_config.id, pending_config.transfer_id, pending_config.points);
 	return len;
 }
 
@@ -534,9 +603,9 @@ static void measurement_work_handler(struct k_work *work)
 {
 	int ret;
 
-	LOG_INF("Starting audio response measurement: id=%u transfer_id=%u samples=%u volume=%.2f",
+	LOG_INF("Starting audio response measurement: id=%u transfer_id=%u samples=%u volume=%.2f points=%u",
 		pending_config.id, pending_config.transfer_id, transfer.total_samples,
-		(double)pending_config.volume);
+		(double)pending_config.volume, pending_config.points);
 
 	if (!fifo_rx.initialized) {
 		LOG_DBG("Initializing RX FIFO for audio response measurement");
@@ -592,7 +661,7 @@ static void notify_result(void)
 {
 	audio_response_result_t result = {
 		.id = pending_config.id,
-		.points = AUDIO_RESPONSE_RESULT_POINTS,
+		.points = pending_config.points,
 		.frequencies = result_frequencies,
 		.response = result_response,
 	};
@@ -643,15 +712,14 @@ static void measurement_complete_work_handler(struct k_work *work)
 	arm_rfft_q15(&rfft, captured_samples, fft_output);
 	arm_cmplx_mag_q15(fft_output, magnitudes, AUDIO_RESPONSE_CAPTURE_SAMPLES / 2);
 
-	for (size_t index = 0; index < AUDIO_RESPONSE_RESULT_POINTS; ++index) {
-		uint32_t bin = ((uint32_t)target_frequencies[index] * AUDIO_RESPONSE_CAPTURE_SAMPLES +
-				AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE / 2) /
-			       AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE;
-		result_frequencies[index] = target_frequencies[index];
+	for (size_t index = 0; index < pending_config.points; ++index) {
+		uint32_t bin = response_frequency_to_bin(pending_config.frequencies[index]);
+
+		result_frequencies[index] = pending_config.frequencies[index];
 		result_response[index] = magnitudes[bin];
 	}
 	LOG_DBG("Audio response FFT complete: id=%u bins=%u result_points=%u", pending_config.id,
-		AUDIO_RESPONSE_CAPTURE_SAMPLES / 2, AUDIO_RESPONSE_RESULT_POINTS);
+		AUDIO_RESPONSE_CAPTURE_SAMPLES / 2, pending_config.points);
 	notify_result();
 
 complete:
