@@ -28,6 +28,8 @@
 
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
+#include "decimation_filter.h"
+#include "arm_math.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -193,6 +195,9 @@ int _count = 0;
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
+/* Decimation buffer for SD card logging */
+static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t) / 4]; /* /4 for decimation factor 4 */
+
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
 {
@@ -219,36 +224,47 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
+			unsigned int logger_signaled;
+
 			if (_record_to_sd) {
+				/* Decimate audio data from 48kHz to the desired sampling rate */
+				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
+				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
+
+				int decimated_frames = audio_datapath_decimator_process(audio_block, decimated_audio, num_frames);
+				
+				// If decimator returns 0 frames (e.g. during cleanup), skip processing
+				if (decimated_frames <= 0) {
+					continue;
+				}
+
 				struct sensor_msg audio_msg;
 	
 				audio_msg.sd = true;
 				audio_msg.stream = false;
 	
 				audio_msg.data.id = ID_MICRO;
-				audio_msg.data.size = BLOCK_SIZE_BYTES; // SENQUEUE_FRAME_SIZE;
 				audio_msg.data.time = time_stamp;
 
-				/*k_mutex_lock(&write_mutex, K_FOREVER);
+				audio_msg.data.size = decimated_frames * 2 * sizeof(int16_t);
 
-				uint32_t data_size = sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time); // + audio_msg.data.size;
-
-				uint32_t bytes_written = ring_buf_put(&ring_buffer, (uint8_t *) &audio_msg.data, data_size);
-				bytes_written += ring_buf_put(&ring_buffer, audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
-
-				k_mutex_unlock(&write_mutex);*/
-
-				uint32_t data_size[2] = {sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time), BLOCK_SIZE_BYTES};
-
-				const void *data_ptrs[2] = {
-					&audio_msg.data,
-					audio_item.data + (i * BLOCK_SIZE_BYTES)
+				uint32_t data_size[2] = {
+					sizeof(audio_msg.data.id) + sizeof(audio_msg.data.size) + sizeof(audio_msg.data.time),
+					audio_msg.data.size
 				};
 
-				sdlogger_write_data(&data_ptrs, data_size, 2);
+				void *data_ptrs[2] = {
+					&audio_msg.data,
+					decimated_audio
+				};
 
-				//sdlogger_write_data(&audio_msg.data, data_size);
-				//sdlogger_write_data(audio_item.data + (i * BLOCK_SIZE_BYTES), BLOCK_SIZE_BYTES);
+				if (decimated_frames == num_frames) {
+					data_ptrs[1] = audio_block;
+				}
+	
+				if (decimated_frames > 0) {
+					sdlogger_write_data(&data_ptrs, data_size, 2);
+				}
 			}
 
 			k_yield();
@@ -257,7 +273,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 		unsigned int signaled;
 		k_poll_signal_check(&encoder_sig, &signaled, &ret);
 
-		if (ret == 0 && signaled != 0) {
+		if (ret == 0 && signaled != 0 && audio_system_encoder_is_started()) {
 			ret = k_msgq_put(&encoder_queue, &audio_item, K_NO_WAIT);
 			if (ret) {
 				LOG_WRN("encoder queue full");
@@ -265,11 +281,6 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 		}
     }
 }
-
-/*void set_ring_buffer(struct ring_buf *buf)
-{
-	ring_buffer = buf;
-}*/
 
 void set_sensor_queue(struct k_msgq *queue)
 {
@@ -279,6 +290,13 @@ void set_sensor_queue(struct k_msgq *queue)
 
 void record_to_sd(bool active) {
 	_record_to_sd = active;
+}
+
+void audio_datapath_stop_recording(void) {
+	// Stop SD recording
+	_record_to_sd = false;
+	
+	LOG_DBG("Audio recording stopped safely");
 }
 
 // Funktion, um den neuen Thread zu starten
@@ -634,6 +652,9 @@ static void tone_stop_worker(struct k_work *work)
 	tone_active = false;
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
 	LOG_DBG("Tone stopped");
+
+	struct sensor_config mic = {ID_MICRO, 0, 0};
+	config_sensor(&mic);
 }
 
 K_WORK_DEFINE(tone_stop_work, tone_stop_worker);
@@ -1201,6 +1222,9 @@ int audio_datapath_stop(void)
 		pres_comp_state_set(PRES_STATE_INIT);
 
 		data_fifo_empty(ctrl_blk.in.fifo);
+
+		/* Cleanup CascadedDecimator on stop */
+		audio_datapath_decimator_cleanup();
 
 		return 0;
 	} else {

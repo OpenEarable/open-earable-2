@@ -65,6 +65,24 @@ int initParseInfoService(struct ParseInfoScheme* scheme, struct SensorScheme* se
 struct SensorScheme* getSensorSchemeForId(uint8_t id);
 struct ParseInfoScheme* getParseInfoScheme();
 
+/**
+ * @brief Calculate the byte length of the serialized parse-info storage blob.
+ *
+ * The storage blob contains the serialized sensor list followed by each sensor
+ * scheme prefixed with a uint16 length. Returns 0 if parse-info state is not
+ * initialized or any scheme cannot be represented in the storage format.
+ */
+size_t getParseInfoStorageSize();
+
+/**
+ * @brief Serialize parse-info state into an SD-log file header payload.
+ *
+ * @param buffer Destination buffer for the serialized parse-info storage blob.
+ * @param bufferSize Available bytes in @p buffer.
+ * @return Number of bytes written on success, or a negative errno value.
+ */
+ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize);
+
 float getSampleRateForSensorId(uint8_t id, uint8_t frequencyIndex);
 float getSampleRateForSensor(struct SensorScheme* sensorScheme, uint8_t frequencyIndex);
 

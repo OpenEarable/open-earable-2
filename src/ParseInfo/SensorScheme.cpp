@@ -3,6 +3,8 @@
 
 #include <string>
 #include <cstring>
+#include <errno.h>
+#include <stdint.h>
 
 #include <zephyr/kernel.h>
 #include <zephyr/bluetooth/gatt.h>
@@ -348,9 +350,77 @@ int initSensorSchemeForId(uint8_t id) {
 }
 
 struct SensorScheme* getSensorSchemeForId(uint8_t id) {
-    return sensorSchemesMap[id];
+    auto sensorSchemeIt = sensorSchemesMap.find(id);
+    if (sensorSchemeIt == sensorSchemesMap.end()) {
+        return NULL;
+    }
+
+    return sensorSchemeIt->second;
 }
 
 struct ParseInfoScheme* getParseInfoScheme() {
     return parseInfoSchemeStruct;
+}
+
+size_t getParseInfoStorageSize() {
+    if ((parseInfoSchemeStruct == NULL) || (parseInfoScheme == NULL)) {
+        return 0;
+    }
+
+    size_t size = parseInfoSchemeSize;
+
+    for (size_t i = 0; i < parseInfoSchemeStruct->sensorCount; i++) {
+        SensorScheme* scheme = getSensorSchemeForId(parseInfoSchemeStruct->sensorIds[i]);
+        if (scheme == NULL) {
+            return 0;
+        }
+
+        size += sizeof(uint16_t);
+        size += getSensorSchemeSize(scheme);
+    }
+
+    return size;
+}
+
+ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize) {
+    if ((parseInfoSchemeStruct == NULL) || (parseInfoScheme == NULL) || (buffer == NULL)) {
+        return -ENODATA;
+    }
+
+    size_t size = getParseInfoStorageSize();
+    if ((size == 0) || (size > bufferSize)) {
+        return -ENOMEM;
+    }
+
+    char* bufferStart = buffer;
+    memcpy(buffer, parseInfoScheme, parseInfoSchemeSize);
+    buffer += parseInfoSchemeSize;
+
+    for (size_t i = 0; i < parseInfoSchemeStruct->sensorCount; i++) {
+        SensorScheme* scheme = getSensorSchemeForId(parseInfoSchemeStruct->sensorIds[i]);
+        if (scheme == NULL) {
+            return -ENOENT;
+        }
+
+        size_t sensorSchemeSize = getSensorSchemeSize(scheme);
+        if (sensorSchemeSize > UINT16_MAX) {
+            return -EOVERFLOW;
+        }
+
+        uint16_t encodedSchemeSize = (uint16_t)sensorSchemeSize;
+        memcpy(buffer, &encodedSchemeSize, sizeof(encodedSchemeSize));
+        buffer += sizeof(encodedSchemeSize);
+
+        ssize_t writtenSize = serializeSensorScheme(scheme, buffer, bufferSize - (buffer - bufferStart));
+        if (writtenSize < 0) {
+            return writtenSize;
+        }
+        if ((size_t)writtenSize != sensorSchemeSize) {
+            return -EIO;
+        }
+
+        buffer += writtenSize;
+    }
+
+    return buffer - bufferStart;
 }

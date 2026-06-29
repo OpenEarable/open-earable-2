@@ -26,19 +26,18 @@ extern void empty_fifo();
 #endif
 
 #include <zephyr/logging/log.h>
-//LOG_MODULE_DECLARE(BMX160);
 LOG_MODULE_REGISTER(microphone, CONFIG_LOG_DEFAULT_LEVEL);
 
 extern struct data_fifo fifo_rx;
 
 Microphone Microphone::sensor;
 
-const SampleRateSetting<1> Microphone::sample_rates = {
-    { 0 },
+const SampleRateSetting<9> Microphone::sample_rates = {
+    { 24, 16, 12, 8, 6, 4, 3, 2, 1 },
 
-	{ 48000 },
+	{ 2000, 3000, 4000, 6000, 8000, 12000, 16000, 24000, 48000 },
 
-	{ 48000.0 }
+	{ 2000.0, 3000.0, 4000.0, 6000.0, 8000.0, 12000.0, 16000.0, 24000.0, 48000.0 }
 };
 
 bool Microphone::init(struct k_msgq * queue) {
@@ -55,15 +54,20 @@ bool Microphone::init(struct k_msgq * queue) {
 }
 
 void Microphone::start(int sample_rate_idx) {
-	ARG_UNUSED(sample_rate_idx);
+	//ARG_UNUSED(sample_rate_idx);
 
 	int ret;
 
 	if (!_active) return;
 
-	record_to_sd(true);
+	LOG_INF("Starting Microphone at %f Hz", sample_rates.sample_rates[sample_rate_idx]);
+	record_to_sd(_sd_logging);
 
 	audio_datapath_aquire(&fifo_rx);
+
+	audio_datapath_decimator_init(sample_rates.reg_vals[sample_rate_idx]);
+
+	record_to_sd(true);
 
 	_running = true;
 }
@@ -77,6 +81,8 @@ void Microphone::stop() {
 	record_to_sd(false);
 
 	audio_datapath_release();
+
+	//audio_datapath_decimator_cleanup();
 
 	_running = false;
 }

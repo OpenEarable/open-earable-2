@@ -190,17 +190,19 @@ static void le_audio_msg_sub_thread(void)
 		case LE_AUDIO_EVT_STREAMING:
 			LOG_DBG("LE audio evt streaming");
 
-			if (msg.dir == BT_AUDIO_DIR_SOURCE) {
-				audio_system_encoder_start();
-			}
-
 			if (strm_state == STATE_STREAMING) {
 				LOG_DBG("Got streaming event in streaming state");
+				if (msg.dir == BT_AUDIO_DIR_SOURCE) {
+					audio_system_encoder_start();
+				}
 				break;
 			}
 
 			audio_system_start();
 			stream_state_set(STATE_STREAMING);
+			if (msg.dir == BT_AUDIO_DIR_SOURCE) {
+				audio_system_encoder_start();
+			}
 #if CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP
 			ret = led_blink(LED_APP_1_BLUE);
 			ERR_CHK(ret);

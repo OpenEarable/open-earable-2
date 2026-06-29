@@ -171,3 +171,51 @@ enum SensorConfigOptions {
 - `Default Frequency Index`: Index of the default frequency
 - `Max BLE Index`: Index of the maximum frequency for BLE streaming
 - `Frequency Array`: Array of available frequencies
+
+## OE File Header
+
+`.oe` files written by `SDLogger` now embed the active parse scheme in the file header so the file stays self-describing.
+All numeric fields are written in the device's little-endian binary representation.
+
+### Header version `0x0002`
+
+Files only contain the fixed header below and rely on a hard-coded parser outside the file:
+
+| Bytes | Field     | Type   |
+|-------|-----------|--------|
+| 0-1   | Version   | uint16 |
+| 2-9   | Timestamp | uint64 |
+
+### Header version `0x0003`
+
+Files with version `0x0003` extend the fixed header and add earable identity metadata ahead of it and append a serialized ParseInfo block.
+`header_size` points to the first sensor data record in the file.
+`Parse Info Size` is the size of the `Parse Info Blob`.
+`Device ID` is the immutable Nordic chip identifier captured at boot.
+`Side` is encoded as `0` for left, `1` for right, and `255` for unknown.
+The ParseInfo blob starts immediately after `Side`.
+
+| Bytes | Field           | Type   |
+|-------|-----------------|--------|
+| 0-1   | Version         | uint16 |
+| 2-9   | Timestamp       | uint64 |
+| 10-13 | Header Size     | uint32 |
+| 14-17 | Parse Info Size | uint32 |
+| 18-25 | Device ID       | uint64 |
+| 26    | Side            | uint8  |
+| 27-X  | Parse Info Blob | byte[] |
+
+### Parse Info Blob
+
+The blob starts with the existing `Sensor List` serialization and then stores each referenced sensor scheme in the same order as the sensor IDs:
+
+| Bytes | Field              | Type   |
+|-------|--------------------|--------|
+| 0     | Sensor Count       | uint8  |
+| 1-N   | Sensor IDs         | uint8[] |
+| ...   | Sensor Scheme Size | uint16 |
+| ...   | Sensor Scheme      | byte[] |
+| ...   | Sensor Scheme Size | uint16 |
+| ...   | Sensor Scheme      | byte[] |
+
+Each `Sensor Scheme` payload uses the existing `Single Sensor Scheme` serialization already documented above.

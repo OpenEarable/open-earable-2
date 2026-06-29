@@ -22,6 +22,8 @@
 #include <string>
 #include <set>
 
+#include "audio_datapath.h"
+
 #include <sensor_service.h>
 
 #include <zephyr/logging/log.h>
@@ -127,6 +129,10 @@ void stop_sensor_manager() {
 	if (_state != RUNNING) return;
 
 	LOG_DBG("Stopping sensor manager");
+
+	// Stop audio recording/processing first to prevent race condition
+	//extern "C" void audio_datapath_stop_recording(void);
+	audio_datapath_stop_recording();
 
     Baro::sensor.stop();
 	IMU::sensor.stop();

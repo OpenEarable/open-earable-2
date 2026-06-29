@@ -37,14 +37,18 @@ private:
         //size_t buffer_pos = 0;
         std::string current_file;
 
-        int write_header(); //Write file header with version and timestamp
+        int write_header(); // Write the file header, device metadata, and embedded parse metadata.
         int flush(); // Flush any buffered data to the SD card
         
-        static constexpr uint16_t SENSOR_LOG_VERSION = 0x0002;
+        static constexpr uint16_t SENSOR_LOG_VERSION = 0x0003;
 
         struct __attribute__((packed)) FileHeader {
             uint16_t version;
             uint64_t timestamp;
+            uint32_t header_size;
+            uint32_t parse_info_size;
+            uint64_t device_id;
+            uint8_t side;
         };
 
         struct sensor_data msg;
