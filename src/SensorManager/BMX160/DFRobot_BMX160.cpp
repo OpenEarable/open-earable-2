@@ -139,7 +139,68 @@ void DFRobot_BMX160::defaultParamSettg(sBmx160Dev_t *dev)
   dev->prevAccelCfg = dev->accelCfg;
 }
 
-void DFRobot_BMX160::setMagnConf()
+bool DFRobot_BMX160::setMagnConf()
+{
+    if (setBmi160AuxMagnConf()) {
+        LOG_INF("BMM150 magnetometer configured through BMI160 auxiliary interface");
+        return true;
+    }
+
+    LOG_WRN("BMM150 auxiliary probe failed; using BMX160 magnetometer interface fallback");
+    setBmx160MagnConf();
+
+    return false;
+}
+
+bool DFRobot_BMX160::setBmi160AuxMagnConf()
+{
+    uint8_t reg_val = 0;
+    uint8_t chip_id = 0;
+
+    if (!writeBmxReg(BMX160_COMMAND_REG_ADDR, BMX160_MAGN_NORMAL_MODE)) {
+        return false;
+    }
+    delay(1);
+
+    if (!readReg(BMX160_IF_CONF_ADDR, &reg_val, 1)) {
+        return false;
+    }
+
+    reg_val |= BMX160_IF_CONF_SECONDARY_IF_EN;
+    if (!writeBmxReg(BMX160_IF_CONF_ADDR, reg_val)) {
+        return false;
+    }
+    delay(BMX160_MAGN_COM_DELAY);
+
+    if (!setBmi160AuxMode(true, 0x00)) {
+        return false;
+    }
+
+    if (!writeBmm150Reg(BMM150_POWER_CONTROL_ADDR, BMM150_POWER_CONTROL_ENABLE)) {
+        return false;
+    }
+    delay(BMX160_MAGN_COM_DELAY);
+
+    if (!readBmm150Reg(BMM150_CHIP_ID_ADDR, &chip_id) || chip_id != BMM150_CHIP_ID) {
+        LOG_WRN("BMM150 chip id mismatch: 0x%02x", chip_id);
+        return false;
+    }
+
+    if (!writeBmm150Reg(BMM150_REP_XY_ADDR, BMM150_REP_XY_REGULAR) ||
+        !writeBmm150Reg(BMM150_REP_Z_ADDR, BMM150_REP_Z_REGULAR) ||
+        !writeBmm150Reg(BMM150_OP_MODE_ADDR, BMM150_OP_MODE_FORCED) ||
+        !setBmi160AuxReadAddr(BMM150_DATA_X_LSB_ADDR) ||
+        !writeBmxReg(BMX160_MAGN_CONFIG_ADDR, BMX160_MAGN_ODR_100HZ) ||
+        !setBmi160AuxMode(false, 0x03)) {
+        return false;
+    }
+
+    delay(50);
+
+    return true;
+}
+
+void DFRobot_BMX160::setBmx160MagnConf()
 {
     // puts magnetometer into mag_if setup mode
     writeBmxReg(BMX160_MAGN_IF_0_ADDR, 0x80);
@@ -162,6 +223,47 @@ void DFRobot_BMX160::setMagnConf()
     // puts magnetometer into mag_if data mode sets data length of read burst operation to 8 bytes
     writeBmxReg(BMX160_MAGN_IF_0_ADDR, 0x03);
     delay(50);
+}
+
+bool DFRobot_BMX160::setBmi160AuxMode(bool manual, uint8_t read_burst_len)
+{
+    uint8_t aux_if[2] = {
+        static_cast<uint8_t>(BMX160_MAGN_BMM150_I2C_ADDR << 1),
+        static_cast<uint8_t>((manual ? BMX160_MANUAL_MODE_EN_MSK : 0x00) |
+                             (read_burst_len & BMX160_MAGN_READ_BURST_MSK))
+    };
+
+    return writeReg(BMX160_AUX_IF_0_ADDR, aux_if, sizeof(aux_if));
+}
+
+bool DFRobot_BMX160::setBmi160AuxReadAddr(uint8_t reg)
+{
+    return writeBmxReg(BMX160_AUX_IF_2_ADDR, reg);
+}
+
+bool DFRobot_BMX160::writeBmm150Reg(uint8_t reg, uint8_t value)
+{
+    if (!writeBmxReg(BMX160_AUX_IF_4_ADDR, value)) {
+        return false;
+    }
+    delay(BMX160_MAGN_COM_DELAY);
+
+    if (!writeBmxReg(BMX160_AUX_IF_3_ADDR, reg)) {
+        return false;
+    }
+    delay(BMX160_MAGN_COM_DELAY);
+
+    return true;
+}
+
+bool DFRobot_BMX160::readBmm150Reg(uint8_t reg, uint8_t *value)
+{
+    if (!setBmi160AuxReadAddr(reg)) {
+        return false;
+    }
+    delay(BMX160_MAGN_COM_DELAY);
+
+    return readReg(BMX160_MAG_DATA_ADDR, value, 1);
 }
 
 void DFRobot_BMX160::setGyroRange(eGyroRange_t bits){
@@ -254,13 +356,13 @@ void DFRobot_BMX160::getAllData(sBmx160SensorData_t *magn, sBmx160SensorData_t *
     }
 }
 
-void DFRobot_BMX160::writeBmxReg(uint8_t reg, uint8_t value)
+bool DFRobot_BMX160::writeBmxReg(uint8_t reg, uint8_t value)
 {
     uint8_t buffer[1] = {value};
-    writeReg(reg, buffer, 1);
+    return writeReg(reg, buffer, 1);
 }
 
-void DFRobot_BMX160::writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
+bool DFRobot_BMX160::writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
    _i2c->aquire();
 
@@ -268,9 +370,11 @@ void DFRobot_BMX160::writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
     if (ret) LOG_WRN("I2C write failed: %d", ret);
 
     _i2c->release();
+
+    return ret == 0;
 }
 
-void DFRobot_BMX160::readReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
+bool DFRobot_BMX160::readReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
 {
     _i2c->aquire();
 
@@ -278,6 +382,8 @@ void DFRobot_BMX160::readReg(uint8_t reg, uint8_t *pBuf, uint16_t len)
     if (ret) LOG_WRN("I2C read failed: %d", ret);
 
     _i2c->release();
+
+    return ret == 0;
 }
 
 bool DFRobot_BMX160::scan()
