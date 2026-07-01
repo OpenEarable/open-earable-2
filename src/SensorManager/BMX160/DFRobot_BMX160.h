@@ -234,6 +234,27 @@
 #define BMX160_SPI_COMM_TEST_ADDR                0x7F
 #define BMX160_INTL_PULLUP_CONF_ADDR             0x85
 
+/* BMI160-style auxiliary interface used by development BMX160/BMM150 hardware */
+#define BMX160_AUX_IF_0_ADDR                     0x4B
+#define BMX160_AUX_IF_1_ADDR                     0x4C
+#define BMX160_AUX_IF_2_ADDR                     0x4D
+#define BMX160_AUX_IF_3_ADDR                     0x4E
+#define BMX160_AUX_IF_4_ADDR                     0x4F
+#define BMX160_IF_CONF_SECONDARY_IF_EN           0x20
+
+/* BMM150 registers behind the BMX160/BMI160 auxiliary interface */
+#define BMM150_CHIP_ID_ADDR                      0x40
+#define BMM150_CHIP_ID                           0x32
+#define BMM150_DATA_X_LSB_ADDR                   0x42
+#define BMM150_POWER_CONTROL_ADDR                0x4B
+#define BMM150_OP_MODE_ADDR                      0x4C
+#define BMM150_REP_XY_ADDR                       0x51
+#define BMM150_REP_Z_ADDR                        0x52
+#define BMM150_POWER_CONTROL_ENABLE              0x01
+#define BMM150_OP_MODE_FORCED                    0x02
+#define BMM150_REP_XY_REGULAR                    0x04
+#define BMM150_REP_Z_REGULAR                     0x0E
+
 /** Error code definitions */
 #define BMX160_OK                                0
 #define BMX160_E_NULL_PTR                        -1
@@ -1072,7 +1093,7 @@ class DFRobot_BMX160{
      * @param pBuf write the store and buffer of the data
      * @param len data length to be readed
      */
-    void readReg(uint8_t reg, uint8_t *pBuf, uint16_t len);
+    bool readReg(uint8_t reg, uint8_t *pBuf, uint16_t len);
 
     /**
      * @fn writeReg
@@ -1082,7 +1103,7 @@ class DFRobot_BMX160{
      * @param len data length to be written 
      * @return return the actually written length
      */
-    void writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len);
+    bool writeReg(uint8_t reg, uint8_t *pBuf, uint16_t len);
 
     /**
      * @fn writeBmxReg
@@ -1091,7 +1112,7 @@ class DFRobot_BMX160{
      * @param value  Data written to the BMX register
      * @return return the actually written length
      */
-    void writeBmxReg(uint8_t reg, uint8_t value);
+    bool writeBmxReg(uint8_t reg, uint8_t value);
 
     /**
      * @fn scan
@@ -1106,7 +1127,13 @@ class DFRobot_BMX160{
      * @fn setMagnConf
      * @brief  set magnetometer Config
      */
-    void setMagnConf();
+    bool setMagnConf();
+    void setBmx160MagnConf();
+    bool setBmi160AuxMagnConf();
+    bool setBmi160AuxMode(bool manual, uint8_t read_burst_len);
+    bool writeBmm150Reg(uint8_t reg, uint8_t value);
+    bool readBmm150Reg(uint8_t reg, uint8_t *value);
+    bool setBmi160AuxReadAddr(uint8_t reg);
 
     float accelRange = BMX160_ACCEL_MG_LSB_2G * EARTH_ACC;
     float gyroRange = BMX160_GYRO_SENSITIVITY_2000DPS;
