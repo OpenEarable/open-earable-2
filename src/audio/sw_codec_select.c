@@ -83,6 +83,19 @@ bool sw_codec_is_initialized(void)
 	return m_config.initialized;
 }
 
+int sw_codec_encoder_channel_set(enum audio_channel channel)
+{
+	if (channel >= AUDIO_CH_NUM) {
+		LOG_ERR("Invalid encoder channel: %d", channel);
+		return -EINVAL;
+	}
+
+	m_config.encoder.audio_ch = channel;
+	LOG_INF("Microphone channel set to %d", channel);
+
+	return 0;
+}
+
 int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, size_t *encoded_size)
 {
 	int ret;
@@ -106,7 +119,7 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 	case SW_CODEC_LC3: {
 #if (CONFIG_SW_CODEC_LC3)
 		uint16_t encoded_bytes_written;
-		char *pcm_data_mono_ptrs[m_config.encoder.channel_mode];
+		char *pcm_data_mono_ptrs[AUDIO_CH_NUM] = {0};
 
 		/* Since LC3 is a single channel codec, we must split the
 		 * stereo PCM stream
@@ -121,19 +134,26 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 
 		switch (m_config.encoder.channel_mode) {
 		case SW_CODEC_MONO: {
+			enum audio_channel audio_ch = m_config.encoder.audio_ch;
+
+			if (audio_ch >= AUDIO_CH_NUM) {
+				LOG_ERR("Invalid encoder channel: %d", audio_ch);
+				return -EINVAL;
+			}
+
 			ret = sw_codec_sample_rate_convert(
-				&encoder_converters[m_config.encoder.audio_ch], CONFIG_AUDIO_SAMPLE_RATE_HZ,
+				&encoder_converters[audio_ch], CONFIG_AUDIO_SAMPLE_RATE_HZ,
 				m_config.encoder.sample_rate_hz,
-				pcm_data_mono_system_sample_rate[m_config.encoder.audio_ch],
+				pcm_data_mono_system_sample_rate[audio_ch],
 				pcm_block_size_mono_system_sample_rate,
-				pcm_data_mono_converted_buf[m_config.encoder.audio_ch], &pcm_data_mono_ptrs[m_config.encoder.audio_ch],
+				pcm_data_mono_converted_buf[audio_ch], &pcm_data_mono_ptrs[audio_ch],
 				&pcm_block_size_mono);
 			if (ret) {
-				LOG_ERR("Sample rate conversion failed for channel %d: %d", m_config.encoder.audio_ch, ret);
+				LOG_ERR("Sample rate conversion failed for channel %d: %d", audio_ch, ret);
 				return ret;
 			}
 
-			ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[m_config.encoder.audio_ch],
+			ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[audio_ch],
 						   pcm_block_size_mono, LC3_USE_BITRATE_FROM_INIT,
 						   0, sizeof(m_encoded_data), m_encoded_data,
 						   &encoded_bytes_written);
@@ -446,7 +466,11 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 	}
 
 	if (sw_codec_cfg.encoder.enabled && IS_ENABLED(SAMPLE_RATE_CONVERTER)) {
-		for (int i = 0; i < sw_codec_cfg.encoder.channel_mode; i++) {
+		int converter_count = (sw_codec_cfg.encoder.channel_mode == SW_CODEC_MONO) ?
+					      AUDIO_CH_NUM :
+					      sw_codec_cfg.encoder.channel_mode;
+
+		for (int i = 0; i < converter_count; i++) {
 			ret = sample_rate_converter_open(&encoder_converters[i]);
 			if (ret) {
 				LOG_ERR("Failed to initialize the sample rate converter for "
