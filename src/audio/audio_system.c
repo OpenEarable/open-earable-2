@@ -587,9 +587,20 @@ SHELL_CMD_REGISTER(audio_system, &audio_system_cmd, "Audio system commands", NUL
 
 int audio_system_set_encoder_channel(uint8_t channel)
 {
-    encoder_channel = channel;
+	if (channel >= AUDIO_CH_NUM) {
+		LOG_ERR("Invalid microphone channel: %d", channel);
+		return -EINVAL;
+	}
+
+	encoder_channel = channel;
+	sw_codec_cfg.encoder.audio_ch = channel;
+
+	if (sw_codec_cfg.initialized && sw_codec_is_initialized()) {
+		return sw_codec_encoder_channel_set((enum audio_channel)channel);
+	}
+
 	LOG_INF("Microphone channel set to %d", channel);
-    return 0;
+	return 0;
 }
 
 uint8_t audio_system_get_encoder_channel()

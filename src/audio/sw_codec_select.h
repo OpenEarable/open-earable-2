@@ -78,6 +78,15 @@ struct sw_codec_config {
 bool sw_codec_is_initialized(void);
 
 /**
+ * @brief	Set the encoder input channel used for mono encoding.
+ *
+ * @param[in]	channel	Audio channel to encode.
+ *
+ * @return	0 on success, error otherwise.
+ */
+int sw_codec_encoder_channel_set(enum audio_channel channel);
+
+/**
  * @brief	Encode PCM data and output encoded data.
  *
  * @note	Takes in stereo PCM stream, will encode either one or two
