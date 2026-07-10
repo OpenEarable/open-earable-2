@@ -1,6 +1,7 @@
 #include "audio_response_service.h"
 
 #include <data_fifo.h>
+#include <limits.h>
 #include <math.h>
 #include <string.h>
 #include <zephyr/audio_response_ble.h>
@@ -9,7 +10,6 @@
 #include <zephyr/sys/crc.h>
 #include <zephyr/sys/util.h>
 
-#include "arm_math.h"
 #include "audio_datapath.h"
 #include "hw_codec.h"
 
@@ -23,6 +23,7 @@ LOG_MODULE_REGISTER(audio_response_service, CONFIG_LOG_DEFAULT_LEVEL);
 #define AUDIO_RESPONSE_TRANSFER_TIMEOUT K_SECONDS(30)
 #define AUDIO_RESPONSE_STATUS_ENCODED_SIZE 9
 #define AUDIO_RESPONSE_RESULT_ENCODED_SIZE (2 + (CONFIG_AUDIO_RESPONSE_MAX_POINTS * 4))
+#define AUDIO_RESPONSE_TWO_PI 6.28318530717958647692f
 
 BUILD_ASSERT(CONFIG_AUDIO_RESPONSE_MAX_POINTS >= AUDIO_RESPONSE_DEFAULT_POINTS,
 	     "Default audio response points must fit CONFIG_AUDIO_RESPONSE_MAX_POINTS");
@@ -63,8 +64,6 @@ static const uint16_t default_frequencies[AUDIO_RESPONSE_DEFAULT_POINTS] = {
 
 static int16_t captured_samples[AUDIO_RESPONSE_CAPTURE_SAMPLES];
 static int16_t uploaded_samples[CONFIG_AUDIO_RESPONSE_MAX_SAMPLES];
-static q15_t fft_output[AUDIO_RESPONSE_CAPTURE_SAMPLES * 2];
-static q15_t magnitudes[AUDIO_RESPONSE_CAPTURE_SAMPLES / 2];
 static uint16_t requested_frequencies[CONFIG_AUDIO_RESPONSE_MAX_POINTS];
 static uint16_t decoded_config_frequencies[UINT8_MAX];
 static uint16_t result_frequencies[CONFIG_AUDIO_RESPONSE_MAX_POINTS];
@@ -88,6 +87,8 @@ extern const struct bt_gatt_service_static audio_response_svc;
 static int notify_transfer_status(enum audio_response_transfer_status status, uint16_t credits);
 static uint32_t response_frequency_to_bin(uint16_t frequency);
 static bool is_valid_response_frequency(uint16_t frequency);
+static uint16_t response_magnitude_for_bin(const int16_t *samples, size_t sample_count,
+					   uint32_t bin);
 static int select_response_points(audio_response_config_t *config);
 static void reset_transfer(void);
 
@@ -136,7 +137,7 @@ static const char *transfer_control_type_name(audio_response_transfer_control_ty
 }
 
 /**
- * Return the nearest FFT magnitude bin for a requested response frequency.
+ * Return the nearest analysis bin for a requested response frequency.
  */
 static uint32_t response_frequency_to_bin(uint16_t frequency)
 {
@@ -146,11 +147,51 @@ static uint32_t response_frequency_to_bin(uint16_t frequency)
 }
 
 /**
- * Validate that a requested response frequency maps to a captured FFT bin.
+ * Validate that a requested response frequency maps to a captured analysis bin.
  */
 static bool is_valid_response_frequency(uint16_t frequency)
 {
-	return response_frequency_to_bin(frequency) < ARRAY_SIZE(magnitudes);
+	return response_frequency_to_bin(frequency) < (AUDIO_RESPONSE_CAPTURE_SAMPLES / 2);
+}
+
+/**
+ * Estimate a single analysis-bin magnitude using the Goertzel recurrence.
+ *
+ * The returned value is normalized into the same unsigned Q15-like range used by
+ * the protocol result. Non-DC bins are scaled by 2 / N so a full-scale sine near
+ * the target bin reports close to INT16_MAX.
+ */
+static uint16_t response_magnitude_for_bin(const int16_t *samples, size_t sample_count,
+					   uint32_t bin)
+{
+	const float omega = AUDIO_RESPONSE_TWO_PI * (float)bin / (float)sample_count;
+	const float coefficient = 2.0f * cosf(omega);
+	float previous = 0.0f;
+	float previous2 = 0.0f;
+
+	for (size_t index = 0; index < sample_count; ++index) {
+		const float current = (float)samples[index] + coefficient * previous - previous2;
+
+		previous2 = previous;
+		previous = current;
+	}
+
+	float power = previous2 * previous2 + previous * previous -
+		      coefficient * previous * previous2;
+
+	if (power < 0.0f) {
+		power = 0.0f;
+	}
+
+	const float scale = (bin == 0U) ? (1.0f / (float)sample_count) :
+					 (2.0f / (float)sample_count);
+	const float magnitude = sqrtf(power) * scale;
+
+	if (magnitude >= (float)INT16_MAX) {
+		return INT16_MAX;
+	}
+
+	return (uint16_t)(magnitude + 0.5f);
 }
 
 /**
@@ -158,7 +199,7 @@ static bool is_valid_response_frequency(uint16_t frequency)
  *
  * A zero-point request selects the firmware default table. Nonzero requests
  * use the protocol-provided frequency list after validating that every
- * frequency maps to the captured FFT range.
+ * frequency maps to the captured response range.
  */
 static int select_response_points(audio_response_config_t *config)
 {
@@ -655,7 +696,7 @@ fail:
 }
 
 /**
- * Encode and notify the FFT response at the configured target frequencies.
+ * Encode and notify the measured response at the configured target frequencies.
  */
 static void notify_result(void)
 {
@@ -689,40 +730,26 @@ static void notify_result(void)
 }
 
 /**
- * Compute the captured signal's FFT response and notify the requesting client.
+ * Compute the captured signal's response at the configured target frequencies.
  */
 static void measurement_complete_work_handler(struct k_work *work)
 {
-	static arm_rfft_instance_q15 rfft;
-	static bool rfft_initialized;
-
 	LOG_INF("Audio response capture complete: id=%u", pending_config.id);
 	audio_datapath_buffer_stop();
 	audio_datapath_release();
-
-	if (!rfft_initialized) {
-		LOG_DBG("Initializing audio response FFT: samples=%u", AUDIO_RESPONSE_CAPTURE_SAMPLES);
-		if (arm_rfft_init_q15(&rfft, AUDIO_RESPONSE_CAPTURE_SAMPLES, 0, 1) != ARM_MATH_SUCCESS) {
-			LOG_ERR("Failed to initialize audio response FFT");
-			goto complete;
-		}
-		rfft_initialized = true;
-	}
-
-	arm_rfft_q15(&rfft, captured_samples, fft_output);
-	arm_cmplx_mag_q15(fft_output, magnitudes, AUDIO_RESPONSE_CAPTURE_SAMPLES / 2);
 
 	for (size_t index = 0; index < pending_config.points; ++index) {
 		uint32_t bin = response_frequency_to_bin(pending_config.frequencies[index]);
 
 		result_frequencies[index] = pending_config.frequencies[index];
-		result_response[index] = magnitudes[bin];
+		result_response[index] = response_magnitude_for_bin(
+			captured_samples, ARRAY_SIZE(captured_samples), bin);
 	}
-	LOG_DBG("Audio response FFT complete: id=%u bins=%u result_points=%u", pending_config.id,
+	LOG_DBG("Audio response analysis complete: id=%u bins=%u result_points=%u",
+		pending_config.id,
 		AUDIO_RESPONSE_CAPTURE_SAMPLES / 2, pending_config.points);
 	notify_result();
 
-complete:
 	k_mutex_lock(&service_mutex, K_FOREVER);
 	measurement_active = false;
 	k_mutex_unlock(&service_mutex);
