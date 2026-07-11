@@ -6,11 +6,68 @@
 
 #include "le_audio.h"
 
+#include <errno.h>
+
 #include <zephyr/bluetooth/audio/bap.h>
 #include <zephyr/bluetooth/audio/audio.h>
+#include <zephyr/init.h>
+#include <zephyr/zbus/zbus.h>
+
+#include "AutoOffManager.h"
+#include "zbus_common.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(le_audio, CONFIG_BLE_LOG_LEVEL);
+
+static const char le_audio_auto_off_token[] = "LEAudio";
+
+ZBUS_CHAN_DECLARE(le_audio_chan);
+
+static void le_audio_auto_off_event_handler(const struct zbus_channel *chan);
+ZBUS_LISTENER_DEFINE(le_audio_auto_off_listener, le_audio_auto_off_event_handler);
+
+static int le_audio_auto_off_init(void)
+{
+	int ret;
+
+	ret = auto_off_register_participant(le_audio_auto_off_token,
+				(power_saving_level_t)CONFIG_POWER_SAVING_LEVEL_LEAUDIO);
+	if (ret && ret != -EALREADY) {
+		LOG_WRN("Failed to register LE Audio with auto-off: %d", ret);
+		return ret;
+	}
+
+	auto_off_allow(le_audio_auto_off_token);
+
+	ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_auto_off_listener,
+				ZBUS_ADD_OBS_TIMEOUT_MS);
+	if (ret) {
+		LOG_WRN("Failed to add LE Audio auto-off listener: %d", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void le_audio_auto_off_event_handler(const struct zbus_channel *chan)
+{
+	const struct le_audio_msg *msg = zbus_chan_const_msg(chan);
+
+	switch (msg->event) {
+	case LE_AUDIO_EVT_STREAMING:
+		auto_off_prohibit(le_audio_auto_off_token);
+		break;
+	case LE_AUDIO_EVT_NOT_STREAMING:
+	case LE_AUDIO_EVT_SYNC_LOST:
+	case LE_AUDIO_EVT_NO_VALID_CFG:
+		auto_off_allow(le_audio_auto_off_token);
+		break;
+	default:
+		break;
+	}
+}
+
+SYS_INIT(le_audio_auto_off_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
 
 int le_audio_ep_state_get(struct bt_bap_ep *ep, uint8_t *state)
 {
