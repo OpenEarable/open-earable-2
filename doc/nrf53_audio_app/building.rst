@@ -97,7 +97,7 @@ The building command for running the script requires providing the following par
      - Specifies the application version.
      - ``release``, ``debug``
      - | :ref:`nrf53_audio_app_configuration_files`
-       | **Note:** For FOTA DFU, you must use :ref:`nrf53_audio_app_building_standard`.
+       |
    * - Device type (``-d``)
      - Specifies the device type.
      - ``headset``, ``gateway``, ``both``
@@ -236,16 +236,11 @@ The application supports the following custom configurations:
    * - Debug (default)
      - :file:`prj.conf`
      - No suffix
-     - Debug version of the application. Provides full logging capabilities and debug optimizations to ease development.
+     - Debug version of the application with FOTA/DFU support. Provides full logging capabilities and debug optimizations to ease development.
    * - Release
      - :file:`prj_release.conf`
      - ``release``
      - Release version of the application. Disables logging capabilities and disables development features to create a smaller application binary.
-   * - FOTA DFU
-     - :file:`prj_fota.conf`
-     - ``fota``
-     - | Builds the debug version of the application with the features needed to perform DFU over Bluetooth LE, and includes bootloaders so that the applications on both the application core and network core can be updated.
-       | See :ref:`nrf53_audio_app_fota` for more information.
 
 Building the application
 ========================
@@ -277,18 +272,6 @@ Complete the following steps to build the application:
    To work around this standard west behavior, you can add the ``-d`` parameter to the ``west`` command to specify a custom build folder for each device.
    This way, you can build firmware for headset and gateway to separate directories before programming the development kits.
    Alternatively, you can use the :ref:`nrf53_audio_app_building_script`, which handles this automatically.
-
-Building the application for FOTA
----------------------------------
-
-The following command example builds the application for :ref:`nrf53_audio_app_fota`:
-
-.. code-block:: console
-
-   west build -b nrf5340_audio_dk/nrf5340/cpuapp --pristine -- -DCONFIG_AUDIO_DEV=1 -DFILE_SUFFIX=fota
-
-The command uses ``-DFILE_SUFFIX=fota`` to pick :file:`prj_fota.conf` instead of the default :file:`prj.conf`.
-It also uses the ``--pristine`` to clean the existing directory before starting the build process.
 
 Programming the application
 ===========================

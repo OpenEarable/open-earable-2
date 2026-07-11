@@ -55,13 +55,8 @@ These files change the configuration defaults automatically, based on the differ
 
 For each application, only one of the following :file:`.conf` files is included when building:
 
-* :file:`prj.conf` is the default configuration file and it implements the debug application version.
+* :file:`prj.conf` is the default configuration file. It implements the debug application version with FOTA/DFU support included.
 * :file:`prj_release.conf` is the optional configuration file and it implements the release application version.
   No debug features are enabled in the release application version.
   When building using the command line, you must explicitly specify if :file:`prj_release.conf` is going to be included instead of :file:`prj.conf`.
   See :ref:`nrf53_audio_app_building` for details.
-* :file:`prj_fota.conf` is the optional configuration file used for FOTA DFU.
-  When used, the build system builds the debug version of the application (:file:`prj.conf`), but with the features needed to perform DFU over Bluetooth LE.
-  It also includes bootloaders so that the applications on both the application core and network core can be updated.
-  When building using the command line, you must explicitly specify if :file:`prj_fota.conf` is going to be included instead of :file:`prj.conf`.
-  See :ref:`nrf53_audio_app_fota` for more information.
