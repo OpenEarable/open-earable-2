@@ -195,8 +195,8 @@ int _count = 0;
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
-/* Decimation buffer for SD card logging */
-static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t) / 4]; /* /4 for decimation factor 4 */
+/* Output buffer sized for the largest processed output: decimation factor 2. */
+static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t) / 2];
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)

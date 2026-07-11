@@ -1,5 +1,50 @@
 menu "Battery Configuration"
 
+config POWER_SAVING_DEFAULT_MODE
+	int "Default auto-off power saving mode"
+	default 2
+	help
+	  Default mode for automatic power-off.
+	  Values: 0=off, 1=minimal, 2=balanced, 3=aggressive. Higher
+	  values are more aggressive: the timeout is shorter and fewer
+	  participants can prohibit auto-off.
+
+config POWER_SAVING_LEVEL_LEAUDIO
+	int "LE Audio auto-off power saving level"
+	default 3
+	help
+	  Most aggressive power saving mode where LE Audio may prohibit
+	  auto-off. A participant is considered when the current mode is
+	  less than or equal to its level.
+	  See POWER_SAVING_DEFAULT_MODE.
+
+config POWER_SAVING_LEVEL_SENSOR_MANAGER
+	int "SensorManager auto-off power saving level"
+	default 2
+	help
+	  Most aggressive power saving mode where SensorManager may prohibit
+	  auto-off. For example, level 2 applies in minimal and balanced
+	  modes, but not in aggressive mode.
+	  See POWER_SAVING_DEFAULT_MODE.
+
+config AUTO_OFF_TIMEOUT_AGGRESSIVE
+	int "Aggressive auto-off timeout in minutes"
+	default 5
+	help
+	  Idle time before power-off when auto-off is in aggressive mode.
+
+config AUTO_OFF_TIMEOUT_BALANCED
+	int "Balanced auto-off timeout in minutes"
+	default 15
+	help
+	  Idle time before power-off when auto-off is in balanced mode.
+
+config AUTO_OFF_TIMEOUT_MINIMAL
+	int "Minimal auto-off timeout in minutes"
+	default 30
+	help
+	  Idle time before power-off when auto-off is in minimal mode.
+
 config BATTERY_SYSDOWN_SET_OFFSET
 	int "System Down Set Voltage Offset (mV)"
 	default 250
