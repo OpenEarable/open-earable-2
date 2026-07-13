@@ -3,6 +3,7 @@
 #include <zephyr/device.h>
 #include <zephyr/pm/device.h>  // ✅ Correct Power Management API
 #include <zephyr/logging/log.h>
+#include <nrfx_clock.h>
 LOG_MODULE_REGISTER(board_init, LOG_LEVEL_DBG);
 
 //#include "nrf5340_audio_common.h"
@@ -21,6 +22,22 @@ const struct device *const cons = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 const struct device *const ls_1_8 = DEVICE_DT_GET(load_switch_1_8_id);
 const struct device *const ls_3_3 = DEVICE_DT_GET(load_switch_3_3_id);
 const struct device *const ls_sd = DEVICE_DT_GET(load_switch_sd_id);
+
+static int app_core_hfclk_divider_init(void)
+{
+    int ret = nrfx_clock_divider_set(NRF_CLOCK_DOMAIN_HFCLK, NRF_CLOCK_HFCLK_DIV_1);
+
+    ret -= NRFX_ERROR_BASE_NUM;
+    if (ret) {
+        LOG_WRN("Failed to set app core HFCLK divider to DIV_1: %d", ret);
+        return ret;
+    }
+
+    LOG_DBG("App core HFCLK divider set to DIV_1");
+
+    return 0;
+}
+SYS_INIT(app_core_hfclk_divider_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
 
 struct load_switch_data {
     struct gpio_dt_spec ctrl_pin;
