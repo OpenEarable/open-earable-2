@@ -68,6 +68,15 @@ void StateIndicator::set_custom_color(const RGBColor &color) {
     if (_state.led_mode == CUSTOM) led_controller.setColor(color);
 }
 
+void StateIndicator::set_dfu_active(bool active) {
+    if (_dfu_active == active) {
+        return;
+    }
+
+    _dfu_active = active;
+    set_state(_state);
+}
+
 void StateIndicator::set_indication_mode(enum led_mode state) {
     _state.led_mode = state;
     set_state(_state);
@@ -91,6 +100,11 @@ void StateIndicator::set_sd_state(enum sd_state state) {
 
 void StateIndicator::set_state(struct earable_state state) {
     _state = state;
+
+    if (_dfu_active) {
+        led_controller.blink(LED_ORANGE, 100, 200);
+        return;
+    }
 
     // do not update the state if set to custom color
     if (_state.led_mode == CUSTOM) {
@@ -167,3 +181,8 @@ void StateIndicator::set_state(struct earable_state state) {
 }
 
 StateIndicator state_indicator;
+
+extern "C" void state_indicator_set_dfu_active(bool active)
+{
+    state_indicator.set_dfu_active(active);
+}

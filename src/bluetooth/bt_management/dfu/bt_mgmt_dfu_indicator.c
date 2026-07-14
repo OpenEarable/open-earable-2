@@ -1,4 +1,5 @@
 #include "bt_mgmt_dfu_indicator.h"
+#include "StateIndicatorC.h"
 
 #include <errno.h>
 #include <zephyr/drivers/gpio.h>
@@ -9,13 +10,17 @@
 LOG_MODULE_REGISTER(bt_mgmt_dfu_indicator, CONFIG_BT_MGMT_DFU_LOG_LEVEL);
 
 #define DFU_CHUNK_LED_PULSE_TIME K_MSEC(30)
+#define DFU_STATUS_LED_LATCH_TIME K_MSEC(2000)
 
 static const struct gpio_dt_spec dfu_activity_led =
 	GPIO_DT_SPEC_GET_OR(DT_NODELABEL(led_error), gpios, {0});
 static bool dfu_activity_led_ready;
+static bool dfu_status_indicator_active;
 
 static void dfu_activity_led_release_work_handler(struct k_work *work);
 K_WORK_DELAYABLE_DEFINE(dfu_activity_led_release_work, dfu_activity_led_release_work_handler);
+static void dfu_status_indicator_release_work_handler(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(dfu_status_indicator_release_work, dfu_status_indicator_release_work_handler);
 
 static void dfu_activity_led_release_work_handler(struct k_work *work)
 {
@@ -28,8 +33,23 @@ static void dfu_activity_led_release_work_handler(struct k_work *work)
 	(void)gpio_pin_set_dt(&dfu_activity_led, 0);
 }
 
+static void dfu_status_indicator_release_work_handler(struct k_work *work)
+{
+	ARG_UNUSED(work);
+
+	dfu_status_indicator_active = false;
+	state_indicator_set_dfu_active(false);
+}
+
 void bt_mgmt_dfu_indicator_update_chunk_led(void)
 {
+	if (!dfu_status_indicator_active) {
+		dfu_status_indicator_active = true;
+		state_indicator_set_dfu_active(true);
+	}
+
+	(void)k_work_reschedule(&dfu_status_indicator_release_work, DFU_STATUS_LED_LATCH_TIME);
+
 	if (!dfu_activity_led_ready) {
 		return;
 	}

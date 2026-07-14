@@ -15,6 +15,7 @@
 #include "string.h"
 #include "macros_common.h"
 #include "channel_assignment.h"
+#include "StateIndicatorC.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt_dfu, CONFIG_BT_MGMT_DFU_LOG_LEVEL);
@@ -123,6 +124,7 @@ void bt_mgmt_dfu_start(void)
 
 	bt_conn_cb_register(&dfu_conn_callbacks);
 	dfu_set_bt_name();
+	state_indicator_set_dfu_active(true);
 
 	while (1) {
 		/* In DFU mode, the device should always advertise */
