@@ -24,10 +24,12 @@ public:
     void set_pairing_state(enum pairing_state state);
     void set_indication_mode(enum led_mode state);
     void set_custom_color(const RGBColor &color);
+    void set_dfu_active(bool active);
 
 private:
     earable_state _state;
     RGBColor color;
+    bool _dfu_active = false;
 };
 
 extern StateIndicator state_indicator;
