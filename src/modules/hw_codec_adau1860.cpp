@@ -26,6 +26,10 @@ LOG_MODULE_REGISTER(hw_codec, CONFIG_MODULE_HW_CODEC_LOG_LEVEL);
 
 #define VOLUME_ADJUST_STEP_DB 3
 
+/* Allow the DSP mute ramp and I2S clock domain to settle at source changes. */
+#define CODEC_MUTE_SETTLE_MS 100
+#define CODEC_I2S_PREROLL_MS 100
+
 ZBUS_SUBSCRIBER_DEFINE(volume_evt_sub, CONFIG_VOLUME_MSG_SUB_QUEUE_SIZE);
 
 static uint32_t prev_volume_reg_val = OUT_VOLUME_DEFAULT;
@@ -290,6 +294,11 @@ int hw_codec_default_conf_enable(void)
 		return ret;
 	}
 
+	/* audio_datapath_aquire() starts I2S before enabling the codec. Keep the
+	 * output muted while the new clock stream becomes stable.
+	 */
+	k_msleep(CODEC_I2S_PREROLL_MS);
+
 	//ret = dac.setup();
 	if (!muted) {
 		ret = dac.mute(false);
@@ -309,6 +318,9 @@ int hw_codec_stop_audio(void)
 	if (ret) {
 		return ret;
 	}
+
+	/* Do not remove the I2S clocks while the DSP is still applying mute. */
+	k_msleep(CODEC_MUTE_SETTLE_MS);
 
 	return 0;
 }
