@@ -103,6 +103,10 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 /* How often to print under-run warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
 
+/* Smooth the transition from silence to local buffer playback. */
+#define BUFFER_PLAY_FADE_IN_MS      5U
+#define BUFFER_PLAY_FADE_IN_SAMPLES ((CONFIG_AUDIO_SAMPLE_RATE_HZ * BUFFER_PLAY_FADE_IN_MS) / 1000U)
+
 enum drift_comp_state {
 	DRIFT_STATE_INIT,   /* Waiting for data to be received */
 	DRIFT_STATE_CALIB,  /* Calibrate and zero out local delay */
@@ -209,6 +213,7 @@ int _count = 0;
 
 static int16_t *buffer_play_data = NULL;
 static uint32_t buffer_play_pos;
+static uint32_t buffer_play_fade_pos;
 static int buffer_play_num_samples;
 static float buffer_play_amplitude;
 static bool buffer_play_loop;
@@ -437,6 +442,7 @@ struct auxiliary_audio_state {
 	uint32_t tone_remaining_ms;
 	int16_t *buffer_data;
 	uint32_t buffer_pos;
+	uint32_t buffer_fade_pos;
 	int buffer_num_samples;
 	float buffer_amplitude;
 	bool buffer_loop;
@@ -811,6 +817,7 @@ int audio_datapath_auxiliary_suspend(void)
 		.tone_remaining_ms = k_timer_remaining_get(&tone_stop_timer),
 		.buffer_data = buffer_play_data,
 		.buffer_pos = buffer_play_pos,
+		.buffer_fade_pos = buffer_play_fade_pos,
 		.buffer_num_samples = buffer_play_num_samples,
 		.buffer_amplitude = buffer_play_amplitude,
 		.buffer_loop = buffer_play_loop,
@@ -852,6 +859,7 @@ int audio_datapath_auxiliary_resume(void)
 	tone_active = auxiliary_audio_state.tone_active;
 	buffer_play_data = auxiliary_audio_state.buffer_data;
 	buffer_play_pos = auxiliary_audio_state.buffer_pos;
+	buffer_play_fade_pos = auxiliary_audio_state.buffer_fade_pos;
 	buffer_play_num_samples = auxiliary_audio_state.buffer_num_samples;
 	buffer_play_amplitude = auxiliary_audio_state.buffer_amplitude;
 	buffer_play_loop = auxiliary_audio_state.buffer_loop;
@@ -915,6 +923,7 @@ int audio_datapath_buffer_play(int16_t *buffer, int num_samples, bool loop, floa
 
 	buffer_play_data = buffer;
 	buffer_play_pos = 0;
+	buffer_play_fade_pos = 0;
 	buffer_play_num_samples = num_samples;
 	buffer_play_amplitude = amplitude;
 	buffer_play_loop = loop;
@@ -962,6 +971,8 @@ static void tone_mix(uint8_t *tx_buf)
 
 		/* Copy buffer samples to playback buffer with amplitude scaling */
 		for (int i = 0; i < samples_per_block; i++) {
+			float gain = buffer_play_amplitude;
+
 			if (buffer_play_pos >= buffer_play_num_samples) {
 				if (buffer_play_loop) {
 					buffer_play_pos = 0; /* Loop the buffer */
@@ -972,7 +983,13 @@ static void tone_mix(uint8_t *tx_buf)
 					break;
 				}
 			}
-			int16_t sample = (int16_t)(buffer_play_data[buffer_play_pos] * buffer_play_amplitude);
+
+			if (buffer_play_fade_pos < BUFFER_PLAY_FADE_IN_SAMPLES) {
+				gain *= (float)buffer_play_fade_pos / BUFFER_PLAY_FADE_IN_SAMPLES;
+				buffer_play_fade_pos++;
+			}
+
+			int16_t sample = (int16_t)(buffer_play_data[buffer_play_pos] * gain);
 			buffer_play_buf[i * 2] = sample & 0xFF;
 			buffer_play_buf[i * 2 + 1] = (sample >> 8) & 0xFF;
 			buffer_play_pos++;
