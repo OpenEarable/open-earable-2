@@ -199,7 +199,11 @@ static void le_audio_msg_sub_thread(void)
 				break;
 			}
 
-			audio_system_start();
+			ret = audio_system_start();
+			if (ret) {
+				LOG_ERR("Failed to start audio system: %d", ret);
+				break;
+			}
 			stream_state_set(STATE_STREAMING);
 			if (msg.dir == BT_AUDIO_DIR_SOURCE) {
 				audio_system_encoder_start();
