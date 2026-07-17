@@ -6,7 +6,6 @@
 
 #include "decimation_filter.h"
 #include <cstring>
-#include <memory>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(decimator_cpp, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -27,10 +26,16 @@ static const float32_t coeff_dec3[2 * 5] = {
 };
 
 // Decimator class implementation
-Decimator::Decimator(uint8_t factor) 
-    : factor_(factor), initialized_(false) {
+Decimator::Decimator()
+    : factor_(0), initialized_(false) {
     memset(state_, 0, sizeof(state_));
-    memset(temp_f32_, 0, sizeof(temp_f32_));
+}
+
+void Decimator::configure(uint8_t factor) {
+    factor_ = factor;
+    initialized_ = false;
+    memset(&biquad_, 0, sizeof(biquad_));
+    memset(state_, 0, sizeof(state_));
 }
 
 int Decimator::init() {
@@ -54,8 +59,10 @@ int Decimator::init() {
     return 0;
 }
 
-int Decimator::process(const int16_t* input, int16_t* output, uint32_t num_frames) {
-    if (!initialized_ || !input || !output || num_frames == 0 || num_frames > MAX_FRAMES) {
+int Decimator::process(const int16_t* input, int16_t* output, uint32_t num_frames,
+                       float32_t* processing_buffer) {
+    if (!initialized_ || !input || !output || !processing_buffer || num_frames == 0 ||
+        num_frames > MAX_FRAMES) {
         return -EINVAL;
     }
     
@@ -63,23 +70,23 @@ int Decimator::process(const int16_t* input, int16_t* output, uint32_t num_frame
     
     // Convert int16 to float32
     for (uint32_t i = 0; i < num_samples; i++) {
-        temp_f32_[i] = static_cast<float32_t>(input[i]);
+        processing_buffer[i] = static_cast<float32_t>(input[i]);
     }
-    
-    // Apply anti-aliasing filter using stereo DF2T
-    static float32_t filtered[MAX_FRAMES * 2];
-    arm_biquad_cascade_stereo_df2T_f32(&biquad_, temp_f32_, filtered, num_frames);
-    
+
+    // CMSIS-DSP stereo DF2T supports identical source and destination buffers.
+    arm_biquad_cascade_stereo_df2T_f32(&biquad_, processing_buffer, processing_buffer,
+                                       num_frames);
+
     // Clip to prevent overflow
-    arm_clip_f32(filtered, filtered, -32768.0f, 32767.0f, num_samples);
+    arm_clip_f32(processing_buffer, processing_buffer, -32768.0f, 32767.0f, num_samples);
     
     // Decimate and convert back to int16
     uint32_t out_frames = num_frames / factor_;
     uint32_t step = factor_ * 2;
     
     for (uint32_t i = 0; i < out_frames; i++) {
-        output[i * 2] = static_cast<int16_t>(filtered[i * step]);
-        output[i * 2 + 1] = static_cast<int16_t>(filtered[i * step + 1]);
+        output[i * 2] = static_cast<int16_t>(processing_buffer[i * step]);
+        output[i * 2 + 1] = static_cast<int16_t>(processing_buffer[i * step + 1]);
     }
     
     return out_frames;
@@ -100,106 +107,94 @@ const float32_t* Decimator::getCoefficients() const {
 }
 
 // CascadedDecimator class implementation
-CascadedDecimator::CascadedDecimator(uint8_t total_factor)
-    : total_factor_(total_factor), num_stages_(0) {
-    memset(stages_, 0, sizeof(stages_));
-    memset(temp_buffers_, 0, sizeof(temp_buffers_));
-    setupStages();
+CascadedDecimator::CascadedDecimator()
+    : total_factor_(0), num_stages_(0), configured_(false) {
+    memset(intermediate_buffer_, 0, sizeof(intermediate_buffer_));
 }
 
-CascadedDecimator::~CascadedDecimator() {
-    cleanupStages();
-}
+int CascadedDecimator::configure(uint8_t total_factor) {
+    uint8_t stage_factors[MAX_STAGES] = {};
 
-void CascadedDecimator::setupStages() {
-    switch (total_factor_) {
+    cleanup();
+    switch (total_factor) {
         case 1: // No decimation
             num_stages_ = 0;
             break;
         case 2: // 2x
             num_stages_ = 1;
-            stages_[0] = new Decimator(2);
+            stage_factors[0] = 2;
             break;
         case 3: // 3x
             num_stages_ = 1;
-            stages_[0] = new Decimator(3);
+            stage_factors[0] = 3;
             break;
         case 4: // 2x -> 2x
             num_stages_ = 2;
-            stages_[0] = new Decimator(2);
-            stages_[1] = new Decimator(2);
+            stage_factors[0] = 2;
+            stage_factors[1] = 2;
             break;
-            
         case 6: // 3x -> 2x
             num_stages_ = 2;
-            stages_[0] = new Decimator(3);
-            stages_[1] = new Decimator(2);
+            stage_factors[0] = 3;
+            stage_factors[1] = 2;
             break;
-            
         case 8: // 2x -> 2x -> 2x
             num_stages_ = 3;
-            stages_[0] = new Decimator(2);
-            stages_[1] = new Decimator(2);
-            stages_[2] = new Decimator(2);
+            stage_factors[0] = 2;
+            stage_factors[1] = 2;
+            stage_factors[2] = 2;
             break;
-            
         case 12: // 3x -> 2x -> 2x
             num_stages_ = 3;
-            stages_[0] = new Decimator(3);
-            stages_[1] = new Decimator(2);
-            stages_[2] = new Decimator(2);
+            stage_factors[0] = 3;
+            stage_factors[1] = 2;
+            stage_factors[2] = 2;
             break;
-
         case 16: // 2x -> 2x -> 2x -> 2x
             num_stages_ = 4;
-            stages_[0] = new Decimator(2);
-            stages_[1] = new Decimator(2);
-            stages_[2] = new Decimator(2);
-            stages_[3] = new Decimator(2);
+            stage_factors[0] = 2;
+            stage_factors[1] = 2;
+            stage_factors[2] = 2;
+            stage_factors[3] = 2;
             break;
-
         case 24: // 3x -> 2x -> 2x -> 2x
             num_stages_ = 4;
-            stages_[0] = new Decimator(3);
-            stages_[1] = new Decimator(2);
-            stages_[2] = new Decimator(2);
-            stages_[3] = new Decimator(2);
+            stage_factors[0] = 3;
+            stage_factors[1] = 2;
+            stage_factors[2] = 2;
+            stage_factors[3] = 2;
             break;
-            
         default:
-            LOG_ERR("Unsupported total decimation factor: %d", total_factor_);
-            num_stages_ = 0;
-            return;
+            LOG_ERR("Unsupported total decimation factor: %d", total_factor);
+            return -EINVAL;
     }
-    
-    // Allocate temporary buffers between stages
-    for (uint8_t i = 0; i < num_stages_ - 1; i++) {
-        temp_buffers_[i] = new int16_t[MAX_FRAMES * 2];
+
+    for (uint8_t i = 0; i < num_stages_; i++) {
+        stages_[i].configure(stage_factors[i]);
     }
-    
+
+    total_factor_ = total_factor;
+    configured_ = true;
     LOG_DBG("CascadedDecimator setup for factor %d with %d stages", total_factor_, num_stages_);
+    return 0;
 }
 
-void CascadedDecimator::cleanupStages() {
-    for (uint8_t i = 0; i < num_stages_; i++) {
-        delete stages_[i];
-        stages_[i] = nullptr;
+void CascadedDecimator::cleanup() {
+    for (uint8_t i = 0; i < MAX_STAGES; i++) {
+        stages_[i].configure(0);
     }
-    
-    for (uint8_t i = 0; i < MAX_STAGES - 1; i++) {
-        delete[] temp_buffers_[i];
-        temp_buffers_[i] = nullptr;
-    }
+    total_factor_ = 0;
+    num_stages_ = 0;
+    configured_ = false;
 }
 
 int CascadedDecimator::init() {
+    if (!configured_) {
+        return -EINVAL;
+    }
+
     for (uint8_t i = 0; i < num_stages_; i++) {
-        if (!stages_[i]) {
-            LOG_ERR("Stage %d is null", i);
-            return -EINVAL;
-        }
-        
-        int ret = stages_[i]->init();
+        int ret = stages_[i].init();
         if (ret != 0) {
             LOG_ERR("Failed to initialize stage %d: %d", i, ret);
             return ret;
@@ -211,12 +206,13 @@ int CascadedDecimator::init() {
 }
 
 int CascadedDecimator::process(const int16_t* input, int16_t* output, uint32_t num_frames) {
-    if (num_stages_ == 0) {
-        return num_frames;
-    }
-    
-    if (!input || !output || num_frames == 0) {
+    if (!configured_ || !input || !output || num_frames == 0 || num_frames > MAX_FRAMES) {
         return -EINVAL;
+    }
+
+    if (num_stages_ == 0) {
+        memcpy(output, input, num_frames * 2 * sizeof(int16_t));
+        return num_frames;
     }
     
     const int16_t* stage_input = input;
@@ -229,12 +225,12 @@ int CascadedDecimator::process(const int16_t* input, int16_t* output, uint32_t n
             // Last stage outputs to final output buffer
             stage_output = output;
         } else {
-            // Intermediate stage outputs to temp buffer
-            stage_output = temp_buffers_[i];
+            // Alternate storage so adjacent stages never share input and output.
+            stage_output = (i % 2 == 0) ? intermediate_buffer_ : output;
         }
         
         // Process this stage
-        frames = stages_[i]->process(stage_input, stage_output, frames);
+        frames = stages_[i].process(stage_input, stage_output, frames, processing_buffer_);
         if (frames < 0) {
             LOG_ERR("Stage %d processing failed: %d", i, frames);
             return frames;
@@ -249,8 +245,6 @@ int CascadedDecimator::process(const int16_t* input, int16_t* output, uint32_t n
 
 void CascadedDecimator::reset() {
     for (uint8_t i = 0; i < num_stages_; i++) {
-        if (stages_[i]) {
-            stages_[i]->reset();
-        }
+        stages_[i].reset();
     }
 }
