@@ -47,6 +47,10 @@ static K_SEM_DEFINE(sem_encoder_start, 0, 1);
 static struct k_thread encoder_thread_data;
 static k_tid_t encoder_thread_id;
 static atomic_t encoder_started;
+static bool audio_system_suspended;
+static bool audio_system_resume_requested;
+static bool encoder_resume_requested;
+K_MUTEX_DEFINE(audio_system_state_mutex);
 
 struct k_poll_signal encoder_sig;
 
@@ -206,7 +210,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	}
 }
 
-void audio_system_encoder_start(void)
+static void audio_system_encoder_start_internal(void)
 {
 	if (!sw_codec_cfg.initialized || !sw_codec_cfg.encoder.enabled || !sw_codec_is_initialized()) {
 		LOG_WRN("Encoder start ignored because codec is not initialized");
@@ -225,7 +229,7 @@ void audio_system_encoder_start(void)
 	}*/
 }
 
-void audio_system_encoder_stop(void)
+static void audio_system_encoder_stop_internal(void)
 {
 	atomic_clear(&encoder_started);
 	k_poll_signal_reset(&encoder_sig);
@@ -236,6 +240,28 @@ bool audio_system_encoder_is_started(void)
 {
 	return atomic_get(&encoder_started) && sw_codec_cfg.initialized &&
 	       sw_codec_cfg.encoder.enabled && sw_codec_is_initialized();
+}
+
+void audio_system_encoder_start(void)
+{
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+	if (audio_system_suspended) {
+		encoder_resume_requested = true;
+	} else {
+		audio_system_encoder_start_internal();
+	}
+	k_mutex_unlock(&audio_system_state_mutex);
+}
+
+void audio_system_encoder_stop(void)
+{
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+	if (audio_system_suspended) {
+		encoder_resume_requested = false;
+	} else {
+		audio_system_encoder_stop_internal();
+	}
+	k_mutex_unlock(&audio_system_state_mutex);
 }
 
 int audio_system_encode_test_tone_set(uint32_t freq)
@@ -406,9 +432,10 @@ int audio_system_decode(void const *const encoded_data, size_t encoded_data_size
 	return 0;
 }
 
-/**@brief Initializes the FIFOs, the codec, and starts the I2S
+/**
+ * @brief Initialize the FIFOs and codecs, then start the audio datapath.
  */
-void audio_system_start(void)
+static void audio_system_start_internal(void)
 {
 	int ret;
 
@@ -466,7 +493,7 @@ void audio_system_start(void)
 #endif /* ((CONFIG_AUDIO_SOURCE_USB) && (CONFIG_AUDIO_DEV == GATEWAY))) */
 }
 
-void audio_system_stop(void)
+static void audio_system_stop_internal(void)
 {
 	int ret;
 
@@ -476,7 +503,7 @@ void audio_system_stop(void)
 	}
 
 	LOG_DBG("Stopping codec");
-	audio_system_encoder_stop();
+	audio_system_encoder_stop_internal();
 
 #if ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB)
 	audio_usb_stop();
@@ -499,6 +526,77 @@ void audio_system_stop(void)
 
 	//data_fifo_empty(&fifo_rx);
 	data_fifo_empty(&fifo_tx);
+}
+
+void audio_system_start(void)
+{
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+	if (audio_system_suspended) {
+		audio_system_resume_requested = true;
+	} else {
+		audio_system_start_internal();
+	}
+	k_mutex_unlock(&audio_system_state_mutex);
+}
+
+void audio_system_stop(void)
+{
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+	if (audio_system_suspended) {
+		audio_system_resume_requested = false;
+		encoder_resume_requested = false;
+	} else {
+		audio_system_stop_internal();
+	}
+	k_mutex_unlock(&audio_system_state_mutex);
+}
+
+int audio_system_suspend(void)
+{
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+	if (audio_system_suspended) {
+		k_mutex_unlock(&audio_system_state_mutex);
+		return -EBUSY;
+	}
+
+	audio_system_resume_requested = sw_codec_cfg.initialized;
+	encoder_resume_requested = audio_system_encoder_is_started();
+	audio_system_suspended = true;
+	if (audio_system_resume_requested) {
+		audio_system_stop_internal();
+	}
+	LOG_INF("Audio system suspended: resume=%d encoder=%d", audio_system_resume_requested,
+		encoder_resume_requested);
+	k_mutex_unlock(&audio_system_state_mutex);
+	return 0;
+}
+
+int audio_system_resume(void)
+{
+	bool resume_requested;
+	bool encoder_requested;
+
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+	if (!audio_system_suspended) {
+		k_mutex_unlock(&audio_system_state_mutex);
+		return -EALREADY;
+	}
+
+	audio_system_suspended = false;
+	resume_requested = audio_system_resume_requested;
+	encoder_requested = encoder_resume_requested;
+	if (resume_requested) {
+		audio_system_start_internal();
+		if (encoder_requested) {
+			audio_system_encoder_start_internal();
+		}
+	}
+	LOG_INF("Audio system suspension released: running=%d encoder=%d", resume_requested,
+		encoder_requested);
+	audio_system_resume_requested = false;
+	encoder_resume_requested = false;
+	k_mutex_unlock(&audio_system_state_mutex);
+	return 0;
 }
 
 int audio_system_fifo_rx_block_drop(void)
