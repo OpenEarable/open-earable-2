@@ -423,6 +423,28 @@ static bool tone_active;
 static uint16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 100];
 static size_t test_tone_size;
 
+struct auxiliary_audio_state {
+	bool suspended;
+	bool record_to_sd;
+	bool record_to_buffer;
+	int16_t *record_buffer;
+	int record_num_samples;
+	int record_current_index;
+	bool record_left;
+	bool record_right;
+	void (*record_callback)(void);
+	bool tone_active;
+	uint32_t tone_remaining_ms;
+	int16_t *buffer_data;
+	uint32_t buffer_pos;
+	int buffer_num_samples;
+	float buffer_amplitude;
+	bool buffer_loop;
+	void (*buffer_callback)(void);
+};
+
+static struct auxiliary_audio_state auxiliary_audio_state;
+
 /**
  * @brief	Calculate error between sdu_ref and frame_start_ts_us.
  *
@@ -768,6 +790,83 @@ static void tone_stop_timer_handler(struct k_timer *dummy)
 };
 
 K_TIMER_DEFINE(tone_stop_timer, tone_stop_timer_handler, NULL);
+
+int audio_datapath_auxiliary_suspend(void)
+{
+	if (auxiliary_audio_state.suspended) {
+		return -EBUSY;
+	}
+
+	auxiliary_audio_state = (struct auxiliary_audio_state) {
+		.suspended = true,
+		.record_to_sd = _record_to_sd,
+		.record_to_buffer = _record_to_buffer,
+		.record_buffer = _record_buffer,
+		.record_num_samples = _record_num_samples,
+		.record_current_index = _record_current_index,
+		.record_left = _record_left,
+		.record_right = _record_right,
+		.record_callback = _record_callback,
+		.tone_active = tone_active,
+		.tone_remaining_ms = k_timer_remaining_get(&tone_stop_timer),
+		.buffer_data = buffer_play_data,
+		.buffer_pos = buffer_play_pos,
+		.buffer_num_samples = buffer_play_num_samples,
+		.buffer_amplitude = buffer_play_amplitude,
+		.buffer_loop = buffer_play_loop,
+		.buffer_callback = buffer_play_callback,
+	};
+
+	k_timer_stop(&tone_stop_timer);
+	(void)k_work_cancel(&tone_stop_work);
+	_record_to_sd = false;
+	_record_to_buffer = false;
+	_record_buffer = NULL;
+	_record_callback = NULL;
+	tone_active = false;
+	buffer_play_data = NULL;
+	buffer_play_callback = NULL;
+
+	LOG_INF("Auxiliary audio suspended: tone=%d buffer=%d buffer_recording=%d sd_recording=%d",
+		auxiliary_audio_state.tone_active, auxiliary_audio_state.buffer_data != NULL,
+		auxiliary_audio_state.record_to_buffer, auxiliary_audio_state.record_to_sd);
+	return 0;
+}
+
+int audio_datapath_auxiliary_resume(void)
+{
+	if (!auxiliary_audio_state.suspended) {
+		return -EALREADY;
+	}
+
+	/* A completion queued by measurement playback must not clear restored state. */
+	(void)k_work_cancel(&tone_stop_work);
+	_record_to_sd = auxiliary_audio_state.record_to_sd;
+	_record_to_buffer = auxiliary_audio_state.record_to_buffer;
+	_record_buffer = auxiliary_audio_state.record_buffer;
+	_record_num_samples = auxiliary_audio_state.record_num_samples;
+	_record_current_index = auxiliary_audio_state.record_current_index;
+	_record_left = auxiliary_audio_state.record_left;
+	_record_right = auxiliary_audio_state.record_right;
+	_record_callback = auxiliary_audio_state.record_callback;
+	tone_active = auxiliary_audio_state.tone_active;
+	buffer_play_data = auxiliary_audio_state.buffer_data;
+	buffer_play_pos = auxiliary_audio_state.buffer_pos;
+	buffer_play_num_samples = auxiliary_audio_state.buffer_num_samples;
+	buffer_play_amplitude = auxiliary_audio_state.buffer_amplitude;
+	buffer_play_loop = auxiliary_audio_state.buffer_loop;
+	buffer_play_callback = auxiliary_audio_state.buffer_callback;
+
+	if (tone_active && auxiliary_audio_state.tone_remaining_ms > 0U) {
+		k_timer_start(&tone_stop_timer, K_MSEC(auxiliary_audio_state.tone_remaining_ms),
+			      K_NO_WAIT);
+	}
+
+	LOG_INF("Auxiliary audio resumed: tone=%d buffer=%d buffer_recording=%d sd_recording=%d",
+		tone_active, buffer_play_data != NULL, _record_to_buffer, _record_to_sd);
+	memset(&auxiliary_audio_state, 0, sizeof(auxiliary_audio_state));
+	return 0;
+}
 
 int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude)
 {
@@ -1421,7 +1520,7 @@ int audio_datapath_aquire(struct data_fifo *fifo_rx) {
 	return ret;
 }
 
-int audio_datapath_release() {
+int audio_datapath_release(void) {
 	int ret = 0;
 
 	_count --;

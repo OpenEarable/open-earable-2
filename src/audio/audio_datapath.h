@@ -80,14 +80,22 @@ void record_to_buffer_stop(void);
 void audio_datapath_stop_recording(void);
 
 /**
- * @brief Stops buffer recording safely
+ * @brief Suspend local playback and recording without losing their state.
+ *
+ * The datapath must be stopped before this function is called. A matching call
+ * to audio_datapath_auxiliary_resume() restores playback positions, callbacks,
+ * and recording configuration.
+ *
+ * @return 0 on success, or -EBUSY if an auxiliary suspension is already active.
  */
-void record_to_buffer_stop(void);
+int audio_datapath_auxiliary_suspend(void);
 
 /**
- * @brief Stops all audio recording safely (buffer and SD)
+ * @brief Restore local playback and recording after an auxiliary suspension.
+ *
+ * @return 0 on success, or -EALREADY if no suspension is active.
  */
-void audio_datapath_stop_recording(void);
+int audio_datapath_auxiliary_resume(void);
 
 /**
  * @brief Set the presentation delay
@@ -153,7 +161,7 @@ void record_to_sd(bool active);
 void set_sensor_queue(struct k_msgq *queue);
 
 int audio_datapath_aquire(struct data_fifo *fifo_rx);
-int audio_datapath_release();
+int audio_datapath_release(void);
 
 //void set_ring_buffer(struct ring_buf *ring_buf);
 
