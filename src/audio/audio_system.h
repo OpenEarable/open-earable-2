@@ -51,7 +51,8 @@ int audio_system_suspend(void);
 /**
  * @brief Release an exclusive suspension and apply the latest audio state.
  *
- * @return 0 on success, or -EALREADY if the system is not suspended.
+ * @return 0 on success, -EALREADY if the system is not suspended, or a
+ *         negative startup error when the preserved audio state cannot resume.
  */
 int audio_system_resume(void);
 
@@ -105,8 +106,10 @@ int audio_system_decode(void const *const encoded_data, size_t encoded_data_size
 
 /**
  * @brief Initialize and start both HW and SW audio codecs.
+ *
+ * @return 0 on success, or a negative error returned by the codec or datapath.
  */
-void audio_system_start(void);
+int audio_system_start(void);
 
 /**
  * @brief	Stop all activities related to audio.
