@@ -11,9 +11,10 @@
 #include <zephyr/sys/util.h>
 
 #include "audio_datapath.h"
+#include "audio_system.h"
 #include "hw_codec.h"
 
-LOG_MODULE_REGISTER(audio_response_service, CONFIG_LOG_DEFAULT_LEVEL);
+LOG_MODULE_REGISTER(audio_response_service, LOG_LEVEL_DBG);
 
 #define AUDIO_RESPONSE_CAPTURE_SAMPLES 2048
 #define AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE 4000U
@@ -50,6 +51,14 @@ struct audio_response_transfer {
 	bool committed;
 };
 
+struct audio_response_audio_session {
+	bool audio_system_suspended;
+	bool auxiliary_audio_suspended;
+	bool datapath_acquired;
+	bool measurement_codec_enabled;
+	bool measurement_playback_started;
+};
+
 /**
  * Carries the GATT write metadata and result through the generated union dispatcher.
  */
@@ -71,6 +80,7 @@ static uint16_t result_response[CONFIG_AUDIO_RESPONSE_MAX_POINTS];
 static uint8_t result_payload[AUDIO_RESPONSE_RESULT_ENCODED_SIZE];
 
 static struct audio_response_transfer transfer;
+static struct audio_response_audio_session audio_session;
 static audio_response_config_t pending_config;
 static bool measurement_active;
 static bool transfer_status_notifications_enabled;
@@ -91,6 +101,8 @@ static uint16_t response_magnitude_for_bin(const int16_t *samples, size_t sample
 					   uint32_t bin);
 static int select_response_points(audio_response_config_t *config);
 static void reset_transfer(void);
+static int suspend_audio_for_measurement(void);
+static void restore_audio_after_measurement(void);
 
 /**
  * Return a readable transfer status name for logs.
@@ -638,6 +650,74 @@ BT_GATT_SERVICE_DEFINE(audio_response_svc,
 );
 
 /**
+ * Stop shared audio activity and retain enough state to restore it after the
+ * response measurement owns the datapath.
+ */
+static int suspend_audio_for_measurement(void)
+{
+	int ret;
+
+	memset(&audio_session, 0, sizeof(audio_session));
+	ret = audio_system_suspend();
+	if (ret != 0) {
+		LOG_ERR("Failed to suspend audio system: %d", ret);
+		return ret;
+	}
+	audio_session.audio_system_suspended = true;
+
+	ret = audio_datapath_auxiliary_suspend();
+	if (ret != 0) {
+		LOG_ERR("Failed to suspend auxiliary audio activity: %d", ret);
+		(void)audio_system_resume();
+		memset(&audio_session, 0, sizeof(audio_session));
+		return ret;
+	}
+	LOG_DBG("Auxiliary audio activity suspended for measurement");
+
+	audio_session.auxiliary_audio_suspended = true;
+	return 0;
+}
+
+/**
+ * Stop measurement-specific activity and restore the audio state captured by
+ * suspend_audio_for_measurement(). Safe to call after partial setup.
+ */
+static void restore_audio_after_measurement(void)
+{
+	int ret;
+
+	record_to_buffer_stop();
+	if (audio_session.measurement_playback_started) {
+		audio_datapath_buffer_stop();
+	}
+	if (audio_session.measurement_codec_enabled) {
+		ret = hw_codec_stop_audio();
+		if (ret != 0) {
+			LOG_ERR("Failed to stop measurement codec: %d", ret);
+		}
+	}
+	if (audio_session.datapath_acquired) {
+		ret = audio_datapath_release();
+		if (ret != 0) {
+			LOG_ERR("Failed to release measurement datapath: %d", ret);
+		}
+	}
+	if (audio_session.auxiliary_audio_suspended) {
+		ret = audio_datapath_auxiliary_resume();
+		if (ret != 0) {
+			LOG_ERR("Failed to restore auxiliary audio activity: %d", ret);
+		}
+	}
+	if (audio_session.audio_system_suspended) {
+		ret = audio_system_resume();
+		if (ret != 0) {
+			LOG_ERR("Failed to resume audio system: %d", ret);
+		}
+	}
+	memset(&audio_session, 0, sizeof(audio_session));
+}
+
+/**
  * Run the audio playback and capture setup from the system work queue.
  */
 static void measurement_work_handler(struct k_work *work)
@@ -648,6 +728,12 @@ static void measurement_work_handler(struct k_work *work)
 		pending_config.id, pending_config.transfer_id, transfer.total_samples,
 		(double)pending_config.volume, pending_config.points);
 
+	ret = suspend_audio_for_measurement();
+	if (ret != 0) {
+		goto fail;
+	}
+	LOG_DBG("Audio system suspended for audio response measurement: id=%u", pending_config.id);
+
 	if (!fifo_rx.initialized) {
 		LOG_DBG("Initializing RX FIFO for audio response measurement");
 		ret = data_fifo_init(&fifo_rx);
@@ -656,30 +742,37 @@ static void measurement_work_handler(struct k_work *work)
 			goto fail;
 		}
 	}
+	LOG_DBG("RX FIFO ready for audio response measurement: id=%u", pending_config.id);
 
-	ret = hw_codec_volume_unmute();
-	if (ret != 0) {
-		LOG_ERR("Failed to unmute codec volume: %d", ret);
-		goto fail;
-	}
 	ret = audio_datapath_decimator_init(CONFIG_AUDIO_SAMPLE_RATE_HZ /
 					    AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE);
 	if (ret != 0) {
 		LOG_ERR("Failed to initialize audio response decimator: %d", ret);
 		goto fail;
 	}
+	LOG_DBG("Audio response decimator initialized: input_rate=%u output_rate=%u",
+		CONFIG_AUDIO_SAMPLE_RATE_HZ, AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE);
 	ret = audio_datapath_aquire(&fifo_rx);
 	if (ret != 0) {
 		LOG_ERR("Failed to acquire audio datapath: %d", ret);
 		goto fail;
 	}
+	LOG_DBG("Audio datapath acquired: id=%u", pending_config.id);
+	audio_session.datapath_acquired = true;
+	audio_session.measurement_codec_enabled = true;
+	ret = hw_codec_default_conf_enable();
+	if (ret != 0) {
+		LOG_ERR("Failed to enable codec for audio response measurement: %d", ret);
+		goto fail;
+	}
+	LOG_DBG("Codec enabled for audio response measurement: id=%u", pending_config.id);
 	ret = audio_datapath_buffer_play(transfer.samples, transfer.total_samples, false,
 					 pending_config.volume, NULL);
 	if (ret != 0) {
 		LOG_ERR("Failed to start audio response playback: %d", ret);
-		audio_datapath_release();
 		goto fail;
 	}
+	audio_session.measurement_playback_started = true;
 
 	LOG_INF("Audio response playback started: id=%u capture_samples=%u capture_rate=%u initial_drop=%u",
 		pending_config.id, AUDIO_RESPONSE_CAPTURE_SAMPLES,
@@ -690,6 +783,7 @@ static void measurement_work_handler(struct k_work *work)
 
 fail:
 	LOG_ERR("Failed to start audio response measurement: %d", ret);
+	restore_audio_after_measurement();
 	k_mutex_lock(&service_mutex, K_FOREVER);
 	measurement_active = false;
 	k_mutex_unlock(&service_mutex);
@@ -735,8 +829,7 @@ static void notify_result(void)
 static void measurement_complete_work_handler(struct k_work *work)
 {
 	LOG_INF("Audio response capture complete: id=%u", pending_config.id);
-	audio_datapath_buffer_stop();
-	audio_datapath_release();
+	restore_audio_after_measurement();
 
 	for (size_t index = 0; index < pending_config.points; ++index) {
 		uint32_t bin = response_frequency_to_bin(pending_config.frequencies[index]);
