@@ -1,0 +1,9 @@
+tests:
+  openearable.unit.sensor_component:
+    tags:
+      - unit
+      - parse_info
+    integration_platforms:
+      - native_sim/native/64
+    platform_allow:
+      - native_sim/native/64
