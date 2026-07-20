@@ -68,12 +68,27 @@ jobs:
             --outdir twister-out \
             2>&1 | tee twister-console.log
 
+      - name: Upload Twister reports and logs
+        id: unit_test_artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: unit-test-results
+          path: |
+            zephyr-workspace/twister-console.log
+            zephyr-workspace/twister-out/twister*.xml
+            zephyr-workspace/twister-out/twister.json
+            zephyr-workspace/twister-out/**/handler.log
+            zephyr-workspace/twister-out/**/build.log
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Prepare test summary
         if: always()
         env:
           TWISTER_OUTCOME: ${{ steps.twister.outcome }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          ARTIFACTS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts
+          ARTIFACT_URL: ${{ steps.unit_test_artifacts.outputs.artifact-url }}
         run: |
           python3 zephyr-workspace/open-earable-v2/tools/ci/render_unit_test_comment.py \
             --report zephyr-workspace/twister-out/twister.json \
@@ -81,7 +96,7 @@ jobs:
             --output unit-test-comment.md \
             --outcome "$TWISTER_OUTCOME" \
             --run-url "$WORKFLOW_RUN_URL" \
-            --artifact-url "$ARTIFACTS_URL"
+            --artifact-url "$ARTIFACT_URL"
           cat unit-test-comment.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish test summary on pull request
@@ -120,20 +135,6 @@ jobs:
                 body,
               });
             }
-
-      - name: Upload Twister reports and logs
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: unit-test-results
-          path: |
-            zephyr-workspace/twister-console.log
-            zephyr-workspace/twister-out/twister*.xml
-            zephyr-workspace/twister-out/twister.json
-            zephyr-workspace/twister-out/**/handler.log
-            zephyr-workspace/twister-out/**/build.log
-          if-no-files-found: warn
-          retention-days: 14
 
       - name: Fail workflow when tests failed
         if: steps.twister.outcome == 'failure'
