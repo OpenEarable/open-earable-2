@@ -37,19 +37,19 @@ The known J-Link serial from bring-up was `261010806`.
 Use this when you only want the battery voltage:
 
 ```bash
-python3 tools/battery/battery_debug.py voltage --snr 261010806
+python3 tools/battery/battery_debug.py voltage --snr [YOUR_JLINK_SERIAL_NUMBER]
 ```
 
 For scripts, print only integer millivolts:
 
 ```bash
-python3 tools/battery/battery_debug.py voltage --snr 261010806 --raw
+python3 tools/battery/battery_debug.py voltage --snr [YOUR_JLINK_SERIAL_NUMBER] --raw
 ```
 
 There is also a convenience wrapper:
 
 ```bash
-python3 tools/battery/check_voltage.py --snr 261010806
+python3 tools/battery/check_voltage.py --snr [YOUR_JLINK_SERIAL_NUMBER]
 ```
 
 ## Full Status
