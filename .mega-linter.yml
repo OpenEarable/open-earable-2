@@ -1,0 +1,30 @@
+# MegaLinter is advisory. Findings are reported, but never fail the workflow.
+APPLY_FIXES: none
+DISABLE_ERRORS: true
+ENABLE_LINTERS:
+  - C_CPPCHECK
+  - CPP_CPPCHECK
+UPDATED_SOURCES_REPORTER: false
+IGNORE_GENERATED_FILES: true
+FLAVOR_SUGGESTIONS: false
+PRINT_ALPACA: false
+SECURITY_SUGGESTIONS: false
+SHOW_ELAPSED_TIME: true
+
+# Cppcheck reports real defect candidates while avoiding diagnostics caused by
+# the Zephyr SDK headers, which are not present in the MegaLinter container.
+C_CPPCHECK_ARGUMENTS:
+  - --enable=warning,performance,portability
+  - --inline-suppr
+  - --suppress=missingIncludeSystem
+C_CPPCHECK_FILE_EXTENSIONS:
+  - .c
+
+CPP_CPPCHECK_ARGUMENTS:
+  - --enable=warning,performance,portability
+  - --inline-suppr
+  - --suppress=missingIncludeSystem
+CPP_CPPCHECK_FILE_EXTENSIONS:
+  - .cc
+  - .cpp
+  - .cxx

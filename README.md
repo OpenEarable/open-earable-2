@@ -174,9 +174,37 @@ Battery states will overwrite LED connection states. All LED states can be manua
 Because ZephyrOS does not allow remounting of SD cards, it is **very important that the device is turned of before inserting or removing the SD card**.
 As long as a recording to the SD card is active, the LED light will blink purple.
 
-
 ### File Parsing
+
 Files recorded to the local microSD card in the binary `*.oe` format can be parsed using <a href="https://colab.research.google.com/drive/1qwdvjAM5Y5pLbNW5t3r9f0ITpAuxBKeq" target="_blank">this Python notebook</a>.
+
+## Linting
+
+MegaLinter provides additional information during code review. Its findings do not prevent a pull request from being merged. Developers and reviewers decide which findings are relevant and whether they should be addressed in the current pull request or separately.
+
+The project does not currently enforce source formatting or style rules. CI never changes source files or pushes formatting commits.
+
+### Pull request reports
+
+Every pull request runs two Cppcheck analyses:
+
+1. **Full-codebase audit:** analyzes every C and C++ implementation unit. The complete MegaLinter output and per-linter logs are uploaded to the workflow run as the **MegaLinter reports** artifact. Download this artifact when a detailed repository-wide assessment is needed.
+2. **Changed-code review:** analyzes C and C++ implementation units changed by the pull request. MegaLinter updates a comment on the pull request with the warnings and errors relevant to those files.
+
+Both analyses are non-blocking. A failed linter invocation is also allowed to continue so that available reports can still be uploaded.
+
+### Local reproduction
+
+With Docker running, execute the same pinned image used by CI from the repository root:
+
+```powershell
+docker run --rm `
+  -v "${PWD}:/tmp/lint" `
+  -e VALIDATE_ALL_CODEBASE=true `
+  ghcr.io/oxsecurity/megalinter-c_cpp:v9.6.0
+```
+
+Local reports are written to `megalinter-reports/` and are ignored by Git.
 
 ## Citing
 If you are using OpenEarable, please cite is as follows:
