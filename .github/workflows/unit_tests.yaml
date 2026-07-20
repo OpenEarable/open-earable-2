@@ -1,0 +1,140 @@
+name: Unit Tests
+
+on:
+  workflow_dispatch:
+  pull_request: {}
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: unit-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZEPHYR_TOOLCHAIN_VARIANT: host
+
+jobs:
+  unity-native-sim:
+    name: Unity tests (native_sim 64-bit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out application
+        uses: actions/checkout@v5
+        with:
+          # Keep the application below the west workspace root.
+          path: zephyr-workspace/open-earable-v2
+
+      - name: Install host dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: git cmake ninja-build gperf device-tree-compiler make gcc g++ ruby python3-dev python3-pip python3-setuptools python3-wheel
+          version: 1.0
+          execute_install_scripts: true
+
+      - name: Cache Python packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: unit-tests-${{ runner.os }}-pip-${{ hashFiles('zephyr-workspace/open-earable-v2/west.yml') }}
+          restore-keys: |
+            unit-tests-${{ runner.os }}-pip-
+
+      - name: Initialize nRF Connect SDK workspace
+        run: |
+          python3 -m pip install west
+          cd zephyr-workspace
+          west init -l open-earable-v2
+          west update --narrow -o=--depth=1
+          python3 -m pip install -r zephyr/scripts/requirements.txt
+
+      - name: Run Unity tests with Twister
+        id: twister
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd zephyr-workspace
+          python3 zephyr/scripts/twister \
+            -T open-earable-v2/tests/unit \
+            -p native_sim/native/64 \
+            --inline-logs \
+            --outdir twister-out \
+            2>&1 | tee twister-console.log
+
+      - name: Prepare test summary
+        if: always()
+        env:
+          TWISTER_OUTCOME: ${{ steps.twister.outcome }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACTS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts
+        run: |
+          python3 zephyr-workspace/open-earable-v2/tools/ci/render_unit_test_comment.py \
+            --report zephyr-workspace/twister-out/twister.json \
+            --console zephyr-workspace/twister-console.log \
+            --output unit-test-comment.md \
+            --outcome "$TWISTER_OUTCOME" \
+            --run-url "$WORKFLOW_RUN_URL" \
+            --artifact-url "$ARTIFACTS_URL"
+          cat unit-test-comment.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish test summary on pull request
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- openearable-unit-test-results -->';
+            const body = fs.readFileSync('unit-test-comment.md', 'utf8');
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                per_page: 100,
+              }
+            );
+            const existing = comments.find(
+              comment => comment.user.type === 'Bot' && comment.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Upload Twister reports and logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: unit-test-results
+          path: |
+            zephyr-workspace/twister-console.log
+            zephyr-workspace/twister-out/twister*.xml
+            zephyr-workspace/twister-out/twister.json
+            zephyr-workspace/twister-out/**/handler.log
+            zephyr-workspace/twister-out/**/build.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail workflow when tests failed
+        if: steps.twister.outcome == 'failure'
+        run: exit 1
