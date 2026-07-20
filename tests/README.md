@@ -26,6 +26,13 @@ nRF5340 or other target hardware. It is suitable for local TDD. Run it in WSL or
 a Linux container on Windows; GitHub Actions provides a Linux environment for
 every pull request.
 
+The dedicated `Unit Tests` GitHub Actions workflow runs the same command for
+pull requests and pushes to `main`. Its `Unity tests (native_sim 64-bit)` job is
+the check to select when configuring branch protection. The workflow creates or
+updates one pull-request comment with the result and Unity failure diagnostics.
+Twister XML, JSON, and log files are retained as the `unit-test-results`
+artifact for 14 days.
+
 To run one scenario while developing:
 
 ```sh
