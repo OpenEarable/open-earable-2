@@ -30,7 +30,7 @@ running firmware. By default it resumes the app core afterwards.
 - Python with `pylink` available
 - The device must have enough target power for SWD and the battery ICs
 
-The known J-Link serial from bring-up was `261010806`.
+Paste and replace your J-Link serial number where it is required [YOUR_JLINK_SERIAL_NUMBER].
 
 ## Voltage Only
 
@@ -57,7 +57,7 @@ python3 tools/battery/check_voltage.py --snr [YOUR_JLINK_SERIAL_NUMBER]
 Read fuel-gauge and charger state:
 
 ```bash
-python3 tools/battery/battery_debug.py status --snr 261010806
+python3 tools/battery/battery_debug.py status --snr [YOUR_JLINK_SERIAL_NUMBER]
 ```
 
 This prints voltage, charger state, charger fault bits, power-good state, charge
@@ -68,31 +68,31 @@ enable/high-Z state, temperature, state of charge, and related raw registers.
 Configure charging if the battery is below the start threshold:
 
 ```bash
-python3 tools/battery/battery_debug.py recover --snr 261010806
+python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER]
 ```
 
 Force charger reset/configuration even if the voltage is already above the
 threshold:
 
 ```bash
-python3 tools/battery/battery_debug.py recover --snr 261010806 --force
+python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] --force
 ```
 
 Monitor continuously and reset the charger again if it enters fault:
 
 ```bash
-python3 tools/battery/battery_debug.py recover --snr 261010806 --continuous --reset-on-fault
+python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] --continuous --reset-on-fault
 ```
 
 The old helper name is kept as a compatibility wrapper:
 
 ```bash
-python3 tools/battery/recover_low_battery.py --snr 261010806 --continuous --reset-on-fault
+python3 tools/battery/recover_low_battery.py --snr [YOUR_JLINK_SERIAL_NUMBER] --continuous --reset-on-fault
 ```
 
 ## Useful Options
 
-- `--speed-khz 1000`: SWD speed. The troubled board was most reliable at 1000 kHz.
+- `--speed-khz 1000`: SWD speed.
 - `--no-resume`: leave the app core halted after the operation.
 - `--start-below-mv 3000`: recovery starts below this voltage.
 - `--target-mv 3300`: recovery exits after reaching this voltage unless
