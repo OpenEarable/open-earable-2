@@ -80,6 +80,58 @@ class BatteryDebugError(RuntimeError):
     pass
 
 
+def format_jlink_detail(exc: "pylink.errors.JLinkException") -> str:
+    message = str(exc).strip() or getattr(exc, "message", "") or exc.__class__.__name__
+    message = message.rstrip(".")
+    code = getattr(exc, "code", None)
+    if code is not None:
+        return f"{message} (J-Link error code {code})."
+    return f"{message}."
+
+
+def jlink_failure_hint(operation: str, exc: "pylink.errors.JLinkException") -> str | None:
+    message = str(exc).lower()
+    unspecified = getattr(exc, "code", None) == -1 or "unspecified error" in message
+    if not unspecified:
+        return None
+
+    operation = operation.lower()
+    if "open" in operation:
+        return (
+            "Check that the J-Link is connected over USB and that --snr matches "
+            "a probe listed by 'nrfjprog -i'."
+        )
+    if "connect" in operation:
+        return (
+            "Check target power and SWD wiring, confirm the app core can be "
+            "debugged, and try a lower --speed-khz such as 100."
+        )
+    if "halt" in operation or "read" in operation or "write" in operation:
+        return (
+            "SWD access dropped after connecting; target power may be marginal. "
+            "Check target power/SWD wiring and try --speed-khz 100."
+        )
+    return (
+        "Check J-Link USB, target power, SWD wiring, --snr, and try a lower "
+        "--speed-khz such as 100."
+    )
+
+
+def format_jlink_failure(operation: str, exc: "pylink.errors.JLinkException") -> str:
+    message = f"J-Link {operation} failed: {format_jlink_detail(exc)}"
+    hint = jlink_failure_hint(operation, exc)
+    if hint:
+        message += f" Hint: {hint}"
+    return message
+
+
+class JLinkOperationError(BatteryDebugError):
+    def __init__(self, operation: str, exc: "pylink.errors.JLinkException"):
+        self.operation = operation
+        self.original = exc
+        super().__init__(format_jlink_failure(operation, exc))
+
+
 def u16le(data: Iterable[int]) -> int:
     raw = bytes(data)
     return int.from_bytes(raw[:2], "little", signed=False)
@@ -153,12 +205,19 @@ class JLinkBatteryInterface:
         self.was_halted = False
 
     def __enter__(self) -> "JLinkBatteryInterface":
-        self.jlink.open(serial_no=self.snr)
-        self.jlink.set_tif(JLinkInterfaces.SWD)
-        self.jlink.connect(APP_CORE_DEVICE, speed=self.speed_khz, verbose=False)
-        self.was_halted = bool(self.jlink.halted())
+        with self.jlink_operation(f"open probe {self.probe_description()}"):
+            self.jlink.open(serial_no=self.snr)
+        with self.jlink_operation("select SWD interface"):
+            self.jlink.set_tif(JLinkInterfaces.SWD)
+        with self.jlink_operation(
+            f"connect to {APP_CORE_DEVICE} at {self.speed_khz} kHz"
+        ):
+            self.jlink.connect(APP_CORE_DEVICE, speed=self.speed_khz, verbose=False)
+        with self.jlink_operation("read target halt state"):
+            self.was_halted = bool(self.jlink.halted())
         if not self.was_halted:
-            self.jlink.halt()
+            with self.jlink_operation("halt target"):
+                self.jlink.halt()
         self.setup_gpio()
         self.setup_twim()
         return self
@@ -172,17 +231,34 @@ class JLinkBatteryInterface:
         with contextlib.suppress(Exception):
             self.jlink.close()
 
+    def probe_description(self) -> str:
+        if self.snr is not None:
+            return f"serial {self.snr}"
+        return "auto-selected by PyLink"
+
+    @contextlib.contextmanager
+    def jlink_operation(self, operation: str):
+        try:
+            yield
+        except pylink.errors.JLinkException as exc:
+            raise JLinkOperationError(operation, exc) from exc
+
     def r32(self, addr: int) -> int:
-        return self.jlink.memory_read32(addr, 1)[0]
+        with self.jlink_operation(f"read 32-bit word at 0x{addr:08x}"):
+            return self.jlink.memory_read32(addr, 1)[0]
 
     def w32(self, addr: int, value: int) -> None:
-        self.jlink.memory_write32(addr, [value & 0xFFFFFFFF])
+        with self.jlink_operation(f"write 32-bit word at 0x{addr:08x}"):
+            self.jlink.memory_write32(addr, [value & 0xFFFFFFFF])
 
     def r8(self, addr: int, count: int) -> list[int]:
-        return list(self.jlink.memory_read8(addr, count))
+        with self.jlink_operation(f"read {count} byte(s) at 0x{addr:08x}"):
+            return list(self.jlink.memory_read8(addr, count))
 
     def w8(self, addr: int, data: Iterable[int]) -> None:
-        self.jlink.memory_write8(addr, list(data))
+        payload = list(data)
+        with self.jlink_operation(f"write {len(payload)} byte(s) at 0x{addr:08x}"):
+            self.jlink.memory_write8(addr, payload)
 
     def setup_gpio(self) -> None:
         self.w32(pin_cnf(SDA_PIN), GPIO_PIN_CNF_INPUT_PULLUP_S0D1)
@@ -564,7 +640,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"battery_debug: {exc}", file=sys.stderr)
         return 1
     except pylink.errors.JLinkException as exc:
-        print(f"battery_debug: J-Link error: {exc}", file=sys.stderr)
+        print(f"battery_debug: {format_jlink_failure('operation', exc)}", file=sys.stderr)
         return 1
 
 
