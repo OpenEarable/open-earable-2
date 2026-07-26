@@ -1,5 +1,5 @@
-#ifndef BMX160_BOSCH_H
-#define BMX160_BOSCH_H
+#ifndef BMX160_H
+#define BMX160_H
 
 #include <stdint.h>
 
@@ -16,31 +16,20 @@ struct BMX160Sample {
     float mag[3];
 };
 
-struct BMX160BusStats {
-    uint32_t read_transactions;
-    uint32_t write_transactions;
-    uint32_t read_bytes;
-    uint32_t write_bytes;
-    uint64_t bus_time_us;
-};
-
-class BMX160Bosch {
+class BMX160 {
 public:
     static constexpr uint16_t FIFO_CAPACITY_BYTES = 1024;
     static constexpr uint8_t MAX_FIFO_SAMPLES = 48;
 
-    explicit BMX160Bosch(TWIM *i2c);
+    explicit BMX160(TWIM *i2c);
 
     bool init();
     int start(uint8_t odr, float sample_rate_hz, uint8_t buffered_samples);
     int stop();
     int read(BMX160Sample *samples, uint8_t max_samples);
 
-    void resetBusStats();
-    BMX160BusStats getBusStats() const;
-
 private:
-    static BMX160Bosch *instance;
+    static BMX160 *instance;
 
     static int8_t bmiRead(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
     static int8_t bmiWrite(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
@@ -57,7 +46,6 @@ private:
 
     TWIM *_i2c;
     uint8_t _addr;
-    float _sample_rate_hz = 100.0f;
 
     struct bmi160_dev _bmi = {};
     struct bmm150_dev _bmm = {};
@@ -68,8 +56,6 @@ private:
     struct bmi160_sensor_data _accel[MAX_FIFO_SAMPLES] = {};
     struct bmi160_sensor_data _gyro[MAX_FIFO_SAMPLES] = {};
     struct bmi160_aux_data _aux[MAX_FIFO_SAMPLES] = {};
-
-    BMX160BusStats _stats = {};
 };
 
 #endif
