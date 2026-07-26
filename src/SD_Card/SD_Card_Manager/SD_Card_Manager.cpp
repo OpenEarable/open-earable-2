@@ -22,6 +22,17 @@ LOG_MODULE_REGISTER(SDCardManager, LOG_LEVEL_DBG);
 #define K_SEM_OPER_TIMEOUT_MS 100
 #define SD_DEBOUNCE_MS K_MSEC(100)
 
+namespace {
+constexpr char SD_DISK_NAME[] = "SD";
+
+void remember_first_error(int result, int &first_error)
+{
+	if (result && !first_error) {
+		first_error = result;
+	}
+}
+}
+
 K_MUTEX_DEFINE(m_sem_sd_mngr_oper_ongoing);
 
 ZBUS_CHAN_DEFINE(sd_card_chan, struct sd_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
@@ -43,7 +54,11 @@ void SDCardManager::unmount_work_handler(struct k_work *work) {
 
     if (!_inserted) {
 		ret = sdcard_manager.unmount();
-		LOG_INF("SD card unmounted due to card removal.");
+		if (ret) {
+			LOG_ERR("Failed to unmount SD card after removal: %d", ret);
+		} else {
+			LOG_INF("SD card unmounted due to card removal.");
+		}
 		
 		ret = zbus_chan_pub(&sd_card_chan, &msg, K_FOREVER);
 		if (ret != 0) {
@@ -96,8 +111,8 @@ int SDCardManager::aquire_ls() {
 
 	ret = pm_device_runtime_get(ls_sd);
 	if (ret) {
-		pm_device_runtime_put(ls_1_8);
 		pm_device_runtime_put(ls_3_3);
+		pm_device_runtime_put(ls_1_8);
 		LOG_ERR("Failed to get ls_sd");
 		return ret;
 	}
@@ -108,17 +123,16 @@ int SDCardManager::aquire_ls() {
 }
 
 int SDCardManager::release_ls() {
-	int ret;
-
 	if (!ls_aquired) return -EALREADY;
 
-	ret = pm_device_runtime_put(ls_1_8);
-	ret = pm_device_runtime_put(ls_3_3);
-	ret = pm_device_runtime_put(ls_sd);
+	int first_error = 0;
+	remember_first_error(pm_device_runtime_put(ls_sd), first_error);
+	remember_first_error(pm_device_runtime_put(ls_3_3), first_error);
+	remember_first_error(pm_device_runtime_put(ls_1_8), first_error);
 
 	ls_aquired = false;
 
-	return 0;
+	return first_error;
 }
 
 void SDCardManager::init() {
@@ -140,42 +154,82 @@ void SDCardManager::init() {
 }
 
 int SDCardManager::unmount() {
-	int ret;
-
-	if (this->mounted) {
-		if (sd_inserted()) {
-			if (this->tracked_file.is_open) {
-				ret = this->close_file();
-				if (ret) LOG_ERR("Failed to close file.");
-			}
-
-			ret = fs_closedir(&this->dirp);
-			if (ret) LOG_ERR("Failed to close dir.");
-		} else {
-			this->tracked_file.is_open = false;
-		}
-
-		// TODO: remounting is not working after unmount
-		//ret = fs_unmount(&this->mnt_pt);
-		//if (ret) LOG_ERR("Failed to unmout SD card.");
-
-		this->mounted = false;
-
-		release_ls();
+	if (!this->mounted) {
+		return 0;
 	}
 
-	return 0;
+	int ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
+	if (ret) {
+		LOG_ERR("Failed to lock SD manager for unmount: %d", ret);
+		return ret;
+	}
+
+	const bool card_present = sd_inserted();
+	int first_error = 0;
+
+	if (this->tracked_file.is_open) {
+		if (card_present) {
+			ret = fs_sync(&this->tracked_file.filep);
+			remember_first_error(ret, first_error);
+			if (ret) LOG_ERR("Failed to sync file before unmount: %d", ret);
+
+			ret = fs_close(&this->tracked_file.filep);
+			remember_first_error(ret, first_error);
+			if (ret) LOG_ERR("Failed to close file before unmount: %d", ret);
+		}
+
+		this->tracked_file.is_open = false;
+		fs_file_t_init(&this->tracked_file.filep);
+	}
+
+	if (card_present) {
+		ret = fs_closedir(&this->dirp);
+		remember_first_error(ret, first_error);
+		if (ret) LOG_ERR("Failed to close directory before unmount: %d", ret);
+	}
+	fs_dir_t_init(&this->dirp);
+
+	ret = fs_unmount(&this->mnt_pt);
+	if (ret) {
+		LOG_ERR("Failed to unmount SD filesystem: %d", ret);
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+		return ret;
+	}
+
+	this->mounted = false;
+	this->path = SD_ROOT_PATH;
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+
+	ret = disk_access_ioctl(SD_DISK_NAME, DISK_IOCTL_CTRL_DEINIT, nullptr);
+	if (ret && ret != -EINVAL) {
+		remember_first_error(ret, first_error);
+		LOG_WRN("Failed to release SD disk reference: %d", ret);
+	}
+
+	ret = release_ls();
+	if (ret && ret != -EALREADY) {
+		remember_first_error(ret, first_error);
+	}
+
+	LOG_INF("SD filesystem unmounted");
+	return first_error;
 }
 
 int SDCardManager::mount() {
 	int ret;
-	static const char* sd_dev = "SD";
 
 	uint64_t sd_card_size_bytes;
 	uint32_t sector_count;
 	size_t sector_size;
 
+	if (this->mounted) {
+		return 0;
+	}
+
 	ret = aquire_ls();
+	if (ret && ret != -EALREADY) {
+		return ret;
+	}
 
 	bool _sd_inserted = sd_inserted();
 
@@ -185,25 +239,30 @@ int SDCardManager::mount() {
 		return -ENODEV;
 	}
 
-	ret = disk_access_init(sd_dev);
+	ret = disk_access_init(SD_DISK_NAME);
 	if (ret) {
 		release_ls();
 		LOG_DBG("SD card init failed, please check if SD card inserted");
 		return -ENODEV;
 	}
 
-	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_COUNT, &sector_count);
-	if (ret) {
+	auto release_resources = [this]() {
+		disk_access_ioctl(SD_DISK_NAME, DISK_IOCTL_CTRL_DEINIT, nullptr);
 		release_ls();
+	};
+
+	ret = disk_access_ioctl(SD_DISK_NAME, DISK_IOCTL_GET_SECTOR_COUNT, &sector_count);
+	if (ret) {
+		release_resources();
 		LOG_ERR("Unable to get sector count");
 		return ret;
 	}
 
 	LOG_DBG("Sector count: %d", sector_count);
 
-	ret = disk_access_ioctl(sd_dev, DISK_IOCTL_GET_SECTOR_SIZE, &sector_size);
+	ret = disk_access_ioctl(SD_DISK_NAME, DISK_IOCTL_GET_SECTOR_SIZE, &sector_size);
 	if (ret) {
-		release_ls();
+		release_resources();
 		LOG_ERR("Unable to get sector size");
 		return ret;
 	}
@@ -215,40 +274,35 @@ int SDCardManager::mount() {
 	LOG_INF("SD card volume size: %d MB", (uint32_t)(sd_card_size_bytes >> 20));
 
 	fs_dir_t_init(&this->dirp);
-
-	if (!this->mounted) {
-		this->mnt_pt.mnt_point = SD_ROOT_PATH;
-		ret = fs_mount(&this->mnt_pt);
-		if (ret) {
-			this->mounted = ret == -EBUSY;
-
-			LOG_ERR("Mnt. disk failed, could be format issue. should be FAT/exFAT. Error: %d", ret);
-
-			if (ret != -EBUSY) {
-				release_ls();
-				return ret;
-			}
-		}
-	}
+	this->path = SD_ROOT_PATH;
+	this->mnt_pt.mnt_point = SD_ROOT_PATH;
 
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
-		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
-		release_ls();
+		release_resources();
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
 	}
 
-	LOG_DBG("Root dir: %s", this->path.c_str());
-	ret = fs_opendir(&this->dirp, this->path.c_str());
+	ret = fs_mount(&this->mnt_pt);
+	if (!ret) {
+		this->mounted = true;
+		LOG_DBG("Root dir: %s", this->path.c_str());
+		ret = fs_opendir(&this->dirp, this->path.c_str());
+	}
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+
 	if (ret) {
-		release_ls();
-		LOG_ERR("Open root dir failed. Error: %d", ret);
+		if (this->mounted) {
+			this->mounted = false;
+			fs_unmount(&this->mnt_pt);
+			LOG_ERR("Open root dir failed: %d", ret);
+		} else {
+			LOG_ERR("Mount failed; filesystem must be FAT/exFAT: %d", ret);
+		}
+		release_resources();
 		return ret;
 	}
-
-	this->mounted = true;
 
 	return 0;
 }
