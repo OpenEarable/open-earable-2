@@ -13,5 +13,5 @@ official SensorAPI repositories:
 Both APIs are distributed under the BSD 3-Clause license. The corresponding
 license texts are stored in `BMI160_LICENSE` and `BMM150_LICENSE`.
 
-Project-specific integration, FIFO configuration, bus locking, conversion and
-instrumentation live in the adjacent `BMX160_Bosch.cpp` wrapper.
+Project-specific integration, FIFO configuration, bus locking and conversion
+live in the adjacent `BMX160.cpp` wrapper.

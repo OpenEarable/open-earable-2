@@ -1,6 +1,4 @@
-#include "BMX160_Bosch.h"
-
-#include "openearable_common.h"
+#include "BMX160.h"
 
 #include <algorithm>
 #include <zephyr/kernel.h>
@@ -16,79 +14,71 @@ constexpr uint8_t FIFO_FRAME_BYTES = 21; // header + 8-byte mag + 6-byte gyro + 
 constexpr uint8_t BMX160_CHIP_ID = 0xD8;
 }
 
-BMX160Bosch *BMX160Bosch::instance = nullptr;
+BMX160 *BMX160::instance = nullptr;
 
-BMX160Bosch::BMX160Bosch(TWIM *i2c)
+BMX160::BMX160(TWIM *i2c)
     : _i2c(i2c), _addr(DT_REG_ADDR(DT_NODELABEL(bmx160)))
 {
     instance = this;
 }
 
-int8_t BMX160Bosch::bmiRead(uint8_t, uint8_t reg_addr, uint8_t *data, uint16_t len)
+int8_t BMX160::bmiRead(uint8_t, uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
     return instance == nullptr ? BMI160_E_NULL_PTR : instance->busRead(reg_addr, data, len);
 }
 
-int8_t BMX160Bosch::bmiWrite(uint8_t, uint8_t reg_addr, uint8_t *data, uint16_t len)
+int8_t BMX160::bmiWrite(uint8_t, uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
     return instance == nullptr ? BMI160_E_NULL_PTR : instance->busWrite(reg_addr, data, len);
 }
 
-void BMX160Bosch::bmiDelay(uint32_t period_ms)
+void BMX160::bmiDelay(uint32_t period_ms)
 {
     k_msleep(period_ms);
 }
 
-int8_t BMX160Bosch::bmmRead(uint8_t reg_addr, uint8_t *data, uint32_t len, void *intf_ptr)
+int8_t BMX160::bmmRead(uint8_t reg_addr, uint8_t *data, uint32_t len, void *intf_ptr)
 {
-    auto *self = static_cast<BMX160Bosch *>(intf_ptr);
+    auto *self = static_cast<BMX160 *>(intf_ptr);
     if (self == nullptr || len > UINT16_MAX) {
         return BMM150_E_NULL_PTR;
     }
     return bmi160_aux_read(reg_addr, data, static_cast<uint16_t>(len), &self->_bmi);
 }
 
-int8_t BMX160Bosch::bmmWrite(uint8_t reg_addr, const uint8_t *data, uint32_t len, void *intf_ptr)
+int8_t BMX160::bmmWrite(uint8_t reg_addr, const uint8_t *data, uint32_t len, void *intf_ptr)
 {
-    auto *self = static_cast<BMX160Bosch *>(intf_ptr);
+    auto *self = static_cast<BMX160 *>(intf_ptr);
     if (self == nullptr || len > UINT16_MAX) {
         return BMM150_E_NULL_PTR;
     }
     return bmi160_aux_write(reg_addr, const_cast<uint8_t *>(data), static_cast<uint16_t>(len), &self->_bmi);
 }
 
-void BMX160Bosch::bmmDelay(uint32_t period_us, void *)
+void BMX160::bmmDelay(uint32_t period_us, void *)
 {
     k_usleep(period_us);
 }
 
-int8_t BMX160Bosch::busRead(uint8_t reg_addr, uint8_t *data, uint16_t len)
+int8_t BMX160::busRead(uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
-    const uint64_t started_us = micros();
     _i2c->aquire();
     const int ret = i2c_burst_read(_i2c->master, _addr, reg_addr, data, len);
     _i2c->release();
 
-    _stats.read_transactions++;
-    _stats.read_bytes += len;
-    _stats.bus_time_us += micros() - started_us;
     return ret == 0 ? BMI160_OK : BMI160_E_COM_FAIL;
 }
 
-int8_t BMX160Bosch::busWrite(uint8_t reg_addr, const uint8_t *data, uint16_t len)
+int8_t BMX160::busWrite(uint8_t reg_addr, const uint8_t *data, uint16_t len)
 {
-    const uint64_t started_us = micros();
     _i2c->aquire();
     const int ret = i2c_burst_write(_i2c->master, _addr, reg_addr, data, len);
     _i2c->release();
 
-    _stats.write_transactions++;
-    _stats.write_bytes += len;
-    _stats.bus_time_us += micros() - started_us;
     return ret == 0 ? BMI160_OK : BMI160_E_COM_FAIL;
 }
 
-bool BMX160Bosch::init()
+bool BMX160::init()
 {
     _i2c->begin();
 
@@ -152,7 +142,7 @@ bool BMX160Bosch::init()
     return true;
 }
 
-int BMX160Bosch::configureMagnetometer()
+int BMX160::configureMagnetometer()
 {
     _bmi.aux_cfg.aux_sensor_enable = BMI160_ENABLE;
     _bmi.aux_cfg.aux_i2c_addr = BMM150_DEFAULT_I2C_ADDRESS;
@@ -204,16 +194,15 @@ int BMX160Bosch::configureMagnetometer()
     return result;
 }
 
-uint8_t BMX160Bosch::auxOdrFor(float sample_rate_hz)
+uint8_t BMX160::auxOdrFor(float sample_rate_hz)
 {
     if (sample_rate_hz <= 25.0f) return BMI160_AUX_ODR_25HZ;
     if (sample_rate_hz <= 50.0f) return BMI160_AUX_ODR_50HZ;
     return BMI160_AUX_ODR_100HZ;
 }
 
-int BMX160Bosch::start(uint8_t odr, float sample_rate_hz, uint8_t buffered_samples)
+int BMX160::start(uint8_t odr, float sample_rate_hz, uint8_t buffered_samples)
 {
-    _sample_rate_hz = sample_rate_hz;
     _bmi.accel_cfg.odr = odr;
     _bmi.gyro_cfg.odr = odr;
     _bmi.aux_cfg.aux_odr = auxOdrFor(sample_rate_hz);
@@ -232,13 +221,10 @@ int BMX160Bosch::start(uint8_t odr, float sample_rate_hz, uint8_t buffered_sampl
     if (result == BMI160_OK) {
         result = bmi160_set_fifo_flush(&_bmi);
     }
-    if (result == BMI160_OK) {
-        resetBusStats();
-    }
     return result;
 }
 
-int BMX160Bosch::stop()
+int BMX160::stop()
 {
     int8_t result = bmi160_set_fifo_flush(&_bmi);
     _bmi.accel_cfg.power = BMI160_ACCEL_SUSPEND_MODE;
@@ -247,7 +233,7 @@ int BMX160Bosch::stop()
     return result == BMI160_OK ? power_result : result;
 }
 
-int BMX160Bosch::read(BMX160Sample *samples, uint8_t max_samples)
+int BMX160::read(BMX160Sample *samples, uint8_t max_samples)
 {
     if (samples == nullptr || max_samples == 0) {
         return BMI160_E_NULL_PTR;
@@ -298,14 +284,4 @@ int BMX160Bosch::read(BMX160Sample *samples, uint8_t max_samples)
     }
 
     return sample_count;
-}
-
-void BMX160Bosch::resetBusStats()
-{
-    _stats = {};
-}
-
-BMX160BusStats BMX160Bosch::getBusStats() const
-{
-    return _stats;
 }
