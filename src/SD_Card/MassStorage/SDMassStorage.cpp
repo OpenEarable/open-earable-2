@@ -45,6 +45,10 @@ int init_media_disk()
 
 int force_disk_deinit()
 {
+	if (!media_initialized) {
+		return 0;
+	}
+
 	bool force = true;
 	const int ret =
 		disk_access_ioctl(disk_name, DISK_IOCTL_CTRL_DEINIT, &force);
@@ -155,7 +159,7 @@ int set_sd_power(bool enabled)
 		return ret;
 	}
 
-	k_msleep(10);
+	k_sleep(debounce_time);
 	ret = init_media_disk();
 	if (!ret) {
 		ret = remount_if_needed();
