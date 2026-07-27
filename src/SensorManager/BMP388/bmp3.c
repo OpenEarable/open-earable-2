@@ -1089,7 +1089,7 @@ int8_t bmp3_extract_fifo_data(struct bmp3_data *data, struct bmp3_dev *dev)
     uint8_t header;
     uint8_t parsed_frames = 0;
     uint8_t t_p_frame;
-    struct bmp3_uncomp_data uncomp_data;
+    struct bmp3_uncomp_data uncomp_data = { 0 };
 
     rslt = null_ptr_check(dev);
 
