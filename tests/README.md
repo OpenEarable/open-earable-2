@@ -1,17 +1,44 @@
-# Testing
+# Tests
 
-OpenEarable uses the Unity and CMock integration supplied by nRF Connect SDK,
-with Zephyr's Twister test runner. This keeps the tests compatible with the SDK
-version pinned in `west.yml` and provides one workflow for unit tests, simulated
-integration tests, on-target tests, and coverage.
+Unit tests live in `tests/unit`. Zephyr's
+[Twister test runner](https://docs.nordicsemi.com/bundle/ncs-3.0.1/page/zephyr/develop/test/twister.html)
+builds each
+[Unity suite](https://github.com/nrfconnect/sdk-nrf/blob/v3.0.1/doc/nrf/test_and_optimize/test_framework/testing_unity_cmock.rst)
+as a Linux executable using
+[`native_sim/native/64`](https://docs.nordicsemi.com/bundle/ncs-3.0.1/page/zephyr/boards/native/native_sim/doc/index.html),
+so the tests run on a development computer or GitHub Actions runner and do not
+require OpenEarable hardware.
+These links target the nRF Connect SDK version pinned in
+[`west.yml`](../west.yml).
 
-## Run the unit tests
+## GitHub Actions
 
-Run these commands from the root of the west workspace (the directory that
-contains `zephyr`, `nrf`, and this repository):
+The [`Unit Tests`](../.github/workflows/unit_tests.yaml) workflow is the primary
+way to run the test suite. It runs for every pull request, for pushes to `main`,
+and when started manually from GitHub Actions.
 
-Unity's generated runner requires Ruby. On Debian/Ubuntu, install the host
-dependency with `sudo apt install ruby`.
+For pull requests, the workflow creates or updates a comment with the result.
+Twister reports and logs are also available as the `unit-test-results` artifact
+for 14 days.
+
+Twister recursively discovers every `testcase.yaml` below `tests/unit`, so a
+valid new suite in that directory is included automatically; the workflow does
+not need to be edited. The suite must allow `native_sim/native/64` to run in
+this workflow.
+
+## Run the tests locally (optional)
+
+Run Twister from the west workspace root: the directory containing `zephyr`,
+`nrf`, and this repository. The commands below assume the repository directory
+is named `open-earable-v2`; adjust the path if it is named differently.
+
+Unity's test-runner generation requires Ruby. On Debian or Ubuntu:
+
+```sh
+sudo apt install ruby
+```
+
+Run all unit-test scenarios:
 
 ```sh
 python3 zephyr/scripts/twister \
@@ -20,20 +47,7 @@ python3 zephyr/scripts/twister \
   --inline-logs
 ```
 
-Replace `open-earable-v2` if the application directory has a different name.
-The `native_sim` target builds a native Linux executable and does not require an
-nRF5340 or other target hardware. It is suitable for local TDD. Run it in WSL or
-a Linux container on Windows; GitHub Actions provides a Linux environment for
-every pull request.
-
-The dedicated `Unit Tests` GitHub Actions workflow runs the same command for
-pull requests and pushes to `main`. Its `Unity tests (native_sim 64-bit)` job is
-the check to select when configuring branch protection. The workflow creates or
-updates one pull-request comment with the result and Unity failure diagnostics.
-Twister XML, JSON, and log files are retained as the `unit-test-results`
-artifact for 14 days.
-
-To run one scenario while developing:
+Run a single scenario by its name from `testcase.yaml`:
 
 ```sh
 python3 zephyr/scripts/twister \
@@ -43,10 +57,45 @@ python3 zephyr/scripts/twister \
   --inline-logs
 ```
 
-## Generate branch coverage
+On Windows, run the tests in WSL or a Linux container because `native_sim`
+produces a Linux executable.
 
-Install `gcovr` in the active Python environment, then add Twister's coverage
-option:
+## Add a test suite
+
+The existing suites demonstrate two common patterns:
+
+- [`sensor_component`](unit/sensor_component) tests C++ production sources and
+  binary serialization;
+- [`ring_buffer`](unit/ring_buffer) tests a header-only C++ template.
+
+A suite under `tests/unit/<module>/` consists of:
+
+- `testcase.yaml`, defining a unique scenario name and allowing
+  `native_sim/native/64`;
+- `prj.conf`, enabling `CONFIG_UNITY` and any configuration required by the
+  production code;
+- `CMakeLists.txt`, passing the test source to `test_runner_generate(...)` and
+  adding the production sources and include directories to the `app` target;
+- test source files whose test functions start with `test_` and use Unity's
+  `TEST_ASSERT_*` macros.
+
+Production sources are not pulled in automatically. List each source and its
+include directories in the suite's `CMakeLists.txt`.
+
+The host build cannot use nRF hardware. Keep hardware-independent behavior
+separate from drivers, or provide test doubles for hardware and Zephyr APIs.
+The CI workflow discovers new suites automatically when they are placed below
+`tests/unit`.
+
+For C++ tests, enable `CONFIG_CPP`. Add `CONFIG_REQUIRES_FULL_LIBCPP` only when
+the tested code requires the full C++ standard library. Keep the
+`test_suiteTearDown` linkage adapter shown in the C++ examples so the generated
+Unity runner can call the nRF Connect SDK's C teardown function.
+
+## Generate coverage
+
+Install `gcovr` in the active Python environment and run Twister with
+[coverage enabled](https://docs.nordicsemi.com/bundle/ncs-3.0.1/page/zephyr/develop/test/coverage.html):
 
 ```sh
 python3 -m pip install gcovr
@@ -57,28 +106,4 @@ python3 zephyr/scripts/twister \
   --coverage-basedir open-earable-v2
 ```
 
-Open `twister-out/coverage/index.html`. The HTML report includes line and branch
-coverage. Coverage is a development aid rather than a repository-wide gate:
-new, self-contained classes can target full branch coverage without forcing
-hardware-dependent firmware paths into host unit tests.
-
-## Add a test
-
-Create a directory under `tests/unit/<module>/` with:
-
-- `CMakeLists.txt` using `test_runner_generate(...)` and adding the test plus
-  production sources to `app`;
-- `prj.conf` with `CONFIG_UNITY=y` (and `CONFIG_CPP=y` plus
-  `CONFIG_REQUIRES_FULL_LIBCPP=y` for production code using the C++ standard
-  library);
-- `testcase.yaml` allowing `native_sim/native/64`; and
-- test functions prefixed with `test_` and Unity's `TEST_ASSERT_*` macros.
-
-Keep business logic independent from Zephyr drivers where practical. For a
-module that calls hardware or Zephyr APIs, generate mocks with CMock's
-`cmock_handle(...)`. Ztest remains available for tests that specifically benefit
-from Zephyr test fixtures or other RTOS-aware scaffolding.
-
-Every bug fix should add a test that fails before the fix and passes after it.
-Name the test after the observable behavior, and mention the issue or regression
-in a short comment when the scenario is not self-explanatory.
+Open `twister-out/coverage/index.html` after the run.

@@ -14,7 +14,8 @@ This repository contains the OpenEarable 2 firmware for the `openearable_v2/nrf5
 
 The main firmware lives at the repository root and is built through Zephyr and the nRF Connect SDK.
 
-Host-based unit tests live under `tests/unit`. See [tests/README.md](tests/README.md) for the TDD workflow, regression-test conventions, and branch-coverage command.
+Unit tests live under `tests/unit`. See [tests/README.md](tests/README.md) for the
+GitHub Actions workflow, optional local execution, and suite structure.
 
 - `src/audio`, `src/bluetooth`, `src/modules`: runtime audio, Bluetooth, and application modules.
 - `src/SensorManager`, `src/Battery`, `src/SD_Card`, `src/time_sync`: sensor, power, storage, and synchronization subsystems.
