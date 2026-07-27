@@ -263,10 +263,12 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 }
 
 int PowerManager::begin() {
-    earable_state oe_state;
+    earable_state oe_state{};
 
     oe_state.charging_state = DISCHARGING;
     oe_state.pairing_state = PAIRED;
+    oe_state.sd_state = SD_IDLE;
+    oe_state.led_mode = STATE_INDICATION;
 
     battery_controller.begin();
     fuel_gauge.begin();
