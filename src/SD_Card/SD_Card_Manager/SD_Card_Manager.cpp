@@ -43,6 +43,9 @@ void SDCardManager::unmount_work_handler(struct k_work *work) {
 
     if (!_inserted) {
 		ret = sdcard_manager.unmount();
+		if (ret != 0) {
+			LOG_ERR("Failed to unmount SD card: %d", ret);
+		}
 		LOG_INF("SD card unmounted due to card removal.");
 		
 		ret = zbus_chan_pub(&sd_card_chan, &msg, K_FOREVER);

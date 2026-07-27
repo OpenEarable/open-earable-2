@@ -95,10 +95,17 @@ void KTD2026::begin() {
 
         if (_active) return;
 
-	_active = true;
+        _active = true;
         
         ret = pm_device_runtime_get(ls_1_8);
+        if (ret) {
+                LOG_ERR("Failed to enable 1.8 V LED supply: %d", ret);
+        }
+
         ret = pm_device_runtime_get(ls_3_3);
+        if (ret) {
+                LOG_ERR("Failed to enable 3.3 V LED supply: %d", ret);
+        }
 
         _i2c->begin();
 
@@ -121,7 +128,14 @@ void KTD2026::power_off() {
         (void)writeReg(registers::CTRL, &val, sizeof(val));
 
         int ret = pm_device_runtime_put(ls_1_8);
+        if (ret) {
+                LOG_ERR("Failed to disable 1.8 V LED supply: %d", ret);
+        }
+
         ret = pm_device_runtime_put(ls_3_3);
+        if (ret) {
+                LOG_ERR("Failed to disable 3.3 V LED supply: %d", ret);
+        }
 
         clearCachedColor();
 

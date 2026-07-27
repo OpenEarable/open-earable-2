@@ -70,15 +70,26 @@ int hw_codec_set_audio_mode(enum audio_mode mode) {
 	settings_save_one("audio/mode", &mode, sizeof(mode));
 
 	ret = dac.fdsp_bank_select((uint8_t) mode);
+	if (ret) {
+		LOG_ERR("Failed to select DSP bank, ret: %d", ret);
+		return ret;
+	}
+
 	// TODO: make writing to bank work
 	k_msleep(200);
 	ret = hw_codec_volume_adjust(0);
+	if (ret) {
+		LOG_ERR("Failed to adjust codec volume, ret: %d", ret);
+		return ret;
+	}
+
 	ret = dac.mute(muted);
 	if (ret) {
 		LOG_ERR("Failed to set audio mode, ret: %d", ret);
 		return ret;
 	}
-	return ret;
+
+	return 0;
 }
 
 enum audio_mode hw_codec_get_audio_mode() {
