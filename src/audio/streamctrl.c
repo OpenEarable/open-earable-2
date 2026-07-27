@@ -557,7 +557,6 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
     char addr_str[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
-    int ret;
 	bool is_le_audio_device = false;
 	uint8_t csis_rsi[6];
 	uint8_t chip_id[8];

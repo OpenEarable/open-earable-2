@@ -244,8 +244,6 @@ float MLX90632::getObjectTemp(status& returnError)
 
     double AMB = (sixRAM / 12.0) / VRta * pow(2, 19);
 
-    double sensorTemp = P_O + (AMB - P_R) / P_G + P_T * pow((AMB - P_R), 2);
-
     float S = (float)(lowerRAM + upperRAM) / 2.0;
     double VRto = nineRAM + Ka * (sixRAM / 12.0);
     double Sto = (S / 12.0) / VRto * (double)pow(2, 19);
