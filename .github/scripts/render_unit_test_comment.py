@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render Twister results as a concise GitHub pull-request comment."""
+"""Render Twister results as a concise GitHub pull-request comment for CI."""
 
 from __future__ import annotations
 
