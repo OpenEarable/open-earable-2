@@ -165,7 +165,7 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	err = bt_conn_le_param_update(conn, conn_param);
 	if (err) {
 		LOG_ERR("Cannot update conneciton parameter (err: %d)", err);
-		return err;
+		return;
 	}
 	LOG_INF("Connection parameters update requested: interval_min %d interval_max %d latency %d timeout %d",
 		conn_param->interval_min, conn_param->interval_max,
