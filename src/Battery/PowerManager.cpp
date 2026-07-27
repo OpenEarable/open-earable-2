@@ -2,6 +2,7 @@
 
 #include "macros_common.h"
 
+#include <cmath>
 #include <stdio.h>
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/reboot.h>
@@ -404,7 +405,7 @@ int PowerManager::begin() {
 
     // check if fuel gauge has wrong value
     float capacity = fuel_gauge.capacity();
-    if (abs(capacity - _battery_settings.capacity) > 1e-4) {
+    if (std::fabs(capacity - _battery_settings.capacity) > 1e-4F) {
         fuel_gauge.setup(_battery_settings);
         set_error_led();
     }
