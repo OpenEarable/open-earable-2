@@ -208,10 +208,9 @@ int ADAU1860::begin() {
                 uint8_t spt0_route1 = 33; // ASCRO 1
                 writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));
 
-                // DMIC_VOL0
                 uint8_t dmic_vol = 0x20; // 12dB
-                // 0 - left - external mic
-                // 1 - right - internal mic
+                // DMIC channel 0 - external mic
+                // DMIC channel 1 - internal mic
                 writeReg(registers::DMIC_VOL0, &dmic_vol, sizeof(dmic_vol));
                 writeReg(registers::DMIC_VOL1, &dmic_vol, sizeof(dmic_vol));
 

@@ -317,21 +317,22 @@ int hw_codec_stop_audio(void)
  *   0xFE      = -71.25 dB
  *   0xFF      = Mute
  */
-int hw_codec_mic_gain_set(uint8_t gain_left_reg, uint8_t gain_right_reg)
+int hw_codec_mic_gain_set(uint8_t gain_external_reg, uint8_t gain_internal_reg)
 {
-	/* Write DMIC gain for channels 0 and 1 */
-	dac.mic_gain_write(0, gain_right_reg);
-	dac.mic_gain_write(1, gain_left_reg);
-	LOG_INF("DMIC gain set: L=0x%02x, R=0x%02x", gain_left_reg, gain_right_reg);
+	/* DMIC channel 0 is the external mic, channel 1 is the internal mic. */
+	dac.mic_gain_write(0, gain_external_reg);
+	dac.mic_gain_write(1, gain_internal_reg);
+	LOG_INF("DMIC gain set: external=0x%02x, internal=0x%02x",
+		gain_external_reg, gain_internal_reg);
 	return 0;
 }
 
-uint8_t hw_codec_mic_gain_get_right(void)
+uint8_t hw_codec_mic_gain_get_external(void)
 {
 	return dac.mic_gain_read(0);
 }
 
-uint8_t hw_codec_mic_gain_get_left(void)
+uint8_t hw_codec_mic_gain_get_internal(void)
 {
 	return dac.mic_gain_read(1);
 }
