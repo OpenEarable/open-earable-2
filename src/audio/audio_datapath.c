@@ -31,6 +31,7 @@
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
 #include "decimation_filter.h"
+#include "../SensorManager/SensorManager.h"
 #include "arm_math.h"
 #include "hw_codec.h"
 //#include "../drivers/ADAU1860.h"
