@@ -591,11 +591,12 @@ int cmd_dsp_noise_gate(const struct shell *shell, size_t argc, char **argv) {
 
     safe_load_params params;
 
-    params[0] = strtoul(argv[1], NULL, 16) | 0xC80;
-    params[1] = strtoul(argv[2], NULL, 16) | 0xD00;
-    params[2] = strtoul(argv[3], NULL, 16);
-    params[3] = strtoul(argv[4], NULL, 16);
-    params[4] = strtoul(argv[5], NULL, 16) | 0x80000000;
+    params[0] = static_cast<uint32_t>(strtoul(argv[1], nullptr, 16)) | 0xC80U;
+    params[1] = static_cast<uint32_t>(strtoul(argv[2], nullptr, 16)) | 0xD00U;
+    params[2] = static_cast<uint32_t>(strtoul(argv[3], nullptr, 16));
+    params[3] = static_cast<uint32_t>(strtoul(argv[4], nullptr, 16));
+    params[4] =
+        static_cast<uint32_t>(strtoul(argv[5], nullptr, 16)) | 0x80000000U;
 
     shell_print(shell, "Params:");
     for (int i = 0; i < FDSP_NUM_PARAMS; i++) {
