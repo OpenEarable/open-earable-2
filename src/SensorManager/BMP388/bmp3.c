@@ -1028,17 +1028,17 @@ int8_t bmp3_get_fifo_data(struct bmp3_dev *dev)
         /* Get the total no of bytes available in FIFO */
         rslt = bmp3_get_fifo_length(&fifo_len, dev);
 
-        /* For sensor time frame */
-        if (dev->fifo->settings.time_en == TRUE)
-        {
-            fifo_len = fifo_len + 4;
-        }
-
-        /* Update the fifo length in the fifo structure */
-        dev->fifo->data.byte_count = fifo_len;
-
         if (rslt == BMP3_OK)
         {
+            /* For sensor time frame */
+            if (dev->fifo->settings.time_en == TRUE)
+            {
+                fifo_len = fifo_len + 4;
+            }
+
+            /* Update the fifo length in the fifo structure */
+            dev->fifo->data.byte_count = fifo_len;
+
             /* Read the fifo data */
             rslt = bmp3_get_regs(BMP3_REG_FIFO_DATA, fifo->data.buffer, fifo_len, dev);
         }
