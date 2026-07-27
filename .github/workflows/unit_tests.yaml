@@ -90,7 +90,7 @@ jobs:
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ARTIFACT_URL: ${{ steps.unit_test_artifacts.outputs.artifact-url }}
         run: |
-          python3 zephyr-workspace/open-earable-v2/tools/ci/render_unit_test_comment.py \
+          python3 zephyr-workspace/open-earable-v2/.github/scripts/render_unit_test_comment.py \
             --report zephyr-workspace/twister-out/twister.json \
             --console zephyr-workspace/twister-console.log \
             --output unit-test-comment.md \
