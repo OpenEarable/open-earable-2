@@ -6,6 +6,7 @@
 
 #include "bt_mgmt.h"
 
+#include <stdio.h>
 #include "channel_assignment.h"
 
 #include <zephyr/zbus/zbus.h>
@@ -19,6 +20,7 @@
 #include "macros_common.h"
 #include "zbus_common.h"
 #include "button_assignments.h"
+#include "uicr.h"
 
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"

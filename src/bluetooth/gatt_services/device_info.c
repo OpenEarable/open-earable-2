@@ -1,4 +1,6 @@
 #include "device_info.h"
+#include <stdio.h>
+#include <string.h>
 #include <generated/version.h>
 
 #include <zephyr/bluetooth/bluetooth.h>

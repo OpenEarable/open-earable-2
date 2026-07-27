@@ -2,6 +2,7 @@
 #include "zbus_common.h"
 #include "openearable_common.h"
 #include <math.h>
+#include <stdlib.h>
 
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
