@@ -639,6 +639,10 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 			snprintf(sirk, BT_CSIP_SIRK_SIZE, "%08X", new_sirk);
 
 			int err = bt_encrypt_le(sirk, res, res);
+			if (err) {
+				LOG_ERR("Failed to calculate CSIS hash: %d", err);
+				return;
+			}
 
 			memcpy(out, res, BT_CSIP_CRYPTO_HASH_SIZE);
 
