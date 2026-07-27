@@ -326,15 +326,16 @@ int hw_codec_mic_gain_set(uint8_t gain_left_reg, uint8_t gain_right_reg)
 	return 0;
 }
 
-uint8_t hw_codec_mic_gain_get_left(void)
+uint8_t hw_codec_mic_gain_get_right(void)
 {
 	return dac.mic_gain_read(0);
 }
 
-uint8_t hw_codec_mic_gain_get_right(void)
+uint8_t hw_codec_mic_gain_get_left(void)
 {
 	return dac.mic_gain_read(1);
 }
+
 
 int hw_codec_soft_reset(void)
 {
