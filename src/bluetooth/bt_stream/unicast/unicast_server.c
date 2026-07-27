@@ -6,6 +6,8 @@
 
  #include "unicast_server.h"
 
+ #include <stdio.h>
+ #include <string.h>
  #include <zephyr/zbus/zbus.h>
  #include <zephyr/sys/byteorder.h>
  #include <zephyr/bluetooth/bluetooth.h>
@@ -20,7 +22,9 @@
  #include "zbus_common.h"
  #include "bt_mgmt.h"
  #include "bt_le_audio_tx.h"
+ #include "channel_assignment.h"
  #include "le_audio.h"
+ #include "uicr.h"
 
 #include "BootState.h"
  

@@ -6,6 +6,9 @@
 
 #include "streamctrl.h"
 
+#include <stdio.h>
+#include <string.h>
+#include "common/bt_str.h"
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/sys/reboot.h>
 
@@ -28,6 +31,8 @@
 
 #include "AutoOffManager.h"
 #include "BootState.h"
+#include "channel_assignment.h"
+#include "uicr.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(streamctrl, CONFIG_MAIN_LOG_LEVEL);
