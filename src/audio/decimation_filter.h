@@ -142,8 +142,8 @@ private:
     uint8_t num_stages_;
     bool configured_;
     Decimator stages_[MAX_STAGES];
-    /* Stage output alternates between this buffer and the caller's output. */
-    int16_t intermediate_buffer_[MAX_FRAMES];
+    /* Stage output is interleaved stereo, so each frame needs two samples. */
+    int16_t intermediate_buffer_[MAX_FRAMES * 2U];
     float32_t processing_buffer_[MAX_FRAMES * 2];
 };
 #endif
