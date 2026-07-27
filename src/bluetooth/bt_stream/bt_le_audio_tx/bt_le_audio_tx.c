@@ -96,10 +96,6 @@ static int iso_stream_send(uint8_t const *const data, size_t size, struct bt_cap
 	 */
 	if (atomic_get(&tx_info->iso_tx_pool_alloc) >= HCI_ISO_BUF_PER_CHAN) {
 		if (!tx_info->hci_wrn_printed) {
-			struct bt_iso_chan *iso_chan;
-
-			iso_chan = bt_bap_stream_iso_chan_get(&cap_stream->bap_stream);
-
 			LOG_WRN("HCI ISO TX overrun on stream %p - Single print",
 				(void *)&cap_stream->bap_stream);
 			tx_info->hci_wrn_printed = true;
