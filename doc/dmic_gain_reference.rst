@@ -17,6 +17,9 @@ Hardware Register Mapping
 
 Based on ADAU186x datasheet (register DMIC_VOL0 @ address 0x4000C045):
 
+- ``DMIC_VOL0`` / DMIC channel 0 controls the **external** microphone.
+- ``DMIC_VOL1`` / DMIC channel 1 controls the **internal** microphone.
+
 .. list-table::
    :header-rows: 1
    :widths: 20 20 60
@@ -92,28 +95,28 @@ Characteristic Details
 Write Command
 =============
 
-Send 2 bytes ``[left_gain_reg, right_gain_reg]``:
+Send 2 bytes ``[external_gain_reg, internal_gain_reg]``:
 
 .. code-block:: text
 
-   Byte 0: Left DMIC channel gain register (0x00–0xFF)
-   Byte 1: Right DMIC channel gain register (0x00–0xFF)
+   Byte 0: External microphone gain register (DMIC_VOL0, 0x00–0xFF)
+   Byte 1: Internal microphone gain register (DMIC_VOL1, 0x00–0xFF)
 
 Read Response
 =============
 
-Returns 2 bytes showing current DMIC gain for each channel.
+Returns 2 bytes showing current DMIC gain as ``[external_gain_reg, internal_gain_reg]``.
 
 Usage Examples
 **************
 
-Set both channels to +12 dB
-============================
+Set both microphones to +12 dB
+===============================
 
 Send: ``[0x20, 0x20]``
 
-Set left to +18 dB, right to +6 dB
-===================================
+Set external to +18 dB, internal to +6 dB
+=========================================
 
 Send: ``[0x10, 0x30]``
 
@@ -124,13 +127,13 @@ Set to 0 dB (neutral/reset)
 
 Send: ``[0x40, 0x40]``
 
-Mute both channels
-==================
+Mute both microphones
+=====================
 
 Send: ``[0xFF, 0xFF]``
 
-Set left to -12 dB (96 = 0x60)
-===============================
+Set external to -12 dB (96 = 0x60), internal to 0 dB
+=====================================================
 
 Send: ``[0x60, 0x40]``
 
@@ -142,31 +145,31 @@ Functions
 
 .. code-block:: c
 
-   // Set DMIC gain for both channels
-   // gain_left_reg, gain_right_reg: register values (0x00–0xFF)
-   int hw_codec_mic_gain_set(uint8_t gain_left_reg, uint8_t gain_right_reg);
+   // Set DMIC gain for both microphones
+   // gain_external_reg, gain_internal_reg: register values (0x00–0xFF)
+   int hw_codec_mic_gain_set(uint8_t gain_external_reg, uint8_t gain_internal_reg);
 
-   // Get current DMIC gain register value for left/right channel
-   uint8_t hw_codec_mic_gain_get_left(void);
-   uint8_t hw_codec_mic_gain_get_right(void);
+   // Get current DMIC gain register value for external/internal microphone
+   uint8_t hw_codec_mic_gain_get_external(void);
+   uint8_t hw_codec_mic_gain_get_internal(void);
 
 Example C Code
 ==============
 
 .. code-block:: cpp
 
-   // Set left and right DMIC to +12 dB
+   // Set external and internal DMIC to +12 dB
    hw_codec_mic_gain_set(0x20, 0x20);
 
    // Read back the values
-   uint8_t left = hw_codec_mic_gain_get_left();   // Should return 0x20
-   uint8_t right = hw_codec_mic_gain_get_right();  // Should return 0x20
+   uint8_t external = hw_codec_mic_gain_get_external(); // Should return 0x20
+   uint8_t internal = hw_codec_mic_gain_get_internal(); // Should return 0x20
 
 Implementation Details
 **********************
 
 - **File**: ``src/modules/hw_codec_adau1860.cpp``
-- **Registers Written**: ``DMIC_VOL0`` (0x4000C045), ``DMIC_VOL1`` (0x4000C046)
+- **Registers Written**: external mic ``DMIC_VOL0`` (0x4000C045), internal mic ``DMIC_VOL1`` (0x4000C046)
 - **BLE Handler**: ``src/bluetooth/gatt_services/audio_config_service.c``
 - **Logging**: INFO level logs show when gain is changed via BLE
 
