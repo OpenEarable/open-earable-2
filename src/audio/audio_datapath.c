@@ -222,8 +222,14 @@ static void (*buffer_play_callback)(void) = NULL;
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
-/* Output buffer sized for the largest processed output: decimation factor 2. */
-static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t) / 2];
+/*
+ * Decimation output for one interleaved stereo audio block.
+ *
+ * The decimator supports factors down to 1, so its worst-case output contains
+ * every input sample. Seal check currently uses factor 3 (48 kHz -> 16 kHz);
+ * sizing this buffer for the old fixed factor 4 overflowed it on every block.
+ */
+static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t)];
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
