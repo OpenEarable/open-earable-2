@@ -211,7 +211,9 @@ int CascadedDecimator::process(const int16_t* input, int16_t* output, uint32_t n
     }
 
     if (num_stages_ == 0) {
-        memcpy(output, input, num_frames * 2 * sizeof(int16_t));
+        if (output != input) {
+            memcpy(output, input, num_frames * 2U * sizeof(int16_t));
+        }
         return num_frames;
     }
     

@@ -759,12 +759,12 @@ static void measurement_work_handler(struct k_work *work)
 	}
 	LOG_DBG("Audio datapath acquired: id=%u", pending_config.id);
 	audio_session.datapath_acquired = true;
-	audio_session.measurement_codec_enabled = true;
 	ret = hw_codec_default_conf_enable();
 	if (ret != 0) {
 		LOG_ERR("Failed to enable codec for audio response measurement: %d", ret);
 		goto fail;
 	}
+	audio_session.measurement_codec_enabled = true;
 	LOG_DBG("Codec enabled for audio response measurement: id=%u", pending_config.id);
 	ret = audio_datapath_buffer_play(transfer.samples, transfer.total_samples, false,
 					 pending_config.volume, NULL);
