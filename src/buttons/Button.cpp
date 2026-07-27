@@ -15,12 +15,11 @@ struct gpio_callback Button::button_cb_data;
 void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins)
 {
-	Button * button;
-
-	if (pins & BIT(BUTTON_EARABLE)) {
-		//earable_btn._read_state();
-		button = &earable_btn;
+	if (!(pins & BIT(BUTTON_EARABLE))) {
+		return;
 	}
+
+	Button *button = &earable_btn;
 
 	/*if (pins & BIT(BUTTON_VOLUME_UP)) {
 		volume_up_btn._read_state();
