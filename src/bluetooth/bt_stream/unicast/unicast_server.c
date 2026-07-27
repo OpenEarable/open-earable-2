@@ -712,7 +712,8 @@ static uint8_t device_identifier[] = {
 		if (sirk != 0xFFFFFFFF) {
 			snprintf(sirk_string, 16, "%08X", sirk); //"%016llX"
 		} else {
-			snprintf(sirk_string, 16, "%08X", oe_boot_state.device_id); //"%016llX"
+			snprintf(sirk_string, 16, "%08X",
+				 (unsigned int)oe_boot_state.device_id); //"%016llX"
 		}
 
 		// LOG_INF("SIRK as String: %s", sirk_string);
@@ -806,4 +807,3 @@ static uint8_t device_identifier[] = {
  
 	 return 0;
  }
- 
