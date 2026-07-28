@@ -496,9 +496,9 @@ uint8_t ADAU1860::fdsp_get_volume() {
         return 0xFF-dac_vol;
 }
 
-void ADAU1860::mic_gain_write(uint8_t channel, uint8_t gain) {
+int ADAU1860::mic_gain_write(uint8_t channel, uint8_t gain) {
         uint32_t reg = (channel == 0) ? registers::DMIC_VOL0 : registers::DMIC_VOL1;
-        writeReg(reg, &gain, sizeof(gain));
+        return writeReg(reg, &gain, sizeof(gain));
 }
 
 uint8_t ADAU1860::mic_gain_read(uint8_t channel) {
@@ -550,7 +550,7 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
 
 }
 
-void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
+int ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         int ret;
         struct i2c_msg msg[2];
 
@@ -577,6 +577,8 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         }
 
         _i2c->release();
+
+        return ret;
 }
 
 #ifdef NOISE_GATE_ACTIVE
