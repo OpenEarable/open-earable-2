@@ -15,10 +15,14 @@ The DMIC (Digital Microphone) gain on the ADAU1860 codec can now be adjusted ove
 Hardware Register Mapping
 **************************
 
-Based on ADAU186x datasheet (register DMIC_VOL0 @ address 0x4000C045):
+The ADAU186x names the digital microphone inputs by channel number. This
+firmware keeps those chip-level names at the driver boundary and maps them to
+board-specific microphone positions in ``hw_codec_adau1860.cpp``:
 
 - ``DMIC_VOL0`` / DMIC channel 0 controls the **external** microphone.
 - ``DMIC_VOL1`` / DMIC channel 1 controls the **internal** microphone.
+
+Based on the ADAU186x datasheet (register DMIC_VOL0 @ address 0x4000C045):
 
 .. list-table::
    :header-rows: 1
@@ -180,3 +184,6 @@ Notes
 - Default at startup: 0x20 (+12 dB) for both channels (set in ``ADAU1860::begin()``).
 - The characteristic is read/write; clients can query current gain and set new values.
 - The 0.375 dB step provides fine-grained control with 256 possible values.
+- To verify the physical mapping experimentally, set one microphone to mute
+  (0xFF) and the other to 0 dB (0x40), then speak into the external and
+  internal microphones separately.
