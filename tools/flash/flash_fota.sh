@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Stop immediately if flashing or either reset operation fails.
+set -e
+
 # Default parameters
 CLOCKSPEED=8000
 CHIP=NRF53
@@ -115,5 +118,14 @@ if [ -n "$HW_VERSION" ]; then
     echo "Hardware version set to $HW_VERSION"
 fi
 
-# Reset device
-nrfjprog --reset -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+# Reset the complete SoC, then issue an application soft reset. The pin reset
+# gives both nRF5340 cores and peripherals a clean start. The following soft
+# reset sets SREQ, which the application treats as an explicit power-on request.
+echo "Resetting device..."
+nrfjprog --pinreset -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+# Allow the bootloader and application to finish handling the pin reset before
+# setting the SREQ reset reason used by PowerManager. Resetting during MCUboot
+# can cause that reason to be consumed before the application reads it.
+sleep 5
+nrfjprog --reset -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
+echo "Device reset; application is starting."

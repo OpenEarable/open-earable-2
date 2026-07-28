@@ -82,6 +82,7 @@
    # --hw version is optional and can only be used with --left or --right
    ./tools/flash/flash_fota.sh --snr 123456789 --left --hw 2.0.1    
    ```
+   - After flashing, the script resets the complete device and starts the application automatically. A reset failure stops the script and returns an error.
 
    - or without FOTA
    ```bash
@@ -192,7 +193,6 @@ If you are using OpenEarable, please cite is as follows:
      publisher={ACM New York, NY, USA}
 }
 ```
-
 
 
 

@@ -58,7 +58,7 @@ If you are building from a workspace where this repository is checked out as an 
 
 ### Flashing And Recovery
 
-- Use [tools/flash/flash_fota.sh](tools/flash/flash_fota.sh) to flash a FOTA build with the correct left/right and hardware configuration flags.
+- Use [tools/flash/flash_fota.sh](tools/flash/flash_fota.sh) to flash a FOTA build with the correct left/right and hardware configuration flags. A successful flash performs a full-device reset followed by an application reset so the firmware boots automatically.
 - Use [tools/flash/recover.sh](tools/flash/recover.sh) if the board needs a full recover before reflashing.
 - Keep the device powered through USB or a sufficiently charged battery during flashing and recovery.
 

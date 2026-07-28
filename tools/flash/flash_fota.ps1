@@ -157,8 +157,17 @@ if ($Hw) {
 }
 
 # --- Reset ---
+# Reset the complete SoC first, then issue an application soft reset. The
+# application uses the resulting SREQ reset reason as a power-on request.
 Write-Host "Resetting device..."
-& nrfjprog --reset --family $Chip --snr $Snr --clockspeed $Clockspeed
+& nrfjprog --pinreset --family $Chip --snr $Snr --clockspeed $Clockspeed
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "`nDone." -ForegroundColor Green
+# Allow the bootloader and application to finish handling the pin reset before
+# setting the SREQ reset reason used by PowerManager.
+Start-Sleep -Seconds 5
+
+& nrfjprog --reset --family $Chip --coprocessor CP_APPLICATION --snr $Snr --clockspeed $Clockspeed
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "`nDone. Device reset; application is starting." -ForegroundColor Green
