@@ -14,13 +14,14 @@
 #include "audio_system.h"
 #include "hw_codec.h"
 
-LOG_MODULE_REGISTER(audio_response_service, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(audio_response_service, CONFIG_LOG_DEFAULT_LEVEL);
 
 #define AUDIO_RESPONSE_CAPTURE_SAMPLES 2048
 #define AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE 4000U
 #define AUDIO_RESPONSE_INITIAL_DROP 128
 #define AUDIO_RESPONSE_DEFAULT_POINTS 9
 #define AUDIO_RESPONSE_TRANSFER_CREDITS 1
+#define AUDIO_RESPONSE_TRANSFER_CREDIT_DELAY K_MSEC(1)
 #define AUDIO_RESPONSE_TRANSFER_TIMEOUT K_SECONDS(30)
 #define AUDIO_RESPONSE_STATUS_ENCODED_SIZE 9
 #define AUDIO_RESPONSE_RESULT_ENCODED_SIZE (2 + (CONFIG_AUDIO_RESPONSE_MAX_POINTS * 4))
@@ -88,6 +89,7 @@ static bool result_notifications_enabled;
 
 static struct k_work measurement_work;
 static struct k_work measurement_complete_work;
+static struct k_work_delayable transfer_ready_work;
 static struct k_work_delayable transfer_timeout_work;
 K_MUTEX_DEFINE(service_mutex);
 
@@ -249,6 +251,7 @@ static void reset_transfer(void)
 {
 	LOG_DBG("Reset transfer state: id=%u active=%d committed=%d received=%u/%u", transfer.id,
 		transfer.active, transfer.committed, transfer.received_samples, transfer.total_samples);
+	k_work_cancel_delayable(&transfer_ready_work);
 	memset(&transfer, 0, sizeof(transfer));
 }
 
@@ -312,11 +315,12 @@ static ssize_t start_transfer(const audio_response_transfer_start_t *start, uint
 	LOG_INF("Transfer start requested: id=%u samples=%u rate=%u checksum=0x%08x",
 		start->transfer_id, start->total_samples, start->sampling_rate, start->checksum);
 
-	if (measurement_active || transfer.active || start->total_samples == 0 ||
+	if (measurement_active || (transfer.active && !transfer.committed) ||
+	    start->total_samples == 0 ||
 	    start->sampling_rate != CONFIG_AUDIO_SAMPLE_RATE_HZ) {
-		LOG_WRN("Transfer start rejected: measurement_active=%d active=%d samples=%u rate=%u expected_rate=%u",
-			measurement_active, transfer.active, start->total_samples, start->sampling_rate,
-			CONFIG_AUDIO_SAMPLE_RATE_HZ);
+		LOG_WRN("Transfer start rejected: measurement_active=%d active=%d committed=%d samples=%u rate=%u expected_rate=%u",
+			measurement_active, transfer.active, transfer.committed, start->total_samples,
+			start->sampling_rate, CONFIG_AUDIO_SAMPLE_RATE_HZ);
 		return reject_transfer(AUDIO_RESPONSE_TRANSFER_INVALID_STATE,
 				       BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED));
 	}
@@ -541,7 +545,7 @@ static ssize_t write_transfer_data(struct bt_conn *conn, const struct bt_gatt_at
 	}
 	transfer.received_samples += sample_count;
 	k_work_reschedule(&transfer_timeout_work, AUDIO_RESPONSE_TRANSFER_TIMEOUT);
-	(void)notify_transfer_status(AUDIO_RESPONSE_TRANSFER_READY, AUDIO_RESPONSE_TRANSFER_CREDITS);
+	k_work_reschedule(&transfer_ready_work, AUDIO_RESPONSE_TRANSFER_CREDIT_DELAY);
 	if (transfer.received_samples == transfer.total_samples) {
 		LOG_INF("Transfer upload complete: id=%u samples=%u", transfer.id,
 			transfer.total_samples);
@@ -766,6 +770,11 @@ static void measurement_work_handler(struct k_work *work)
 	}
 	audio_session.measurement_codec_enabled = true;
 	LOG_DBG("Codec enabled for audio response measurement: id=%u", pending_config.id);
+	ret = hw_codec_volume_unmute();
+	if (ret != 0) {
+		LOG_ERR("Failed to unmute codec for audio response measurement: %d", ret);
+		goto fail;
+	}
 	ret = audio_datapath_buffer_play(transfer.samples, transfer.total_samples, false,
 					 pending_config.volume, NULL);
 	if (ret != 0) {
@@ -850,6 +859,20 @@ static void measurement_complete_work_handler(struct k_work *work)
 }
 
 /**
+ * Grant the next upload credit after the current GATT write has released its
+ * incoming ACL buffer.
+ */
+static void transfer_ready_work_handler(struct k_work *work)
+{
+	k_mutex_lock(&service_mutex, K_FOREVER);
+	if (transfer.active && !transfer.committed) {
+		(void)notify_transfer_status(AUDIO_RESPONSE_TRANSFER_READY,
+					     AUDIO_RESPONSE_TRANSFER_CREDITS);
+	}
+	k_mutex_unlock(&service_mutex);
+}
+
+/**
  * Release an incomplete transfer after the protocol timeout.
  */
 static void transfer_timeout_work_handler(struct k_work *work)
@@ -875,6 +898,7 @@ int init_audio_response_service(void)
 	LOG_INF("Initializing audio response service");
 	k_work_init(&measurement_work, measurement_work_handler);
 	k_work_init(&measurement_complete_work, measurement_complete_work_handler);
+	k_work_init_delayable(&transfer_ready_work, transfer_ready_work_handler);
 	k_work_init_delayable(&transfer_timeout_work, transfer_timeout_work_handler);
 	return 0;
 }
