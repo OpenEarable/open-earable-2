@@ -38,6 +38,11 @@ K_THREAD_STACK_DEFINE(volume_msg_sub_thread_stack, CONFIG_VOLUME_MSG_SUB_STACK_S
 
 static enum audio_mode audio_mode;
 
+enum hw_codec_mic {
+	HW_CODEC_MIC_EXTERNAL = 0,
+	HW_CODEC_MIC_INTERNAL = 1,
+};
+
 static int settings_set_cb(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
 {
     if (strcmp(name, "mode") == 0 && len == sizeof(audio_mode)) {
@@ -319,9 +324,20 @@ int hw_codec_stop_audio(void)
  */
 int hw_codec_mic_gain_set(uint8_t gain_external_reg, uint8_t gain_internal_reg)
 {
-	/* DMIC channel 0 is the external mic, channel 1 is the internal mic. */
-	dac.mic_gain_write(0, gain_external_reg);
-	dac.mic_gain_write(1, gain_internal_reg);
+	int ret;
+
+	ret = dac.mic_gain_write(HW_CODEC_MIC_EXTERNAL, gain_external_reg);
+	if (ret) {
+		LOG_ERR("Failed to set external mic gain: %d", ret);
+		return ret;
+	}
+
+	ret = dac.mic_gain_write(HW_CODEC_MIC_INTERNAL, gain_internal_reg);
+	if (ret) {
+		LOG_ERR("Failed to set internal mic gain: %d", ret);
+		return ret;
+	}
+
 	LOG_INF("DMIC gain set: external=0x%02x, internal=0x%02x",
 		gain_external_reg, gain_internal_reg);
 	return 0;
@@ -329,12 +345,12 @@ int hw_codec_mic_gain_set(uint8_t gain_external_reg, uint8_t gain_internal_reg)
 
 uint8_t hw_codec_mic_gain_get_external(void)
 {
-	return dac.mic_gain_read(0);
+	return dac.mic_gain_read(HW_CODEC_MIC_EXTERNAL);
 }
 
 uint8_t hw_codec_mic_gain_get_internal(void)
 {
-	return dac.mic_gain_read(1);
+	return dac.mic_gain_read(HW_CODEC_MIC_INTERNAL);
 }
 
 
