@@ -9,6 +9,8 @@ target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/audio_i2s.c)
 target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/audio_sync_timer.c)
 
 target_sources_ifdef(CONFIG_NRF5340_AUDIO_CS47L63_DRIVER app PRIVATE
+                     ${CMAKE_CURRENT_SOURCE_DIR}/hw_codec.c)
+target_sources_ifdef(CONFIG_NRF5340_AUDIO_ADAU1860_DRIVER app PRIVATE
                      ${CMAKE_CURRENT_SOURCE_DIR}/hw_codec_adau1860.cpp)
 target_sources_ifdef(CONFIG_NRF5340_AUDIO_POWER_MEASUREMENT app PRIVATE
                      ${CMAKE_CURRENT_SOURCE_DIR}/power_meas.c)
