@@ -121,8 +121,8 @@ enum audio_mode hw_codec_get_audio_mode();
 
 /* Microphone (DMIC) gain control.
  * Board mapping:
- *   ADAU186x DMIC_VOL0 / DMIC channel 0 controls the external microphone.
- *   ADAU186x DMIC_VOL1 / DMIC channel 1 controls the internal microphone.
+ *   ADAU186x DMIC_VOL0 / DMIC channel 0 controls the outer microphone.
+ *   ADAU186x DMIC_VOL1 / DMIC channel 1 controls the inner microphone.
  * Register mapping (per ADAU186x datasheet DMIC_VOL0 @ 0x4000C045):
  *   0x00      = +24 dB
  *   0x01-0x3F = +23.625 to +0.375 dB (decrement by 0.375 dB per step)
@@ -131,9 +131,9 @@ enum audio_mode hw_codec_get_audio_mode();
  *   0xFE      = -71.25 dB
  *   0xFF      = Mute
  */
-int hw_codec_mic_gain_set(uint8_t gain_external_reg, uint8_t gain_internal_reg);
-uint8_t hw_codec_mic_gain_get_external(void);
-uint8_t hw_codec_mic_gain_get_internal(void);
+int hw_codec_mic_gain_set(uint8_t gain_outer_reg, uint8_t gain_inner_reg);
+uint8_t hw_codec_mic_gain_get_outer(void);
+uint8_t hw_codec_mic_gain_get_inner(void);
 
 #ifdef __cplusplus
 }
