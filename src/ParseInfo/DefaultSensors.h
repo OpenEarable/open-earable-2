@@ -18,8 +18,8 @@
 
 #define MICRO_CHANNEL_COUNT 2
 SensorComponent microComponenents[MICRO_CHANNEL_COUNT] = {
+    { .name = "OUTER", .unit = "ADC", .parseType = PARSE_TYPE_UINT16 },
     { .name = "INNER", .unit = "ADC", .parseType = PARSE_TYPE_UINT16 },
-    { .name = "Outer", .unit = "ADC", .parseType = PARSE_TYPE_UINT16 },
 };
 
 #define MICRO_GROUP_COUNT 1
