@@ -209,8 +209,8 @@ int ADAU1860::begin() {
                 writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));
 
                 uint8_t dmic_vol = 0x20; // 12dB
-                // DMIC channel 0 - external mic
-                // DMIC channel 1 - internal mic
+                // DMIC channel 0 - outer mic
+                // DMIC channel 1 - inner mic
                 writeReg(registers::DMIC_VOL0, &dmic_vol, sizeof(dmic_vol));
                 writeReg(registers::DMIC_VOL1, &dmic_vol, sizeof(dmic_vol));
 

@@ -75,8 +75,8 @@ static ssize_t read_audio_channel(struct bt_conn *conn, const struct bt_gatt_att
 static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                              const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
-    // Mic gain is 2 bytes: [external_reg, internal_reg].
-    // External mic maps to DMIC_VOL0; internal mic maps to DMIC_VOL1.
+    // Mic gain is 2 bytes: [outer_reg, inner_reg].
+    // Outer mic maps to DMIC_VOL0; inner mic maps to DMIC_VOL1.
     // Per ADAU186x DMIC_VOL register (0x4000C045):
     //   0x00      = +24 dB
     //   0x01-0x3F = +23.625 to +0.375 dB (0.375 dB steps)
@@ -88,17 +88,17 @@ static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
-    uint8_t gain_external = ((uint8_t*)buf)[0];
-    uint8_t gain_internal = ((uint8_t*)buf)[1];
+    uint8_t gain_outer = ((uint8_t*)buf)[0];
+    uint8_t gain_inner = ((uint8_t*)buf)[1];
 
-    int ret = hw_codec_mic_gain_set(gain_external, gain_internal);
+    int ret = hw_codec_mic_gain_set(gain_outer, gain_inner);
     if (ret) {
         LOG_ERR("Failed to set mic gain: %d", ret);
         return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
     }
 
-    LOG_INF("DMIC gain via BLE: external=0x%02x internal=0x%02x",
-            gain_external, gain_internal);
+    LOG_INF("DMIC gain via BLE: outer=0x%02x inner=0x%02x",
+            gain_outer, gain_inner);
     return len;
 }
 
@@ -106,8 +106,8 @@ static ssize_t read_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *a
                             void *buf, uint16_t len, uint16_t offset)
 {
     uint8_t gains[2] = {
-        hw_codec_mic_gain_get_external(),
-        hw_codec_mic_gain_get_internal()
+        hw_codec_mic_gain_get_outer(),
+        hw_codec_mic_gain_get_inner()
     };
 
     return bt_gatt_attr_read(conn, attr, buf, len, offset, gains, sizeof(gains));
