@@ -45,7 +45,16 @@
    - In the **nRF Connect** tab, select **"Manage SDK"**. 
    - Install **SDK version 3.0.1**.
 
-7. **Open the Firmware Folder in VS Code**  
+7. **Clone or Update the Firmware Repository and Open It in VS Code**
+   - For a new checkout, clone the repository together with its submodules:
+     ```bash
+     git clone --recurse-submodules https://github.com/OpenEarable/open-earable-2.git
+     ```
+   - If the repository is already checked out, initialize or update its submodules from the repository root:
+     ```bash
+     git submodule update --init --recursive
+     ```
+   - The `protocol` submodule provides the generated C sources in `protocol/generated/c` that are required during CMake configuration.
    - Use `File > Open Folder` or drag-and-drop the firmware directory into VS Code.
    - OR in the **APPLICATIONS** section of the nRF Connect tab:
      - Select `Open Exisiting Application`.
@@ -193,6 +202,5 @@ If you are using OpenEarable, please cite is as follows:
      publisher={ACM New York, NY, USA}
 }
 ```
-
 
 
