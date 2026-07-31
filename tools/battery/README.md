@@ -27,6 +27,8 @@ running firmware. By default it resumes the app core afterwards.
 ## Requirements
 
 - A connected J-Link probe
+- J-Link DLL/software version `8.82`
+- PyLink version `2.0.1`
 - Python with `pylink` available
 - The device must have enough target power for SWD and the battery ICs
 
@@ -44,12 +46,6 @@ For scripts, print only integer millivolts:
 
 ```bash
 python3 tools/battery/battery_debug.py voltage --snr [YOUR_JLINK_SERIAL_NUMBER] --raw
-```
-
-There is also a convenience wrapper:
-
-```bash
-python3 tools/battery/check_voltage.py --snr [YOUR_JLINK_SERIAL_NUMBER]
 ```
 
 ## Full Status
@@ -82,12 +78,6 @@ Monitor continuously and reset the charger again if it enters fault:
 
 ```bash
 python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] --continuous --reset-on-fault
-```
-
-The old helper name is kept as a compatibility wrapper:
-
-```bash
-python3 tools/battery/recover_low_battery.py --snr [YOUR_JLINK_SERIAL_NUMBER] --continuous --reset-on-fault
 ```
 
 ## Useful Options
