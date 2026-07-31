@@ -197,10 +197,17 @@ class ChargerStatus:
 
 
 class JLinkBatteryInterface:
-    def __init__(self, snr: str | None, speed_khz: int, resume: bool = True):
+    def __init__(
+        self,
+        snr: str | None,
+        speed_khz: int,
+        resume: bool = True,
+        reset_target: bool = False,
+    ):
         self.snr = int(snr) if snr else None
         self.speed_khz = speed_khz
         self.resume = resume
+        self.reset_target = reset_target
         self.jlink = pylink.JLink()
         self.was_halted = False
 
@@ -213,9 +220,13 @@ class JLinkBatteryInterface:
             f"connect to {APP_CORE_DEVICE} at {self.speed_khz} kHz"
         ):
             self.jlink.connect(APP_CORE_DEVICE, speed=self.speed_khz, verbose=False)
-        with self.jlink_operation("read target halt state"):
-            self.was_halted = bool(self.jlink.halted())
-        if not self.was_halted:
+        if self.reset_target:
+            self.reset_and_halt_target()
+            self.was_halted = False
+        else:
+            with self.jlink_operation("read target halt state"):
+                self.was_halted = bool(self.jlink.halted())
+        if not self.was_halted and not self.reset_target:
             with self.jlink_operation("halt target"):
                 self.jlink.halt()
         self.setup_gpio()
@@ -235,6 +246,17 @@ class JLinkBatteryInterface:
         if self.snr is not None:
             return f"serial {self.snr}"
         return "auto-selected by PyLink"
+
+    def reset_and_halt_target(self) -> None:
+        with self.jlink_operation("reset and halt target"):
+            self.jlink.reset(ms=10, halt=True)
+        time.sleep(0.010)
+
+    def recover_target_state(self) -> None:
+        if self.reset_target:
+            self.reset_and_halt_target()
+            self.setup_gpio()
+        self.setup_twim()
 
     @contextlib.contextmanager
     def jlink_operation(self, operation: str):
@@ -268,6 +290,7 @@ class JLinkBatteryInterface:
 
     def setup_twim(self, frequency: int = FREQUENCY_400K) -> None:
         self.w32(TWIM1 + TWIM_ENABLE, 0)
+        self.w32(TWIM1 + TWIM_SHORTS, 0)
         self.w32(TWIM1 + TWIM_PSEL_SDA, SDA_PIN)
         self.w32(TWIM1 + TWIM_PSEL_SCL, SCL_PIN)
         self.w32(TWIM1 + TWIM_FREQUENCY, frequency)
@@ -298,6 +321,7 @@ class JLinkBatteryInterface:
         payload = bytes(data)
         if not payload:
             raise ValueError("i2c_write payload must not be empty")
+        self.setup_twim()
         self.w8(SCRATCH_TX, payload)
         self.clear_twim_events()
         self.w32(TWIM1 + TWIM_ADDRESS, addr)
@@ -316,7 +340,10 @@ class JLinkBatteryInterface:
     def i2c_read_reg(self, addr: int, reg: int, count: int) -> list[int]:
         if count <= 0:
             raise ValueError("read count must be positive")
+        self.setup_twim()
+        sentinel = [((0xA5 ^ addr ^ reg ^ i) & 0xFF) for i in range(count)]
         self.w8(SCRATCH_TX, [reg & 0xFF])
+        self.w8(SCRATCH_RX, sentinel)
         self.clear_twim_events()
         self.w32(TWIM1 + TWIM_ADDRESS, addr)
         self.w32(TWIM1 + TWIM_TXD_PTR, SCRATCH_TX)
@@ -330,19 +357,41 @@ class JLinkBatteryInterface:
         self.w32(TWIM1 + TWIM_SHORTS, 0)
         if rx_amount != count:
             raise BatteryDebugError(f"short I2C read from 0x{addr:02x}: got {rx_amount}/{count}")
-        return self.r8(SCRATCH_RX, count)
+        data = self.r8(SCRATCH_RX, count)
+        if data == sentinel:
+            raise BatteryDebugError(
+                f"I2C read from 0x{addr:02x} register 0x{reg:02x} did not update "
+                "the RX buffer; refusing to use stale scratch RAM"
+            )
+        return data
 
     def bq27220_u16(self, reg: int) -> int:
-        return u16le(self.i2c_read_reg(BQ27220_ADDR, reg, 2))
+        try:
+            return u16le(self.i2c_read_reg(BQ27220_ADDR, reg, 2))
+        except BatteryDebugError as exc:
+            raise BatteryDebugError(f"BQ27220 read reg 0x{reg:02x} failed: {exc}") from exc
 
     def bq27220_i16(self, reg: int) -> int:
-        return i16le(self.i2c_read_reg(BQ27220_ADDR, reg, 2))
+        try:
+            return i16le(self.i2c_read_reg(BQ27220_ADDR, reg, 2))
+        except BatteryDebugError as exc:
+            raise BatteryDebugError(f"BQ27220 read reg 0x{reg:02x} failed: {exc}") from exc
 
     def bq25120a_u8(self, reg: int) -> int:
-        return self.i2c_read_reg(BQ25120A_ADDR, reg, 1)[0]
+        try:
+            time.sleep(0.001)
+            return self.i2c_read_reg(BQ25120A_ADDR, reg, 1)[0]
+        except BatteryDebugError as exc:
+            raise BatteryDebugError(f"BQ25120A read reg 0x{reg:02x} failed: {exc}") from exc
 
     def bq25120a_write_u8(self, reg: int, value: int) -> None:
-        self.i2c_write(BQ25120A_ADDR, [reg & 0xFF, value & 0xFF])
+        try:
+            time.sleep(0.001)
+            self.i2c_write(BQ25120A_ADDR, [reg & 0xFF, value & 0xFF])
+        except BatteryDebugError as exc:
+            raise BatteryDebugError(
+                f"BQ25120A write reg 0x{reg:02x} <- 0x{value & 0xFF:02x} failed: {exc}"
+            ) from exc
 
     def raw_gpio0_in(self) -> int:
         return self.r32(GPIO0 + 0x10)
@@ -352,8 +401,9 @@ class JLinkBatteryInterface:
             self.w32(GPIO0 + 0x508, 1 << CD_PIN)  # OUTSET
         else:
             self.w32(GPIO0 + 0x50C, 1 << CD_PIN)  # OUTCLR
+        time.sleep(0.001)
 
-    def read_fuel_gauge(self) -> FuelGaugeStatus:
+    def read_fuel_gauge(self, include_gauging_status: bool = False) -> FuelGaugeStatus:
         voltage_mv = self.bq27220_u16(0x08)
         try:
             temp_k_tenths = self.bq27220_u16(0x06)
@@ -366,7 +416,9 @@ class JLinkBatteryInterface:
             state_of_charge_pct=self._maybe_u16(0x2C),
             average_current_ma=self._maybe_i16(0x14),
             flags=self._maybe_u16(0x0A),
-            gauging_status=self.read_gauging_status(),
+            gauging_status=(
+                self.read_gauging_status() if include_gauging_status else None
+            ),
         )
 
     def _maybe_u16(self, reg: int) -> int | None:
@@ -408,13 +460,39 @@ class JLinkBatteryInterface:
         target_voltage_mv: int,
         input_limit_ma: int,
         uvlo_mv: int,
+        full_config: bool = False,
     ) -> None:
         self.set_cd(0)
-        self.bq25120a_write_u8(0x02, 0x00)  # TS disabled / clear TS fault bits
-        self.bq25120a_write_u8(0x05, encode_target_voltage(target_voltage_mv))
-        self.bq25120a_write_u8(0x03, encode_charge_current(charge_current_ma))
-        self.bq25120a_write_u8(0x04, encode_termination_current(termination_current_ma))
-        self.bq25120a_write_u8(0x09, encode_ilim_uvlo(input_limit_ma, uvlo_mv))
+        writes = [
+            (0x02, 0x00, "clear TS fault bits"),
+            (0x03, encode_charge_current(charge_current_ma), "set charge current"),
+        ]
+        if full_config:
+            writes[1:1] = [(0x05, encode_target_voltage(target_voltage_mv), "set target voltage")]
+            writes.extend(
+                [
+                    (
+                        0x04,
+                        encode_termination_current(termination_current_ma),
+                        "set termination current",
+                    ),
+                    (
+                        0x09,
+                        encode_ilim_uvlo(input_limit_ma, uvlo_mv),
+                        "set input limit/UVLO",
+                    ),
+                ]
+            )
+        for reg, value, description in writes:
+            try:
+                self.bq25120a_write_u8(reg, value)
+            except BatteryDebugError as exc:
+                print(
+                    f"warning: failed to {description}; continuing: {exc}",
+                    file=sys.stderr,
+                )
+                self.recover_target_state()
+                break
 
     def reset_charger(self) -> None:
         self.bq25120a_write_u8(0x09, 0x80)
@@ -490,6 +568,20 @@ def format_status(fuel: FuelGaugeStatus, charger: ChargerStatus) -> str:
 def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--snr", help="J-Link serial number, for example 261010806")
     parser.add_argument("--speed-khz", type=int, default=DEFAULT_SPEED_KHZ)
+    reset_group = parser.add_mutually_exclusive_group()
+    reset_group.add_argument(
+        "--reset-target",
+        dest="reset_target",
+        action="store_true",
+        help="Reset and halt the app core before using TWIM.",
+    )
+    reset_group.add_argument(
+        "--no-reset-target",
+        dest="reset_target",
+        action="store_false",
+        help="Do not reset the app core before using TWIM.",
+    )
+    parser.set_defaults(reset_target=False)
     parser.add_argument(
         "--no-resume",
         action="store_true",
@@ -498,7 +590,23 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
 
 
 def open_link(args: argparse.Namespace) -> JLinkBatteryInterface:
-    return JLinkBatteryInterface(args.snr, args.speed_khz, resume=not args.no_resume)
+    return JLinkBatteryInterface(
+        args.snr,
+        args.speed_khz,
+        resume=not args.no_resume,
+        reset_target=args.reset_target,
+    )
+
+
+def try_reset_charger(link: JLinkBatteryInterface) -> None:
+    try:
+        link.reset_charger()
+    except BatteryDebugError as exc:
+        print(
+            f"warning: charger reset write failed; continuing with configuration: {exc}",
+            file=sys.stderr,
+        )
+        link.recover_target_state()
 
 
 def cmd_voltage(args: argparse.Namespace) -> int:
@@ -513,7 +621,7 @@ def cmd_voltage(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     with open_link(args) as link:
-        fuel = link.read_fuel_gauge()
+        fuel = link.read_fuel_gauge(include_gauging_status=args.extended_gauge_status)
         charger = link.read_charger()
     print(format_status(fuel, charger))
     return 0
@@ -534,16 +642,18 @@ def cmd_recover(args: argparse.Namespace) -> int:
             return 2
 
         needs_recovery = fuel.voltage_mv < args.start_below_mv or args.force
-        needs_fault_reset = args.reset_on_fault and charger.charging_state_code == 3
+        fault_needs_reset = charger.charging_state_code == 3 and not charger.bat_uvlo
+        needs_fault_reset = args.reset_on_fault and fault_needs_reset
         if needs_recovery or needs_fault_reset or charger.timer_fault:
             print("resetting/configuring charger")
-            link.reset_charger()
+            try_reset_charger(link)
             link.configure_charger(
                 charge_current_ma=args.charge_current_ma,
                 termination_current_ma=args.termination_current_ma,
                 target_voltage_mv=args.target_voltage_mv,
                 input_limit_ma=args.input_limit_ma,
                 uvlo_mv=args.uvlo_mv,
+                full_config=args.full_charger_config,
             )
         elif not args.continuous:
             print(
@@ -569,20 +679,21 @@ def cmd_recover(args: argparse.Namespace) -> int:
                 return 1
 
             fault_now = charger.timer_fault or (
-                args.reset_on_fault and charger.charging_state_code == 3
+                args.reset_on_fault and charger.charging_state_code == 3 and not charger.bat_uvlo
             )
             cooldown_ok = (time.monotonic() - last_reset) >= args.fault_reset_cooldown_s
             if fault_now and cooldown_ok and reset_count < args.max_fault_resets:
                 reset_count += 1
                 last_reset = time.monotonic()
                 print(f"fault/reset condition seen; reset {reset_count}/{args.max_fault_resets}")
-                link.reset_charger()
+                try_reset_charger(link)
                 link.configure_charger(
                     charge_current_ma=args.charge_current_ma,
                     termination_current_ma=args.termination_current_ma,
                     target_voltage_mv=args.target_voltage_mv,
                     input_limit_ma=args.input_limit_ma,
                     uvlo_mv=args.uvlo_mv,
+                    full_config=args.full_charger_config,
                 )
 
             time.sleep(args.interval_s)
@@ -601,6 +712,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = subparsers.add_parser("status", help="Read fuel-gauge and charger status.")
     add_common_args(status)
+    status.add_argument(
+        "--extended-gauge-status",
+        action="store_true",
+        help=(
+            "Also request BQ27220 gauging-status data. This is optional and may "
+            "wedge I2C on low-power boards."
+        ),
+    )
     status.set_defaults(func=cmd_status)
 
     recover = subparsers.add_parser(
@@ -623,7 +742,15 @@ def build_parser() -> argparse.ArgumentParser:
     recover.add_argument("--reset-on-fault", action="store_true")
     recover.add_argument("--force", action="store_true")
     recover.add_argument("--allow-deep-discharge", action="store_true")
-    recover.set_defaults(func=cmd_recover)
+    recover.add_argument(
+        "--full-charger-config",
+        action="store_true",
+        help=(
+            "Also write target-voltage, termination, and input-limit registers. "
+            "By default recovery only writes the stable minimal charger sequence."
+        ),
+    )
+    recover.set_defaults(func=cmd_recover, reset_target=True)
 
     return parser
 
