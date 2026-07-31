@@ -60,6 +60,7 @@ struct k_thread sensor_publish;
 static k_tid_t sensor_pub_id;
 
 static struct k_work config_work;
+static struct k_work_delayable sd_logger_start_work;
 
 struct k_work_q sensor_work_q;
 
@@ -67,8 +68,10 @@ K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE)
 
 int active_sensors = 0;
 static const char sensor_manager_auto_off_token[] = "SensorManager";
+static constexpr int SD_LOGGER_START_DEBOUNCE_MS = 300;
 
 static void config_work_handler(struct k_work *work);
+static void sd_logger_start_work_handler(struct k_work *work);
 
 void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
@@ -101,6 +104,7 @@ void init_sensor_manager() {
 			K_PRIO_PREEMPT(CONFIG_SENSOR_PUB_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
 
 	k_work_init(&config_work, config_work_handler);
+	k_work_init_delayable(&sd_logger_start_work, sd_logger_start_work_handler);
 
 	k_poll_signal_init(&sensor_manager_sig);
 
@@ -155,6 +159,7 @@ void stop_sensor_manager() {
 
 	active_sensors = 0;
 	auto_off_manager.allow(sensor_manager_auto_off_token);
+	k_work_cancel_delayable(&sd_logger_start_work);
 
 	k_work_queue_drain(&sensor_work_q, true);
 
@@ -188,6 +193,33 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 	}
 }
 
+static void schedule_sd_logger_start() {
+	if (sdlogger.is_active() || sd_sensors.empty()) {
+		return;
+	}
+
+	(void)k_work_reschedule(&sd_logger_start_work, K_MSEC(SD_LOGGER_START_DEBOUNCE_MS));
+}
+
+static void sd_logger_start_work_handler(struct k_work *work) {
+	ARG_UNUSED(work);
+
+	if (sdlogger.is_active() || sd_sensors.empty()) {
+		return;
+	}
+
+	const char *recording_name_prefix = get_sensor_recording_name();
+	LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
+
+	std::string filename = recording_name_prefix + std::to_string(micros());
+	int ret = sdlogger.begin(filename);
+	if (ret == 0) {
+		state_indicator.set_sd_state(SD_RECORDING);
+	} else {
+		LOG_ERR("Failed to start SDLogger, ret: %d", ret);
+	}
+}
+
 // Worker-Funktion für die Sensor-Konfiguration
 static void config_work_handler(struct k_work *work) {
 	int ret;
@@ -196,6 +228,7 @@ static void config_work_handler(struct k_work *work) {
 	ret = k_msgq_get(&config_queue, &config, K_NO_WAIT);
 	if (ret != 0) {
 		LOG_INF("No config available");
+		return;
 	}
 
     float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
@@ -239,19 +272,11 @@ static void config_work_handler(struct k_work *work) {
 	
 	if (config.storageOptions & DATA_STORAGE) {
 		sd_sensors.insert(config.sensorId);
-
-		if (!sdlogger.is_active()) {
-			const char *recording_name_prefix = get_sensor_recording_name();
-			LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
-			// Start SDLogger with timestamp-based filename
-			std::string filename = recording_name_prefix + std::to_string(micros());
-			int ret = sdlogger.begin(filename);
-			if (ret == 0) state_indicator.set_sd_state(SD_RECORDING);
-		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);
 
 		if (sd_sensors.empty()) {
+			k_work_cancel_delayable(&sd_logger_start_work);
 			sdlogger.end();
 			state_indicator.set_sd_state(SD_IDLE);
 		}
@@ -264,7 +289,7 @@ static void config_work_handler(struct k_work *work) {
 		// TODO: if (ble_sensors.empty()) ...
 	}
 
-	
+	schedule_sd_logger_start();
 
 	if (active_sensors == 0) stop_sensor_manager();
 }
