@@ -69,7 +69,7 @@ static ssize_t read_audio_channel(struct bt_conn *conn, const struct bt_gatt_att
     channel_assignment_get(&channel);
     uint8_t channel_u8 = channel;
 
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &channel_u8, sizeof(channel));
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &channel_u8, sizeof(channel_u8));
 }
 
 static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
