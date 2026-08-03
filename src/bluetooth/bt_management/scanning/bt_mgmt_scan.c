@@ -55,7 +55,7 @@ int bt_mgmt_scan_start(uint16_t scan_intvl, uint16_t scan_win, enum bt_mgmt_scan
 		scan_window = scan_win;
 	}
 
-	struct bt_le_scan_param *scan_param;
+	struct bt_le_scan_param *scan_param = NULL;
 
 #if defined(CONFIG_BT_CENTRAL) || defined(CONFIG_BT_BAP_BROADCAST_SINK)
 	scan_param =
