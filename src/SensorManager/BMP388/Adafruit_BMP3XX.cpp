@@ -112,9 +112,11 @@ bool Adafruit_BMP3XX::_init(void) {
   if (rslt != BMP3_OK)
     return false;
 
-  rslt = bmp3_init(&the_sensor);
 #ifdef BMP3XX_DEBUG
-  printk("Init result: %i\n", rslt);
+  const int8_t init_rslt = bmp3_init(&the_sensor);
+  printk("Init result: %i\n", init_rslt);
+#else
+  (void)bmp3_init(&the_sensor);
 #endif
 
   rslt = validate_trimming_param(&the_sensor);
