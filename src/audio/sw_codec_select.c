@@ -163,6 +163,15 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 			break;
 		}
 		case SW_CODEC_STEREO: {
+			/* Stereo encoding consumes both channel pointers below. Reject mismatched
+			 * configurations so the caller can drop the frame safely.
+			 */
+			if (m_config.encoder.num_ch != AUDIO_CH_NUM) {
+				LOG_DBG("Rejecting stereo encode with %u configured channels",
+					(unsigned int)m_config.encoder.num_ch);
+				return -EINVAL;
+			}
+
 			for (int i = 0; i < m_config.encoder.num_ch; ++i) {
 				ret = sw_codec_sample_rate_convert(
 					&encoder_converters[i], CONFIG_AUDIO_SAMPLE_RATE_HZ,

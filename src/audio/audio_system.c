@@ -135,6 +135,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	static uint8_t *encoded_data;
 	//static size_t pcm_block_size;
 	static uint32_t test_tone_finite_pos;
+	static bool encode_failed;
 
 	while (1) {
 		/* Don't start encoding until the stream needing it has started */
@@ -186,8 +187,17 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 
 			ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
 					      &encoded_data_size);
-
-			ERR_CHK_MSG(ret, "Encode failed");
+			if (ret) {
+				if (!encode_failed) {
+					LOG_WRN("Audio encode failed; dropping frames until recovery: %d", ret);
+				}
+				encode_failed = true;
+				continue;
+			}
+			if (encode_failed) {
+				LOG_INF("Audio encoder recovered");
+				encode_failed = false;
+			}
 		}
 
 		/* Print block usage */
