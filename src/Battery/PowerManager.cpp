@@ -543,7 +543,7 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
     if (ret != 0) return;
     
     if (info.state == BT_CONN_STATE_CONNECTED) {
-        ret = bt_mgmt_conn_disconnect(conn, *((uint8_t*)data));
+        (void)bt_mgmt_conn_disconnect(conn, *((uint8_t*)data));
     }
 }
 
@@ -554,7 +554,7 @@ void PowerManager::reboot() {
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
 
-    ret = bt_le_adv_stop();
+    (void)bt_le_adv_stop();
 
     stop_sensor_manager();
 
@@ -573,7 +573,7 @@ int PowerManager::power_down(bool fault) {
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
 
-    ret = bt_le_adv_stop();
+    (void)bt_le_adv_stop();
 
     // power disonnected
     // prepare interrupts
@@ -614,7 +614,7 @@ int PowerManager::power_down(bool fault) {
     }
     LOG_PANIC();
 
-    ret = bt_mgmt_stop_watchdog();
+    (void)bt_mgmt_stop_watchdog();
     //ERR_CHK(ret);
 
     dac.end();
@@ -631,10 +631,10 @@ int PowerManager::power_down(bool fault) {
         return 0;
     }
 
-    ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(cons,   PM_DEVICE_ACTION_SUSPEND);
+    (void)pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
+    (void)pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
+    (void)pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
+    (void)pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
 
     /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
