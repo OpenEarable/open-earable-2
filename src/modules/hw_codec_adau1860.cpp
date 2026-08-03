@@ -63,16 +63,13 @@ static int settings_set_cb(const char *name, size_t len, settings_read_cb read_c
 SETTINGS_STATIC_HANDLER_DEFINE(audio, "audio", NULL, settings_set_cb, NULL, NULL);
 
 int hw_codec_set_audio_mode(enum audio_mode mode) {
-    int ret;
-
-	audio_mode = mode;
-
-	settings_save_one("audio/mode", &mode, sizeof(mode));
+	int first_error = 0;
+	int ret;
 
 	ret = dac.fdsp_bank_select((uint8_t) mode);
 	if (ret) {
 		LOG_ERR("Failed to select DSP bank, ret: %d", ret);
-		return ret;
+		first_error = ret;
 	}
 
 	// TODO: make writing to bank work
@@ -80,12 +77,28 @@ int hw_codec_set_audio_mode(enum audio_mode mode) {
 	ret = hw_codec_volume_adjust(0);
 	if (ret) {
 		LOG_ERR("Failed to adjust codec volume, ret: %d", ret);
-		return ret;
+		if (!first_error) {
+			first_error = ret;
+		}
 	}
 
 	ret = dac.mute(muted);
 	if (ret) {
 		LOG_ERR("Failed to set audio mode, ret: %d", ret);
+		if (!first_error) {
+			first_error = ret;
+		}
+	}
+
+	if (first_error) {
+		/* Keep the persisted mode unchanged when the codec could not fully apply it. */
+		return first_error;
+	}
+
+	audio_mode = mode;
+	ret = settings_save_one("audio/mode", &mode, sizeof(mode));
+	if (ret) {
+		LOG_ERR("Failed to persist audio mode, ret: %d", ret);
 		return ret;
 	}
 
