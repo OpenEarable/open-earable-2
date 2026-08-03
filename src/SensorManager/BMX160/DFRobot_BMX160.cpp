@@ -92,15 +92,7 @@ void DFRobot_BMX160::wakeUp(){
 
 bool DFRobot_BMX160::softReset()
 {
-  int8_t rslt=BMX160_OK;
-  if (Obmx160 == NULL){
-    rslt = BMX160_E_NULL_PTR;
-  }  
-  rslt = _softReset(Obmx160);
-  if (rslt == 0)
-    return true;
-  else
-    return false;
+  return _softReset(Obmx160) == BMX160_OK;
 }
 
 int8_t DFRobot_BMX160:: _softReset(sBmx160Dev_t *dev)
