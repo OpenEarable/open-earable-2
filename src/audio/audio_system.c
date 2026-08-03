@@ -138,7 +138,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 
 	while (1) {
 		/* Don't start encoding until the stream needing it has started */
-		ret = k_poll(&encoder_evt, 1, K_FOREVER);
+		(void)k_poll(&encoder_evt, 1, K_FOREVER);
 
 		/* Get PCM data from I2S */
 		/* Since one audio frame is divided into a number of

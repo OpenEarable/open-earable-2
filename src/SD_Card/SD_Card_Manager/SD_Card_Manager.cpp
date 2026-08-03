@@ -111,13 +111,11 @@ int SDCardManager::aquire_ls() {
 }
 
 int SDCardManager::release_ls() {
-	int ret;
-
 	if (!ls_aquired) return -EALREADY;
 
-	ret = pm_device_runtime_put(ls_1_8);
-	ret = pm_device_runtime_put(ls_3_3);
-	ret = pm_device_runtime_put(ls_sd);
+	(void)pm_device_runtime_put(ls_1_8);
+	(void)pm_device_runtime_put(ls_3_3);
+	(void)pm_device_runtime_put(ls_sd);
 
 	ls_aquired = false;
 
@@ -128,7 +126,7 @@ void SDCardManager::init() {
 	int ret;
 
     if (!device_is_ready(sd_state_pin.port)) {
-		ret = aquire_ls();
+		(void)aquire_ls();
         LOG_ERR("SD state GPIO device not ready\n");
         return;
     }
@@ -178,7 +176,7 @@ int SDCardManager::mount() {
 	uint32_t sector_count;
 	size_t sector_size;
 
-	ret = aquire_ls();
+	(void)aquire_ls();
 
 	bool _sd_inserted = sd_inserted();
 
