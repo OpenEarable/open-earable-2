@@ -1130,7 +1130,13 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 				 * use alternative buffers
 				 */
 				ret = alt_buffer_get((void **)&tx_buf);
-				ERR_CHK(ret);
+				if (ret) {
+					LOG_DBG("No alternative I2S TX buffer available; reusing released buffer");
+					/* I2S no longer owns this buffer; recycle it as silence
+					 * instead of leaving tx_buf NULL.
+					 */
+					tx_buf = (uint8_t *)tx_buf_released;
+				}
 
 				memset(tx_buf, 0, BLK_STEREO_SIZE_OCTETS);
 			}
