@@ -74,7 +74,7 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
 
 	while (1) {
-		ret = k_poll(&sensor_manager_evt, 1, K_FOREVER);
+		(void)k_poll(&sensor_manager_evt, 1, K_FOREVER);
 
 		k_msgq_get(&sensor_queue, &msg, K_FOREVER);
 
