@@ -146,7 +146,7 @@ int MAXM86161::read(ppg_sample * buffer) {
     if (status == 0){
         number_of_bytes = num_samples / LED_NUM * LED_NUM * BYTES_PER_CH;
         
-        status = _read_block(REG_FIFO_DATA, number_of_bytes, (uint8_t *) databuffer);
+        (void)_read_block(REG_FIFO_DATA, number_of_bytes, (uint8_t *) databuffer);
 
         for (int i=0; i < num_samples / LED_NUM * LED_NUM; i++) {
             int idx = BYTES_PER_CH * i;
@@ -436,7 +436,7 @@ int MAXM86161::_clear_interrupt(void)
 int MAXM86161::read_interrupt_state(int &value)
 {
     int status;
-    status = _read_from_reg(REG_IRQ_STATUS2, value);
+    (void)_read_from_reg(REG_IRQ_STATUS2, value);
     status = _read_from_reg(REG_IRQ_STATUS1, value);
     return status;
 }
