@@ -546,6 +546,21 @@ def main() -> int:
         )
         lines.append("")
 
+    # Keep successful, finding-free runs deliberately terse. The marker remains so
+    # the workflow can update the same PR comment on subsequent runs.
+    if (
+        report_available
+        and not normalized_reports
+        and not failures
+        and not analyzer_errors
+    ):
+        lines = [
+            MARKER,
+            "## CodeChecker static analysis",
+            "",
+            "✅ No non-style issues found.",
+        ]
+
     args.comment_output.parent.mkdir(parents=True, exist_ok=True)
     args.comment_output.write_text("\n".join(lines), encoding="utf-8")
 
