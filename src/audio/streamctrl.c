@@ -558,6 +558,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
 	bool is_le_audio_device = false;
+	bool csis_rsi_found = false;
 	uint8_t csis_rsi[6];
 	uint8_t chip_id[8];
 
@@ -587,8 +588,14 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 			memcpy(chip_id, data, sizeof(chip_id));
         }
 
+		/* A valid RSI contains a 3-byte hash followed by a 3-byte random value. */
 		if (type == BT_DATA_CSIS_RSI) {
-			memcpy(csis_rsi, data, sizeof(csis_rsi));
+			if ((len - 1) >= sizeof(csis_rsi)) {
+				memcpy(csis_rsi, data, sizeof(csis_rsi));
+				csis_rsi_found = true;
+			} else {
+				LOG_DBG("Ignoring short CSIS RSI (%u bytes)", (unsigned int)(len - 1));
+			}
 		}
 
 		// channel
@@ -600,7 +607,6 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 	if (is_le_audio_device) {
 		LOG_INF("Found LE-Audio device!");
 
-		uint32_t hash_ref = (csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
 		uint32_t hash;
 
 		uint32_t new_sirk = *((uint32_t *) chip_id) ^ oe_boot_state.device_id;
@@ -620,6 +626,14 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 
 			write_sirk(new_sirk);
 		} else if (channel == AUDIO_CH_R) {
+			/* Only right-channel matching validates the advertised RSI. */
+			if (!csis_rsi_found) {
+				LOG_DBG("Ignoring right-channel LE Audio device without CSIS RSI");
+				return;
+			}
+
+			uint32_t hash_ref =
+				(csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
 			uint8_t res[BT_CSIP_PADDED_RAND_SIZE];
 
 			uint8_t sirk[BT_CSIP_SIRK_SIZE + 1];
