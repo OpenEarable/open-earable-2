@@ -153,28 +153,28 @@ void BQ25120a::setup(const battery_settings &_battery_settings) {
 
 uint8_t BQ25120a::read_charging_state() {
         uint8_t status = 0;
-        bool ret = readReg(registers::CTRL, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::CTRL, (uint8_t *) &status, sizeof(status));
 
         return status;
 }
 
 uint8_t BQ25120a::read_fault() {
         uint8_t status = 0;
-        bool ret = readReg(registers::FAULT, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::FAULT, (uint8_t *) &status, sizeof(status));
 
         return status;
 }
 
 uint8_t BQ25120a::read_ts_fault() {
         uint8_t status = 0;
-        bool ret = readReg(registers::TS_FAULT, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::TS_FAULT, (uint8_t *) &status, sizeof(status));
 
         return status;
 }
 
 chrg_state BQ25120a::read_charging_control() {
         uint8_t status = 0;
-        bool ret = readReg(registers::CHARGE_CTRL, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::CHARGE_CTRL, (uint8_t *) &status, sizeof(status));
 
         chrg_state chrg;
 
@@ -200,7 +200,7 @@ chrg_state BQ25120a::read_charging_control() {
 
 uint8_t BQ25120a::write_charging_control(float mA) {
         uint8_t status = 0;
-        bool ret = readReg(registers::CHARGE_CTRL, &status, sizeof(status));
+        (void)readReg(registers::CHARGE_CTRL, &status, sizeof(status));
 
         status &= 0x3;
 
@@ -253,7 +253,7 @@ uint8_t BQ25120a::write_LDO_voltage_control(float volt) {
 
 float BQ25120a::read_ldo_voltage() {
         uint8_t status = 0;
-        bool ret = readReg(registers::LS_LDO_CTRL, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::LS_LDO_CTRL, (uint8_t *) &status, sizeof(status));
 
         float voltage = 0.8f + ((status >> 2 & 0x1F)) * 0.1f;
 
@@ -262,7 +262,7 @@ float BQ25120a::read_ldo_voltage() {
 
 float BQ25120a::read_battery_voltage_control() {
         uint8_t status = 0;
-        bool ret = readReg(registers::BAT_VOL_CTRL, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::BAT_VOL_CTRL, (uint8_t *) &status, sizeof(status));
 
         float voltage = 3.6f + (status >> 1) * 0.01f;
 
@@ -286,7 +286,7 @@ uint8_t BQ25120a::write_battery_voltage_control(float volt) {
 
 chrg_state BQ25120a::read_termination_control() {
         uint8_t status = 0;
-        bool ret = readReg(registers::TERM_CTRL, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::TERM_CTRL, (uint8_t *) &status, sizeof(status));
 
         struct chrg_state chrg;
 
@@ -337,7 +337,7 @@ ilim_uvlo BQ25120a::read_uvlo_ilim() {
         struct ilim_uvlo param;
         uint8_t status = 0;
 
-        bool ret = readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
 
         param.uvlo_v = CLAMP(3.0f- 0.2f * ((status & 0x7) - 2), 2.2, 3.0);
         param.lim_mA = 50.f + 50.f * ((status >> 3) & 0x7);
@@ -402,7 +402,7 @@ button_state BQ25120a::read_button_state() {
         struct button_state btn;
 
         uint8_t status = 0;
-        bool ret = readReg(registers::BTN_CTRL, (uint8_t *) &status, sizeof(status));
+        (void)readReg(registers::BTN_CTRL, (uint8_t *) &status, sizeof(status));
 
         btn.wake_1 = status & 0x2;
         btn.wake_2 = status & 0x1;
