@@ -622,7 +622,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 		uint32_t hash;
 		uint32_t peer_device_id;
 
-		/* Advertisement storage may not be aligned for a uint32_t access. */
+		/* Copy from the byte array without alignment or aliasing assumptions. */
 		memcpy(&peer_device_id, chip_id, sizeof(peer_device_id));
 		uint32_t new_sirk = peer_device_id ^ oe_boot_state.device_id;
 
