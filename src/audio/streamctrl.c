@@ -559,6 +559,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 
 	bool is_le_audio_device = false;
 	bool csis_rsi_found = false;
+	bool chip_id_found = false;
 	uint8_t csis_rsi[6];
 	uint8_t chip_id[8];
 
@@ -584,8 +585,13 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
         }
 
 		if (is_le_audio_device && type == BT_DATA_MANUFACTURER_DATA) {
-			memset(chip_id, 0, sizeof(chip_id));
-			memcpy(chip_id, data, sizeof(chip_id));
+			if ((len - 1) >= sizeof(chip_id)) {
+				memcpy(chip_id, data, sizeof(chip_id));
+				chip_id_found = true;
+			} else {
+				LOG_DBG("Ignoring short manufacturer chip ID (%u bytes)",
+					(unsigned int)(len - 1));
+			}
         }
 
 		/* A valid RSI contains a 3-byte hash followed by a 3-byte random value. */
@@ -607,9 +613,18 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 	if (is_le_audio_device) {
 		LOG_INF("Found LE-Audio device!");
 
-		uint32_t hash;
+		/* Do not derive or persist a SIRK without a complete peer identity. */
+		if (!chip_id_found) {
+			LOG_DBG("Ignoring LE Audio device without manufacturer chip ID");
+			return;
+		}
 
-		uint32_t new_sirk = *((uint32_t *) chip_id) ^ oe_boot_state.device_id;
+		uint32_t hash;
+		uint32_t peer_device_id;
+
+		/* Advertisement storage may not be aligned for a uint32_t access. */
+		memcpy(&peer_device_id, chip_id, sizeof(peer_device_id));
+		uint32_t new_sirk = peer_device_id ^ oe_boot_state.device_id;
 
 		enum audio_channel channel;
 
@@ -618,7 +633,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 
 		if (channel == AUDIO_CH_L) {
 			LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
-			LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
+			LOG_INF("Device ID 2: %016X", peer_device_id);
 			LOG_INF("New Sirk: %016X", new_sirk);
 
 			//TODO: check if the device wants to pair (sirk == device_id)
