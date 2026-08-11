@@ -137,13 +137,11 @@ struct battery_settings {
 /**
  * @brief Card-detect transition published on sd_card_chan.
  *
- * Published on both edges. On removal the message is sent *before* the
- * filesystem is torn down, so observers can stop touching it while the mount
- * is still valid.
+ * Sent on both edges. On removal the message is published before the filesystem
+ * is torn down, so observers still see a valid mount while they stop using it.
  */
 struct sd_msg {
 	bool removed;
-	bool inserted;
 };
 
 #include "audio_i2s.h"

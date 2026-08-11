@@ -84,9 +84,8 @@ int main(void) {
 
 #if defined(CONFIG_USB_DEVICE_STACK_NEXT)
 	/*
-	 * The legacy MSC stack probes the disk before main(), while the SD load
-	 * switch is still off. Initialize the disk only after PowerManager has
-	 * enabled the SD and SPI level-shifter rails.
+	 * Must run after PowerManager has enabled the SD and SPI level-shifter
+	 * rails, since probing the disk requires the card to be powered.
 	 */
 	ret = sd_mass_storage_init();
 	if (ret) {

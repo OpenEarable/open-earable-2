@@ -391,7 +391,7 @@ int PowerManager::begin() {
     }
 
 #if defined(CONFIG_USB_DEVICE_STACK_NEXT) && defined(CONFIG_USBD_MSC_CLASS)
-    /* Keep the SD and level-shifter rails powered for the USB MSC session. */
+    /* The USB mass-storage LUN needs the card reachable for the whole session. */
     ret = pm_device_runtime_get(ls_1_8);
     if (ret < 0) {
         LOG_WRN("Failed to power SPI level shifter for USB MSC: %d", ret);

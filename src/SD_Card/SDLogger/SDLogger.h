@@ -51,18 +51,15 @@ private:
             uint8_t side;
         };
 
-        struct sensor_data msg;
-
-        //struct sensor_data* const data_buf = &(msg.data);
         static void sensor_sd_task();
 
         /**
          * @brief Give up the current recording because the card disappeared.
          *
-         * @details Parks the SD writer thread, drops everything still buffered
-         *      and releases the logger state. Called from the card-detect work
-         *      item *before* the filesystem is unmounted, so that no writer is
-         *      left holding a file handle across the unmount.
+         * @details Parks the SD writer thread and releases the logger state
+         *      without touching the media. Called from the card-detect handler
+         *      while the mount is still valid, so that no writer holds a file
+         *      handle across the unmount that follows.
          */
         void abort_recording();
 

@@ -35,18 +35,15 @@ void remember_first_error(int result, int &first_error)
 }
 
 /*
- * The card lifecycle runs on its own work queue rather than the system one.
+ * Dedicated work queue for the card lifecycle.
  *
- * SD teardown is inherently slow against absent media: disk_access_ioctl(DEINIT)
- * ends up in sdmmc_wait_ready(), which spins in k_busy_wait(125) for a budget of
- * CONFIG_SD_DATA_TIMEOUT (10 s) before giving up. The system workqueue runs at
- * CONFIG_SYSTEM_WORKQUEUE_PRIORITY=-1, which is a *cooperative* priority, so a
- * busy-wait there cannot be preempted and freezes every other thread. The
- * Bluetooth controller task watchdog (3 s, see bt_mgmt_ctlr_cfg.c) then fires
- * and panics the device with "No response from IPC or controller".
- *
- * A preemptible queue below CONFIG_CTLR_POLL_WORK_Q_PRIO (2) keeps that watchdog
- * fed no matter how long the card takes to give up.
+ * Card teardown can take seconds against media that no longer answers:
+ * disk_access_ioctl(DEINIT) ends up in sdmmc_wait_ready(), which busy-waits for
+ * up to CONFIG_SD_DATA_TIMEOUT. That must not run on the system workqueue, whose
+ * priority is cooperative here (CONFIG_SYSTEM_WORKQUEUE_PRIORITY) and therefore
+ * cannot be preempted. This queue is preemptible and sits below the Bluetooth
+ * controller poll thread (CONFIG_CTLR_POLL_WORK_Q_PRIO) so that its task
+ * watchdog keeps being served regardless of how long the card takes.
  */
 #define SD_WORK_Q_STACK_SIZE 4096
 #define SD_WORK_Q_PRIO	     10
@@ -74,27 +71,23 @@ bool SDCardManager::sd_inserted() {
 /**
  * @brief Debounced card-detect handler; the single owner of the card lifecycle.
  *
- * @details Every consumer of the card (the SD logger, the USB mass-storage LUN)
- *      is driven from here so that teardown and re-attach always happen in one
- *      fixed order. Splitting this across several independent card-detect
- *      handlers used to let the filesystem be unmounted before its users had
- *      been told to stop, which races with any write still in flight.
+ * @details Sequences every consumer of the card (the SD logger, the USB
+ *      mass-storage LUN) so that teardown and re-attach always happen in one
+ *      fixed order:
+ *
+ *      - insertion: attach the raw disk, then announce the card. The filesystem
+ *        is mounted lazily by the next recording.
+ *      - removal: announce first, so observers stop using the mount while it is
+ *        still valid, then unmount, then release the raw disk.
  */
 void SDCardManager::unmount_work_handler(struct k_work *work) {
 	int ret;
 
 	const bool inserted = sdcard_manager.sd_inserted();
 
-	struct sd_msg msg = {
-		.removed = !inserted,
-		.inserted = inserted,
-	};
+	struct sd_msg msg = { .removed = !inserted };
 
 	if (inserted) {
-		/*
-		 * Re-attach the raw disk so USB mass storage sees the new card. The
-		 * filesystem is mounted lazily by the next recording.
-		 */
 		sd_mass_storage_handle_card_change(true);
 
 		ret = zbus_chan_pub(&sd_card_chan, &msg, K_FOREVER);
@@ -104,12 +97,7 @@ void SDCardManager::unmount_work_handler(struct k_work *work) {
 		return;
 	}
 
-	/*
-	 * Announce the removal before tearing anything down. Observers run
-	 * synchronously in this context and stop their writers while the mount is
-	 * still valid; unmounting first would pull the filesystem out from under a
-	 * write that is already in progress.
-	 */
+	/* Observers run synchronously here and must finish before the unmount. */
 	ret = zbus_chan_pub(&sd_card_chan, &msg, K_FOREVER);
 	if (ret != 0) {
 		LOG_ERR("Failed to publish sd_card_chan: %d", ret);
@@ -231,19 +219,14 @@ int SDCardManager::unmount() {
 	int first_error = 0;
 
 	/*
-	 * The file handle must be released even when the card is already gone:
-	 * f_close() fails on absent media, but the Zephyr FATFS layer returns the
-	 * pooled FIL object to its slab either way. Skipping the call leaks one slot
-	 * per removal, and after CONFIG_FS_FATFS_NUM_FILES removals every subsequent
-	 * fs_open() fails with -ENOMEM until the device is rebooted.
+	 * Returns the pooled FATFS file object to its slab, which fs_close() does
+	 * regardless of whether the underlying flush succeeds. Must therefore run in
+	 * both the healthy and the card-removed case, since the pool only holds
+	 * CONFIG_FS_FATFS_NUM_FILES entries and they are not reclaimed otherwise.
 	 *
-	 * The ordering below is what keeps that affordable. f_close() flushes, and
-	 * against absent media every doomed write burns CONFIG_SD_DATA_TIMEOUT (10 s)
-	 * times CONFIG_SD_DATA_RETRIES. unmount() runs on the cooperative system
-	 * workqueue, so that would stall the whole system far past the 3 s Bluetooth
-	 * controller task watchdog and panic the device. Unmounting first avoids it:
-	 * f_mount(NULL, ...) touches no media and clears fs_type, after which the
-	 * validate() inside f_close() fails immediately and no I/O is attempted.
+	 * @param flush true to write pending data out first. Only meaningful while
+	 *      the card is present; against absent media each attempt would block
+	 *      for CONFIG_SD_DATA_TIMEOUT per retry.
 	 */
 	auto release_file_handle = [this, &first_error](bool flush) {
 		if (!this->tracked_file.is_open) {
@@ -262,7 +245,7 @@ int SDCardManager::unmount() {
 				remember_first_error(rc, first_error);
 				LOG_ERR("Failed to close file before unmount: %d", rc);
 			} else {
-				/* Expected: the volume was invalidated on purpose. */
+				/* Expected once the volume is gone; the slab is freed anyway. */
 				LOG_DBG("File handle released without flush: %d", rc);
 			}
 		}
@@ -271,12 +254,17 @@ int SDCardManager::unmount() {
 		fs_file_t_init(&this->tracked_file.filep);
 	};
 
-	/* Never touches the media, so it is cheap in both cases. */
+	/* Closing a directory never touches the media, so it is always cheap. */
 	ret = fs_closedir(&this->dirp);
 	remember_first_error(ret, first_error);
 	if (ret) LOG_WRN("Failed to close directory before unmount: %d", ret);
 	fs_dir_t_init(&this->dirp);
 
+	/*
+	 * With the card present the file is flushed before the volume goes away.
+	 * Without it, the volume is dropped first: f_mount(NULL, ...) touches no
+	 * media and clears fs_type, so the subsequent close returns without any I/O.
+	 */
 	if (card_present) {
 		release_file_handle(true);
 	}
@@ -292,10 +280,9 @@ int SDCardManager::unmount() {
 	}
 
 	/*
-	 * Drop the mount unconditionally. fs_unmount() can fail once the card is
-	 * physically gone, and keeping `mounted` set would wedge the manager for
-	 * good: every later mount() would short-circuit and the load switches would
-	 * stay referenced forever.
+	 * Dropped unconditionally: fs_unmount() may fail once the card is physically
+	 * gone, and a stale `mounted` would short-circuit every later mount() and
+	 * hold the load switches for good.
 	 */
 	this->mounted = false;
 	this->path = SD_ROOT_PATH;
@@ -617,10 +604,7 @@ int SDCardManager::close_file() {
 		return ret;
 	}
 
-	/*
-	 * Checked under the lock: a card removal can close the file and unmount the
-	 * filesystem from the card-detect work item at any point.
-	 */
+	/* Checked under the lock, see SDCardManager::write(). */
 	if (!this->tracked_file.is_open) {
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		LOG_DBG("File is not open");
@@ -634,10 +618,7 @@ int SDCardManager::close_file() {
 		LOG_DBG("File %s closed", this->path.c_str());
 	}
 
-	/*
-	 * fs_close() releases the pooled FATFS file object even when flushing to
-	 * the card fails, so the handle has to be dropped in either case.
-	 */
+	/* fs_close() frees the pooled object even on error, so always drop it. */
 	this->tracked_file.is_open = false;
 	fs_file_t_init(&this->tracked_file.filep);
 
@@ -659,9 +640,9 @@ ssize_t SDCardManager::write(char *buf, size_t *buf_size, bool sync) {
 	}
 
 	/*
-	 * Checked under the lock. Testing this before taking the mutex leaves a
-	 * window in which the card-detect work item closes the file and unmounts
-	 * the filesystem while this thread is still waiting for the lock.
+	 * Checked under the lock: the card-detect handler closes the file and
+	 * unmounts from another thread, so state read before taking the mutex may
+	 * already be stale by the time the lock is held.
 	 */
 	if (!this->tracked_file.is_open) {
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
@@ -725,7 +706,7 @@ int SDCardManager::read(char *buffer, size_t *buf_size) {
 		return ret;
 	}
 
-	/* Checked under the lock; see SDCardManager::write(). */
+	/* Checked under the lock, see SDCardManager::write(). */
 	if (!this->tracked_file.is_open) {
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		LOG_WRN("No file opened");
@@ -830,7 +811,7 @@ int SDCardManager::sync() {
 		return ret;
 	}
 
-	/* Checked under the lock; see SDCardManager::write(). */
+	/* Checked under the lock, see SDCardManager::write(). */
 	if (!this->mounted || !this->tracked_file.is_open) {
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -EBADF;
