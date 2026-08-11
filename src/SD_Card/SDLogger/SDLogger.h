@@ -56,6 +56,16 @@ private:
         //struct sensor_data* const data_buf = &(msg.data);
         static void sensor_sd_task();
 
+        /**
+         * @brief Give up the current recording because the card disappeared.
+         *
+         * @details Parks the SD writer thread, drops everything still buffered
+         *      and releases the logger state. Called from the card-detect work
+         *      item *before* the filesystem is unmounted, so that no writer is
+         *      left holding a file handle across the unmount.
+         */
+        void abort_recording();
+
         friend void sd_listener_callback(const struct zbus_channel *chan);
 
     public:

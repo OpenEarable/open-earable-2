@@ -13,6 +13,7 @@
 #include "openearable_common.h"
 
 #include "SDLogger.h"
+#include "SDMassStorage.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(SDCardManager, LOG_LEVEL_DBG);
@@ -33,6 +34,31 @@ void remember_first_error(int result, int &first_error)
 }
 }
 
+/*
+ * The card lifecycle runs on its own work queue rather than the system one.
+ *
+ * SD teardown is inherently slow against absent media: disk_access_ioctl(DEINIT)
+ * ends up in sdmmc_wait_ready(), which spins in k_busy_wait(125) for a budget of
+ * CONFIG_SD_DATA_TIMEOUT (10 s) before giving up. The system workqueue runs at
+ * CONFIG_SYSTEM_WORKQUEUE_PRIORITY=-1, which is a *cooperative* priority, so a
+ * busy-wait there cannot be preempted and freezes every other thread. The
+ * Bluetooth controller task watchdog (3 s, see bt_mgmt_ctlr_cfg.c) then fires
+ * and panics the device with "No response from IPC or controller".
+ *
+ * A preemptible queue below CONFIG_CTLR_POLL_WORK_Q_PRIO (2) keeps that watchdog
+ * fed no matter how long the card takes to give up.
+ */
+#define SD_WORK_Q_STACK_SIZE 4096
+#define SD_WORK_Q_PRIO	     10
+
+K_THREAD_STACK_DEFINE(sd_work_q_stack, SD_WORK_Q_STACK_SIZE);
+
+static struct k_work_q sd_work_q;
+static const struct k_work_queue_config sd_work_q_config = {
+	.name = "sd_card",
+	.no_yield = false,
+};
+
 K_MUTEX_DEFINE(m_sem_sd_mngr_oper_ongoing);
 
 ZBUS_CHAN_DEFINE(sd_card_chan, struct sd_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
@@ -45,32 +71,64 @@ bool SDCardManager::sd_inserted() {
 	return sd_inserted == 1;
 }
 
+/**
+ * @brief Debounced card-detect handler; the single owner of the card lifecycle.
+ *
+ * @details Every consumer of the card (the SD logger, the USB mass-storage LUN)
+ *      is driven from here so that teardown and re-attach always happen in one
+ *      fixed order. Splitting this across several independent card-detect
+ *      handlers used to let the filesystem be unmounted before its users had
+ *      been told to stop, which races with any write still in flight.
+ */
 void SDCardManager::unmount_work_handler(struct k_work *work) {
 	int ret;
 
-	bool _inserted = sdcard_manager.sd_inserted();
+	const bool inserted = sdcard_manager.sd_inserted();
 
-	sd_msg msg = { .removed = true };
+	struct sd_msg msg = {
+		.removed = !inserted,
+		.inserted = inserted,
+	};
 
-    if (!_inserted) {
-		ret = sdcard_manager.unmount();
-		if (ret) {
-			LOG_ERR("Failed to unmount SD card after removal: %d", ret);
-		} else {
-			LOG_INF("SD card unmounted due to card removal.");
-		}
-		
+	if (inserted) {
+		/*
+		 * Re-attach the raw disk so USB mass storage sees the new card. The
+		 * filesystem is mounted lazily by the next recording.
+		 */
+		sd_mass_storage_handle_card_change(true);
+
 		ret = zbus_chan_pub(&sd_card_chan, &msg, K_FOREVER);
 		if (ret != 0) {
 			LOG_ERR("Failed to publish sd_card_chan: %d", ret);
 		}
+		return;
 	}
+
+	/*
+	 * Announce the removal before tearing anything down. Observers run
+	 * synchronously in this context and stop their writers while the mount is
+	 * still valid; unmounting first would pull the filesystem out from under a
+	 * write that is already in progress.
+	 */
+	ret = zbus_chan_pub(&sd_card_chan, &msg, K_FOREVER);
+	if (ret != 0) {
+		LOG_ERR("Failed to publish sd_card_chan: %d", ret);
+	}
+
+	ret = sdcard_manager.unmount();
+	if (ret) {
+		LOG_ERR("Failed to unmount SD card after removal: %d", ret);
+	} else {
+		LOG_INF("SD card unmounted due to card removal.");
+	}
+
+	sd_mass_storage_handle_card_change(false);
 }
 
 K_WORK_DELAYABLE_DEFINE(SDCardManager::unmount_work, SDCardManager::unmount_work_handler);
 
 void SDCardManager::sd_card_state_change_isr(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-    k_work_reschedule(&sdcard_manager.unmount_work, SD_DEBOUNCE_MS);
+    k_work_reschedule_for_queue(&sd_work_q, &sdcard_manager.unmount_work, SD_DEBOUNCE_MS);
 }
 
 SDCardManager::SDCardManager(): path(SD_ROOT_PATH) {
@@ -139,15 +197,20 @@ void SDCardManager::init() {
 	int ret;
 
     if (!device_is_ready(sd_state_pin.port)) {
-		ret = aquire_ls();
-        LOG_ERR("SD state GPIO device not ready\n");
+        LOG_ERR("SD state GPIO device not ready");
         return;
     }
+
+    /* Started before the interrupt is armed so no edge can outrun the queue. */
+    k_work_queue_init(&sd_work_q);
+    k_work_queue_start(&sd_work_q, sd_work_q_stack,
+                       K_THREAD_STACK_SIZEOF(sd_work_q_stack),
+                       K_PRIO_PREEMPT(SD_WORK_Q_PRIO), &sd_work_q_config);
 
     gpio_pin_configure_dt(&sd_state_pin, GPIO_INPUT);
     gpio_pin_interrupt_configure_dt(&sd_state_pin, GPIO_INT_EDGE_BOTH);
 
-    gpio_init_callback(&sd_state_cb, sd_card_state_change_isr, sd_state_cb.pin_mask | BIT(sd_state_pin.pin));
+    gpio_init_callback(&sd_state_cb, sd_card_state_change_isr, BIT(sd_state_pin.pin));
     ret = gpio_add_callback(sd_state_pin.port, &sd_state_cb);
 
 	if (ret) LOG_ERR("Failed to add callback");
@@ -167,35 +230,73 @@ int SDCardManager::unmount() {
 	const bool card_present = sd_inserted();
 	int first_error = 0;
 
-	if (this->tracked_file.is_open) {
-		if (card_present) {
-			ret = fs_sync(&this->tracked_file.filep);
-			remember_first_error(ret, first_error);
-			if (ret) LOG_ERR("Failed to sync file before unmount: %d", ret);
+	/*
+	 * The file handle must be released even when the card is already gone:
+	 * f_close() fails on absent media, but the Zephyr FATFS layer returns the
+	 * pooled FIL object to its slab either way. Skipping the call leaks one slot
+	 * per removal, and after CONFIG_FS_FATFS_NUM_FILES removals every subsequent
+	 * fs_open() fails with -ENOMEM until the device is rebooted.
+	 *
+	 * The ordering below is what keeps that affordable. f_close() flushes, and
+	 * against absent media every doomed write burns CONFIG_SD_DATA_TIMEOUT (10 s)
+	 * times CONFIG_SD_DATA_RETRIES. unmount() runs on the cooperative system
+	 * workqueue, so that would stall the whole system far past the 3 s Bluetooth
+	 * controller task watchdog and panic the device. Unmounting first avoids it:
+	 * f_mount(NULL, ...) touches no media and clears fs_type, after which the
+	 * validate() inside f_close() fails immediately and no I/O is attempted.
+	 */
+	auto release_file_handle = [this, &first_error](bool flush) {
+		if (!this->tracked_file.is_open) {
+			return;
+		}
 
-			ret = fs_close(&this->tracked_file.filep);
-			remember_first_error(ret, first_error);
-			if (ret) LOG_ERR("Failed to close file before unmount: %d", ret);
+		if (flush) {
+			int rc = fs_sync(&this->tracked_file.filep);
+			remember_first_error(rc, first_error);
+			if (rc) LOG_ERR("Failed to sync file before unmount: %d", rc);
+		}
+
+		int rc = fs_close(&this->tracked_file.filep);
+		if (rc) {
+			if (flush) {
+				remember_first_error(rc, first_error);
+				LOG_ERR("Failed to close file before unmount: %d", rc);
+			} else {
+				/* Expected: the volume was invalidated on purpose. */
+				LOG_DBG("File handle released without flush: %d", rc);
+			}
 		}
 
 		this->tracked_file.is_open = false;
 		fs_file_t_init(&this->tracked_file.filep);
-	}
+	};
 
-	if (card_present) {
-		ret = fs_closedir(&this->dirp);
-		remember_first_error(ret, first_error);
-		if (ret) LOG_ERR("Failed to close directory before unmount: %d", ret);
-	}
+	/* Never touches the media, so it is cheap in both cases. */
+	ret = fs_closedir(&this->dirp);
+	remember_first_error(ret, first_error);
+	if (ret) LOG_WRN("Failed to close directory before unmount: %d", ret);
 	fs_dir_t_init(&this->dirp);
 
-	ret = fs_unmount(&this->mnt_pt);
-	if (ret) {
-		LOG_ERR("Failed to unmount SD filesystem: %d", ret);
-		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
-		return ret;
+	if (card_present) {
+		release_file_handle(true);
 	}
 
+	ret = fs_unmount(&this->mnt_pt);
+	remember_first_error(ret, first_error);
+	if (ret) {
+		LOG_ERR("Failed to unmount SD filesystem: %d", ret);
+	}
+
+	if (!card_present) {
+		release_file_handle(false);
+	}
+
+	/*
+	 * Drop the mount unconditionally. fs_unmount() can fail once the card is
+	 * physically gone, and keeping `mounted` set would wedge the manager for
+	 * good: every later mount() would short-circuit and the load switches would
+	 * stay referenced forever.
+	 */
 	this->mounted = false;
 	this->path = SD_ROOT_PATH;
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
@@ -453,16 +554,17 @@ int SDCardManager::mkdir(std::string path) {
 }
 
 int SDCardManager::open_file(std::string path, bool write, bool append, bool create) {
-	if (!this->mounted) {
-		LOG_ERR("SD card not mounted! Call SDCardManager::mount() first!");
-		return -ENODEV;
-	}
-
 	int ret;
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
+	}
+
+	if (!this->mounted) {
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+		LOG_ERR("SD card not mounted! Call SDCardManager::mount() first!");
+		return -ENODEV;
 	}
 
 	if (path.length() > CONFIG_FS_FATFS_MAX_LFN) {
@@ -507,58 +609,70 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 }
 
 int SDCardManager::close_file() {
-	if (!this->mounted) {
-		LOG_ERR("SD card not mounted! Call SDCardManager::mount() first!");
-		return -ENODEV;
-	}
-
 	int ret;
-
-	if (!this->tracked_file.is_open) {
-		LOG_INF("File is not open");
-		return 0;
-	}
 
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
+	}
+
+	/*
+	 * Checked under the lock: a card removal can close the file and unmount the
+	 * filesystem from the card-detect work item at any point.
+	 */
+	if (!this->tracked_file.is_open) {
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+		LOG_DBG("File is not open");
+		return 0;
 	}
 
 	ret = fs_close(&this->tracked_file.filep);
 	if (ret) {
 		LOG_ERR("Failed to close file: %d", ret);
-		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
-		return ret;
+	} else {
+		LOG_DBG("File %s closed", this->path.c_str());
 	}
 
-	LOG_DBG("File %s closed", this->path.c_str());
+	/*
+	 * fs_close() releases the pooled FATFS file object even when flushing to
+	 * the card fails, so the handle has to be dropped in either case.
+	 */
+	this->tracked_file.is_open = false;
+	fs_file_t_init(&this->tracked_file.filep);
+
 	size_t last_slash_pos = this->path.find_last_of("/");
 	if (last_slash_pos != std::string::npos) {
 		this->path = this->path.substr(0, last_slash_pos);
 	}
-	this->tracked_file.is_open = false;
 
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
-	return 0;
+	return ret;
 }
 
 ssize_t SDCardManager::write(char *buf, size_t *buf_size, bool sync) {
-	if (!this->tracked_file.is_open) {
-		LOG_ERR("File is not open");
-		return -EINVAL;
-	}
-
-	if (!(this->tracked_file.filep.flags & FS_O_WRITE)) {
-		LOG_ERR("File is not open for writing");
-		return -EINVAL;
-	}
-
 	int ret;
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
+	}
+
+	/*
+	 * Checked under the lock. Testing this before taking the mutex leaves a
+	 * window in which the card-detect work item closes the file and unmounts
+	 * the filesystem while this thread is still waiting for the lock.
+	 */
+	if (!this->tracked_file.is_open) {
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+		LOG_WRN("File is not open");
+		return -EBADF;
+	}
+
+	if (!(this->tracked_file.filep.flags & FS_O_WRITE)) {
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+		LOG_ERR("File is not open for writing");
+		return -EINVAL;
 	}
 
 	ret = fs_write(&this->tracked_file.filep, buf, *buf_size);
@@ -603,17 +717,19 @@ ssize_t SDCardManager::write(std::string path, char *buf, size_t *buf_size, bool
 }
 
 int SDCardManager::read(char *buffer, size_t *buf_size) {
-	if (!this->tracked_file.is_open) {
-		LOG_ERR("No file opened");
-		return -1;
-	}
-	
 	int ret;
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
+	}
+
+	/* Checked under the lock; see SDCardManager::write(). */
+	if (!this->tracked_file.is_open) {
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+		LOG_WRN("No file opened");
+		return -EBADF;
 	}
 
 	ret = fs_read(&(this->tracked_file.filep), buffer, *buf_size);
@@ -707,15 +823,17 @@ int SDCardManager::rm(std::string path) {
 }
 
 int SDCardManager::sync() {
-	if (!this->mounted) {
-		return -ENODEV;
-	}
-
 	int ret;
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
 	if (ret) {
 		LOG_ERR("Sem take failed. Ret: %d", ret);
 		return ret;
+	}
+
+	/* Checked under the lock; see SDCardManager::write(). */
+	if (!this->mounted || !this->tracked_file.is_open) {
+		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+		return -EBADF;
 	}
 
 	ret = fs_sync(&this->tracked_file.filep);

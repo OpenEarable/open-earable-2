@@ -134,8 +134,16 @@ struct battery_settings {
     float temp_max;
 };
 
+/**
+ * @brief Card-detect transition published on sd_card_chan.
+ *
+ * Published on both edges. On removal the message is sent *before* the
+ * filesystem is torn down, so observers can stop touching it while the mount
+ * is still valid.
+ */
 struct sd_msg {
 	bool removed;
+	bool inserted;
 };
 
 #include "audio_i2s.h"

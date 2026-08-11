@@ -52,6 +52,32 @@ struct k_poll_signal logger_sig;
 static struct k_poll_event logger_evt =
 		 K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &logger_sig);
 
+/*
+ * Handshake used to take the ring buffer and the file away from the SD writer
+ * thread before a teardown touches them.
+ *
+ * The writer thread gives this semaphore once it has observed g_stop_writing or
+ * g_sd_removed at the top of its loop, which means it is out of ring_buf_*() and
+ * out of SDCardManager. Only then may end()/abort_recording() flush and close.
+ */
+static K_SEM_DEFINE(writer_parked, 0, 1);
+
+/*
+ * Upper bound for the park handshake.
+ *
+ * Must stay well below the slack of the Bluetooth controller task watchdog: it
+ * polls every CTLR_POLL_INTERVAL_MS (2000) against a WDT_TIMEOUT_MS of 3000, so
+ * anything that delays the system workqueue by more than ~1 s panics the device.
+ * end() runs on that workqueue. A single 4 KiB block write on a healthy card
+ * completes in the low tens of milliseconds, so this is a generous margin; if
+ * the writer is stuck on absent media we give up and skip the flush instead of
+ * waiting for the SD driver timeout (CONFIG_SD_DATA_TIMEOUT is 10 s).
+ */
+static constexpr int32_t WRITER_PARK_TIMEOUT_MS = 250;
+
+/* Set once init() has created the writer thread and armed logger_sig. */
+static bool logger_initialized;
+
 namespace {
 
 constexpr uint8_t OE_HEADER_SIDE_LEFT = 0x00;
@@ -102,22 +128,47 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 
 void sd_listener_callback(const struct zbus_channel *chan)
 {
-    const struct sd_msg * sd_msg_event = (sd_msg *)zbus_chan_const_msg(&sd_card_chan);
+    const struct sd_msg * sd_msg_event = (const sd_msg *)zbus_chan_const_msg(chan);
 
-    if (sdlogger.is_open && sd_msg_event->removed) {
-        // Signal SD thread to stop writing immediately.
-        atomic_set(&g_sd_removed, 1);
-        state_indicator.set_sd_state(SD_FAULT);
-        LOG_ERR("SD card removed mid recording. Stop recording.");
-
-        // Wake the SD thread so it can react quickly.
-        k_poll_signal_raise(&logger_sig, 0);
+    if (sd_msg_event->removed) {
+        sdlogger.abort_recording();
     }
 }
 
+/**
+ * @brief Clear the wake-up signal.
+ *
+ * @details Only the SD writer thread may call this. logger_evt is live kernel
+ *      state while that thread sits in k_poll(): its state/type/mode share one
+ *      word, so writing it from another thread is a non-atomic read-modify-write
+ *      against the kernel's own update and can corrupt event->type. k_poll()
+ *      then trips __ASSERT(false, "invalid event type") and the device resets.
+ */
 inline void reset_logger_signal() {
     k_poll_signal_reset(&logger_sig);
     logger_evt.state = K_POLL_STATE_NOT_READY;
+}
+
+/**
+ * @brief Wait until the SD writer thread has released the ring buffer and file.
+ *
+ * @return true if the writer parked, false on timeout.
+ */
+static bool park_writer() {
+    if (!logger_initialized) {
+        /* No writer thread yet, so nothing can be holding the buffer. */
+        return true;
+    }
+
+    k_sem_reset(&writer_parked);
+    k_poll_signal_raise(&logger_sig, 0);
+
+    if (k_sem_take(&writer_parked, K_MSEC(WRITER_PARK_TIMEOUT_MS)) != 0) {
+        LOG_WRN("SD writer thread did not park within %d ms", WRITER_PARK_TIMEOUT_MS);
+        return false;
+    }
+
+    return true;
 }
 
 void SDLogger::sensor_sd_task() {
@@ -135,81 +186,105 @@ void SDLogger::sensor_sd_task() {
         int result;
         k_poll_signal_check(&logger_sig, &signaled, &result);
 
+        /* logger_evt belongs to this thread; nobody else may reset it. */
+        reset_logger_signal();
+
         if (signaled == 0) {
             LOG_DBG("Poll woke up without signal");
             continue;
         }
 
-        // If a close/flush is in progress, do not write concurrently.
-        if (atomic_get(&g_stop_writing)) {
-            reset_logger_signal();
+        /*
+         * A teardown owns the ring buffer and the file exclusively. Acknowledge
+         * that we are out of both and stay out until the flag is cleared.
+         */
+        if (atomic_get(&g_stop_writing) || atomic_get(&g_sd_removed)) {
+            if (atomic_get(&g_sd_removed)) {
+                /*
+                 * The media is gone, so nothing still queued can be written.
+                 * Dropping it here rather than in abort_recording() keeps the
+                 * ring buffer owned by this thread even when the park
+                 * handshake times out.
+                 */
+                k_mutex_lock(&ring_mutex, K_FOREVER);
+                ring_buf_reset(&ring_buffer);
+                k_mutex_unlock(&ring_mutex);
+            }
+            k_sem_give(&writer_parked);
             continue;
         }
 
-        // If SD was removed, stop writing and drop buffered data.
-        if (atomic_get(&g_sd_removed)) {
-            k_mutex_lock(&ring_mutex, K_FOREVER);
-            ring_buf_reset(&ring_buffer);
-            k_mutex_unlock(&ring_mutex);
-            sdlogger.is_open = false;
-            reset_logger_signal();
+        if (!sdlogger.is_open) {
             continue;
         }
 
         if (!sdcard_manager.is_mounted()) {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("SD Card not mounted!");
-            return;
+            /*
+             * Must not return: leaving the thread entry function terminates the
+             * writer for good, so SD logging would stay dead until reboot.
+             */
+            continue;
         }
 
         uint32_t fill = ring_buf_size_get(&ring_buffer);
 
-        if (fill >= SD_BLOCK_SIZE) {
-            if (fill > count_max_buffer_fill) {
-                count_max_buffer_fill = fill;
-            }
-
-            uint8_t *data = nullptr;
-
-            // Claim up to one SD block from the ring buffer under lock.
-            k_mutex_lock(&ring_mutex, K_FOREVER);
-            uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill - (fill % SD_BLOCK_SIZE));
-            k_mutex_unlock(&ring_mutex);
-
-            if (claimed == 0 || data == nullptr) {
-                // Nothing to write right now.
-                reset_logger_signal();
-                continue;
-            }
-
-            // Write the claimed bytes under file lock.
-            size_t write_size = claimed;
-            int written;
-            k_mutex_lock(&file_mutex, K_FOREVER);
-            written = sdlogger.sd_card->write((char*)data, &write_size, false);
-            k_mutex_unlock(&file_mutex);
-
-            if (written < 0) {
-                state_indicator.set_sd_state(SD_FAULT);
-                LOG_ERR("SD write failed: %d", written);
-
-                // Do not advance the ring buffer on error.
-                // Wakeups will continue; user can call end().
-                reset_logger_signal();
-                continue;
-            }
-
-            // Advance ring buffer by the number of bytes actually written.
-            k_mutex_lock(&ring_mutex, K_FOREVER);
-            ring_buf_get_finish(&ring_buffer, (uint32_t)written);
-            k_mutex_unlock(&ring_mutex);
-        } else {
-            k_yield();
+        if (fill < SD_BLOCK_SIZE) {
+            continue;
         }
 
-        reset_logger_signal();
+        if (fill > count_max_buffer_fill) {
+            count_max_buffer_fill = fill;
+        }
 
-        STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
+        uint8_t *data = nullptr;
+
+        // Claim up to one SD block from the ring buffer under lock.
+        k_mutex_lock(&ring_mutex, K_FOREVER);
+        uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill - (fill % SD_BLOCK_SIZE));
+        k_mutex_unlock(&ring_mutex);
+
+        if (claimed == 0 || data == nullptr) {
+            // Nothing to write right now.
+            continue;
+        }
+
+        // Write the claimed bytes under file lock.
+        size_t write_size = claimed;
+        int written;
+        k_mutex_lock(&file_mutex, K_FOREVER);
+        written = sdlogger.sd_card->write((char*)data, &write_size, false);
+        k_mutex_unlock(&file_mutex);
+
+        if (written < 0) {
+            state_indicator.set_sd_state(SD_FAULT);
+            LOG_ERR("SD write failed: %d", written);
+        }
+
+        /*
+         * Every successful claim has to be closed again, even when the write
+         * failed. Leaving a claim open desynchronises get_head from get_tail, so
+         * the next claim hands out a region that does not start at the oldest
+         * unwritten byte and the recording is silently corrupted. Finishing with
+         * 0 releases the claim and keeps the data queued.
+         */
+        k_mutex_lock(&ring_mutex, K_FOREVER);
+        ring_buf_get_finish(&ring_buffer, written > 0 ? (uint32_t)written : 0);
+        k_mutex_unlock(&ring_mutex);
+
+        if (written < 0) {
+            /* Back off; the next producer wake-up retries. */
+            continue;
+        }
+
+        /*
+         * The signal was cleared before the write, so a producer wake-up during
+         * the write could have been lost. Re-arm while data is still pending.
+         */
+        if (ring_buf_size_get(&ring_buffer) >= SD_BLOCK_SIZE) {
+            k_poll_signal_raise(&logger_sig, 0);
+        }
     }
 }
 
@@ -237,6 +312,8 @@ int SDLogger::init() {
 		LOG_ERR("Failed to create sensor_msg thread");
 		return ret;
 	}
+
+	logger_initialized = true;
 
     ret = zbus_chan_add_obs(&sensor_chan, &sensor_data_listener, ZBUS_ADD_OBS_TIMEOUT_MS);
     if (ret) {
@@ -294,13 +371,18 @@ int SDLogger::begin(const std::string& filename) {
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
 
-    current_file = full_filename;
-    is_open = true;
-
     k_mutex_lock(&ring_mutex, K_FOREVER);
     ring_buf_reset(&ring_buffer);
     k_mutex_unlock(&ring_mutex);
 
+    current_file = full_filename;
+
+    /*
+     * The header goes to the file directly, not through the ring buffer, so it
+     * has to be on disk before producers may enqueue anything. Publishing
+     * is_open earlier would let the writer thread emit a full data block ahead
+     * of the header and make the recording unparsable.
+     */
     ret = write_header();
     if (ret < 0) {
         state_indicator.set_sd_state(SD_FAULT);
@@ -309,9 +391,10 @@ int SDLogger::begin(const std::string& filename) {
         sd_card->close_file();
         k_mutex_unlock(&file_mutex);
         current_file.clear();
-        is_open = false;
         return ret;
     }
+
+    is_open = true;
 
     k_poll_signal_raise(&logger_sig, 0);
 
@@ -444,12 +527,19 @@ int SDLogger::write_sensor_data(const sensor_data& msg) {
     return write_sensor_data(&msg_ptr, &data_size, 1);
 }
 
+/**
+ * @brief Write out everything still buffered.
+ *
+ * @details The caller must have parked the SD writer thread first: two
+ *      concurrent claimers on the same ring buffer hand out overlapping regions
+ *      and the first get_finish() silently invalidates the other's claim.
+ *
+ * @return Number of bytes written, or a negative error code.
+ */
 int SDLogger::flush() {
-    // Prevent SD thread from writing concurrently
-    atomic_set(&g_stop_writing, 1);
-    k_poll_signal_raise(&logger_sig, 0);
-
     uint32_t total_written = 0;
+    int first_error = 0;
+
     for (;;) {
         uint8_t *data = nullptr;
         uint32_t fill;
@@ -477,64 +567,112 @@ int SDLogger::flush() {
         if (written < 0) {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to flush SD buffer: %d", written);
+            first_error = written;
+        }
+
+        /* A claim must always be closed again, see sensor_sd_task(). */
+        k_mutex_lock(&ring_mutex, K_FOREVER);
+        ring_buf_get_finish(&ring_buffer, written > 0 ? (uint32_t)written : 0);
+        k_mutex_unlock(&ring_mutex);
+
+        if (written <= 0) {
+            /* No progress possible; stop instead of spinning on the same block. */
             break;
         }
 
-        k_mutex_lock(&ring_mutex, K_FOREVER);
-        ring_buf_get_finish(&ring_buffer, (uint32_t)written);
-        k_mutex_unlock(&ring_mutex);
-
         total_written += (uint32_t)written;
-
-        if ((uint32_t)written < claimed) {
-            k_yield();
-        }
     }
 
-    return (int)total_written;
+    return first_error ? first_error : (int)total_written;
+}
+
+void SDLogger::abort_recording() {
+    if (!is_open) {
+        return;
+    }
+
+    LOG_ERR("SD card removed mid recording. Stop recording.");
+
+    /*
+     * Stop producers, then wait for the writer thread to drop the ring buffer
+     * and the file. This runs before SDCardManager unmounts, so afterwards
+     * nothing holds a file handle across the unmount.
+     */
+    atomic_set(&g_sd_removed, 1);
+    atomic_set(&g_stop_writing, 1);
+
+    /*
+     * The writer drops the buffered data itself when it parks, so a timeout
+     * here costs nothing beyond a delayed cleanup: never touch the ring buffer
+     * from this side, it may still hold a claim.
+     */
+    park_writer();
+
+    /* The file itself is closed by SDCardManager::unmount(). */
+    is_open = false;
+    current_file.clear();
+
+    state_indicator.set_sd_state(SD_FAULT);
 }
 
 int SDLogger::end() {
-    int ret;
-    
-    if (!is_open) {
-        return -ENODEV;
-    }
+    int first_error = 0;
 
-    if (!sd_card->is_mounted()) {
-        is_open = false;
-        return -ENODEV;
-    }
-
-    // Prevent SD thread/producers from writing while we flush/close
+    /*
+     * Park the writer thread before touching the ring buffer or the file. Note
+     * that this must happen even when the recording is already gone, so the
+     * coordination flags are always left in a usable state for the next begin().
+     */
     atomic_set(&g_stop_writing, 1);
-    k_poll_signal_raise(&logger_sig, 0);
+    const bool parked = park_writer();
 
-    ret = flush();
-    if (ret < 0) {
-        LOG_ERR("Failed to flush file buffer.");
-        return ret;
+    const bool was_open = is_open;
+    const bool card_usable = !atomic_get(&g_sd_removed) && sd_card->is_mounted();
+
+    if (was_open && card_usable) {
+        if (parked) {
+            int ret = flush();
+            if (ret < 0) {
+                LOG_ERR("Failed to flush file buffer: %d", ret);
+                first_error = ret;
+            }
+        } else {
+            /* Writer still owns the ring buffer; flushing would race with it. */
+            LOG_WRN("Skipping flush: SD writer thread is still busy");
+            first_error = -ETIMEDOUT;
+        }
     }
 
-    LOG_INF("Close File ....");
-
-    LOG_DBG("Max buffer fill: %d bytes", count_max_buffer_fill);
-
-    k_mutex_lock(&file_mutex, K_FOREVER);
-    ret = sd_card->close_file();
-    k_mutex_unlock(&file_mutex);
-    if (ret < 0) {
-        reset_logger_signal();
-        return ret;
+    if (parked) {
+        /* Only safe once the writer has provably released its claim. */
+        k_mutex_lock(&ring_mutex, K_FOREVER);
+        ring_buf_reset(&ring_buffer);
+        k_mutex_unlock(&ring_mutex);
     }
 
+    if (was_open) {
+        LOG_INF("Close File ....");
+        LOG_DBG("Max buffer fill: %u bytes", count_max_buffer_fill);
+
+        k_mutex_lock(&file_mutex, K_FOREVER);
+        int ret = sd_card->close_file();
+        k_mutex_unlock(&file_mutex);
+        if (ret < 0 && !first_error) {
+            first_error = ret;
+        }
+    }
+
+    /*
+     * Released unconditionally. Bailing out early on an error used to leave
+     * is_open and g_stop_writing set, which made every later begin() fail with
+     * -EBUSY and killed SD recording until the next reboot.
+     */
     is_open = false;
-
-    reset_logger_signal();
+    current_file.clear();
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
 
-    return 0;
+    return was_open ? first_error : -ENODEV;
 }
 
 bool SDLogger::is_active() {
