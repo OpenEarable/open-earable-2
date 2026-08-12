@@ -314,6 +314,20 @@ int SDCardManager::mount() {
 		return 0;
 	}
 
+	/*
+	 * Settle any card-detect transition first. The handler owns attaching and
+	 * releasing the raw disk, and releasing it against media that no longer
+	 * answers takes as long as the SD driver needs to time out. Initializing the
+	 * disk while that is still in flight collides with it and fails, even though
+	 * a card is physically present. Flushing also pulls a pending transition
+	 * forward past its debounce, so a card inserted moments ago is attached
+	 * before the mount rather than after it.
+	 *
+	 * Safe because mount() never runs on the queue that serves this work item.
+	 */
+	struct k_work_sync sync;
+	k_work_flush_delayable(&unmount_work, &sync);
+
 	ret = aquire_ls();
 	if (ret && ret != -EALREADY) {
 		return ret;
@@ -330,7 +344,7 @@ int SDCardManager::mount() {
 	ret = disk_access_init(SD_DISK_NAME);
 	if (ret) {
 		release_ls();
-		LOG_DBG("SD card init failed, please check if SD card inserted");
+		LOG_WRN("SD card initialization failed: %d", ret);
 		return -ENODEV;
 	}
 
