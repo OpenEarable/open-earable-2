@@ -59,6 +59,17 @@ python3 tools/battery/battery_debug.py status --snr [YOUR_JLINK_SERIAL_NUMBER]
 This prints voltage, charger state, charger fault bits, power-good state, charge
 enable/high-Z state, temperature, state of charge, and related raw registers.
 
+The charger status register has a few latched bits that are easy to confuse:
+
+- `timer_fault=True` means the BQ25120A safety timer expired. This is reported
+  in the status register, so `charger_fault=0x00` can still be valid.
+- `reset_fault=True` is the separate reset-event latch. It may be set while the
+  charger is still actively charging.
+- `charger_ctrl=0x51` decodes as charging with `reset_fault=True` and
+  `timer_fault=False`.
+- `charger_ctrl=0xd9` decodes as charger fault with `timer_fault=True`; recovery
+  should clear it by toggling `CD` and reconfiguring the charger.
+
 ## Low-Battery Recovery
 
 Configure charging if the battery is below the start threshold:
@@ -80,6 +91,11 @@ Monitor continuously and reset the charger again if it enters fault:
 python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] --continuous --reset-on-fault
 ```
 
+During recovery, safety-timer faults are reset even without `--reset-on-fault`.
+The reset sequence toggles the charger `CD` pin, then restores the charger
+configuration. If the reset limit is reached, the tool prints a warning instead
+of silently continuing with charging stopped.
+
 ## Useful Options
 
 - `--speed-khz 1000`: SWD speed.
@@ -87,6 +103,7 @@ python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] 
 - `--start-below-mv 3000`: recovery starts below this voltage.
 - `--target-mv 3300`: recovery exits after reaching this voltage unless
   `--continuous` is set.
+- `--max-fault-resets 3`: maximum automatic charger resets during monitoring.
 - `--allow-deep-discharge`: allow recovery below the safety threshold. Use only
   with physical supervision.
 
