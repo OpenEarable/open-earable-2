@@ -47,7 +47,11 @@ FREQUENCY_400K = 0x06400000
 
 GPIO_PIN_CNF_INPUT_PULLUP_S0D1 = 0x0000060C
 GPIO_PIN_CNF_INPUT_PULLUP = 0x0000000C
-GPIO_PIN_CNF_OUTPUT = 0x00000003
+GPIO_PIN_CNF_OUTPUT_WITH_INPUT = 0x00000001
+
+GPIO_OUTSET = 0x008
+GPIO_OUTCLR = 0x00C
+GPIO_IN = 0x010
 
 TWIM_ENABLE = 0x500
 TWIM_PSEL_SCL = 0x508
@@ -204,8 +208,16 @@ class ChargerStatus:
         reasons = []
         if self.timer_fault:
             reasons.append("safety_timer")
+        if self.vin_overvoltage:
+            reasons.append("VIN_OV")
+        if self.vin_undervoltage:
+            reasons.append("VIN_UV")
         if self.bat_uvlo:
             reasons.append("BAT_UVLO")
+        if self.battery_overcurrent:
+            reasons.append("BAT_OCP")
+        if self.ts_fault_code:
+            reasons.append(self.ts_state)
         if self.vindpm_active and self.charging_state_code == 3:
             reasons.append("VINDPM")
         if self.charging_state_code == 3 and not reasons:
@@ -213,8 +225,48 @@ class ChargerStatus:
         return reasons
 
     @property
+    def blocking_fault_reasons(self) -> list[str]:
+        reasons = []
+        if self.vin_overvoltage:
+            reasons.append("VIN_OV")
+        if self.battery_overcurrent:
+            reasons.append("BAT_OCP")
+        if self.ts_fault_code == 1:
+            reasons.append(self.ts_state)
+        return reasons
+
+    @property
+    def vin_overvoltage(self) -> bool:
+        return bool(self.fault & (1 << 7))
+
+    @property
+    def vin_undervoltage(self) -> bool:
+        return bool(self.fault & (1 << 6))
+
+    @property
     def bat_uvlo(self) -> bool:
         return bool(self.fault & (1 << 5))
+
+    @property
+    def battery_overcurrent(self) -> bool:
+        return bool(self.fault & (1 << 4))
+
+    @property
+    def ts_enabled(self) -> bool:
+        return bool(self.ts_fault & (1 << 7))
+
+    @property
+    def ts_fault_code(self) -> int:
+        return (self.ts_fault >> 5) & 0x03
+
+    @property
+    def ts_state(self) -> str:
+        return {
+            0: "TS_normal",
+            1: "TS_hot_or_cold",
+            2: "TS_cool_current_reduced",
+            3: "TS_warm_voltage_reduced",
+        }[self.ts_fault_code]
 
     @property
     def charge_enabled(self) -> bool:
@@ -263,13 +315,24 @@ class JLinkBatteryInterface:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        resume_error = None
         with contextlib.suppress(Exception):
             self.w32(TWIM1 + TWIM_ENABLE, 0)
         if self.resume and not self.was_halted:
-            with contextlib.suppress(Exception):
-                self.jlink.restart()
+            try:
+                self.resume_target()
+            except Exception as restart_exc:
+                if exc_type is None:
+                    resume_error = restart_exc
+                else:
+                    print(
+                        f"warning: failed to resume application core: {restart_exc}",
+                        file=sys.stderr,
+                    )
         with contextlib.suppress(Exception):
             self.jlink.close()
+        if resume_error is not None:
+            raise resume_error
 
     def probe_description(self) -> str:
         if self.snr is not None:
@@ -280,6 +343,13 @@ class JLinkBatteryInterface:
         with self.jlink_operation("reset and halt target"):
             self.jlink.reset(ms=10, halt=True)
         time.sleep(0.010)
+
+    def resume_target(self) -> None:
+        with self.jlink_operation("resume application core"):
+            self.jlink.restart()
+            time.sleep(0.010)
+            if self.jlink.halted():
+                raise BatteryDebugError("application core remained halted after restart")
 
     def recover_target_state(self) -> None:
         if self.reset_target:
@@ -315,7 +385,7 @@ class JLinkBatteryInterface:
         self.w32(pin_cnf(SDA_PIN), GPIO_PIN_CNF_INPUT_PULLUP_S0D1)
         self.w32(pin_cnf(SCL_PIN), GPIO_PIN_CNF_INPUT_PULLUP_S0D1)
         self.w32(pin_cnf(PG_PIN), GPIO_PIN_CNF_INPUT_PULLUP)
-        self.w32(pin_cnf(CD_PIN), GPIO_PIN_CNF_OUTPUT)
+        self.w32(pin_cnf(CD_PIN), GPIO_PIN_CNF_OUTPUT_WITH_INPUT)
 
     def setup_twim(self, frequency: int = FREQUENCY_400K) -> None:
         self.w32(TWIM1 + TWIM_ENABLE, 0)
@@ -423,13 +493,13 @@ class JLinkBatteryInterface:
             ) from exc
 
     def raw_gpio0_in(self) -> int:
-        return self.r32(GPIO0 + 0x10)
+        return self.r32(GPIO0 + GPIO_IN)
 
     def set_cd(self, raw_value: int) -> None:
         if raw_value:
-            self.w32(GPIO0 + 0x508, 1 << CD_PIN)  # OUTSET
+            self.w32(GPIO0 + GPIO_OUTSET, 1 << CD_PIN)
         else:
-            self.w32(GPIO0 + 0x50C, 1 << CD_PIN)  # OUTCLR
+            self.w32(GPIO0 + GPIO_OUTCLR, 1 << CD_PIN)
         time.sleep(0.001)
 
     def read_fuel_gauge(self, include_gauging_status: bool = False) -> FuelGaugeStatus:
@@ -493,11 +563,10 @@ class JLinkBatteryInterface:
     ) -> None:
         self.set_cd(0)
         writes = [
-            (0x02, 0x00, "clear TS fault bits"),
             (0x03, encode_charge_current(charge_current_ma), "set charge current"),
         ]
         if full_config:
-            writes[1:1] = [(0x05, encode_target_voltage(target_voltage_mv), "set target voltage")]
+            writes[0:0] = [(0x05, encode_target_voltage(target_voltage_mv), "set target voltage")]
             writes.extend(
                 [
                     (
@@ -516,18 +585,19 @@ class JLinkBatteryInterface:
             try:
                 self.bq25120a_write_u8(reg, value)
             except BatteryDebugError as exc:
-                print(
-                    f"warning: failed to {description}; continuing: {exc}",
-                    file=sys.stderr,
-                )
-                self.recover_target_state()
-                break
+                raise BatteryDebugError(f"failed to {description}: {exc}") from exc
 
     def reset_charger(self) -> None:
         # The BQ25120A safety-timer latch is cleared by toggling CD or power.
         self.set_cd(1)
-        time.sleep(0.020)
-        self.set_cd(0)
+        try:
+            if not (self.raw_gpio0_in() & (1 << CD_PIN)):
+                raise BatteryDebugError("charger CD pin did not go high")
+            time.sleep(0.020)
+        finally:
+            self.set_cd(0)
+        if self.raw_gpio0_in() & (1 << CD_PIN):
+            raise BatteryDebugError("charger CD pin did not return low")
         time.sleep(0.020)
         self.bq25120a_write_u8(0x09, 0x80)
         time.sleep(0.010)
@@ -577,6 +647,8 @@ def format_status(fuel: FuelGaugeStatus, charger: ChargerStatus) -> str:
         f"charge_enabled={charger.charge_enabled}",
         f"high_z={charger.high_z}",
         f"VINDPM={charger.vindpm_active}",
+        f"TS_enabled={charger.ts_enabled}",
+        f"TS_state={charger.ts_state}",
         f"CD_stat={charger.cd_stat}",
         f"SYS_enabled={charger.sys_enabled}",
         f"PG_present={charger.pg_present}",
@@ -639,23 +711,87 @@ def open_link(args: argparse.Namespace) -> JLinkBatteryInterface:
     )
 
 
-def try_reset_charger(link: JLinkBatteryInterface) -> None:
-    try:
-        link.reset_charger()
-    except BatteryDebugError as exc:
-        print(
-            f"warning: charger reset sequence failed; continuing with configuration: {exc}",
-            file=sys.stderr,
-        )
-        link.recover_target_state()
+def charger_blocking_reasons(charger: ChargerStatus) -> list[str]:
+    reasons = []
+    if not charger.pg_present:
+        reasons.append("input_power_missing")
+    reasons.extend(charger.blocking_fault_reasons)
+    return reasons
 
 
 def charger_recovery_reason(charger: ChargerStatus, reset_on_fault: bool) -> str | None:
     if charger.timer_fault:
         return "safety timer fault"
-    if reset_on_fault and charger.charging_state_code == 3 and not charger.bat_uvlo:
-        return "charger status fault"
+    if not reset_on_fault:
+        return None
+    if charger.cd_stat or charger.cd_raw:
+        return "charger disable pin is high"
+    if not charger.charge_enabled:
+        return "charging is disabled"
+    if charger.high_z:
+        return "charger is in high-impedance mode"
+    if not charger.sys_enabled:
+        return "charger system output is disabled"
+    known_nonblocking_fault = (
+        charger.bat_uvlo
+        or charger.vin_undervoltage
+        or charger.vindpm_active
+        or charger.ts_fault_code in (2, 3)
+    )
+    if (
+        charger.charging_state_code == 3
+        and not charger.blocking_fault_reasons
+        and not known_nonblocking_fault
+    ):
+        return "unclassified charger status fault"
     return None
+
+
+def reset_and_configure_charger(
+    link: JLinkBatteryInterface, args: argparse.Namespace
+) -> ChargerStatus:
+    last_error = None
+    for attempt in range(2):
+        try:
+            link.reset_charger()
+            link.configure_charger(
+                charge_current_ma=args.charge_current_ma,
+                termination_current_ma=args.termination_current_ma,
+                target_voltage_mv=args.target_voltage_mv,
+                input_limit_ma=args.input_limit_ma,
+                uvlo_mv=args.uvlo_mv,
+                full_config=args.full_charger_config,
+            )
+            time.sleep(0.050)
+            charger = link.read_charger()
+            if charger_blocking_reasons(charger):
+                return charger
+            if charger.timer_fault:
+                raise BatteryDebugError(
+                    "safety timer fault remained set after the CD pulse"
+                )
+            if charger.cd_stat or charger.cd_raw:
+                raise BatteryDebugError("charger CD pin remained high after reset")
+            if not charger.charge_enabled:
+                raise BatteryDebugError("charging remained disabled after configuration")
+            if charger.high_z:
+                raise BatteryDebugError(
+                    "charger remained in high-impedance mode after configuration"
+                )
+            if not charger.sys_enabled:
+                raise BatteryDebugError(
+                    "charger system output remained disabled after reset"
+                )
+            return charger
+        except BatteryDebugError as exc:
+            last_error = exc
+            if attempt == 0:
+                print(
+                    f"warning: charger recovery attempt failed; retrying once: {exc}",
+                    file=sys.stderr,
+                )
+                link.recover_target_state()
+    raise BatteryDebugError(f"charger recovery failed after two attempts: {last_error}")
 
 
 def cmd_voltage(args: argparse.Namespace) -> int:
@@ -682,6 +818,15 @@ def cmd_recover(args: argparse.Namespace) -> int:
         charger = link.read_charger()
         print("initial:", format_status(fuel, charger))
 
+        blockers = charger_blocking_reasons(charger)
+        if blockers:
+            print(
+                "Recovery cannot continue while blocking fault(s) are active: "
+                f"{'+'.join(blockers)}.",
+                file=sys.stderr,
+            )
+            return 1
+
         if fuel.voltage_mv < args.min_safe_mv and not args.allow_deep_discharge:
             print(
                 f"Refusing recovery below {args.min_safe_mv} mV without "
@@ -692,6 +837,7 @@ def cmd_recover(args: argparse.Namespace) -> int:
 
         needs_recovery = fuel.voltage_mv < args.start_below_mv or args.force
         reset_reason = charger_recovery_reason(charger, args.reset_on_fault)
+        available_reset = charger_recovery_reason(charger, True)
         if needs_recovery or reset_reason:
             if args.force:
                 reason = "forced"
@@ -700,15 +846,23 @@ def cmd_recover(args: argparse.Namespace) -> int:
             else:
                 reason = reset_reason
             print(f"resetting/configuring charger ({reason})")
-            try_reset_charger(link)
-            link.configure_charger(
-                charge_current_ma=args.charge_current_ma,
-                termination_current_ma=args.termination_current_ma,
-                target_voltage_mv=args.target_voltage_mv,
-                input_limit_ma=args.input_limit_ma,
-                uvlo_mv=args.uvlo_mv,
-                full_config=args.full_charger_config,
+            charger = reset_and_configure_charger(link, args)
+            print("after reset:", format_status(fuel, charger))
+            blockers = charger_blocking_reasons(charger)
+            if blockers:
+                print(
+                    "Recovery stopped because blocking fault(s) remained after "
+                    f"reset: {'+'.join(blockers)}.",
+                    file=sys.stderr,
+                )
+                return 1
+        elif available_reset:
+            print(
+                f"Recovery stopped: {available_reset}. Rerun with --reset-on-fault "
+                "to allow an automatic charger reset.",
+                file=sys.stderr,
             )
+            return 1
         elif not args.continuous:
             print(
                 f"Voltage is not below {args.start_below_mv} mV; no recovery needed. "
@@ -717,50 +871,94 @@ def cmd_recover(args: argparse.Namespace) -> int:
             return 0
 
         started = time.monotonic()
+        progress_started = started
+        progress_voltage_mv = fuel.voltage_mv
         reset_count = 0
         last_reset = 0.0
-        reset_limit_warned = False
         while True:
             fuel = link.read_fuel_gauge()
             charger = link.read_charger()
             print(time.strftime("%H:%M:%S"), format_status(fuel, charger), flush=True)
 
-            if fuel.voltage_mv >= args.target_mv and not args.continuous:
-                print(f"Target reached: {fuel.voltage_mv} mV >= {args.target_mv} mV")
-                return 0
-
-            if args.max_minutes and (time.monotonic() - started) > args.max_minutes * 60:
-                print("Timed out before reaching target voltage.", file=sys.stderr)
+            blockers = charger_blocking_reasons(charger)
+            if blockers:
+                print(
+                    "Recovery stopped because blocking fault(s) became active: "
+                    f"{'+'.join(blockers)}.",
+                    file=sys.stderr,
+                )
                 return 1
 
             reset_reason = charger_recovery_reason(charger, args.reset_on_fault)
-            cooldown_ok = (time.monotonic() - last_reset) >= args.fault_reset_cooldown_s
-            if reset_reason and cooldown_ok:
-                if reset_count < args.max_fault_resets:
+            available_reset = charger_recovery_reason(charger, True)
+            if available_reset and not reset_reason:
+                print(
+                    f"Recovery stopped: {available_reset}. Rerun with "
+                    "--reset-on-fault to allow an automatic charger reset.",
+                    file=sys.stderr,
+                )
+                return 1
+
+            if reset_reason:
+                cooldown_ok = (
+                    time.monotonic() - last_reset
+                ) >= args.fault_reset_cooldown_s
+                if cooldown_ok:
+                    if reset_count >= args.max_fault_resets:
+                        print(
+                            f"Recovery stopped: {reset_reason} is still present and "
+                            f"the reset limit ({args.max_fault_resets}) was reached.",
+                            file=sys.stderr,
+                        )
+                        return 1
                     reset_count += 1
                     last_reset = time.monotonic()
-                    reset_limit_warned = False
                     print(
-                        f"{reset_reason} seen; reset {reset_count}/{args.max_fault_resets}"
+                        f"{reset_reason} seen; reset "
+                        f"{reset_count}/{args.max_fault_resets}"
                     )
-                    try_reset_charger(link)
-                    link.configure_charger(
-                        charge_current_ma=args.charge_current_ma,
-                        termination_current_ma=args.termination_current_ma,
-                        target_voltage_mv=args.target_voltage_mv,
-                        input_limit_ma=args.input_limit_ma,
-                        uvlo_mv=args.uvlo_mv,
-                        full_config=args.full_charger_config,
-                    )
-                elif not reset_limit_warned:
-                    print(
-                        f"warning: {reset_reason} still present but reset limit "
-                        f"({args.max_fault_resets}) has been reached. Check the "
-                        "device temperature, then rerun recovery or increase "
-                        "--max-fault-resets if continued supervised recovery is needed.",
-                        file=sys.stderr,
-                    )
-                    reset_limit_warned = True
+                    charger = reset_and_configure_charger(link, args)
+                    print("after reset:", format_status(fuel, charger))
+                    blockers = charger_blocking_reasons(charger)
+                    if blockers:
+                        print(
+                            "Recovery stopped because blocking fault(s) remained "
+                            f"after reset: {'+'.join(blockers)}.",
+                            file=sys.stderr,
+                        )
+                        return 1
+                    progress_started = time.monotonic()
+                    progress_voltage_mv = fuel.voltage_mv
+                time.sleep(args.interval_s)
+                continue
+
+            if fuel.voltage_mv >= args.target_mv and not args.continuous:
+                print(
+                    f"Target reached with no blocking charger fault: "
+                    f"{fuel.voltage_mv} mV >= {args.target_mv} mV. "
+                    "Restarting the application core."
+                )
+                return 0
+
+            if args.max_minutes and (time.monotonic() - started) > args.max_minutes * 60:
+                print("Recovery monitoring timed out.", file=sys.stderr)
+                return 1
+
+            if fuel.voltage_mv >= progress_voltage_mv + args.stall_min_rise_mv:
+                progress_started = time.monotonic()
+                progress_voltage_mv = fuel.voltage_mv
+            elif (
+                args.stall_minutes
+                and fuel.voltage_mv < args.target_mv
+                and (time.monotonic() - progress_started) > args.stall_minutes * 60
+            ):
+                print(
+                    "Recovery stalled: voltage did not rise by at least "
+                    f"{args.stall_min_rise_mv} mV within {args.stall_minutes:g} "
+                    "minute(s). Check the USB supply, battery, and device temperature.",
+                    file=sys.stderr,
+                )
+                return 1
 
             time.sleep(args.interval_s)
 
@@ -802,6 +1000,18 @@ def build_parser() -> argparse.ArgumentParser:
     recover.add_argument("--uvlo-mv", type=int, default=2500)
     recover.add_argument("--interval-s", type=float, default=10.0)
     recover.add_argument("--max-minutes", type=float, default=0.0)
+    recover.add_argument(
+        "--stall-minutes",
+        type=float,
+        default=10.0,
+        help="Stop if voltage makes no meaningful progress for this long; 0 disables.",
+    )
+    recover.add_argument(
+        "--stall-min-rise-mv",
+        type=int,
+        default=10,
+        help="Voltage rise that resets the stall timer.",
+    )
     recover.add_argument("--max-fault-resets", "--max-timer-resets", type=int, default=3)
     recover.add_argument("--fault-reset-cooldown-s", type=float, default=30.0)
     recover.add_argument("--continuous", action="store_true")

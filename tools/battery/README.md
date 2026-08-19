@@ -56,8 +56,9 @@ Read fuel-gauge and charger state:
 python3 tools/battery/battery_debug.py status --snr [YOUR_JLINK_SERIAL_NUMBER]
 ```
 
-This prints voltage, charger state, charger fault bits, power-good state, charge
-enable/high-Z state, temperature, state of charge, and related raw registers.
+This prints voltage, charger state, decoded charger and temperature faults,
+power-good state, charge enable/high-Z state, temperature, state of charge, and
+related raw registers.
 
 The charger status register has a few latched bits that are easy to confuse:
 
@@ -70,6 +71,10 @@ The charger status register has a few latched bits that are easy to confuse:
 - `charger_ctrl=0xd9` decodes as charger fault with `timer_fault=True`; recovery
   should clear it by toggling `CD` and reconfiguring the charger.
 
+The tool also names `VIN_OV`, `VIN_UV`, `BAT_UVLO`, `BAT_OCP`, VINDPM, and the
+three charger temperature states. `ts_fault=0x88` means charger-side temperature
+monitoring is enabled and currently normal; it is not a temperature fault.
+
 ## Low-Battery Recovery
 
 Configure charging if the battery is below the start threshold:
@@ -77,6 +82,17 @@ Configure charging if the battery is below the start threshold:
 ```bash
 python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER]
 ```
+
+For automatic recovery of resettable charger faults, use:
+
+```bash
+python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] --reset-on-fault
+```
+
+The application core remains halted while recovery is running. Recovery exits
+after the battery reaches `--target-mv` (3300 mV by default) with no blocking
+fault, then verifies that the application core resumed. It also stops if the
+voltage fails to rise by at least 10 mV within 10 minutes by default.
 
 Force charger reset/configuration even if the voltage is already above the
 threshold:
@@ -92,9 +108,17 @@ python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] 
 ```
 
 During recovery, safety-timer faults are reset even without `--reset-on-fault`.
-The reset sequence toggles the charger `CD` pin, then restores the charger
-configuration. If the reset limit is reached, the tool prints a warning instead
-of silently continuing with charging stopped.
+The reset sequence pulses the charger `CD` pin, verifies that it moved high and
+back low, resets the charger registers, restores the charger configuration, and
+checks that the timer fault cleared. A failed sequence is retried once. If a
+fault returns until `--max-fault-resets` is reached, recovery stops with an
+error instead of silently continuing with charging stopped.
+
+`BAT_UVLO`, VINDPM, and the cool/warm temperature derating states do not trigger
+repeated resets; recovery monitors them while voltage progresses. Missing input
+power, input overvoltage, battery overcurrent, and a hot/cold temperature
+suspension stop recovery immediately because software cannot safely clear the
+underlying electrical condition.
 
 ## Useful Options
 
@@ -104,6 +128,9 @@ of silently continuing with charging stopped.
 - `--target-mv 3300`: recovery exits after reaching this voltage unless
   `--continuous` is set.
 - `--max-fault-resets 3`: maximum automatic charger resets during monitoring.
+- `--stall-minutes 10`: stop after this long without meaningful voltage
+  progress; use `0` to disable.
+- `--stall-min-rise-mv 10`: voltage increase that resets the stall timer.
 - `--allow-deep-discharge`: allow recovery below the safety threshold. Use only
   with physical supervision.
 
@@ -112,5 +139,15 @@ of silently continuing with charging stopped.
 - Reading voltage/status is non-destructive apart from briefly halting the CPU.
 - Recovery writes charger registers and drives the charger `CD` pin low to allow
   charging.
+- `--continuous` keeps the application core halted and continues monitoring
+  after the target voltage; stop the command to resume the firmware.
 - If SWD cannot connect, the battery may still be too low or the target may not
   have enough power for debug access.
+
+## Tests
+
+Run the battery-tool tests without connecting hardware:
+
+```bash
+python3 -m unittest discover -s tools/battery -p 'test_*.py' -v
+```
