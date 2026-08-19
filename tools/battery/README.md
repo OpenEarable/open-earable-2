@@ -94,6 +94,9 @@ after the battery reaches `--target-mv` (3300 mV by default) with no blocking
 fault, then verifies that the application core resumed. It also stops if the
 voltage fails to rise by at least 10 mV within 10 minutes by default.
 
+Pressing Ctrl-C performs the same probe cleanup and resumes the application core
+unless `--no-resume` was specified.
+
 Force charger reset/configuration even if the voltage is already above the
 threshold:
 
@@ -123,6 +126,8 @@ underlying electrical condition.
 ## Useful Options
 
 - `--speed-khz 1000`: SWD speed.
+- `--interval-s 10`: status polling interval. Values above 30 seconds are
+  rejected so the BQ25120A's 50-second host watchdog remains serviced.
 - `--no-resume`: leave the app core halted after the operation.
 - `--start-below-mv 3000`: recovery starts below this voltage.
 - `--target-mv 3300`: recovery exits after reaching this voltage unless
@@ -143,6 +148,9 @@ underlying electrical condition.
   after the target voltage; stop the command to resume the firmware.
 - If SWD cannot connect, the battery may still be too low or the target may not
   have enough power for debug access.
+- TWIM errors identify address/data NACKs. A timeout reports the live SCL/SDA
+  levels so a stuck-low bus can be distinguished from an unresponsive battery
+  IC.
 
 ## Tests
 
