@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import dataclasses
+import math
 import sys
 import time
 from typing import Iterable
@@ -32,6 +33,7 @@ TWIM1 = 0x50009000
 GPIO0 = 0x50842500
 SCRATCH_TX = 0x20070000
 SCRATCH_RX = 0x20070080
+SCRATCH_BUFFER_SIZE = SCRATCH_RX - SCRATCH_TX
 
 SDA_PIN = 21
 SCL_PIN = 24
@@ -78,6 +80,10 @@ EVENTS_LASTTX = 0x160
 SHORT_LASTTX_STARTRX = 1 << 7
 SHORT_LASTTX_STOP = 1 << 8
 SHORT_LASTRX_STOP = 1 << 12
+
+TWIM_ERROR_OVERRUN = 1 << 0
+TWIM_ERROR_ANACK = 1 << 1
+TWIM_ERROR_DNACK = 1 << 2
 
 
 class BatteryDebugError(RuntimeError):
@@ -144,6 +150,22 @@ def u16le(data: Iterable[int]) -> int:
 def i16le(data: Iterable[int]) -> int:
     raw = bytes(data)
     return int.from_bytes(raw[:2], "little", signed=True)
+
+
+def describe_twim_error(error_source: int) -> str:
+    reasons = []
+    if error_source & TWIM_ERROR_OVERRUN:
+        reasons.append("EasyDMA overrun")
+    if error_source & TWIM_ERROR_ANACK:
+        reasons.append("address NACK")
+    if error_source & TWIM_ERROR_DNACK:
+        reasons.append("data NACK")
+    unknown = error_source & ~(
+        TWIM_ERROR_OVERRUN | TWIM_ERROR_ANACK | TWIM_ERROR_DNACK
+    )
+    if unknown:
+        reasons.append(f"unknown bits 0x{unknown:08x}")
+    return "+".join(reasons) if reasons else "no error source reported"
 
 
 def pin_cnf(pin: int) -> int:
@@ -280,45 +302,67 @@ class ChargerStatus:
 class JLinkBatteryInterface:
     def __init__(
         self,
-        snr: str | None,
+        snr: int | str | None,
         speed_khz: int,
         resume: bool = True,
         reset_target: bool = False,
     ):
-        self.snr = int(snr) if snr else None
+        self.snr = int(snr) if snr is not None else None
         self.speed_khz = speed_khz
         self.resume = resume
         self.reset_target = reset_target
         self.jlink = pylink.JLink()
         self.was_halted = False
+        self.probe_open = False
+        self.target_connected = False
+        self.resume_on_exit = False
 
     def __enter__(self) -> "JLinkBatteryInterface":
-        with self.jlink_operation(f"open probe {self.probe_description()}"):
-            self.jlink.open(serial_no=self.snr)
-        with self.jlink_operation("select SWD interface"):
-            self.jlink.set_tif(JLinkInterfaces.SWD)
-        with self.jlink_operation(
-            f"connect to {APP_CORE_DEVICE} at {self.speed_khz} kHz"
-        ):
-            self.jlink.connect(APP_CORE_DEVICE, speed=self.speed_khz, verbose=False)
-        if self.reset_target:
-            self.reset_and_halt_target()
-            self.was_halted = False
-        else:
-            with self.jlink_operation("read target halt state"):
-                self.was_halted = bool(self.jlink.halted())
-        if not self.was_halted and not self.reset_target:
-            with self.jlink_operation("halt target"):
-                self.jlink.halt()
-        self.setup_gpio()
-        self.setup_twim()
-        return self
+        try:
+            with self.jlink_operation(f"open probe {self.probe_description()}"):
+                self.jlink.open(serial_no=self.snr)
+            self.probe_open = True
+            with self.jlink_operation("select SWD interface"):
+                self.jlink.set_tif(JLinkInterfaces.SWD)
+            with self.jlink_operation(
+                f"connect to {APP_CORE_DEVICE} at {self.speed_khz} kHz"
+            ):
+                self.jlink.connect(APP_CORE_DEVICE, speed=self.speed_khz, verbose=False)
+            self.target_connected = True
+            if self.reset_target:
+                self.resume_on_exit = True
+                self.reset_and_halt_target()
+                self.was_halted = False
+            else:
+                with self.jlink_operation("read target halt state"):
+                    self.was_halted = bool(self.jlink.halted())
+                if not self.was_halted:
+                    self.resume_on_exit = True
+                    with self.jlink_operation("halt target"):
+                        self.jlink.halt()
+            self.setup_gpio()
+            self.setup_twim()
+            return self
+        except BaseException:
+            self.cleanup_after_enter_failure()
+            raise
+
+    def cleanup_after_enter_failure(self) -> None:
+        if self.target_connected:
+            with contextlib.suppress(Exception):
+                self.w32(TWIM1 + TWIM_ENABLE, 0)
+        if self.resume and self.resume_on_exit:
+            with contextlib.suppress(Exception):
+                self.resume_target()
+        with contextlib.suppress(Exception):
+            self.jlink.close()
+        self.probe_open = False
 
     def __exit__(self, exc_type, exc, tb) -> None:
         resume_error = None
         with contextlib.suppress(Exception):
             self.w32(TWIM1 + TWIM_ENABLE, 0)
-        if self.resume and not self.was_halted:
+        if self.resume and self.resume_on_exit:
             try:
                 self.resume_target()
             except Exception as restart_exc:
@@ -329,8 +373,10 @@ class JLinkBatteryInterface:
                         f"warning: failed to resume application core: {restart_exc}",
                         file=sys.stderr,
                     )
-        with contextlib.suppress(Exception):
-            self.jlink.close()
+        if self.probe_open:
+            with contextlib.suppress(Exception):
+                self.jlink.close()
+            self.probe_open = False
         if resume_error is not None:
             raise resume_error
 
@@ -366,7 +412,12 @@ class JLinkBatteryInterface:
 
     def r32(self, addr: int) -> int:
         with self.jlink_operation(f"read 32-bit word at 0x{addr:08x}"):
-            return self.jlink.memory_read32(addr, 1)[0]
+            values = self.jlink.memory_read32(addr, 1)
+        if len(values) != 1:
+            raise BatteryDebugError(
+                f"J-Link returned {len(values)} words while reading 0x{addr:08x}; expected 1"
+            )
+        return values[0]
 
     def w32(self, addr: int, value: int) -> None:
         with self.jlink_operation(f"write 32-bit word at 0x{addr:08x}"):
@@ -374,7 +425,13 @@ class JLinkBatteryInterface:
 
     def r8(self, addr: int, count: int) -> list[int]:
         with self.jlink_operation(f"read {count} byte(s) at 0x{addr:08x}"):
-            return list(self.jlink.memory_read8(addr, count))
+            values = list(self.jlink.memory_read8(addr, count))
+        if len(values) != count:
+            raise BatteryDebugError(
+                f"J-Link returned {len(values)} byte(s) while reading 0x{addr:08x}; "
+                f"expected {count}"
+            )
+        return values
 
     def w8(self, addr: int, data: Iterable[int]) -> None:
         payload = list(data)
@@ -403,23 +460,52 @@ class JLinkBatteryInterface:
     def wait_twim(self, timeout_s: float = 0.050) -> None:
         deadline = time.monotonic() + timeout_s
         while time.monotonic() < deadline:
-            if self.r32(TWIM1 + EVENTS_STOPPED):
-                return
             if self.r32(TWIM1 + EVENTS_ERROR):
                 err = self.r32(TWIM1 + TWIM_ERRORSRC)
                 amount_tx = self.r32(TWIM1 + TWIM_TXD_AMOUNT)
                 amount_rx = self.r32(TWIM1 + TWIM_RXD_AMOUNT)
+                stopped = self.stop_twim()
                 raise BatteryDebugError(
-                    f"TWIM error errsrc=0x{err:08x} tx_amount={amount_tx} rx_amount={amount_rx}"
+                    f"TWIM error ({describe_twim_error(err)}; "
+                    f"errsrc=0x{err:08x}, tx_amount={amount_tx}, "
+                    f"rx_amount={amount_rx}, stop={'ok' if stopped else 'timed out'})"
                 )
+            if self.r32(TWIM1 + EVENTS_STOPPED):
+                return
             time.sleep(0.001)
+        stopped = self.stop_twim()
+        err = self.r32(TWIM1 + TWIM_ERRORSRC)
+        amount_tx = self.r32(TWIM1 + TWIM_TXD_AMOUNT)
+        amount_rx = self.r32(TWIM1 + TWIM_RXD_AMOUNT)
+        gpio_in = self.raw_gpio0_in()
+        scl = "high" if gpio_in & (1 << SCL_PIN) else "low"
+        sda = "high" if gpio_in & (1 << SDA_PIN) else "low"
+        raise BatteryDebugError(
+            f"TWIM transaction timed out after {timeout_s * 1000:g} ms "
+            f"(SCL={scl}, SDA={sda}, {describe_twim_error(err)}, "
+            f"tx_amount={amount_tx}, rx_amount={amount_rx}, "
+            f"stop={'ok' if stopped else 'timed out'}). "
+            "A low SCL/SDA level indicates a stuck I2C bus; high lines usually "
+            "mean the addressed battery IC is not responding."
+        )
+
+    def stop_twim(self, timeout_s: float = 0.010) -> bool:
         self.w32(TWIM1 + TASKS_STOP, 1)
-        raise BatteryDebugError("TWIM transaction timed out")
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            if self.r32(TWIM1 + EVENTS_STOPPED):
+                return True
+            time.sleep(0.001)
+        return False
 
     def i2c_write(self, addr: int, data: Iterable[int]) -> None:
         payload = bytes(data)
         if not payload:
             raise ValueError("i2c_write payload must not be empty")
+        if len(payload) > SCRATCH_BUFFER_SIZE:
+            raise ValueError(
+                f"i2c_write payload exceeds {SCRATCH_BUFFER_SIZE}-byte scratch buffer"
+            )
         self.setup_twim()
         self.w8(SCRATCH_TX, payload)
         self.clear_twim_events()
@@ -429,20 +515,25 @@ class JLinkBatteryInterface:
         self.w32(TWIM1 + TWIM_RXD_PTR, SCRATCH_RX)
         self.w32(TWIM1 + TWIM_RXD_MAXCNT, 0)
         self.w32(TWIM1 + TWIM_SHORTS, SHORT_LASTTX_STOP)
-        self.w32(TWIM1 + TASKS_STARTTX, 1)
-        self.wait_twim()
-        sent = self.r32(TWIM1 + TWIM_TXD_AMOUNT)
-        self.w32(TWIM1 + TWIM_SHORTS, 0)
+        try:
+            self.w32(TWIM1 + TASKS_STARTTX, 1)
+            self.wait_twim()
+            sent = self.r32(TWIM1 + TWIM_TXD_AMOUNT)
+        finally:
+            self.w32(TWIM1 + TWIM_SHORTS, 0)
         if sent != len(payload):
             raise BatteryDebugError(f"short I2C write to 0x{addr:02x}: sent {sent}/{len(payload)}")
 
     def i2c_read_reg(self, addr: int, reg: int, count: int) -> list[int]:
         if count <= 0:
             raise ValueError("read count must be positive")
+        if count > SCRATCH_BUFFER_SIZE:
+            raise ValueError(
+                f"read count exceeds {SCRATCH_BUFFER_SIZE}-byte scratch buffer"
+            )
         self.setup_twim()
-        sentinel = [((0xA5 ^ addr ^ reg ^ i) & 0xFF) for i in range(count)]
         self.w8(SCRATCH_TX, [reg & 0xFF])
-        self.w8(SCRATCH_RX, sentinel)
+        self.w8(SCRATCH_RX, [0] * count)
         self.clear_twim_events()
         self.w32(TWIM1 + TWIM_ADDRESS, addr)
         self.w32(TWIM1 + TWIM_TXD_PTR, SCRATCH_TX)
@@ -450,19 +541,21 @@ class JLinkBatteryInterface:
         self.w32(TWIM1 + TWIM_RXD_PTR, SCRATCH_RX)
         self.w32(TWIM1 + TWIM_RXD_MAXCNT, count)
         self.w32(TWIM1 + TWIM_SHORTS, SHORT_LASTTX_STARTRX | SHORT_LASTRX_STOP)
-        self.w32(TWIM1 + TASKS_STARTTX, 1)
-        self.wait_twim()
-        rx_amount = self.r32(TWIM1 + TWIM_RXD_AMOUNT)
-        self.w32(TWIM1 + TWIM_SHORTS, 0)
+        try:
+            self.w32(TWIM1 + TASKS_STARTTX, 1)
+            self.wait_twim()
+            rx_amount = self.r32(TWIM1 + TWIM_RXD_AMOUNT)
+            last_rx = self.r32(TWIM1 + EVENTS_LASTRX)
+        finally:
+            self.w32(TWIM1 + TWIM_SHORTS, 0)
+        if not last_rx:
+            raise BatteryDebugError(
+                f"I2C read from 0x{addr:02x} register 0x{reg:02x} did not "
+                "signal LASTRX"
+            )
         if rx_amount != count:
             raise BatteryDebugError(f"short I2C read from 0x{addr:02x}: got {rx_amount}/{count}")
-        data = self.r8(SCRATCH_RX, count)
-        if data == sentinel:
-            raise BatteryDebugError(
-                f"I2C read from 0x{addr:02x} register 0x{reg:02x} did not update "
-                "the RX buffer; refusing to use stale scratch RAM"
-            )
-        return data
+        return self.r8(SCRATCH_RX, count)
 
     def bq27220_u16(self, reg: int) -> int:
         try:
@@ -589,8 +682,8 @@ class JLinkBatteryInterface:
 
     def reset_charger(self) -> None:
         # The BQ25120A safety-timer latch is cleared by toggling CD or power.
-        self.set_cd(1)
         try:
+            self.set_cd(1)
             if not (self.raw_gpio0_in() & (1 << CD_PIN)):
                 raise BatteryDebugError("charger CD pin did not go high")
             time.sleep(0.020)
@@ -678,9 +771,62 @@ def format_status(fuel: FuelGaugeStatus, charger: ChargerStatus) -> str:
     return ", ".join(fields)
 
 
+def positive_int_arg(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be greater than zero")
+    return parsed
+
+
+def nonnegative_int_arg(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be zero or greater")
+    return parsed
+
+
+def positive_float_arg(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a number") from exc
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a finite number greater than zero")
+    return parsed
+
+
+def nonnegative_float_arg(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a number") from exc
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError("must be a finite number zero or greater")
+    return parsed
+
+
+def monitoring_interval_arg(value: str) -> float:
+    parsed = positive_float_arg(value)
+    if parsed > 30:
+        raise argparse.ArgumentTypeError(
+            "must be 30 seconds or less to service the charger's watchdog"
+        )
+    return parsed
+
+
 def add_common_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--snr", help="J-Link serial number, for example 261010806")
-    parser.add_argument("--speed-khz", type=int, default=DEFAULT_SPEED_KHZ)
+    parser.add_argument(
+        "--snr",
+        type=positive_int_arg,
+        help="J-Link serial number, for example 261010806",
+    )
+    parser.add_argument("--speed-khz", type=positive_int_arg, default=DEFAULT_SPEED_KHZ)
     reset_group = parser.add_mutually_exclusive_group()
     reset_group.add_argument(
         "--reset-target",
@@ -781,6 +927,13 @@ def reset_and_configure_charger(
             if not charger.sys_enabled:
                 raise BatteryDebugError(
                     "charger system output remained disabled after reset"
+                )
+            expected_charge_ctrl = encode_charge_current(args.charge_current_ma)
+            if charger.charge_ctrl != expected_charge_ctrl:
+                raise BatteryDebugError(
+                    "charger current configuration did not stick: "
+                    f"read 0x{charger.charge_ctrl:02x}, expected "
+                    f"0x{expected_charge_ctrl:02x}"
                 )
             return charger
         except BatteryDebugError as exc:
@@ -899,10 +1052,24 @@ def cmd_recover(args: argparse.Namespace) -> int:
                 )
                 return 1
 
+            if reset_reason is None and fuel.voltage_mv >= args.target_mv and not args.continuous:
+                if args.no_resume:
+                    action = "Leaving the application core halted (--no-resume)."
+                else:
+                    action = "Restarting the application core."
+                print(
+                    f"Target reached with no blocking charger fault: "
+                    f"{fuel.voltage_mv} mV >= {args.target_mv} mV. {action}"
+                )
+                return 0
+
+            now = time.monotonic()
+            if args.max_minutes and (now - started) > args.max_minutes * 60:
+                print("Recovery monitoring timed out.", file=sys.stderr)
+                return 1
+
             if reset_reason:
-                cooldown_ok = (
-                    time.monotonic() - last_reset
-                ) >= args.fault_reset_cooldown_s
+                cooldown_ok = (now - last_reset) >= args.fault_reset_cooldown_s
                 if cooldown_ok:
                     if reset_count >= args.max_fault_resets:
                         print(
@@ -932,18 +1099,7 @@ def cmd_recover(args: argparse.Namespace) -> int:
                 time.sleep(args.interval_s)
                 continue
 
-            if fuel.voltage_mv >= args.target_mv and not args.continuous:
-                print(
-                    f"Target reached with no blocking charger fault: "
-                    f"{fuel.voltage_mv} mV >= {args.target_mv} mV. "
-                    "Restarting the application core."
-                )
-                return 0
-
-            if args.max_minutes and (time.monotonic() - started) > args.max_minutes * 60:
-                print("Recovery monitoring timed out.", file=sys.stderr)
-                return 1
-
+            progress_voltage_mv = min(progress_voltage_mv, fuel.voltage_mv)
             if fuel.voltage_mv >= progress_voltage_mv + args.stall_min_rise_mv:
                 progress_started = time.monotonic()
                 progress_voltage_mv = fuel.voltage_mv
@@ -990,30 +1146,39 @@ def build_parser() -> argparse.ArgumentParser:
         "recover", help="Configure/reset charging and optionally monitor progress."
     )
     add_common_args(recover)
-    recover.add_argument("--start-below-mv", type=int, default=3000)
-    recover.add_argument("--target-mv", type=int, default=3300)
-    recover.add_argument("--min-safe-mv", type=int, default=2500)
-    recover.add_argument("--charge-current-ma", type=int, default=110)
-    recover.add_argument("--termination-current-ma", type=float, default=10.0)
-    recover.add_argument("--target-voltage-mv", type=int, default=4300)
-    recover.add_argument("--input-limit-ma", type=int, default=200)
-    recover.add_argument("--uvlo-mv", type=int, default=2500)
-    recover.add_argument("--interval-s", type=float, default=10.0)
-    recover.add_argument("--max-minutes", type=float, default=0.0)
+    recover.add_argument("--start-below-mv", type=positive_int_arg, default=3000)
+    recover.add_argument("--target-mv", type=positive_int_arg, default=3300)
+    recover.add_argument("--min-safe-mv", type=positive_int_arg, default=2500)
+    recover.add_argument("--charge-current-ma", type=positive_int_arg, default=110)
+    recover.add_argument(
+        "--termination-current-ma", type=positive_float_arg, default=10.0
+    )
+    recover.add_argument("--target-voltage-mv", type=positive_int_arg, default=4300)
+    recover.add_argument("--input-limit-ma", type=positive_int_arg, default=200)
+    recover.add_argument("--uvlo-mv", type=positive_int_arg, default=2500)
+    recover.add_argument("--interval-s", type=monitoring_interval_arg, default=10.0)
+    recover.add_argument("--max-minutes", type=nonnegative_float_arg, default=0.0)
     recover.add_argument(
         "--stall-minutes",
-        type=float,
+        type=nonnegative_float_arg,
         default=10.0,
         help="Stop if voltage makes no meaningful progress for this long; 0 disables.",
     )
     recover.add_argument(
         "--stall-min-rise-mv",
-        type=int,
+        type=positive_int_arg,
         default=10,
         help="Voltage rise that resets the stall timer.",
     )
-    recover.add_argument("--max-fault-resets", "--max-timer-resets", type=int, default=3)
-    recover.add_argument("--fault-reset-cooldown-s", type=float, default=30.0)
+    recover.add_argument(
+        "--max-fault-resets",
+        "--max-timer-resets",
+        type=nonnegative_int_arg,
+        default=3,
+    )
+    recover.add_argument(
+        "--fault-reset-cooldown-s", type=nonnegative_float_arg, default=30.0
+    )
     recover.add_argument("--continuous", action="store_true")
     recover.add_argument("--reset-on-fault", action="store_true")
     recover.add_argument("--force", action="store_true")
@@ -1039,11 +1204,21 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         return args.func(args)
+    except KeyboardInterrupt:
+        print("battery_debug: interrupted.", file=sys.stderr)
+        return 130
     except BatteryDebugError as exc:
         print(f"battery_debug: {exc}", file=sys.stderr)
         return 1
     except pylink.errors.JLinkException as exc:
         print(f"battery_debug: {format_jlink_failure('operation', exc)}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(
+            f"battery_debug: operating-system error: {exc}. Check that J-Link "
+            "software 8.82 is installed and the probe is available.",
+            file=sys.stderr,
+        )
         return 1
 
 
