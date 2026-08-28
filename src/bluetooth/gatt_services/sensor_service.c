@@ -447,6 +447,27 @@ int init_sensor_config_status() {
 	return 0;
 }
 
+static int notify_sensor_config_status(void)
+{
+	if (!sensor_config_status_ntfy_enabled) {
+		return 0;
+	}
+
+	LOG_DBG("Sensor config status notification, notifying %zu active sensor configs", active_sensor_configs_size);
+	struct bt_gatt_notify_params params = {
+		.attr = &sensor_service.attrs[7],
+		.data = active_sensor_configs,
+		.len = sizeof(struct sensor_config) * active_sensor_configs_size,
+	};
+	int ret = bt_gatt_notify_cb(NULL, &params);
+
+	if (ret) {
+		LOG_ERR("Failed to notify sensor config status, error code: %d", ret);
+	}
+
+	return ret;
+}
+
 int set_sensor_config_status(struct sensor_config config) {
 	LOG_DBG("Setting sensor config status for sensorId: %i", config.sensorId);
 
@@ -474,18 +495,15 @@ int set_sensor_config_status(struct sensor_config config) {
 		active_sensor_configs[active_sensor_configs_size - 1] = config;
 	}
 
-	if (sensor_config_status_ntfy_enabled) {
-		LOG_DBG("Sensor config status notification, notifying %zu active sensor configs", active_sensor_configs_size);
-		struct bt_gatt_notify_params params = {
-            .attr   = &sensor_service.attrs[7],
-            .data   = active_sensor_configs,
-            .len    = sizeof(struct sensor_config) * active_sensor_configs_size,
-        };
-        int ret = bt_gatt_notify_cb(NULL, &params);
+	return notify_sensor_config_status();
+}
 
-		if (ret) {
-			LOG_ERR("Failed to notify sensor config status, error code: %d", ret);
-			return ret;
+int clear_sensor_config_storage_status(uint8_t sensor_id)
+{
+	for (size_t i = 0; i < active_sensor_configs_size; i++) {
+		if (active_sensor_configs[i].sensorId == sensor_id) {
+			active_sensor_configs[i].storageOptions &= ~DATA_STORAGE;
+			return notify_sensor_config_status();
 		}
 	}
 

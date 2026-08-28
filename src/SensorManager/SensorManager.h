@@ -27,6 +27,8 @@ void start_sensor_manager();
 
 void stop_sensor_manager();
 
+void sensor_manager_sd_card_removed();
+
 void config_sensor(struct sensor_config * config);
 
 #ifdef __cplusplus

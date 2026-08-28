@@ -37,6 +37,8 @@ const char *get_sensor_recording_name();
 
 int set_sensor_config_status(struct sensor_config config);
 
+int clear_sensor_config_storage_status(uint8_t sensor_id);
+
 void temp_disable_notifies(bool disable);
 
 #ifdef __cplusplus

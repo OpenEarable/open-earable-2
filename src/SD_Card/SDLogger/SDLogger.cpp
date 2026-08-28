@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include "audio_datapath.h"
+#include "SDMassStorage.h"
 
 #include "StateIndicator.h"
 
@@ -111,7 +112,11 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 	if (msg->sd) {
         int ret = sdlogger.write_sensor_data(msg->data);
         if (ret < 0) {
-            LOG_WRN("Failed to enqueue sensor data for SD: %d", ret);
+            if (ret == -ENODEV) {
+                LOG_DBG("Dropping SD sample because logger is not open");
+            } else {
+                LOG_WRN("Failed to enqueue sensor data for SD: %d", ret);
+            }
         }
 	}
 }
@@ -122,6 +127,7 @@ void sd_listener_callback(const struct zbus_channel *chan)
     const struct sd_msg * sd_msg_event = (const sd_msg *)zbus_chan_const_msg(chan);
 
     if (sd_msg_event->removed) {
+        sensor_manager_sd_card_removed();
         sdlogger.abort_recording();
     }
 }
@@ -308,11 +314,23 @@ int SDLogger::begin(const std::string& filename) {
         return -EBUSY;
     }
 
+    if (sd_mass_storage_host_active()) {
+        LOG_WRN("Cannot start SD recording while USB mass storage is active");
+        return -EBUSY;
+    }
+
+    ret = sd_mass_storage_recording_starting();
+    if (ret < 0) {
+        state_indicator.set_sd_state(SD_FAULT);
+        return ret;
+    }
+
     if (!sd_card->is_mounted()) {
         ret = sd_card->mount();
         if (ret < 0) {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to mount sd card: %d", ret);
+            sd_mass_storage_recording_aborted();
             return ret;
         }
     }
@@ -607,6 +625,10 @@ int SDLogger::end() {
     is_open = false;
     current_file.clear();
     atomic_clear(&g_stop_writing);
+
+    if (was_open) {
+        sd_mass_storage_recording_stopped();
+    }
 
     return was_open ? first_error : -ENODEV;
 }

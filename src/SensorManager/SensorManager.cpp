@@ -71,6 +71,7 @@ struct k_thread sensor_publish;
 static k_tid_t sensor_pub_id;
 
 static struct k_work config_work;
+static struct k_work sd_removed_work;
 
 struct k_work_q sensor_work_q;
 
@@ -79,6 +80,7 @@ K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE)
 int active_sensors = 0;
 
 static void config_work_handler(struct k_work *work);
+static void sd_removed_work_handler(struct k_work *work);
 
 void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
@@ -118,6 +120,7 @@ void init_sensor_manager() {
                    &config_work_q_config);
 
 	k_work_init(&config_work, config_work_handler);
+	k_work_init(&sd_removed_work, sd_removed_work_handler);
 
 	k_poll_signal_init(&sensor_manager_sig);
 
@@ -176,6 +179,18 @@ void stop_sensor_manager() {
 	//k_msgq_purge(&config_queue);
 }
 
+void sensor_manager_sd_card_removed()
+{
+	Baro::sensor.sd_logging(false);
+	IMU::sensor.sd_logging(false);
+	PPG::sensor.sd_logging(false);
+	Temp::sensor.sd_logging(false);
+	BoneConduction::sensor.sd_logging(false);
+	Microphone::sensor.sd_logging(false);
+
+	k_work_submit_to_queue(&config_work_q, &sd_removed_work);
+}
+
 EdgeMlSensor * get_sensor(enum sensor_id id) {
 	switch (id) {
 	case ID_IMU:
@@ -228,29 +243,51 @@ static void config_work_handler(struct k_work *work) {
 		}
 	}
 
-	sensor->sd_logging(config.storageOptions & DATA_STORAGE);
-	sensor->ble_stream(config.storageOptions & DATA_STREAMING);
+	bool storage_enabled = (config.storageOptions & DATA_STORAGE) != 0;
+	const bool streaming_enabled = (config.storageOptions & DATA_STREAMING) != 0;
+	bool started_logger = false;
 
-	if (config.storageOptions & (DATA_STORAGE | DATA_STREAMING)) {
+	if (storage_enabled && !sdlogger.is_active()) {
+		const char *recording_name_prefix = get_sensor_recording_name();
+		LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
+
+		std::string filename = recording_name_prefix + std::to_string(micros());
+		ret = sdlogger.begin(filename);
+		if (ret == 0) {
+			started_logger = true;
+			state_indicator.set_sd_state(SD_RECORDING);
+		} else {
+			storage_enabled = false;
+			config.storageOptions &= ~DATA_STORAGE;
+			state_indicator.set_sd_state(SD_FAULT);
+			LOG_ERR("Failed to start SDLogger: %d", ret);
+		}
+	}
+
+	sensor->sd_logging(storage_enabled);
+	sensor->ble_stream(streaming_enabled);
+
+	bool sensor_started = false;
+	if (storage_enabled || streaming_enabled) {
 		if (sensor->init(&sensor_queue)) {
 			if (active_sensors == 0) start_sensor_manager();
 			sensor->start(config.sampleRateIndex);
 			if (sensor->is_running()) {
 				active_sensors++;
+				sensor_started = true;
 			}
 		}
 	}
 
-	if (config.storageOptions & DATA_STORAGE) {
+	if (storage_enabled && sensor_started) {
 		sd_sensors.insert(config.sensorId);
+	} else if (storage_enabled) {
+		sensor->sd_logging(false);
+		config.storageOptions &= ~DATA_STORAGE;
 
-		if (!sdlogger.is_active()) {
-			const char *recording_name_prefix = get_sensor_recording_name();
-			LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
-			// Start SDLogger with timestamp-based filename
-			std::string filename = recording_name_prefix + std::to_string(micros());
-			int ret = sdlogger.begin(filename);
-			if (ret == 0) state_indicator.set_sd_state(SD_RECORDING);
+		if (started_logger && sd_sensors.empty()) {
+			sdlogger.end();
+			state_indicator.set_sd_state(SD_IDLE);
 		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);
@@ -271,6 +308,24 @@ static void config_work_handler(struct k_work *work) {
 	set_sensor_config_status(config);
 
 	if (active_sensors == 0) stop_sensor_manager();
+}
+
+static void sd_removed_work_handler(struct k_work *work)
+{
+	ARG_UNUSED(work);
+
+	if (sd_sensors.empty()) {
+		return;
+	}
+
+	LOG_WRN("Disabling SD logging for active sensors after SD card removal");
+
+	for (int sensor_id : sd_sensors) {
+		clear_sensor_config_storage_status((uint8_t)sensor_id);
+	}
+
+	sd_sensors.clear();
+	state_indicator.set_sd_state(SD_FAULT);
 }
 
 void config_sensor(struct sensor_config * config) {
