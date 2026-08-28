@@ -92,10 +92,11 @@ int main(void) {
 		LOG_ERR("Failed to initialize SD mass-storage monitoring: %d", ret);
 	}
 
-	struct usbd_context *usbd = sample_usbd_init_device(NULL);
+	struct usbd_context *usbd = sample_usbd_init_device(sd_mass_storage_usb_msg_cb);
 	if (usbd == NULL) {
 		LOG_ERR("Failed to initialize USB device");
 	} else {
+		sd_mass_storage_set_usb_context(usbd);
 		ret = usbd_enable(usbd);
 		if (ret) {
 			LOG_ERR("Failed to enable USB: %d", ret);
