@@ -112,10 +112,17 @@ python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] 
 
 During recovery, safety-timer faults are reset even without `--reset-on-fault`.
 The reset sequence pulses the charger `CD` pin, verifies that it moved high and
-back low, resets the charger registers, restores the charger configuration, and
-checks that the timer fault cleared. A failed sequence is retried once. If a
-fault returns until `--max-fault-resets` is reached, recovery stops with an
-error instead of silently continuing with charging stopped.
+back low, resets the charger registers, restores fast-charge current,
+precharge/termination current, input current limit, and battery UVLO, and checks
+that those settings and the cleared timer fault read back correctly. A failed
+sequence is retried once. If a fault returns until `--max-fault-resets` is
+reached, recovery stops with an error instead of silently continuing with
+charging stopped.
+
+Restoring precharge and battery UVLO is important for deeply discharged cells.
+The BQ25120A reset defaults use 2 mA precharge and a 3.0 V battery UVLO threshold
+with hysteresis. Recovery instead applies the verified OpenEarable settings of
+10 mA precharge and 2.6 V UVLO, avoiding a prolonged low-current plateau.
 
 `BAT_UVLO`, VINDPM, and the cool/warm temperature derating states do not trigger
 repeated resets; recovery monitors them while voltage progresses. Missing input
