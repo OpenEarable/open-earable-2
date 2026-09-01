@@ -34,6 +34,7 @@ LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
 #define FIFO_RX_BLOCK_COUNT (CONFIG_FIFO_FRAME_SPLIT_NUM * CONFIG_FIFO_RX_FRAME_COUNT)
 
 #define DEBUG_INTERVAL_NUM     1000
+#define ENCODE_FAILURE_FATAL_THRESHOLD 100U
 #define TEST_TONE_BASE_FREQ_HZ 1000
 
 K_THREAD_STACK_DEFINE(encoder_thread_stack, CONFIG_ENCODER_STACK_SIZE);
@@ -135,7 +136,8 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	static uint8_t *encoded_data;
 	//static size_t pcm_block_size;
 	static uint32_t test_tone_finite_pos;
-	static bool encode_failed;
+	static uint32_t encode_drop_count;
+	static uint32_t consecutive_encode_failures;
 
 	while (1) {
 		/* Don't start encoding until the stream needing it has started */
@@ -188,15 +190,28 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 			ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
 					      &encoded_data_size);
 			if (ret) {
-				if (!encode_failed) {
-					LOG_WRN("Audio encode failed; dropping frames until recovery: %d", ret);
+				encode_drop_count++;
+				consecutive_encode_failures++;
+
+				if (consecutive_encode_failures == 1U ||
+				    (consecutive_encode_failures % ENCODE_FAILURE_FATAL_THRESHOLD) == 0U) {
+					LOG_WRN("Audio encode failed: ret=%d, dropped=%u, consecutive=%u",
+						ret, (unsigned int)encode_drop_count,
+						(unsigned int)consecutive_encode_failures);
 				}
-				encode_failed = true;
+
+				if (ret == -EINVAL || ret == -ENXIO || ret == -EPERM ||
+				    consecutive_encode_failures >= ENCODE_FAILURE_FATAL_THRESHOLD) {
+					ERR_CHK_MSG(ret, "Persistent/non-recoverable audio encode failure");
+				}
+
 				continue;
 			}
-			if (encode_failed) {
-				LOG_INF("Audio encoder recovered");
-				encode_failed = false;
+
+			if (consecutive_encode_failures) {
+				LOG_INF("Audio encoder recovered after %u dropped frame(s)",
+					(unsigned int)consecutive_encode_failures);
+				consecutive_encode_failures = 0U;
 			}
 		}
 
