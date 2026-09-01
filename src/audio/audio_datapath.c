@@ -1085,6 +1085,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 {
 	int ret;
 	static bool underrun_condition;
+	static uint32_t released_tx_reuse_count;
 
 	alt_buffer_free(tx_buf_released);
 
@@ -1131,7 +1132,13 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 				 */
 				ret = alt_buffer_get((void **)&tx_buf);
 				if (ret) {
-					LOG_DBG("No alternative I2S TX buffer available; reusing released buffer");
+					released_tx_reuse_count++;
+					if (released_tx_reuse_count == 1U ||
+					    (released_tx_reuse_count % UNDERRUN_LOG_INTERVAL_BLKS) == 0U) {
+						LOG_WRN("No alternative I2S TX buffer available; "
+							"reusing released buffer as silence, total: %u",
+							(unsigned int)released_tx_reuse_count);
+					}
 					/* I2S no longer owns this buffer; recycle it as silence
 					 * instead of leaving tx_buf NULL.
 					 */
