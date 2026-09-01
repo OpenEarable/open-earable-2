@@ -576,7 +576,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 
         // Suchen nach 16-bit Service UUIDs (LE Audio Services)
         if (type == BT_DATA_SVC_DATA16) {
-            for (size_t i = 0; i < len - 1; i += 2) {
+            for (size_t i = 0; i + 1U < (size_t)(len - 1); i += 2) {
                 uint16_t uuid = (data[i + 1] << 8) | data[i];
 				if (uuid == BT_UUID_CAS_VAL) {
 					is_le_audio_device = true;
