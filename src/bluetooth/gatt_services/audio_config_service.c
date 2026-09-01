@@ -21,7 +21,11 @@ static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr 
         return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
     }
 
-    hw_codec_set_audio_mode((enum audio_mode)mode);
+    int ret = hw_codec_set_audio_mode((enum audio_mode)mode);
+    if (ret) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+
     return len;
 }
 
