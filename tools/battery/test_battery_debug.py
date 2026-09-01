@@ -29,6 +29,8 @@ def charger_status(
     fault: int = 0x00,
     ts_fault: int = 0x88,
     charge_ctrl: int = 0x9C,
+    preterm_ctrl: int = 0x92,
+    ilim_uvlo: int = 0x1C,
     pg_present: bool = True,
     cd_raw: int = 0,
 ) -> battery.ChargerStatus:
@@ -37,20 +39,10 @@ def charger_status(
         fault=fault,
         ts_fault=ts_fault,
         charge_ctrl=charge_ctrl,
-        ilim_uvlo=0x0A,
+        preterm_ctrl=preterm_ctrl,
+        ilim_uvlo=ilim_uvlo,
         pg_present=pg_present,
         cd_raw=cd_raw,
-    )
-
-
-def recovery_args() -> types.SimpleNamespace:
-    return types.SimpleNamespace(
-        charge_current_ma=110,
-        termination_current_ma=10.0,
-        target_voltage_mv=4300,
-        input_limit_ma=200,
-        uvlo_mv=2500,
-        full_charger_config=False,
     )
 
 
@@ -185,21 +177,36 @@ class ChargerControlTests(unittest.TestCase):
 
         self.assertEqual(interface.set_cd.call_args_list, [mock.call(1), mock.call(0)])
 
-    def test_minimal_configuration_preserves_temperature_monitoring(self) -> None:
+    def test_recovery_configuration_sets_current_precharge_and_uvlo(self) -> None:
         interface = object.__new__(battery.JLinkBatteryInterface)
         interface.set_cd = mock.Mock()
         interface.bq25120a_write_u8 = mock.Mock()
 
-        interface.configure_charger(
-            charge_current_ma=110,
-            termination_current_ma=10.0,
-            target_voltage_mv=4300,
-            input_limit_ma=200,
-            uvlo_mv=2500,
-        )
+        interface.configure_charger()
 
-        interface.bq25120a_write_u8.assert_called_once_with(
-            0x03, battery.encode_charge_current(110)
+        self.assertEqual(
+            interface.bq25120a_write_u8.call_args_list,
+            [
+                mock.call(
+                    0x03,
+                    battery.encode_charge_current(
+                        battery.RECOVERY_CHARGE_CURRENT_MA
+                    ),
+                ),
+                mock.call(
+                    0x04,
+                    battery.encode_termination_current(
+                        battery.RECOVERY_PRETERM_CURRENT_MA
+                    ),
+                ),
+                mock.call(
+                    0x09,
+                    battery.encode_ilim_uvlo(
+                        battery.RECOVERY_INPUT_LIMIT_MA,
+                        battery.RECOVERY_UVLO_MV,
+                    ),
+                ),
+            ],
         )
 
     @mock.patch.object(battery.time, "sleep")
@@ -224,7 +231,7 @@ class ChargerControlTests(unittest.TestCase):
                 battery.BatteryDebugError, "failed after two attempts"
             ),
         ):
-            battery.reset_and_configure_charger(link, recovery_args())
+            battery.reset_and_configure_charger(link)
 
         self.assertEqual(link.reset_charger.call_count, 2)
         link.recover_target_state.assert_called_once_with()
@@ -235,18 +242,11 @@ class ChargerControlTests(unittest.TestCase):
         expected = charger_status(ctrl=0x41)
         link.read_charger.return_value = expected
 
-        actual = battery.reset_and_configure_charger(link, recovery_args())
+        actual = battery.reset_and_configure_charger(link)
 
         self.assertIs(actual, expected)
         link.reset_charger.assert_called_once_with()
-        link.configure_charger.assert_called_once_with(
-            charge_current_ma=110,
-            termination_current_ma=10.0,
-            target_voltage_mv=4300,
-            input_limit_ma=200,
-            uvlo_mv=2500,
-            full_config=False,
-        )
+        link.configure_charger.assert_called_once_with()
 
     @mock.patch.object(battery.time, "sleep")
     def test_recovery_retries_when_current_configuration_does_not_stick(
@@ -261,7 +261,43 @@ class ChargerControlTests(unittest.TestCase):
                 battery.BatteryDebugError, "current configuration did not stick"
             ),
         ):
-            battery.reset_and_configure_charger(link, recovery_args())
+            battery.reset_and_configure_charger(link)
+
+        self.assertEqual(link.reset_charger.call_count, 2)
+        link.recover_target_state.assert_called_once_with()
+
+    @mock.patch.object(battery.time, "sleep")
+    def test_recovery_retries_when_uvlo_configuration_does_not_stick(
+        self, _sleep: mock.Mock
+    ) -> None:
+        link = mock.Mock()
+        link.read_charger.return_value = charger_status(ilim_uvlo=0x0A)
+
+        with (
+            mock.patch.object(sys, "stderr", new=io.StringIO()),
+            self.assertRaisesRegex(
+                battery.BatteryDebugError, "input-limit/UVLO configuration"
+            ),
+        ):
+            battery.reset_and_configure_charger(link)
+
+        self.assertEqual(link.reset_charger.call_count, 2)
+        link.recover_target_state.assert_called_once_with()
+
+    @mock.patch.object(battery.time, "sleep")
+    def test_recovery_retries_when_precharge_configuration_does_not_stick(
+        self, _sleep: mock.Mock
+    ) -> None:
+        link = mock.Mock()
+        link.read_charger.return_value = charger_status(preterm_ctrl=0x00)
+
+        with (
+            mock.patch.object(sys, "stderr", new=io.StringIO()),
+            self.assertRaisesRegex(
+                battery.BatteryDebugError, "precharge/termination configuration"
+            ),
+        ):
+            battery.reset_and_configure_charger(link)
 
         self.assertEqual(link.reset_charger.call_count, 2)
         link.recover_target_state.assert_called_once_with()
@@ -272,7 +308,7 @@ class ChargerControlTests(unittest.TestCase):
         expected = charger_status(ctrl=0xD9, fault=0x10)
         link.read_charger.return_value = expected
 
-        actual = battery.reset_and_configure_charger(link, recovery_args())
+        actual = battery.reset_and_configure_charger(link)
 
         self.assertIs(actual, expected)
         link.reset_charger.assert_called_once_with()
@@ -382,6 +418,21 @@ class TwimTests(unittest.TestCase):
 
         self.assertEqual(actual, [0xCF])
 
+    def test_write_stops_after_last_transmitted_byte(self) -> None:
+        interface = self.interface()
+        interface.r32.return_value = 2
+
+        interface.i2c_write(battery.BQ25120A_ADDR, [0x03, 0x9C])
+
+        self.assertIn(
+            mock.call(battery.TWIM1 + battery.TWIM_SHORTS, 1 << 9),
+            interface.w32.call_args_list,
+        )
+        self.assertNotIn(
+            mock.call(battery.TWIM1 + battery.TWIM_SHORTS, 1 << 8),
+            interface.w32.call_args_list,
+        )
+
     def test_register_read_clears_shorts_after_transaction_error(self) -> None:
         interface = self.interface()
         interface.wait_twim.side_effect = battery.BatteryDebugError("transaction failed")
@@ -427,7 +478,7 @@ class RecoveryCommandTests(unittest.TestCase):
             result = battery.cmd_recover(self.recover_args())
 
         self.assertEqual(result, 0)
-        reset_charger.assert_called_once_with(link, mock.ANY)
+        reset_charger.assert_called_once_with(link)
 
     @mock.patch.object(battery, "reset_and_configure_charger")
     @mock.patch.object(battery, "open_link")
@@ -468,7 +519,7 @@ class RecoveryCommandTests(unittest.TestCase):
             result = battery.cmd_recover(self.recover_args())
 
         self.assertEqual(result, 1)
-        reset_charger.assert_called_once_with(link, mock.ANY)
+        reset_charger.assert_called_once_with(link)
 
     @mock.patch.object(battery, "reset_and_configure_charger")
     @mock.patch.object(battery, "open_link")
@@ -494,7 +545,7 @@ class RecoveryCommandTests(unittest.TestCase):
             result = battery.cmd_recover(args)
 
         self.assertEqual(result, 1)
-        reset_charger.assert_called_once_with(link, args)
+        reset_charger.assert_called_once_with(link)
 
 
 class ArgumentTests(unittest.TestCase):

@@ -28,6 +28,10 @@ except ImportError as exc:  # pragma: no cover - depends on local workstation
 
 APP_CORE_DEVICE = "NRF5340_XXAA_APP"
 DEFAULT_SPEED_KHZ = 1000
+RECOVERY_CHARGE_CURRENT_MA = 110
+RECOVERY_PRETERM_CURRENT_MA = 10.0
+RECOVERY_INPUT_LIMIT_MA = 200
+RECOVERY_UVLO_MV = 2500
 
 TWIM1 = 0x50009000
 GPIO0 = 0x50842500
@@ -78,7 +82,8 @@ EVENTS_LASTRX = 0x15C
 EVENTS_LASTTX = 0x160
 
 SHORT_LASTTX_STARTRX = 1 << 7
-SHORT_LASTTX_STOP = 1 << 8
+# Bit 8 is LASTTX_SUSPEND on nRF5340; a completed write needs LASTTX_STOP.
+SHORT_LASTTX_STOP = 1 << 9
 SHORT_LASTRX_STOP = 1 << 12
 
 TWIM_ERROR_OVERRUN = 1 << 0
@@ -188,6 +193,7 @@ class ChargerStatus:
     fault: int
     ts_fault: int
     charge_ctrl: int
+    preterm_ctrl: int
     ilim_uvlo: int
     pg_present: bool
     cd_raw: int
@@ -640,40 +646,31 @@ class JLinkBatteryInterface:
             fault=self.bq25120a_u8(0x01),
             ts_fault=self.bq25120a_u8(0x02),
             charge_ctrl=self.bq25120a_u8(0x03),
+            preterm_ctrl=self.bq25120a_u8(0x04),
             ilim_uvlo=self.bq25120a_u8(0x09),
             pg_present=not bool(raw_in & (1 << PG_PIN)),
             cd_raw=1 if raw_in & (1 << CD_PIN) else 0,
         )
 
-    def configure_charger(
-        self,
-        charge_current_ma: int,
-        termination_current_ma: float,
-        target_voltage_mv: int,
-        input_limit_ma: int,
-        uvlo_mv: int,
-        full_config: bool = False,
-    ) -> None:
+    def configure_charger(self) -> None:
         self.set_cd(0)
         writes = [
-            (0x03, encode_charge_current(charge_current_ma), "set charge current"),
+            (
+                0x03,
+                encode_charge_current(RECOVERY_CHARGE_CURRENT_MA),
+                "set charge current",
+            ),
+            (
+                0x04,
+                encode_termination_current(RECOVERY_PRETERM_CURRENT_MA),
+                "set precharge/termination current",
+            ),
+            (
+                0x09,
+                encode_ilim_uvlo(RECOVERY_INPUT_LIMIT_MA, RECOVERY_UVLO_MV),
+                "set input limit/UVLO",
+            ),
         ]
-        if full_config:
-            writes[0:0] = [(0x05, encode_target_voltage(target_voltage_mv), "set target voltage")]
-            writes.extend(
-                [
-                    (
-                        0x04,
-                        encode_termination_current(termination_current_ma),
-                        "set termination current",
-                    ),
-                    (
-                        0x09,
-                        encode_ilim_uvlo(input_limit_ma, uvlo_mv),
-                        "set input limit/UVLO",
-                    ),
-                ]
-            )
         for reg, value, description in writes:
             try:
                 self.bq25120a_write_u8(reg, value)
@@ -717,11 +714,6 @@ def encode_termination_current(ma: float) -> int:
     return value | 0x02
 
 
-def encode_target_voltage(mv: int) -> int:
-    volts = max(3.6, min(4.65, mv / 1000.0))
-    return (int(round((volts - 3.6) * 100)) & 0x7F) << 1
-
-
 def encode_ilim_uvlo(input_limit_ma: int, uvlo_mv: int) -> int:
     ilim = max(50, min(400, int(input_limit_ma)))
     uvlo = max(2200, min(3000, int(uvlo_mv))) / 1000.0
@@ -763,6 +755,7 @@ def format_status(fuel: FuelGaugeStatus, charger: ChargerStatus) -> str:
             f"charger_fault=0x{charger.fault:02x}",
             f"ts_fault=0x{charger.ts_fault:02x}",
             f"charge_ctrl=0x{charger.charge_ctrl:02x}",
+            f"preterm_ctrl=0x{charger.preterm_ctrl:02x}",
             f"ilim_uvlo=0x{charger.ilim_uvlo:02x}",
         ]
     )
@@ -893,21 +886,12 @@ def charger_recovery_reason(charger: ChargerStatus, reset_on_fault: bool) -> str
     return None
 
 
-def reset_and_configure_charger(
-    link: JLinkBatteryInterface, args: argparse.Namespace
-) -> ChargerStatus:
+def reset_and_configure_charger(link: JLinkBatteryInterface) -> ChargerStatus:
     last_error = None
     for attempt in range(2):
         try:
             link.reset_charger()
-            link.configure_charger(
-                charge_current_ma=args.charge_current_ma,
-                termination_current_ma=args.termination_current_ma,
-                target_voltage_mv=args.target_voltage_mv,
-                input_limit_ma=args.input_limit_ma,
-                uvlo_mv=args.uvlo_mv,
-                full_config=args.full_charger_config,
-            )
+            link.configure_charger()
             time.sleep(0.050)
             charger = link.read_charger()
             if charger_blocking_reasons(charger):
@@ -928,12 +912,30 @@ def reset_and_configure_charger(
                 raise BatteryDebugError(
                     "charger system output remained disabled after reset"
                 )
-            expected_charge_ctrl = encode_charge_current(args.charge_current_ma)
+            expected_charge_ctrl = encode_charge_current(RECOVERY_CHARGE_CURRENT_MA)
             if charger.charge_ctrl != expected_charge_ctrl:
                 raise BatteryDebugError(
                     "charger current configuration did not stick: "
                     f"read 0x{charger.charge_ctrl:02x}, expected "
                     f"0x{expected_charge_ctrl:02x}"
+                )
+            expected_preterm_ctrl = encode_termination_current(
+                RECOVERY_PRETERM_CURRENT_MA
+            )
+            if charger.preterm_ctrl != expected_preterm_ctrl:
+                raise BatteryDebugError(
+                    "charger precharge/termination configuration did not stick: "
+                    f"read 0x{charger.preterm_ctrl:02x}, expected "
+                    f"0x{expected_preterm_ctrl:02x}"
+                )
+            expected_ilim_uvlo = encode_ilim_uvlo(
+                RECOVERY_INPUT_LIMIT_MA, RECOVERY_UVLO_MV
+            )
+            if charger.ilim_uvlo != expected_ilim_uvlo:
+                raise BatteryDebugError(
+                    "charger input-limit/UVLO configuration did not stick: "
+                    f"read 0x{charger.ilim_uvlo:02x}, expected "
+                    f"0x{expected_ilim_uvlo:02x}"
                 )
             return charger
         except BatteryDebugError as exc:
@@ -999,7 +1001,7 @@ def cmd_recover(args: argparse.Namespace) -> int:
             else:
                 reason = reset_reason
             print(f"resetting/configuring charger ({reason})")
-            charger = reset_and_configure_charger(link, args)
+            charger = reset_and_configure_charger(link)
             print("after reset:", format_status(fuel, charger))
             blockers = charger_blocking_reasons(charger)
             if blockers:
@@ -1084,7 +1086,7 @@ def cmd_recover(args: argparse.Namespace) -> int:
                         f"{reset_reason} seen; reset "
                         f"{reset_count}/{args.max_fault_resets}"
                     )
-                    charger = reset_and_configure_charger(link, args)
+                    charger = reset_and_configure_charger(link)
                     print("after reset:", format_status(fuel, charger))
                     blockers = charger_blocking_reasons(charger)
                     if blockers:
@@ -1149,13 +1151,6 @@ def build_parser() -> argparse.ArgumentParser:
     recover.add_argument("--start-below-mv", type=positive_int_arg, default=3000)
     recover.add_argument("--target-mv", type=positive_int_arg, default=3300)
     recover.add_argument("--min-safe-mv", type=positive_int_arg, default=2500)
-    recover.add_argument("--charge-current-ma", type=positive_int_arg, default=110)
-    recover.add_argument(
-        "--termination-current-ma", type=positive_float_arg, default=10.0
-    )
-    recover.add_argument("--target-voltage-mv", type=positive_int_arg, default=4300)
-    recover.add_argument("--input-limit-ma", type=positive_int_arg, default=200)
-    recover.add_argument("--uvlo-mv", type=positive_int_arg, default=2500)
     recover.add_argument("--interval-s", type=monitoring_interval_arg, default=10.0)
     recover.add_argument("--max-minutes", type=nonnegative_float_arg, default=0.0)
     recover.add_argument(
@@ -1183,14 +1178,6 @@ def build_parser() -> argparse.ArgumentParser:
     recover.add_argument("--reset-on-fault", action="store_true")
     recover.add_argument("--force", action="store_true")
     recover.add_argument("--allow-deep-discharge", action="store_true")
-    recover.add_argument(
-        "--full-charger-config",
-        action="store_true",
-        help=(
-            "Also write target-voltage, termination, and input-limit registers. "
-            "By default recovery only writes the stable minimal charger sequence."
-        ),
-    )
     recover.set_defaults(func=cmd_recover, reset_target=True)
 
     return parser
