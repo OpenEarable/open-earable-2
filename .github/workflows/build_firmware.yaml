@@ -87,16 +87,22 @@ jobs:
       - name: Build Project
         run: |
           cd zephyr-workspace
-          # zero ccache statistics
-          ccache -z
+          if command -v ccache >/dev/null 2>&1; then
+            # zero ccache statistics
+            ccache -z
+          else
+            echo "ccache is not available, continuing without cache stats"
+          fi
           # `openearable_v2/nrf5340/cpuapp` is what we see in the terminal when building
           # using VSCode + Nordic Plugins
           west build \
             --board openearable_v2/nrf5340/cpuapp \
             --pristine=always open-earable-v2 \
             -- -DFILE_SUFFIX="fota"
-          # print detailed ccache statistics
-          ccache -sv
+          if command -v ccache >/dev/null 2>&1; then
+            # print detailed ccache statistics
+            ccache -sv
+          fi
 
       - name: Check And Prepare Build Output
         run: |

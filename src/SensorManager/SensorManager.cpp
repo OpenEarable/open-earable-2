@@ -46,6 +46,19 @@ K_MSGQ_DEFINE(config_queue, sizeof(struct sensor_config), 16, 4);
 
 K_THREAD_STACK_DEFINE(sensor_work_q_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
 
+/*
+ * Applying a sensor configuration mounts the SD card, which can block for as
+ * long as the card takes to answer. It therefore runs on its own preemptible
+ * queue instead of the system workqueue, whose priority is cooperative in this
+ * application and would stall every other thread for that duration.
+ */
+K_THREAD_STACK_DEFINE(config_work_q_stack, CONFIG_SENSOR_CONFIG_WORK_QUEUE_STACK_SIZE);
+static struct k_work_q config_work_q;
+static const struct k_work_queue_config config_work_q_config = {
+	.name = "sensor_cfg",
+	.no_yield = false,
+};
+
 ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
@@ -99,6 +112,13 @@ void init_sensor_manager() {
 	sensor_pub_id = k_thread_create(&sensor_publish, sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE,
 		sensor_chan_update, NULL, NULL, NULL,
 			K_PRIO_PREEMPT(CONFIG_SENSOR_PUB_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
+
+	k_work_queue_init(&config_work_q);
+
+	k_work_queue_start(&config_work_q, config_work_q_stack,
+                   K_THREAD_STACK_SIZEOF(config_work_q_stack),
+                   K_PRIO_PREEMPT(CONFIG_SENSOR_CONFIG_WORK_QUEUE_PRIO),
+                   &config_work_q_config);
 
 	k_work_init(&config_work, config_work_handler);
 
@@ -274,7 +294,5 @@ void config_sensor(struct sensor_config * config) {
 		return;
 	}
 
-	//k_work_queue_drain(&sensor_work_q, true);
-	k_work_submit(&config_work);
-	//k_work_queue_unplug(&sensor_work_q);
+	k_work_submit_to_queue(&config_work_q, &config_work);
 }

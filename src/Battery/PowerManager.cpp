@@ -390,6 +390,19 @@ int PowerManager::begin() {
         LOG_WRN("Error setting up load switch SD.");
     }
 
+#if defined(CONFIG_USB_DEVICE_STACK_NEXT) && defined(CONFIG_USBD_MSC_CLASS)
+    /* The USB mass-storage LUN needs the card reachable for the whole session. */
+    ret = pm_device_runtime_get(ls_1_8);
+    if (ret < 0) {
+        LOG_WRN("Failed to power SPI level shifter for USB MSC: %d", ret);
+    }
+
+    ret = pm_device_runtime_get(ls_sd);
+    if (ret < 0) {
+        LOG_WRN("Failed to power SD card for USB MSC: %d", ret);
+    }
+#endif
+
     ret = device_is_ready(error_led.port); //bool
     if (!ret) {
         LOG_WRN("Error LED not ready.");
