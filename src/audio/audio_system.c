@@ -201,6 +201,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 				}
 
 				if (ret == -EINVAL || ret == -ENXIO || ret == -EPERM ||
+					ret == -ENODEV || ret == -ENOTSUP ||
 				    consecutive_encode_failures >= ENCODE_FAILURE_FATAL_THRESHOLD) {
 					ERR_CHK_MSG(ret, "Persistent/non-recoverable audio encode failure");
 				}
