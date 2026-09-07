@@ -138,6 +138,10 @@ void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, boo
  */
 static void audio_datapath_thread(void *dummy1, void *dummy2, void *dummy3)
 {
+	ARG_UNUSED(dummy1);
+	ARG_UNUSED(dummy2);
+	ARG_UNUSED(dummy3);
+
 	int ret;
 	struct ble_iso_data *iso_received = NULL;
 	size_t iso_received_size;
