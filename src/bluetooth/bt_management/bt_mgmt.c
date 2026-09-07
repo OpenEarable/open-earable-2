@@ -69,12 +69,16 @@ static void conn_state_connected_check(struct bt_conn *conn, void *data)
 
 void mtu_updated(struct bt_conn *conn, uint16_t tx, uint16_t rx)
 {
+	ARG_UNUSED(conn);
+
 	LOG_INF("Updated MTU: TX: %d RX: %d bytes", tx, rx);
 }
 
 static void le_data_length_updated(struct bt_conn *conn,
 				   struct bt_conn_le_data_len_info *info)
 {
+	ARG_UNUSED(conn);
+
 	LOG_INF("LE data len updated: TX (len: %d time: %d)"
 	       " RX (len: %d time: %d)", info->tx_max_len,
 	       info->tx_max_time, info->rx_max_len, info->rx_max_time);
@@ -390,6 +394,9 @@ int bt_mgmt_conn_disconnect(struct bt_conn *conn, uint8_t reason)
 int bonded_device_count = 0;
 
 void count_bonds(const struct bt_bond_info *info, void *user_data) {
+	ARG_UNUSED(info);
+	ARG_UNUSED(user_data);
+
 	bonded_device_count++;
 }
 

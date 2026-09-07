@@ -449,6 +449,9 @@ static protocol_status_t dispatch_transfer_abort(void *context,
 static ssize_t write_transfer_control(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 				      const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
+	ARG_UNUSED(conn);
+	ARG_UNUSED(attr);
+	ARG_UNUSED(flags);
 	static const audio_response_transfer_control_handler_t handlers = {
 		.start = dispatch_transfer_start,
 		.commit = dispatch_transfer_commit,
@@ -498,6 +501,9 @@ static ssize_t write_transfer_control(struct bt_conn *conn, const struct bt_gatt
 static ssize_t write_transfer_data(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 				   const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
+	ARG_UNUSED(conn);
+	ARG_UNUSED(attr);
+	ARG_UNUSED(flags);
 	protocol_reader_t reader = { .buffer = buf, .size = len, .offset = 0 };
 	uint16_t transfer_id = 0;
 	uint32_t sample_offset = 0;
@@ -564,6 +570,9 @@ static ssize_t write_audio_response_config(struct bt_conn *conn, const struct bt
 					   const void *buf, uint16_t len, uint16_t offset,
 					   uint8_t flags)
 {
+	ARG_UNUSED(conn);
+	ARG_UNUSED(attr);
+	ARG_UNUSED(flags);
 	audio_response_config_t config;
 	size_t bytes_read = 0;
 	int ret;
@@ -612,6 +621,7 @@ static ssize_t write_audio_response_config(struct bt_conn *conn, const struct bt
  */
 static void transfer_status_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
+	ARG_UNUSED(attr);
 	transfer_status_notifications_enabled = value == BT_GATT_CCC_NOTIFY;
 	LOG_DBG("Audio response transfer status notifications %s",
 		transfer_status_notifications_enabled ? "enabled" : "disabled");
@@ -622,6 +632,7 @@ static void transfer_status_ccc_changed(const struct bt_gatt_attr *attr, uint16_
  */
 static void result_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
+	ARG_UNUSED(attr);
 	result_notifications_enabled = value == BT_GATT_CCC_NOTIFY;
 	LOG_DBG("Audio response result notifications %s",
 		result_notifications_enabled ? "enabled" : "disabled");
@@ -726,6 +737,7 @@ static void restore_audio_after_measurement(void)
  */
 static void measurement_work_handler(struct k_work *work)
 {
+	ARG_UNUSED(work);
 	int ret;
 
 	LOG_INF("Starting audio response measurement: id=%u transfer_id=%u samples=%u volume=%.2f points=%u",
@@ -837,6 +849,7 @@ static void notify_result(void)
  */
 static void measurement_complete_work_handler(struct k_work *work)
 {
+	ARG_UNUSED(work);
 	LOG_INF("Audio response capture complete: id=%u", pending_config.id);
 	restore_audio_after_measurement();
 
@@ -864,6 +877,7 @@ static void measurement_complete_work_handler(struct k_work *work)
  */
 static void transfer_ready_work_handler(struct k_work *work)
 {
+	ARG_UNUSED(work);
 	k_mutex_lock(&service_mutex, K_FOREVER);
 	if (transfer.active && !transfer.committed) {
 		(void)notify_transfer_status(AUDIO_RESPONSE_TRANSFER_READY,
@@ -877,6 +891,7 @@ static void transfer_ready_work_handler(struct k_work *work)
  */
 static void transfer_timeout_work_handler(struct k_work *work)
 {
+	ARG_UNUSED(work);
 	k_mutex_lock(&service_mutex, K_FOREVER);
 	if (transfer.active && !transfer.committed) {
 		LOG_WRN("Transfer timed out: id=%u received=%u/%u", transfer.id,

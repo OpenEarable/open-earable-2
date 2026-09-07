@@ -54,6 +54,9 @@ static ssize_t write_sensor_request(struct bt_conn *conn,
                 uint16_t len,
                 uint16_t offset,
                 uint8_t flags) {
+	ARG_UNUSED(attr);
+	ARG_UNUSED(offset);
+	ARG_UNUSED(flags);
     if (len != sizeof(uint8_t)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
@@ -73,6 +76,7 @@ static ssize_t write_sensor_request(struct bt_conn *conn,
 
 
 void scheme_ccc_cfg(const struct bt_gatt_attr *attr, uint16_t value) {
+	ARG_UNUSED(attr);
     notify_enabled = (value == BT_GATT_CCC_NOTIFY);
 }
 

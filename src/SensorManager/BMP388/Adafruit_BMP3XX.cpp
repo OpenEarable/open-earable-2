@@ -434,7 +434,10 @@ int8_t i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
   return 0;
 }
 
-static void delay_usec(uint32_t us, void *intf_ptr) { k_usleep(us); }
+static void delay_usec(uint32_t us, void *intf_ptr) {
+  ARG_UNUSED(intf_ptr);
+  k_usleep(us);
+}
 
 static int8_t validate_trimming_param(struct bmp3_dev *dev) {
   int8_t rslt;
