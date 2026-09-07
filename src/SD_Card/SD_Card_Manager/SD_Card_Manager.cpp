@@ -353,7 +353,7 @@ int SDCardManager::ls(char *buf, size_t *buf_size) {
 				&buf[used_buf_size], remaining_buf_size, "[%s]\t%s\n",
 				entry.type == FS_DIR_ENTRY_DIR ? "DIR " : "FILE", entry.name);
 
-			if (len >= remaining_buf_size) {
+			if (len < 0 || (size_t)len >= remaining_buf_size) {
 				LOG_ERR("Failed to append to buffer, error: %d", len);
 				k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 				return -EINVAL;

@@ -215,7 +215,7 @@ int _count = 0;
 static int16_t *buffer_play_data = NULL;
 static uint32_t buffer_play_pos;
 static uint32_t buffer_play_fade_pos;
-static int buffer_play_num_samples;
+static uint32_t buffer_play_num_samples;
 static float buffer_play_amplitude;
 static bool buffer_play_loop;
 static void (*buffer_play_callback)(void) = NULL;
@@ -937,7 +937,7 @@ int audio_datapath_buffer_play(int16_t *buffer, int num_samples, bool loop, floa
 	buffer_play_data = buffer;
 	buffer_play_pos = 0;
 	buffer_play_fade_pos = 0;
-	buffer_play_num_samples = num_samples;
+	buffer_play_num_samples = (uint32_t)num_samples;
 	buffer_play_amplitude = amplitude;
 	buffer_play_loop = loop;
 	buffer_play_callback = callback;

@@ -589,7 +589,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
         }
 
 		if (is_le_audio_device && data_type == BT_DATA_MANUFACTURER_DATA) {
-			if ((len - 1) >= sizeof(chip_id)) {
+			if (len > 1U && (size_t)(len - 1U) >= sizeof(chip_id)) {
 				memcpy(chip_id, data, sizeof(chip_id));
 				chip_id_found = true;
 			} else {
@@ -600,7 +600,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 
 		/* A valid RSI contains a 3-byte hash followed by a 3-byte random value. */
 		if (data_type == BT_DATA_CSIS_RSI) {
-			if ((len - 1) >= sizeof(csis_rsi)) {
+			if (len > 1U && (size_t)(len - 1U) >= sizeof(csis_rsi)) {
 				memcpy(csis_rsi, data, sizeof(csis_rsi));
 				csis_rsi_found = true;
 			} else {

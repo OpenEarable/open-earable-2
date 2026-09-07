@@ -166,14 +166,18 @@ bool time_sync_is_synced(void) {
 uint64_t get_current_time_us(void) {
    uint64_t base_u = get_time_since_boot_us();
    int64_t base_s = (base_u > (uint64_t)INT64_MAX) ? INT64_MAX : (int64_t)base_u;
-   int64_t now_s = base_s + time_offset_us;
+    if (time_offset_us > 0 && base_s > INT64_MAX - time_offset_us) {
+        LOG_WRN("Current time overflow, returning UINT64_MAX");
+        return UINT64_MAX;
+    }
+    if (time_offset_us < 0 && base_s < INT64_MIN - time_offset_us) {
+        LOG_WRN("Current time underflow, returning 0");
+        return 0;
+    }
+    int64_t now_s = base_s + time_offset_us;
    if (now_s < 0) {
        LOG_WRN("Current time underflow, returning 0");
        return 0;
-    }
-    if (now_s != base_u + time_offset_us) {
-        LOG_WRN("Current time overflow, returning UINT64_MAX");
-        return UINT64_MAX;
     }
     return (uint64_t)now_s;
 }
