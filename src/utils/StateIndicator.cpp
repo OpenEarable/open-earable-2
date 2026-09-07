@@ -63,9 +63,9 @@ void StateIndicator::init(struct earable_state state) {
     set_state(state);
 }
 
-void StateIndicator::set_custom_color(const RGBColor &color) {
-    memcpy(&this->color, color, sizeof(RGBColor));
-    if (_state.led_mode == CUSTOM) led_controller.setColor(color);
+void StateIndicator::set_custom_color(const RGBColor &custom_color) {
+    memcpy(&this->color, custom_color, sizeof(RGBColor));
+    if (_state.led_mode == CUSTOM) led_controller.setColor(custom_color);
 }
 
 void StateIndicator::set_dfu_active(bool active) {
