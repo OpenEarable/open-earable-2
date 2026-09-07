@@ -13,7 +13,7 @@
 #define BQ25120a_I2C_TIMEOUT_US 66
 #define BQ25120a_HIGH_Z_TIMEOUT_US 1000
 
-#define EPS 1e-3
+#define EPS 1e-3f
 
 struct chrg_state {
         float mAh = 0;
