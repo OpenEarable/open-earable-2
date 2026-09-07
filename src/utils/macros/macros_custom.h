@@ -15,7 +15,7 @@ ZBUS_SUBSCRIBER_DEFINE(name ## _sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE); \
 ZBUS_CHAN_DECLARE(name ## _chan); \
 static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE); \
 \
-static void write_ ## name ## _gatt(void)\ 
+static void write_ ## name ## _gatt(void)\
 {\
 	int ret;\
 	const struct zbus_channel *chan;\

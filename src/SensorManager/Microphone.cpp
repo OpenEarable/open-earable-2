@@ -56,8 +56,6 @@ bool Microphone::init(struct k_msgq * queue) {
 void Microphone::start(int sample_rate_idx) {
 	//ARG_UNUSED(sample_rate_idx);
 
-	int ret;
-
 	if (!_active) return;
 
 	LOG_INF("Starting Microphone at %f Hz", sample_rates.sample_rates[sample_rate_idx]);
