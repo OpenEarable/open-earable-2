@@ -24,6 +24,7 @@ LOG_MODULE_REGISTER(bt_vol_rend, CONFIG_BT_VOL_LOG_LEVEL);
  */
 static void vcs_state_rend_cb_handler(struct bt_conn *conn, int err, uint8_t volume, uint8_t mute)
 {
+	ARG_UNUSED(conn);
 	int ret;
 
 	static uint8_t prev_mute = 0;
@@ -63,6 +64,7 @@ static void vcs_state_rend_cb_handler(struct bt_conn *conn, int err, uint8_t vol
  */
 static void vcs_flags_rend_cb_handler(struct bt_conn *conn, int err, uint8_t flags)
 {
+	ARG_UNUSED(conn);
 	if (err) {
 		LOG_ERR("VCS flag callback error: %d", err);
 	} else {

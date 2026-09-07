@@ -48,6 +48,7 @@ void BoneConduction::reset() {
 }
 
 void BoneConduction::update_sensor(struct k_work *work) {
+	ARG_UNUSED(work);
     uint64_t _time_stamp = micros();
 
     BoneConduction::sensor._sample_count += (_time_stamp - BoneConduction::sensor._last_time_stamp) / BoneConduction::sensor.t_sample_us;
@@ -103,6 +104,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
 * @brief Submit a k_work on timer expiry.
 */
 void BoneConduction::sensor_timer_handler(struct k_timer *dummy) {
+	ARG_UNUSED(dummy);
 	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 }
 
