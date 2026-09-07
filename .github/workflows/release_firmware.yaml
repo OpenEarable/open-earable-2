@@ -43,6 +43,24 @@ jobs:
           ls openearable_v2_fota
           (cd "openearable_v2_fota" && ls && zip -r ../openearable_v2_fota.zip *)
 
+      - name: Add version to release asset names
+        id: release-assets
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          # v2.2.8 -> 2.2.8
+          version="${RELEASE_TAG#v}"
+          firmware_name="openearable_v2_firmware_${version}.elf"
+          fota_name="openearable_v2_fota_${version}.zip"
+
+          mv openearable_v2_firmware.elf "$firmware_name"
+          mv openearable_v2_fota.zip "$fota_name"
+
+          echo "firmware=$firmware_name" >> "$GITHUB_OUTPUT"
+          echo "fota=$fota_name" >> "$GITHUB_OUTPUT"
+
       - name: Create Github Release & Upload Firmware + FOTA
         if: startsWith(github.ref, 'refs/tags/${{ inputs.release_tag }}')
         uses: softprops/action-gh-release@v2
@@ -52,7 +70,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            openearable_v2_firmware.elf
-            openearable_v2_fota.zip
+            ${{ steps.release-assets.outputs.firmware }}
+            ${{ steps.release-assets.outputs.fota }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
