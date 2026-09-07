@@ -254,6 +254,13 @@
 #define BMM150_OP_MODE_FORCED                    0x02
 #define BMM150_REP_XY_REGULAR                    0x04
 #define BMM150_REP_Z_REGULAR                     0x0E
+#define BMM150_DIG_X1_ADDR                       0x5D
+#define BMM150_DIG_Z4_LSB_ADDR                   0x62
+#define BMM150_DIG_Z2_LSB_ADDR                   0x68
+#define BMM150_DIG_XY2_ADDR                      0x70
+
+#define BMM150_OVERFLOW_ADCVAL_XY                (-4096)
+#define BMM150_OVERFLOW_ADCVAL_Z                 (-16384)
 
 /** Error code definitions */
 #define BMX160_OK                                0
@@ -276,6 +283,11 @@
 
 /** bmx160 unique chip identifier */
 #define BMX160_CHIP_ID                           0xD8
+#define BMI160_CHIP_ID                           0xD1
+
+/** I2C addresses selected by the SDO pin */
+#define BMI160_I2C_ADDR_SDO_LOW                  0x68
+#define BMI160_I2C_ADDR_SDO_HIGH                 0x69
 
 /** Soft reset command */
 #define BMX160_SOFT_RESET_CMD                    0xb6
@@ -1012,6 +1024,17 @@ class DFRobot_BMX160{
     bool begin();
 
     /**
+     * @brief Probe both BMI160/BMX160 I2C addresses and select the detected one.
+     *
+     * The original BMX160 board uses 0x68. Hardware revision 2.1 and newer
+     * uses a standalone BMI160 at 0x69.
+     */
+    bool detect();
+
+    /** @return true when the standalone BMI160 was detected at 0x69. */
+    bool isStandaloneBmi160() const;
+
+    /**
      * @fn setGyroRange
      * @brief set gyroscope angular rate range and resolution.
      * @param bits 
@@ -1133,11 +1156,33 @@ class DFRobot_BMX160{
     bool setBmi160AuxMode(bool manual, uint8_t read_burst_len);
     bool writeBmm150Reg(uint8_t reg, uint8_t value);
     bool readBmm150Reg(uint8_t reg, uint8_t *value);
+    bool readBmm150Regs(uint8_t reg, uint8_t *values, uint8_t len);
+    bool readBmm150Trim();
     bool setBmi160AuxReadAddr(uint8_t reg);
+    bool probeAddress(uint8_t addr, uint8_t *chip_id);
+    float compensateBmm150X(int16_t raw_x, uint16_t rhall) const;
+    float compensateBmm150Y(int16_t raw_y, uint16_t rhall) const;
+    float compensateBmm150Z(int16_t raw_z, uint16_t rhall) const;
+
+    struct Bmm150TrimData {
+      int8_t x1 = 0;
+      int8_t y1 = 0;
+      int8_t x2 = 0;
+      int8_t y2 = 0;
+      uint16_t z1 = 0;
+      int16_t z2 = 0;
+      int16_t z3 = 0;
+      int16_t z4 = 0;
+      uint8_t xy1 = 0;
+      int8_t xy2 = 0;
+      uint16_t xyz1 = 0;
+    } bmm150Trim;
 
     float accelRange = BMX160_ACCEL_MG_LSB_2G * EARTH_ACC;
     float gyroRange = BMX160_GYRO_SENSITIVITY_2000DPS;
     uint8_t _addr = DT_REG_ADDR(DT_NODELABEL(bmx160));
+    bool _standaloneBmi160 = false;
+    bool _bmm150Ready = false;
     
     sBmx160Dev_t* Obmx160;
 

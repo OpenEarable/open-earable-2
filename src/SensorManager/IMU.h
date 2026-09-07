@@ -13,6 +13,7 @@ public:
     bool init(struct k_msgq * queue) override;
     void start(int sample_rate_idx) override;
     void stop() override;
+    static void detectHardwareRevision();
 
     const static SampleRateSetting<6> sample_rates;
 private:
