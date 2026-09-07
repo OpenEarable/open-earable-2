@@ -55,11 +55,14 @@ static void smp_adv(void)
 /* These callbacks are to override callback registed in module le_audio_ */
 static void dfu_connected_cb(struct bt_conn *conn, uint8_t err)
 {
+	ARG_UNUSED(conn);
+	ARG_UNUSED(err);
 	LOG_INF("SMP connected\n");
 }
 
 static void dfu_disconnected_cb(struct bt_conn *conn, uint8_t reason)
 {
+	ARG_UNUSED(conn);
 	LOG_INF("SMP disconnected 0x%02x\n", reason);
 }
 

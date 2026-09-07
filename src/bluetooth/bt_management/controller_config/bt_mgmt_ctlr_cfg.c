@@ -42,6 +42,7 @@ K_TIMER_DEFINE(ctlr_poll_timer, ctlr_poll_timer_handler, NULL);
 
 static void work_ctlr_poll_handler(struct k_work *work)
 {
+	ARG_UNUSED(work);
 	int ret;
 	uint16_t manufacturer = 0;
 
@@ -54,6 +55,7 @@ static void work_ctlr_poll_handler(struct k_work *work)
 
 static void ctlr_poll_timer_handler(struct k_timer *timer_id)
 {
+	ARG_UNUSED(timer_id);
 	int ret;
 
 	ret = k_work_submit_to_queue(&ctrl_poll_work_q, &work_ctlr_poll);
@@ -64,6 +66,8 @@ static void ctlr_poll_timer_handler(struct k_timer *timer_id)
 
 static void wdt_timeout_cb(int channel_id, void *user_data)
 {
+	ARG_UNUSED(channel_id);
+	ARG_UNUSED(user_data);
 	ERR_CHK_MSG(-ETIMEDOUT, "No response from IPC or controller");
 }
 

@@ -75,6 +75,7 @@ struct battery_health_status health_status;
 static void battery_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
+	ARG_UNUSED(attr);
 	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
 #ifdef CONFIG_LOG
 	if (notify_enabled) LOG_INF("subscribe to battery level");
@@ -158,6 +159,7 @@ BT_GATT_CHARACTERISTIC(BT_UUID_BAS_BATTERY_HEALTH_STATUS,
 
 int bt_send_battery_level(struct battery_data * data)
 {
+	ARG_UNUSED(data);
 	if (!notify_enabled) {
 		LOG_WRN("battery level not subscribed");
 		return -EACCES;
