@@ -16,10 +16,10 @@ void ConnIntvlLinear::init() {
 }
 
 void ConnIntvlLinear::on_audio_underrun(uint32_t count) {
-    uint16_t current_interval_units_ = this->current_interval_units();
+    uint16_t current_interval_units = this->current_interval_units();
 
-    LOG_DBG("Audio underrun reported: %u, current interval: %u units", count, current_interval_units_);
-    uint16_t new_interval_units = current_interval_units_ + inc_step_units_;
+    LOG_DBG("Audio underrun reported: %u, current interval: %u units", count, current_interval_units);
+    uint16_t new_interval_units = current_interval_units + inc_step_units_;
     if (new_interval_units > max_interval_units_) {
         new_interval_units = max_interval_units_;
     }
@@ -28,6 +28,7 @@ void ConnIntvlLinear::on_audio_underrun(uint32_t count) {
 }
 
 void ConnIntvlLinear::on_timer_tick(k_timeout_t elapsed) {
+    ARG_UNUSED(elapsed);
     bool is_streaming = stream_state_get() == STATE_STREAMING;
     if (!is_streaming) {
         return;

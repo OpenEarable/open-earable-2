@@ -55,15 +55,24 @@ static struct battery_data msg;
 //LoadSwitch PowerManager::v1_8_switch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
 
 void PowerManager::fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+	ARG_UNUSED(dev);
+	ARG_UNUSED(cb);
+	ARG_UNUSED(pins);
     LOG_DBG("Fuel Gauge GPOUT Interrupt");
     k_work_submit(&fuel_gauge_work);
 }
 
 void PowerManager::battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+	ARG_UNUSED(dev);
+	ARG_UNUSED(cb);
+	ARG_UNUSED(pins);
     k_work_submit(&battery_controller_work);
 }
 
 void PowerManager::power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+	ARG_UNUSED(dev);
+	ARG_UNUSED(cb);
+	ARG_UNUSED(pins);
     bool power_good = battery_controller.power_connected();
 
     k_work_submit(&fuel_gauge_work);
@@ -78,16 +87,19 @@ void PowerManager::power_good_callback(const struct device *dev, struct gpio_cal
 }
 
 void PowerManager::power_down_work_handler(struct k_work * work) {
+	ARG_UNUSED(work);
 	power_manager.power_down();
 }
 
 void PowerManager::charge_ctrl_work_handler(struct k_work * work) {
+	ARG_UNUSED(work);
 	power_manager.charge_task();
     // Schedule next execution
     k_work_schedule(&charge_ctrl_delayable, power_manager.chrg_interval);
 }
 
 void PowerManager::battery_controller_work_handler(struct k_work * work) {
+	ARG_UNUSED(work);
     button_state state;
 
     //uint8_t val = gpio_pin_get_dt(&power_manager.error_led);
@@ -107,6 +119,7 @@ void PowerManager::battery_controller_work_handler(struct k_work * work) {
 }
 
 void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
+	ARG_UNUSED(work);
     int ret;
     battery_level_status status;
 
@@ -197,7 +210,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
             uint8_t fault = battery_controller.read_fault();
             // Battery fuel gauge status
-            bat_status status = fuel_gauge.battery_status();
+            bat_status fault_status = fuel_gauge.battery_status();
             voltage = fuel_gauge.voltage();
             current = fuel_gauge.current();
 
@@ -235,7 +248,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
             LOG_DBG("------------------ Battery Info ------------------");
             LOG_DBG("Battery Status:");
             LOG_DBG("  Present: %d, Full Charge: %d, Full Discharge: %d", 
-                    status.BATTPRES, status.FC, status.FD);
+                    fault_status.BATTPRES, fault_status.FC, fault_status.FD);
 
             // Basic measurements
             LOG_DBG("Basic Measurements:");
@@ -675,6 +688,7 @@ void PowerManager::charge_task() {
 }
 
 int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **argv) {
+	ARG_UNUSED(shell);
     ARG_UNUSED(argc);
     ARG_UNUSED(argv);
 
