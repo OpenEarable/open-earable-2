@@ -4,11 +4,10 @@
 
 #include "math.h"
 #include "stdlib.h"
+#include <errno.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(MAXM86161);
-
-#define LATENCY_MS 40
 
 PPG PPG::sensor;
 
@@ -26,6 +25,41 @@ const SampleRateSetting<16> PPG::sample_rates = {
     { 24.995, 50.027, 84.021, 99.902, 199.805, 399.610, 8.000, 16.000,
     32.000, 64.000, 128.000, 256.000, 512.000, 1024.000, 2048.000, 4096.000},
 };
+
+namespace {
+
+struct ppg_timing {
+    int integration_time;
+    uint8_t exposure_count;
+};
+
+/* MAXM86161 data-sheet limits for four exposures per sample. */
+constexpr float max_rate_for_four_exposures[] = {
+    1024.0f, /* 14.8 us */
+    512.0f,  /* 29.4 us */
+    512.0f,  /* 58.7 us */
+    400.0f,  /* 117.3 us */
+};
+
+ppg_timing select_timing(float requested_rate)
+{
+    for (int tint = 3; tint >= 0; --tint) {
+        if (requested_rate <= max_rate_for_four_exposures[tint]) {
+            return { tint, 4 };
+        }
+    }
+
+    if (requested_rate <= 2048.0f) {
+        return { 0, 2 };
+    }
+    if (requested_rate <= 4096.0f) {
+        return { 0, 1 };
+    }
+
+    return { -ENOTSUP, 0 };
+}
+
+} // namespace
 
 bool PPG::init(struct k_msgq * queue) {
     if (!_active) {
@@ -86,7 +120,8 @@ void PPG::update_sensor(struct k_work *work) {
     }
     
     if(int_status & MAXM86161_INT_FULL) { // MAXM86161_INT_DATA_RDY
-        int num_samples = ppg.read(sensor.data_buffer);
+        int num_samples = ppg.read(sensor.data_buffer,
+                                   sizeof(sensor.data_buffer) / sizeof(sensor.data_buffer[0]));
 
         PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
 
@@ -136,15 +171,70 @@ void PPG::sensor_timer_handler(struct k_timer *dummy) {
 void PPG::start(int sample_rate_idx) {
     if (!_active) return;
 
-    t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
+    const float requested_rate = sample_rates.true_sample_rates[sample_rate_idx];
+    const int requested_rate_register = sample_rates.reg_vals[sample_rate_idx];
+    const ppg_timing timing = select_timing(requested_rate);
+
+    if (timing.integration_time < 0) {
+        LOG_ERR("PPG rate %.3f Hz is not supported", (double)requested_rate);
+        return;
+    }
+
+    int ret = ppg.set_exposure_count(timing.exposure_count);
+    if (ret != 0) {
+        LOG_ERR("Failed to set PPG exposure count to %u: %d", timing.exposure_count, ret);
+        return;
+    }
+
+    ret = ppg.set_ppg_tint(timing.integration_time);
+    if (ret != 0) {
+        LOG_ERR("Failed to set PPG integration time: %d", ret);
+        return;
+    }
+
+    int effective_integration_time = -1;
+    ret = ppg.get_ppg_tint(effective_integration_time);
+    if (ret != 0 || effective_integration_time != timing.integration_time) {
+        LOG_ERR("PPG rejected integration time %d (effective %d, ret %d)",
+                timing.integration_time, effective_integration_time, ret);
+        return;
+    }
+
+    ret = ppg.set_interrogation_rate(requested_rate_register);
+    if (ret != 0) {
+        LOG_ERR("Failed to set PPG sample rate: %d", ret);
+        return;
+    }
+
+    int effective_rate_register = -1;
+    ret = ppg.get_interrogation_rate(effective_rate_register);
+    if (ret != 0 || effective_rate_register != requested_rate_register) {
+        LOG_ERR("PPG rejected rate register 0x%02x (effective 0x%02x, ret %d)",
+                requested_rate_register, effective_rate_register, ret);
+        return;
+    }
+
+    t_sample_us = 1e6f / requested_rate;
 
     k_timeout_t t = K_USEC(t_sample_us);
 
-    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)), FIFO_SIZE / LED_NUM - 2);
+    const int fifo_sample_capacity = FIFO_SIZE / timing.exposure_count - 2;
+    const int work_buffer_capacity =
+        sizeof(sensor.data_buffer) / sizeof(sensor.data_buffer[0]) - 2;
+    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)),
+                                MIN(fifo_sample_capacity, work_buffer_capacity));
     
-    ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
-    ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * LED_NUM);
-    ppg.start();
+    ret = ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * timing.exposure_count);
+    if (ret != 0) {
+        LOG_ERR("Failed to set PPG FIFO watermark: %d", ret);
+        return;
+    }
+
+    ret = ppg.start();
+    if (ret != 0) {
+        LOG_ERR("Failed to start PPG: %d", ret);
+        return;
+    }
 
     k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 
