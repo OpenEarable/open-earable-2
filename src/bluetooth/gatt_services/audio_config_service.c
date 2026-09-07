@@ -12,6 +12,10 @@ LOG_MODULE_REGISTER(audio_config_service, CONFIG_BLE_LOG_LEVEL);
 static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
+    ARG_UNUSED(conn);
+    ARG_UNUSED(attr);
+    ARG_UNUSED(offset);
+    ARG_UNUSED(flags);
     if (len != sizeof(uint8_t)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
@@ -32,6 +36,10 @@ static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr 
 static ssize_t write_mic_select(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
+    ARG_UNUSED(conn);
+    ARG_UNUSED(attr);
+    ARG_UNUSED(offset);
+    ARG_UNUSED(flags);
     if (len != sizeof(uint8_t)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
@@ -77,8 +85,12 @@ static ssize_t read_audio_channel(struct bt_conn *conn, const struct bt_gatt_att
 }
 
 static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
-                             const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+                              const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
+    ARG_UNUSED(conn);
+    ARG_UNUSED(attr);
+    ARG_UNUSED(offset);
+    ARG_UNUSED(flags);
     // Mic gain is 2 bytes: [outer_reg, inner_reg].
     // Outer mic maps to DMIC_VOL0; inner mic maps to DMIC_VOL1.
     // Per ADAU186x DMIC_VOL register (0x4000C045):
