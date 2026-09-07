@@ -204,7 +204,7 @@ static void config_work_handler(struct k_work *work) {
 
     float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
-		LOG_ERR("Invalid sample rate %f for sensor %i", sampleRate, config.sensorId);
+		LOG_ERR("Invalid sample rate %f for sensor %i", (double)sampleRate, config.sensorId);
 		return;
 	}
 

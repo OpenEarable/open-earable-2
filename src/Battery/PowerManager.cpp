@@ -182,16 +182,16 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
             msg.charging_state = POWER_CONNECTED;
 
-            LOG_DBG("Voltage: %.3f V", voltage);
-            LOG_DBG("Charging current: %.3f mA", current);
-            LOG_DBG("Target current: %.3f mA", target_current);
-            LOG_DBG("State of charge: %.3f %%", fuel_gauge.state_of_charge());
+            LOG_DBG("Voltage: %.3f V", (double)voltage);
+            LOG_DBG("Charging current: %.3f mA", (double)current);
+            LOG_DBG("Target current: %.3f mA", (double)target_current);
+            LOG_DBG("State of charge: %.3f %%", (double)fuel_gauge.state_of_charge());
 
             // check if target current is met (if not tapering)
-            if (current > 0.8 * target_current - 2 * power_manager._battery_settings.i_term) {
+            if (current > 0.8f * target_current - 2.0f * power_manager._battery_settings.i_term) {
                 msg.charging_state = CHARGING;
             } 
-            else if (voltage > power_manager._battery_settings.u_term - 0.02) {
+            else if (voltage > power_manager._battery_settings.u_term - 0.02f) {
                 #ifdef CONFIG_BATTERY_ENABLE_TRICKLE_CHARGE
                 msg.charging_state = TRICKLE_CHARGING;
                 #else
@@ -222,10 +222,10 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
             // as long as fault exists
             if (fault & (1 << 5)) {
                 bool power_connected = battery_controller.power_connected();
-                if (power_connected && current > 0.5 * power_manager._battery_settings.i_term) {
+                if (power_connected && current > 0.5f * power_manager._battery_settings.i_term) {
                     msg.charging_state = PRECHARGING;
                 }
-                LOG_WRN("Battery under voltage: %.3f V", voltage);
+                LOG_WRN("Battery under voltage: %.3f V", (double)voltage);
             }
 
             // cleared after read
@@ -252,8 +252,8 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
             // Basic measurements
             LOG_DBG("Basic Measurements:");
-            LOG_DBG("  Voltage: %.3f V", voltage);
-            LOG_DBG("  Current: %.3f mA", current);
+            LOG_DBG("  Voltage: %.3f V", (double)voltage);
+            LOG_DBG("  Current: %.3f mA", (double)current);
             break;
     }
 
@@ -712,17 +712,17 @@ static int cmd_battery_info(const struct shell *shell, size_t argc, const char *
 
     // Basic measurements
     shell_print(shell, "Basic Measurements:");
-    shell_print(shell, "  Voltage: %.3f V", fuel_gauge.voltage());
-    shell_print(shell, "  Temperature: %.1f °C", fuel_gauge.temperature());
+    shell_print(shell, "  Voltage: %.3f V", (double)fuel_gauge.voltage());
+    shell_print(shell, "  Temperature: %.1f °C", (double)fuel_gauge.temperature());
     shell_print(shell, "  Current: %.1f mA (avg: %.1f mA)", 
-            fuel_gauge.current(), fuel_gauge.average_current());
-    shell_print(shell, "  State of Charge: %.1f%%", fuel_gauge.state_of_charge());
+            (double)fuel_gauge.current(), (double)fuel_gauge.average_current());
+    shell_print(shell, "  State of Charge: %.1f%%", (double)fuel_gauge.state_of_charge());
 
     // Capacity info
     shell_print(shell, "Capacity Information:");
-    shell_print(shell, "  Design Capacity: %.1f mAh", fuel_gauge.design_cap());
-    shell_print(shell, "  Full Charge Capacity: %.1f mAh", fuel_gauge.capacity());
-    shell_print(shell, "  Remaining Capacity: %.1f mAh", fuel_gauge.remaining_cap());
+    shell_print(shell, "  Design Capacity: %.1f mAh", (double)fuel_gauge.design_cap());
+    shell_print(shell, "  Full Charge Capacity: %.1f mAh", (double)fuel_gauge.capacity());
+    shell_print(shell, "  Remaining Capacity: %.1f mAh", (double)fuel_gauge.remaining_cap());
     
     // Time estimates
     float ttf = fuel_gauge.time_to_full();
@@ -741,7 +741,7 @@ static int cmd_battery_info(const struct shell *shell, size_t argc, const char *
     
     struct chrg_state charge_ctrl = battery_controller.read_charging_control();
     shell_print(shell, "  Charge Control: enabled=%i, current=%.1f mA", 
-            charge_ctrl.enabled, charge_ctrl.mAh);
+            charge_ctrl.enabled, (double)charge_ctrl.mAh);
 
     battery_controller.enter_high_impedance();
 
