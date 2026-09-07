@@ -122,6 +122,10 @@ static void audio_headset_configure(void)
 
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
 {
+	ARG_UNUSED(arg1);
+	ARG_UNUSED(arg2);
+	ARG_UNUSED(arg3);
+
 	int ret;
 	uint32_t blocks_alloced_num;
 	uint32_t blocks_locked_num;
