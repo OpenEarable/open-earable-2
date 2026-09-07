@@ -44,7 +44,7 @@ static struct media_ctlr mcc_peer[CONFIG_BT_MAX_CONN];
  */
 static int mcc_peer_index_free_get(void)
 {
-	for (int i = 0; i < ARRAY_SIZE(mcc_peer); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(mcc_peer); i++) {
 		if (mcc_peer[i].conn == NULL) {
 			return i;
 		}

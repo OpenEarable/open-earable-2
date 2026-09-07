@@ -190,7 +190,7 @@ static uint8_t sirk_read_req_cb(struct bt_conn *conn, struct bt_csip_set_member_
 	 ARG_UNUSED(rsp);
 	 LOG_DBG("LC3 config callback");
  
-	 for (int i = 0; i < ARRAY_SIZE(cap_audio_streams); i++) {
+	 for (size_t i = 0; i < ARRAY_SIZE(cap_audio_streams); i++) {
 		 struct bt_cap_stream *cap_audio_stream = &cap_audio_streams[i];
  
 		 if (!cap_audio_stream->bap_stream.conn) {
@@ -656,7 +656,7 @@ static void stream_released_cb(struct bt_bap_stream *stream)
  
 	 struct le_audio_tx_info tx[CONFIG_BT_ASCS_MAX_ASE_SRC_COUNT];
  
-	 for (int i = 0; i < ARRAY_SIZE(cap_tx_streams); i++) {
+	 for (size_t i = 0; i < ARRAY_SIZE(cap_tx_streams); i++) {
 		 if (!le_audio_ep_state_check(cap_tx_streams[i]->bap_stream.ep,
 						  BT_BAP_EP_STATE_STREAMING)) {
 			 continue;
@@ -746,7 +746,7 @@ static void stream_released_cb(struct bt_bap_stream *stream)
 		// memcpy(csip_param.sirk, CONFIG_BT_SET_IDENTITY_RESOLVING_KEY, BT_CSIP_SIRK_SIZE);
 	 }
  
-	 for (int i = 0; i < ARRAY_SIZE(caps); i++) {
+	 for (size_t i = 0; i < ARRAY_SIZE(caps); i++) {
 		 ret = bt_pacs_cap_register(caps_dirs[i], &caps[i]);
 		 if (ret) {
 			 LOG_ERR("Capability register failed. Err: %d", ret);
@@ -807,7 +807,7 @@ static void stream_released_cb(struct bt_bap_stream *stream)
 		 return ret;
 	 }
  
-	 for (int i = 0; i < ARRAY_SIZE(cap_audio_streams); i++) {
+	 for (size_t i = 0; i < ARRAY_SIZE(cap_audio_streams); i++) {
 		 bt_cap_stream_ops_register(&cap_audio_streams[i], &stream_ops);
 	 }
  
