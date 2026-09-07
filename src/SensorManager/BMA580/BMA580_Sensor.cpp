@@ -236,7 +236,10 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
 }
 
 /*!
- * @brief This internal API gets FIFO configurations.
+ * @brief This internal API sets FIFO configurations and verifies the readback.
+ *
+ * The BMA580 silently limits the FIFO to 512 bytes while the feature engine
+ * is enabled, so verify that the requested FIFO size was accepted.
  */
 int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_conf, struct bma5_dev *dev)
 {
@@ -252,13 +255,17 @@ int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_conf, struct bma5
     rslt = bma5_get_fifo_conf(&read_fifo_conf, dev);
     bma5_check_rslt("bma5_get_fifo_conf", rslt);
 
+    if (read_fifo_conf.fifo_size != fifo_conf->fifo_size) {
+        LOG_ERR("FIFO size mismatch: requested 0x%02X, readback 0x%02X "
+                "(feature engine likely still enabled)",
+                fifo_conf->fifo_size, read_fifo_conf.fifo_size);
+    }
+
     return rslt;
 }
 
 int BMA580::init(int odr, int fifo_watermark_level) {
     int8_t rslt;
-    struct bma580_int_map int_map, get_int_map;
-    //struct bma5_fifo_conf fifo_conf;
 
     /* Assign context parameter selection */
     enum bma5_context context = BMA5_HEARABLE;
@@ -276,27 +283,16 @@ int BMA580::init(int odr, int fifo_watermark_level) {
     bma5_check_rslt("bma580_init", rslt);
     LOG_DBG("Chip ID :0x%X", dev.chip_id);
 
-    /* Map generic interrupts to hardware interrupt pin of the sensor */
-    rslt = bma580_get_int_map(&int_map, &dev);
-    bma5_check_rslt("bma580_get_int_map", rslt);
-
-    /* Set FIFO full interrupt to INT2 */
-    //int_map.fifo_full_int_map = BMA580_FIFO_FULL_INT_MAP_INT2;
-	int_map.fifo_wm_int_map = BMA580_FIFO_WM_INT_MAP_INT1;
-
-    rslt = bma580_set_int_map(&int_map, &dev);
-    bma5_check_rslt("bma580_set_int_map", rslt);
-
-    rslt = bma580_get_int_map(&get_int_map, &dev);
-    bma5_check_rslt("bma580_get_int_map", rslt);
+    /* The feature engine and FIFO share 1024 bytes of RAM. None of the
+     * feature-engine functions are used here, so disable it to make the full
+     * RAM available to the FIFO. INT1/INT2 are unused; the FIFO is polled. */
+    rslt = bma5_set_feat_eng_conf(BMA5_FEAT_ENG_CTRL_DISABLE, &dev);
+    bma5_check_rslt("bma5_set_feat_eng_conf", rslt);
 
     rslt = get_accel_and_int_settings(&dev);
     bma5_check_rslt("get_accel_and_int_settings", rslt);
 
     /* Get FIFO configuration register */
-    rslt = bma5_get_fifo_conf(&fifo_conf, &dev);
-    bma5_check_rslt("bma5_get_fifo_conf", rslt);
-
     rslt = bma5_get_fifo_conf(&fifo_conf, &dev);
     bma5_check_rslt("bma5_get_fifo_conf", rslt);
 
@@ -306,8 +302,10 @@ int BMA580::init(int odr, int fifo_watermark_level) {
     fifo_conf.fifo_acc_z = BMA5_FIFO_ACC_Z_ENABLE;
     fifo_conf.fifo_compression = BMA5_FIFO_COMPRESSION_ACC_16BIT;
     fifo_conf.fifo_sensor_time = BMA5_FIFO_SENSOR_TIME_OFF;
-    fifo_conf.fifo_size = BMA5_FIFO_SIZE_MAX_512_BYTES;
-    fifo_conf.fifo_stop_on_full = BMA5_ENABLE; //BMA5_ENABLE
+    fifo_conf.fifo_size = BMA5_FIFO_SIZE_MAX_1024_BYTES;
+    /* Keep sampling if servicing is delayed instead of leaving the FIFO
+     * permanently stopped with stale data. Oldest samples may be overwritten. */
+    fifo_conf.fifo_stop_on_full = BMA5_DISABLE;
 
     rslt = get_fifo_conf(&fifo_conf, &dev);
     bma5_check_rslt("get_fifo_conf", rslt);
@@ -335,32 +333,18 @@ int BMA580::stop() {
 
 int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
     int8_t rslt = BMA5_OK;
-    uint8_t n_status = 1;
-    struct bma580_int_status_types int_status = { 0 };
 
     fifoframe.fifo_avail_frames = 0;
 
-    int_status.int_src = BMA580_INT_STATUS_INT1;
+    /* Read all available data without relying on watermark timing. The sensor
+     * and MCU clocks can drift enough for a timer poll to precede the event. */
+    rslt = bma5_read_fifo_data(&fifoframe, &fifo_conf, &dev);
+    bma5_check_rslt("bma5_read_fifo_data", rslt);
 
-    /* Get fifo full interrupt 2 status */
-    rslt = bma580_get_int_status(&int_status, n_status, &dev);
-    bma5_check_rslt("bma580_get_int_status", rslt);
-
-    if (int_status.int_status.fifo_wm_int_status & BMA5_ENABLE)
+    if (rslt == BMA5_OK && fifoframe.fifo_avail_len > 0)
     {
-        /* Read FIFO data */
-        rslt = bma5_read_fifo_data(&fifoframe, &fifo_conf, &dev);
-        bma5_check_rslt("bma5_read_fifo_data", rslt);
-
-        /* Set fifo full interrupt 2 status */
-        rslt = bma580_set_int_status(&int_status, n_status, &dev);
-        bma5_check_rslt("bma580_get_int_status\n", rslt);
-
-        if (rslt == BMA5_OK)
-        {
-            /* Parse the FIFO data to extract accelerometer and sensortime data from the FIFO buffer */
-            (void)bma5_extract_acc_sens_time_16_bit(fifo_accel_data, &fifoframe, &fifo_conf, &dev);
-        }
+        /* Parse accelerometer data from the FIFO buffer. */
+        (void)bma5_extract_acc_sens_time_16_bit(fifo_accel_data, &fifoframe, &fifo_conf, &dev);
     }
 
     return fifoframe.fifo_avail_frames;
