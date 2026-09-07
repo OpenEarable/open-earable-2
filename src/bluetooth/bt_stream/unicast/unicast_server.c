@@ -102,15 +102,18 @@ static uint8_t device_identifier[] = {
  }
  
  /* Callback for locking state change from server side */
- static void csip_lock_changed_cb(struct bt_conn *conn, struct bt_csip_set_member_svc_inst *csip,
-				  bool locked)
- {
+static void csip_lock_changed_cb(struct bt_conn *conn, struct bt_csip_set_member_svc_inst *csip_instance,
+			  bool locked)
+{
+	ARG_UNUSED(csip_instance);
 	 LOG_DBG("Client %p %s the lock", (void *)conn, locked ? "locked" : "released");
  }
  
  /* Callback for SIRK read request from peer side */
- static uint8_t sirk_read_req_cb(struct bt_conn *conn, struct bt_csip_set_member_svc_inst *csip)
- {
+static uint8_t sirk_read_req_cb(struct bt_conn *conn, struct bt_csip_set_member_svc_inst *csip_instance)
+{
+	ARG_UNUSED(conn);
+	ARG_UNUSED(csip_instance);
 	 /* Accept the request to read the SIRK, but return encrypted SIRK instead of plaintext */
 	 return BT_CSIP_READ_SIRK_REQ_RSP_ACCEPT_ENC;
  }
@@ -181,8 +184,10 @@ static uint8_t device_identifier[] = {
  static int lc3_config_cb(struct bt_conn *conn, const struct bt_bap_ep *ep, enum bt_audio_dir dir,
 			  const struct bt_audio_codec_cfg *codec, struct bt_bap_stream **stream,
 			  struct bt_bap_qos_cfg_pref *const pref, struct bt_bap_ascs_rsp *rsp)
- {
+{
 	 int ret;
+	 ARG_UNUSED(ep);
+	 ARG_UNUSED(rsp);
 	 LOG_DBG("LC3 config callback");
  
 	 for (int i = 0; i < ARRAY_SIZE(cap_audio_streams); i++) {
@@ -237,7 +242,11 @@ static uint8_t device_identifier[] = {
  static int lc3_reconfig_cb(struct bt_bap_stream *stream, enum bt_audio_dir dir,
 				const struct bt_audio_codec_cfg *codec,
 				struct bt_bap_qos_cfg_pref *const pref, struct bt_bap_ascs_rsp *rsp)
- {
+{
+	ARG_UNUSED(dir);
+	ARG_UNUSED(codec);
+	ARG_UNUSED(pref);
+	ARG_UNUSED(rsp);
 	 LOG_DBG("ASE Codec Reconfig: stream %p", (void *)stream);
  
 	 return 0;
@@ -245,7 +254,8 @@ static uint8_t device_identifier[] = {
  
  static int lc3_qos_cb(struct bt_bap_stream *stream, const struct bt_bap_qos_cfg *qos,
 			   struct bt_bap_ascs_rsp *rsp)
- {
+{
+	ARG_UNUSED(rsp);
 	 enum bt_audio_dir dir;
  
 	 dir = le_audio_stream_dir_get(stream);
@@ -263,27 +273,33 @@ static uint8_t device_identifier[] = {
  
  static int lc3_enable_cb(struct bt_bap_stream *stream, const uint8_t *meta, size_t meta_len,
 			  struct bt_bap_ascs_rsp *rsp)
- {
+{
+	ARG_UNUSED(meta);
+	ARG_UNUSED(rsp);
 	 LOG_DBG("Enable: stream %p meta_len %d", (void *)stream, meta_len);
  
 	 return 0;
  }
  
  static int lc3_start_cb(struct bt_bap_stream *stream, struct bt_bap_ascs_rsp *rsp)
- {
+{
+	ARG_UNUSED(rsp);
 	 LOG_DBG("Start stream %p", (void *)stream);
 	 return 0;
  }
  
  static int lc3_metadata_cb(struct bt_bap_stream *stream, const uint8_t *meta, size_t meta_len,
 				struct bt_bap_ascs_rsp *rsp)
- {
+{
+	ARG_UNUSED(meta);
+	ARG_UNUSED(rsp);
 	 LOG_DBG("Metadata: stream %p meta_len %d", (void *)stream, meta_len);
 	 return 0;
  }
  
  static int lc3_disable_cb(struct bt_bap_stream *stream, struct bt_bap_ascs_rsp *rsp)
- {
+{
+	ARG_UNUSED(rsp);
 	 enum bt_audio_dir dir;
  
 	 dir = le_audio_stream_dir_get(stream);
@@ -300,7 +316,8 @@ static uint8_t device_identifier[] = {
  }
  
  static int lc3_stop_cb(struct bt_bap_stream *stream, struct bt_bap_ascs_rsp *rsp)
- {
+{
+	ARG_UNUSED(rsp);
 	 enum bt_audio_dir dir;
  
 	 dir = le_audio_stream_dir_get(stream);
@@ -317,7 +334,8 @@ static uint8_t device_identifier[] = {
  }
  
  static int lc3_release_cb(struct bt_bap_stream *stream, struct bt_bap_ascs_rsp *rsp)
- {
+{
+	ARG_UNUSED(rsp);
 	 enum bt_audio_dir dir;
  
 	 dir = le_audio_stream_dir_get(stream);
@@ -368,6 +386,7 @@ static uint8_t device_identifier[] = {
  #if (CONFIG_BT_AUDIO_TX)
  static void stream_sent_cb(struct bt_bap_stream *stream)
  {
+	 ARG_UNUSED(stream);
 	 /* Unicast server/CIS headset only supports one source stream for now */
 	 struct stream_index idx = {
 		 .lvl1 = 0,
@@ -401,8 +420,9 @@ static uint8_t device_identifier[] = {
 	 }
  }
  
- static void stream_disabled_cb(struct bt_bap_stream *stream)
- {
+static void stream_disabled_cb(struct bt_bap_stream *stream)
+{
+	ARG_UNUSED(stream);
 	 LOG_INF("Stream %p disabled", stream);
  }
  
@@ -445,8 +465,9 @@ static uint8_t device_identifier[] = {
 	 le_audio_event_publish(LE_AUDIO_EVT_NOT_STREAMING, stream->conn, dir);
  }
  
- static void stream_released_cb(struct bt_bap_stream *stream)
- {
+static void stream_released_cb(struct bt_bap_stream *stream)
+{
+	ARG_UNUSED(stream);
 	 /* NOTE: The string below is used by the Nordic CI system */
 	 LOG_INF("Stream %p released", stream);
  }
@@ -468,6 +489,7 @@ static uint8_t device_identifier[] = {
  int unicast_server_config_get(struct bt_conn *conn, enum bt_audio_dir dir, uint32_t *bitrate,
 				   uint32_t *sampling_rate_hz, uint32_t *pres_delay_us)
  {
+	 ARG_UNUSED(conn);
 	 int ret;
  
 	 if (bitrate == NULL && sampling_rate_hz == NULL && pres_delay_us == NULL) {

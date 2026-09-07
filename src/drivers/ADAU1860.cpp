@@ -19,6 +19,7 @@ static struct k_work_delayable ascr_lock_work;
 
 void ADAU1860::check_ascr_lock(struct k_work *work)
 {
+	ARG_UNUSED(work);
     uint8_t status2;
     dac.readReg(registers::STATUS2, &status2, sizeof(status2));
 
@@ -345,10 +346,10 @@ int ADAU1860::setup_FDSP() {
         uint8_t fdsp_ctrl4 = 2; // framrate source DMIC01
         writeReg(registers::FDSP_CTRL4, &fdsp_ctrl4, sizeof(fdsp_ctrl4));
 
-        /*uint8_t fdsp_ctrl4 = 15; // fixed frame rate
+        /* uint8_t fdsp_ctrl4 = 15; // fixed frame rate
         writeReg(registers::FDSP_CTRL4, &fdsp_ctrl4, sizeof(fdsp_ctrl4));
 
-        /*uint8_t fdsp_ctrl5 = 0xFF; // fixed frame rate
+        uint8_t fdsp_ctrl5 = 0xFF; // fixed frame rate
         writeReg(registers::FDSP_CTRL5, &fdsp_ctrl5, sizeof(fdsp_ctrl5));
 
         uint8_t fdsp_ctrl6 = 0x01; // fixed frame rate
@@ -406,17 +407,17 @@ int ADAU1860::mute(bool active) {
 #endif
 }
 
-int ADAU1860::fdsp_safe_load(sl_address address, safe_load_params params, bool update_inactive) {
+int ADAU1860::fdsp_safe_load(sl_address safe_load_address, safe_load_params params, bool update_inactive) {
         // TODO: not working
         if (update_inactive) {
                 // write to non active banks
                 for (int i = 0; i < FDSP_NUM_BANKS; i++) {
                         if (i == _active_bank) continue;
-                        writeReg(FDSP_BANK(i, address), (uint8_t *) params, sizeof(safe_load_params));
+                        writeReg(FDSP_BANK(i, safe_load_address), (uint8_t *) params, sizeof(safe_load_params));
                 }
         }
 
-        uint8_t _address = address;
+        uint8_t _address = safe_load_address;
         writeReg(registers::FDSP_SL_ADDR, &_address, sizeof(_address));
         writeReg(registers::FDSP_SL_P0_0, (uint8_t *) params, sizeof(safe_load_params));
 
@@ -426,16 +427,16 @@ int ADAU1860::fdsp_safe_load(sl_address address, safe_load_params params, bool u
         return 0;
 }
 
-int ADAU1860::fdsp_safe_load(sl_address address, int n, uint32_t param, bool update_inactive) {
+int ADAU1860::fdsp_safe_load(sl_address safe_load_address, int n, uint32_t param, bool update_inactive) {
         uint32_t params[FDSP_NUM_PARAMS];
 
         for (int i = 0; i < FDSP_NUM_PARAMS; i++) {
-                params[i] = fdsp_param_bank_a[i][address];
+                params[i] = fdsp_param_bank_a[i][safe_load_address];
         }
 
         params[n] = param;
 
-        fdsp_safe_load(address, params, update_inactive);
+        fdsp_safe_load(safe_load_address, params, update_inactive);
 
         return 0;
 }

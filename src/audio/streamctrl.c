@@ -7,6 +7,7 @@
 #include "streamctrl.h"
 
 #include <stdio.h>
+#include <inttypes.h>
 #include <string.h>
 #include "common/bt_str.h"
 #include <zephyr/zbus/zbus.h>
@@ -554,6 +555,9 @@ static void write_sirk(uint32_t sirk) {
 // Callback-Funktion für gefundene Geräte
 static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, struct net_buf_simple *ad)
 {
+	ARG_UNUSED(rssi);
+	ARG_UNUSED(type);
+
     char addr_str[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
@@ -569,13 +573,13 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
             break; // Ungültige Länge
         }
 
-        uint8_t type = net_buf_simple_pull_u8(ad);
+        uint8_t data_type = net_buf_simple_pull_u8(ad);
         const uint8_t *data = ad->data;
         ad->data += len - 1;
         ad->len -= len - 1;
 
         // Suchen nach 16-bit Service UUIDs (LE Audio Services)
-        if (type == BT_DATA_SVC_DATA16) {
+        if (data_type == BT_DATA_SVC_DATA16) {
             for (size_t i = 0; i + 1U < (size_t)(len - 1); i += 2) {
                 uint16_t uuid = (data[i + 1] << 8) | data[i];
 				if (uuid == BT_UUID_CAS_VAL) {
@@ -584,7 +588,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
             }
         }
 
-		if (is_le_audio_device && type == BT_DATA_MANUFACTURER_DATA) {
+		if (is_le_audio_device && data_type == BT_DATA_MANUFACTURER_DATA) {
 			if ((len - 1) >= sizeof(chip_id)) {
 				memcpy(chip_id, data, sizeof(chip_id));
 				chip_id_found = true;
@@ -595,7 +599,7 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
         }
 
 		/* A valid RSI contains a 3-byte hash followed by a 3-byte random value. */
-		if (type == BT_DATA_CSIS_RSI) {
+		if (data_type == BT_DATA_CSIS_RSI) {
 			if ((len - 1) >= sizeof(csis_rsi)) {
 				memcpy(csis_rsi, data, sizeof(csis_rsi));
 				csis_rsi_found = true;
@@ -632,9 +636,9 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 		channel_assignment_get(&channel);
 
 		if (channel == AUDIO_CH_L) {
-			LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
-			LOG_INF("Device ID 2: %016X", peer_device_id);
-			LOG_INF("New Sirk: %016X", new_sirk);
+			LOG_INF("Device ID 1: %016" PRIX64, oe_boot_state.device_id);
+			LOG_INF("Device ID 2: %08" PRIX32, peer_device_id);
+			LOG_INF("New Sirk: %08" PRIX32, new_sirk);
 
 			//TODO: check if the device wants to pair (sirk == device_id)
 			//TODO: check channel

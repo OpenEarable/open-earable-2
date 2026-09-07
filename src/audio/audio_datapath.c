@@ -189,7 +189,7 @@ static struct {
 static struct k_msgq * sensor_queue;
 
 //K_MSGQ_DEFINE(rx_queue, sizeof(struct audio_data), 16, 4);
-extern struct k_msgq_t encoder_queue;
+extern struct k_msgq encoder_queue;
 
 // Definition eines zbus-Kanals
 ZBUS_CHAN_DEFINE(audio_channel, struct audio_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY, ZBUS_MSG_INIT(0));
@@ -235,6 +235,10 @@ static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t)];
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
 {
+	ARG_UNUSED(arg1);
+	ARG_UNUSED(arg2);
+	ARG_UNUSED(arg3);
+
     //struct audio_data audio_item;
     void *tmp_pcm_raw_data[CONFIG_FIFO_FRAME_SPLIT_NUM];
     //char pcm_raw_data[FRAME_SIZE_BYTES];
@@ -258,8 +262,6 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
-			unsigned int logger_signaled;
-
 			if (_record_to_sd || _record_to_buffer) {
 				/* Decimate audio data from 48kHz to the desired sampling rate */
 				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
@@ -274,7 +276,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 
 				// Generic buffer recording
 				if (_record_to_buffer && _record_buffer != NULL) {
-					for(int i = 0; i < decimated_frames; i++) {
+					for(int frame_index = 0; frame_index < decimated_frames; frame_index++) {
 						_record_current_index++;
 						
 						// Skip samples during initial drop period
@@ -289,15 +291,15 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 							if (_record_left && _record_right) {
 								// Stereo recording - store both channels
 								if (buffer_index * 2 + 1 < _record_num_samples) {
-									_record_buffer[buffer_index * 2] = decimated_audio[2 * i];     // Left
-									_record_buffer[buffer_index * 2 + 1] = decimated_audio[2 * i + 1]; // Right
+									_record_buffer[buffer_index * 2] = decimated_audio[2 * frame_index];     // Left
+									_record_buffer[buffer_index * 2 + 1] = decimated_audio[2 * frame_index + 1]; // Right
 								}
 							} else if (_record_left) {
 								// Left channel only
-								_record_buffer[buffer_index] = decimated_audio[2 * i];
+								_record_buffer[buffer_index] = decimated_audio[2 * frame_index];
 							} else if (_record_right) {
 								// Right channel only
-								_record_buffer[buffer_index] = decimated_audio[2 * i + 1];
+								_record_buffer[buffer_index] = decimated_audio[2 * frame_index + 1];
 							}
 							
 						}
@@ -329,17 +331,17 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					audio_msg.data.size
 				};
 
-				void *data_ptrs[2] = {
+				const void *data_ptrs[2] = {
 					&audio_msg.data,
 					decimated_audio
 				};
 
-				if (decimated_frames == num_frames) {
+				if ((uint32_t)decimated_frames == num_frames) {
 					data_ptrs[1] = audio_block;
 				}
 	
 				if (decimated_frames > 0) {
-					sdlogger_write_data(&data_ptrs, data_size, 2);
+					sdlogger_write_data(data_ptrs, data_size, 2);
 				}
 			}
 
@@ -622,8 +624,6 @@ static void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 
 static void pres_comp_state_set(enum pres_comp_state new_state)
 {
-	int ret;
-
 	if (new_state == ctrl_blk.pres_comp.state) {
 		return;
 	}
@@ -633,6 +633,8 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
 	LOG_INF("Pres comp state: %s", pres_comp_state_names[new_state]);
 
 #if CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP
+	int ret;
+
 	if (new_state == PRES_STATE_LOCKED) {
 		ret = led_on(LED_APP_2_GREEN);
 	} else {
@@ -777,6 +779,8 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 
 static void tone_stop_worker(struct k_work *work)
 {
+	ARG_UNUSED(work);
+
 	tone_active = false;
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
 
@@ -799,6 +803,8 @@ K_WORK_DEFINE(tone_stop_work, tone_stop_worker);
 
 static void tone_stop_timer_handler(struct k_timer *dummy)
 {
+	ARG_UNUSED(dummy);
+
 	k_work_submit(&tone_stop_work);
 };
 
@@ -1066,6 +1072,8 @@ static void alt_buffer_free_both(void)
 }
 
 __attribute__((weak)) void bt_mgmt_report_audio_underrun(uint32_t count) {
+	ARG_UNUSED(count);
+
 	LOG_ERR("Audio underrun reported to bt_mgmt");
 }
 
