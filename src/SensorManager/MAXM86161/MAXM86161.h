@@ -6,6 +6,7 @@
 
 //#include <Wire.h>
 #include <TWIM.h>
+#include <stddef.h>
 #include <stdint.h>
 
 
@@ -34,6 +35,11 @@
 
 typedef uint32_t ppg_sample[6];
 
+// Constants for reading data
+#define BYTES_PER_CH 3
+#define LED_NUM 4 // 3 LEDs plus the ambient sample
+#define FIFO_SIZE 128
+
 class MAXM86161 {
     public:
     /** @brief Constructor
@@ -50,11 +56,13 @@ class MAXM86161 {
     /** @brief Stop collecting data samples */
     int stop(void);
     /** @brief Read data from the sensor */
-    int read(ppg_sample * buffer);
+    int read(ppg_sample *buffer, size_t buffer_capacity);
 
     // Configuration adjustments
     /** @brief Set the rate of the PPG sensor */
     int set_interrogation_rate(int rate);
+    /** @brief Read back the effective rate selected by the sensor. */
+    int get_interrogation_rate(int &rate);
     /** @brief Set the number of samples to average */
     int set_sample_averaging(int average);
     /** @brief Set the LED current for all LEDs */
@@ -67,6 +75,10 @@ class MAXM86161 {
     int set_led3_current(int current);
     /** @brief Set the integration time for the photodiode */   
     int set_ppg_tint(int time);
+    /** @brief Read back the effective photodiode integration time. */
+    int get_ppg_tint(int &time);
+    /** @brief Configure the number of optical exposures in each sample. */
+    int set_exposure_count(uint8_t count);
 
     // Setting adjustments
     /** @brief Set the ALC on */  
@@ -97,6 +109,9 @@ private:
 
     uint8_t _addr = DT_REG_ADDR(DT_NODELABEL(maxm86161));
 
+    uint8_t _exposure_count = LED_NUM;
+    uint8_t _exposure_output_indices[LED_NUM] = { 1, 2, 0, 3 };
+
     // void _set_led_sequence(char sequence);
 
     int _read_from_reg(int address, int &data);
@@ -117,12 +132,6 @@ private:
 
 // Part ID of the MAXM86161
 #define PPG_PART_ID 0x36
-
-// Constants for reading data
-#define BYTES_PER_CH 3
-#define LED_NUM 4 // 3 LEDs plus the ambient sample
-#define FIFO_SIZE 128
-
 
 // Bit positions.
 #define POS_DATA_RDY_EN 6
@@ -145,6 +154,7 @@ private:
 #define MASK_SMP_AVE 0b00000111  //Register 0x12
 #define MASK_PPG_SR 0b11111000  // Register 0x12
 #define MASK_PPG_TINT_WRITE 0b11111100  // Register 0x11
+#define MASK_PPG_TINT 0b00000011        // Register 0x11
 
 #define MASK_PPG_LABEL 0x7FFFF;
 #define MASK_PPG_ID 0xF8;

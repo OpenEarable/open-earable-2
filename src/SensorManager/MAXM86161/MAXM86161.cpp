@@ -1,10 +1,12 @@
 #include "MAXM86161.h"
+#include <errno.h>
+#include <string.h>
 #include <zephyr/kernel.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(MAXM86161, 3);
 
-char databuffer[32*BYTES_PER_CH*LED_NUM];
+uint8_t databuffer[32*BYTES_PER_CH*LED_NUM];
 
 /*****************************************************************************/
 // Constructor
@@ -136,19 +138,28 @@ int MAXM86161::stop(void)
     return status;
 }
 
-int MAXM86161::read(ppg_sample * buffer) {
+int MAXM86161::read(ppg_sample *buffer, size_t buffer_capacity) {
+    if (buffer == nullptr || buffer_capacity == 0) {
+        return 0;
+    }
+
     int status;
     int number_of_bytes;
-    int num_samples = 0;
+    int fifo_items = 0;
     int output_idx = -1;
 
-    status = _read_from_reg(REG_FIFO_DATA_COUNTER, num_samples);
+    status = _read_from_reg(REG_FIFO_DATA_COUNTER, fifo_items);
     if (status == 0){
-        number_of_bytes = num_samples / LED_NUM * LED_NUM * BYTES_PER_CH;
+        int items_to_read = MIN(fifo_items, (int)(buffer_capacity * _exposure_count));
+        items_to_read -= items_to_read % _exposure_count;
+        number_of_bytes = items_to_read * BYTES_PER_CH;
         
         status = _read_block(REG_FIFO_DATA, number_of_bytes, (uint8_t *) databuffer);
+        if (status != 0) {
+            return 0;
+        }
 
-        for (int i=0; i < num_samples / LED_NUM * LED_NUM; i++) {
+        for (int i = 0; i < items_to_read; i++) {
             int idx = BYTES_PER_CH * i;
 
             uint32_t val = databuffer[idx] << 16 | databuffer[idx + 1] << 8 | databuffer[idx+2];
@@ -158,10 +169,16 @@ int MAXM86161::read(ppg_sample * buffer) {
 
             //LOG_INF("tag: %i, val: %i", tag, val);
 
-            if (tag == 1) output_idx++;
-            if (tag > 6 || output_idx < 0) continue;
+            if (tag == 1) {
+                if ((size_t)(output_idx + 1) >= buffer_capacity) {
+                    break;
+                }
+                output_idx++;
+                memset(buffer[output_idx], 0, sizeof(ppg_sample));
+            }
+            if (tag == 0 || tag > _exposure_count || output_idx < 0) continue;
 
-            buffer[output_idx][tag-1] = val;
+            buffer[output_idx][_exposure_output_indices[tag - 1]] = val;
         }
     }
     
@@ -176,12 +193,27 @@ int MAXM86161::set_interrogation_rate(int rate)
     int status;
 
     // Get value of register to avoid overwriting sample average value
-    _read_from_reg(REG_PPG_CONFIG2, existing_reg_values);
+    status = _read_from_reg(REG_PPG_CONFIG2, existing_reg_values);
+    if (status != 0) {
+        return status;
+    }
 
     // Set the appropriate bits, while leaving the others.
     existing_reg_values = _set_multiple_bits(existing_reg_values, MASK_SMP_AVE, rate, POS_PPG_SR);
 
     status = _write_to_reg(REG_PPG_CONFIG2, existing_reg_values);
+    return status;
+}
+
+int MAXM86161::get_interrogation_rate(int &rate)
+{
+    int register_value;
+    int status = _read_from_reg(REG_PPG_CONFIG2, register_value);
+
+    if (status == 0) {
+        rate = (register_value & MASK_PPG_SR) >> POS_PPG_SR;
+    }
+
     return status;
 }
 
@@ -245,7 +277,10 @@ int MAXM86161::set_ppg_tint(int time)
     int status;
 
     // Get value of register to avoid overwriting sample average value
-    _read_from_reg(REG_PPG_CONFIG1, existing_reg_values);
+    status = _read_from_reg(REG_PPG_CONFIG1, existing_reg_values);
+    if (status != 0) {
+        return status;
+    }
 
     // Set the appropriate bits, while leaving the others.
     existing_reg_values = _set_multiple_bits(existing_reg_values, MASK_PPG_TINT_WRITE, time, POS_PPG_TINT);
@@ -253,6 +288,71 @@ int MAXM86161::set_ppg_tint(int time)
     status = _write_to_reg(REG_PPG_CONFIG1, existing_reg_values);
     return status;
 
+}
+
+int MAXM86161::get_ppg_tint(int &time)
+{
+    int register_value;
+    int status = _read_from_reg(REG_PPG_CONFIG1, register_value);
+
+    if (status == 0) {
+        time = register_value & MASK_PPG_TINT;
+    }
+
+    return status;
+}
+
+int MAXM86161::set_exposure_count(uint8_t count)
+{
+    /* Keep IR as the highest-rate channel; preserve the red/IR pair at 2 kHz. */
+    static const uint8_t sequence_registers[LED_NUM][3] = {
+        { 0x02, 0x00, 0x00 }, /* IR */
+        { 0x32, 0x00, 0x00 }, /* IR, red */
+        { 0x12, 0x03, 0x00 }, /* IR, green, red */
+        { 0x12, 0x93, 0x00 }, /* IR, green, red, ambient */
+    };
+    static const uint8_t output_indices[LED_NUM][LED_NUM] = {
+        { 1, 0, 0, 0 },
+        { 1, 0, 0, 0 },
+        { 1, 2, 0, 0 },
+        { 1, 2, 0, 3 },
+    };
+
+    if (count < 1 || count > LED_NUM) {
+        return -EINVAL;
+    }
+
+    const int registers[] = { REG_LED_SEQ1, REG_LED_SEQ2, REG_LED_SEQ3 };
+    for (size_t i = 0; i < 3; ++i) {
+        int status = _write_to_reg(registers[i], sequence_registers[count - 1][i]);
+        if (status != 0) {
+            return status;
+        }
+
+        int effective_value;
+        status = _read_from_reg(registers[i], effective_value);
+        if (status != 0) {
+            return status;
+        }
+        if (effective_value != sequence_registers[count - 1][i]) {
+            return -EIO;
+        }
+    }
+
+    int fifo_config;
+    int status = _read_from_reg(REG_FIFO_CONFIG2, fifo_config);
+    if (status != 0) {
+        return status;
+    }
+    status = _write_to_reg(REG_FIFO_CONFIG2, fifo_config | 0x10);
+    if (status != 0) {
+        return status;
+    }
+
+    _exposure_count = count;
+    memcpy(_exposure_output_indices, output_indices[count - 1],
+           sizeof(_exposure_output_indices));
+    return 0;
 }
 
 /*******************************************************************************/
@@ -389,7 +489,7 @@ int MAXM86161::_write_to_reg(int address, int value) {
 
     _i2c->release();
 
-    return 0;
+    return ret;
 }
 
 
