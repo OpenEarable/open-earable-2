@@ -66,6 +66,7 @@ bool PPG::init(struct k_msgq * queue) {
 }
 
 void PPG::update_sensor(struct k_work *work) {
+	ARG_UNUSED(work);
     int int_status;
     int status;
 
@@ -130,6 +131,7 @@ void PPG::update_sensor(struct k_work *work) {
 * @brief Submit a k_work on timer expiry.
 */
 void PPG::sensor_timer_handler(struct k_timer *dummy) {
+	ARG_UNUSED(dummy);
 	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 }
 

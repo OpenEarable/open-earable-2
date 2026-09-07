@@ -15,6 +15,8 @@ struct gpio_callback Button::button_cb_data;
 void Button::button_isr(const struct device *dev, struct gpio_callback *cb,
 		    uint32_t pins)
 {
+	ARG_UNUSED(dev);
+	ARG_UNUSED(cb);
 	if (!(pins & BIT(BUTTON_EARABLE))) {
 		return;
 	}
