@@ -206,7 +206,7 @@ uint8_t BQ25120a::write_charging_control(float mA) {
 
         if (mA >= 40) {
                 if (mA > 300) mA = 300;
-                status |= (((uint16_t)((mA - 40) / 10 + EPS)) & 0x1F) << 2;
+                status |= (((uint16_t)((mA - 40.0f) / 10.0f + EPS)) & 0x1F) << 2;
                 status |= 1 << 7;
         } else {
                 if (mA > 35) mA = 35;
@@ -244,7 +244,7 @@ uint8_t BQ25120a::write_LDO_voltage_control(float volt) {
         readReg(registers::LS_LDO_CTRL, &status, sizeof(status));
 
         status &= 1 << 7;
-        status |= ((uint8_t)((volt - 0.8f) * 10 + EPS)) << 2;
+        status |= ((uint8_t)((volt - 0.8f) * 10.0f + EPS)) << 2;
 
         writeReg(registers::LS_LDO_CTRL, &status, sizeof(status));
 
@@ -277,7 +277,7 @@ uint8_t BQ25120a::write_battery_voltage_control(float volt) {
 
         volt = CLAMP(volt, 3.6f, 4.65f);
 
-        status |= (((uint16_t)((volt - 3.6f) * 100 + EPS)) & 0x7F) << 1;
+        status |= (((uint16_t)((volt - 3.6f) * 100.0f + EPS)) & 0x7F) << 1;
 
         writeReg(registers::BAT_VOL_CTRL, &status, sizeof(status));
 
@@ -301,7 +301,7 @@ chrg_state BQ25120a::read_termination_control() {
         if (status & (1 << 7)) {
                 mAh = 6 + mAh * 1;
         } else {
-                mAh = 0.5 + mAh * 0.5;
+                mAh = 0.5f + mAh * 0.5f;
         }
 
         chrg.mAh = mAh;
@@ -321,7 +321,7 @@ uint8_t BQ25120a::write_termination_control(float mA, bool enable_termination) {
                 status |= 1 << 7;
         } else {
                 if (mA > 5) mA = 5;
-                status |= (((uint16_t)(2 * (mA - 0.5))) & 0x1F) << 2;
+                status |= (((uint16_t)(2.0f * (mA - 0.5f))) & 0x1F) << 2;
         }
 
         if (enable_termination) {
@@ -339,20 +339,20 @@ ilim_uvlo BQ25120a::read_uvlo_ilim() {
 
         (void)readReg(registers::ILIM_UVLO, (uint8_t *) &status, sizeof(status));
 
-        param.uvlo_v = CLAMP(3.0f- 0.2f * ((status & 0x7) - 2), 2.2, 3.0);
+        param.uvlo_v = CLAMP(3.0f- 0.2f * ((status & 0x7) - 2), 2.2f, 3.0f);
         param.lim_mA = 50.f + 50.f * ((status >> 3) & 0x7);
 
         return param;
 }
 
 uint8_t BQ25120a::write_uvlo_ilim(ilim_uvlo param) {
-        float mA = CLAMP(param.lim_mA, 50, 400);
-        float v = CLAMP(param.uvlo_v, 2.2, 3.0);
+        float mA = CLAMP(param.lim_mA, 50.0f, 400.0f);
+        float v = CLAMP(param.uvlo_v, 2.2f, 3.0f);
 
         uint8_t status = 0;
 
-        status |= ((uint16_t)(mA / 50 - 1) & 0x7) << 3;
-        status |= ((uint16_t)((3.0 - v) * 5 + 2) & 0x7);
+        status |= ((uint16_t)(mA / 50.0f - 1.0f) & 0x7) << 3;
+        status |= ((uint16_t)((3.0f - v) * 5.0f + 2.0f) & 0x7);
 
         writeReg(registers::ILIM_UVLO, &status, sizeof(status));
 

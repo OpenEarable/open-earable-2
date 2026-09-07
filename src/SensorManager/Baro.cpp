@@ -98,7 +98,7 @@ bool Baro::init(struct k_msgq * queue) {
 void Baro::start(int sample_rate_idx) {
 	baro_initial_discard = 1;
 
-    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
+    k_timeout_t t = K_USEC(1000000.0f / sample_rates.true_sample_rates[sample_rate_idx]);
     
     //bmp.set_interrogation_rate(setting.reg_val);
     //bmp.start();

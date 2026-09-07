@@ -244,9 +244,9 @@ float MLX90632::getObjectTemp(status& returnError)
 
     double AMB = (sixRAM / 12.0) / VRta * pow(2, 19);
 
-    float S = (float)(lowerRAM + upperRAM) / 2.0;
+    float S = (float)(lowerRAM + upperRAM) / 2.0f;
     double VRto = nineRAM + Ka * (sixRAM / 12.0);
-    double Sto = (S / 12.0) / VRto * (double)pow(2, 19);
+    double Sto = ((double)S / 12.0) / VRto * pow(2, 19);
 
     double TAdut = (AMB - Eb) / Ea + 25.0;
 
@@ -268,7 +268,7 @@ float MLX90632::getObjectTemp(status& returnError)
 float MLX90632::getObjectTempF()
 {
   float tempC = getObjectTemp();
-  float tempF = tempC * 9.0/5.0 + 32.0;
+  float tempF = tempC * 9.0f / 5.0f + 32.0f;
   return(tempF);
 }
 
