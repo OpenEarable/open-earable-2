@@ -29,6 +29,10 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 	case BT_MGMT_DISCONNECTED:
 		state_indicator.set_pairing_state(PAIRED);
 		break;
+
+	default:
+		/* Other events do not affect the pairing state indication. */
+		break;
 	}
 }
 
