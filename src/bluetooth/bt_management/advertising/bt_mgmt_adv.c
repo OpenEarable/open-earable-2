@@ -9,7 +9,7 @@
  #include <zephyr/zbus/zbus.h>
  #include <zephyr/bluetooth/bluetooth.h>
  #include <zephyr/bluetooth/conn.h>
- 
+
  #include "macros_common.h"
  #include "zbus_common.h"
  
@@ -476,8 +476,7 @@ static void advertising_process(struct k_work *work)
 	 return 0;
  }
  
- void bt_mgmt_adv_init(void)
- {
-	 k_work_init(&adv_work, advertising_process);
- }
- 
+void bt_mgmt_adv_init(void)
+{
+	k_work_init(&adv_work, advertising_process);
+}

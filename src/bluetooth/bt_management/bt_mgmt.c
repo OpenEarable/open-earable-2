@@ -20,6 +20,7 @@
 #include "macros_common.h"
 #include "zbus_common.h"
 #include "button_assignments.h"
+#include "../../buttons/button_manager.h"
 #include "uicr.h"
 
 #include "bt_mgmt_ctlr_cfg_internal.h"
@@ -89,9 +90,6 @@ static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CON
 //callback
 static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
 {
-	struct bt_mgmt_msg msg;
-	int ret;
-
 	LOG_INF("Conn params updated: interval %d unit, latency %d, timeout: %d0 ms",interval, latency, timeout);
 
 	bt_mgmt_ci_on_conn_param_updated(conn, interval, latency, timeout);
@@ -325,7 +323,7 @@ static int local_identity_addr_print(void)
 
 	bt_id_get(addrs, &num_ids);
 
-	for (int i = 0; i < num_ids; i++) {
+	for (size_t i = 0; i < num_ids; i++) {
 		(void)bt_addr_le_to_str(&(addrs[i]), addr_str, BT_ADDR_LE_STR_LEN);
 		LOG_INF("Local identity addr: %s", addr_str);
 	}
@@ -417,7 +415,8 @@ int bt_mgmt_init(void)
 	bt_gatt_cb_register(&gatt_callbacks);
 
 	uint32_t sirk = uicr_sirk_get();
-	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X", CONFIG_BT_DEVICE_NAME, (sirk != 0xFFFFFFFFU ? sirk : oe_boot_state.device_id) & 0xFFFF);
+	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X", CONFIG_BT_DEVICE_NAME,
+		 (unsigned int)((sirk != 0xFFFFFFFFU ? sirk : oe_boot_state.device_id) & 0xFFFF));
 
 	ret = bt_set_name(name);
     if (ret) {
