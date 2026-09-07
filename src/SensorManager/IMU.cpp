@@ -1,6 +1,7 @@
 #include "IMU.h"
 
 #include "SensorManager.h"
+#include "uicr.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
@@ -23,6 +24,25 @@ const SampleRateSetting<6> IMU::sample_rates = {
 
 	{ 25.0, 50.0, 100.0, 200.0, 400.0, 800.0 }
 };
+
+void IMU::detectHardwareRevision()
+{
+	const int power_result = pm_device_runtime_get(ls_1_8);
+	if (power_result < 0) {
+		LOG_WRN("Could not power the IMU rail for hardware detection: %d", power_result);
+		return;
+	}
+
+	const bool detected = imu.detect();
+	if (detected && imu.isStandaloneBmi160()) {
+		const int revision_result = uicr_hw_revision_promote_2_0_to_2_1();
+		if (revision_result != 0) {
+			LOG_ERR("Could not promote detected hardware revision to 2.1: %d", revision_result);
+		}
+	}
+
+	pm_device_runtime_put(ls_1_8);
+}
 
 void IMU::update_sensor(struct k_work *work) {
 	int ret;
