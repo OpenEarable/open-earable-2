@@ -102,6 +102,7 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 
 void sd_listener_callback(const struct zbus_channel *chan)
 {
+	ARG_UNUSED(chan);
     const struct sd_msg * sd_msg_event = (sd_msg *)zbus_chan_const_msg(&sd_card_chan);
 
     if (sdlogger.is_open && sd_msg_event->removed) {
@@ -438,9 +439,9 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
     return 0;
 }
 
-int SDLogger::write_sensor_data(const sensor_data& msg) {
-    const size_t data_size = sizeof(sensor_data) - sizeof(msg.data) + msg.size;
-    const void* msg_ptr = &msg;
+int SDLogger::write_sensor_data(const sensor_data& sensor_message) {
+    const size_t data_size = sizeof(sensor_data) - sizeof(sensor_message.data) + sensor_message.size;
+    const void* msg_ptr = &sensor_message;
     return write_sensor_data(&msg_ptr, &data_size, 1);
 }
 

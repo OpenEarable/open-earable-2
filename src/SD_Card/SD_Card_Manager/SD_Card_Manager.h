@@ -162,7 +162,7 @@ public:
     bool is_mounted() { return this->mounted; }
 
 private:
-    std::string path;
+    std::string current_path;
     bool mounted = false;
     struct fs_dir_t dirp;
 
@@ -173,14 +173,21 @@ private:
 
     FATFS fat_fs;
     struct fs_mount_t mnt_pt = {
+        .node = {},
         .type = FS_FATFS,
+        .mnt_point = nullptr,
         .fs_data = &fat_fs,
+        .storage_dev = nullptr,
+        .mountp_len = 0,
+        .fs = nullptr,
+        .flags = 0,
     };
 
     struct tracked_fs_file_t {
         struct fs_file_t filep;
         bool is_open;
     } tracked_file = {
+        .filep = {},
         .is_open = false,
     };
 
