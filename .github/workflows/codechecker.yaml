@@ -20,7 +20,6 @@ jobs:
   codechecker:
     name: Advisory analysis
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - name: Check out application
@@ -28,6 +27,7 @@ jobs:
         with:
           fetch-depth: 0
           path: zephyr-workspace/open-earable-v2
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -83,6 +83,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p codechecker-output
+          set -o pipefail
           set +e
           west build \
             --no-sysbuild \
@@ -99,7 +100,19 @@ jobs:
           analysis_exit=${PIPESTATUS[0]}
           echo "exit_code=${analysis_exit}" >> "${GITHUB_OUTPUT}"
           echo "CodeChecker/build exit code: ${analysis_exit}" >> codechecker-output/analysis.log
-          exit 0
+          if [ "${analysis_exit}" -ne 0 ]; then
+            echo "::error::CodeChecker build failed; see codechecker-output/analysis.log"
+            exit "${analysis_exit}"
+          fi
+          if [ ! -s build/sca/codechecker/codechecker.json ]; then
+            echo "::error::CodeChecker did not produce build/sca/codechecker/codechecker.json"
+            exit 1
+          fi
+          if ! find build/sca/codechecker/codechecker.plist -maxdepth 1 -type f \
+            -name '*.plist' -print -quit | grep -q .; then
+            echo "::error::CodeChecker completed without analyzing any compilation commands"
+            exit 1
+          fi
 
       - name: Prepare PR annotations
         if: always()
