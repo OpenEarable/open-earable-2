@@ -71,10 +71,13 @@ static const char sensor_manager_auto_off_token[] = "SensorManager";
 static void config_work_handler(struct k_work *work);
 
 void sensor_chan_update(void *p1, void *p2, void *p3) {
+	ARG_UNUSED(p1);
+	ARG_UNUSED(p2);
+	ARG_UNUSED(p3);
     int ret;
 
 	while (1) {
-		ret = k_poll(&sensor_manager_evt, 1, K_FOREVER);
+		(void)k_poll(&sensor_manager_evt, 1, K_FOREVER);
 
 		k_msgq_get(&sensor_queue, &msg, K_FOREVER);
 
@@ -190,6 +193,7 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 
 // Worker-Funktion für die Sensor-Konfiguration
 static void config_work_handler(struct k_work *work) {
+	ARG_UNUSED(work);
 	int ret;
 	struct sensor_config config;
 	
@@ -200,7 +204,7 @@ static void config_work_handler(struct k_work *work) {
 
     float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
-		LOG_ERR("Invalid sample rate %f for sensor %i", sampleRate, config.sensorId);
+		LOG_ERR("Invalid sample rate %f for sensor %i", (double)sampleRate, config.sensorId);
 		return;
 	}
 
@@ -243,8 +247,9 @@ static void config_work_handler(struct k_work *work) {
 			LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
 			// Start SDLogger with timestamp-based filename
 			std::string filename = recording_name_prefix + std::to_string(micros());
-			int ret = sdlogger.begin(filename);
-			if (ret == 0) state_indicator.set_sd_state(SD_RECORDING);
+			int logger_ret = sdlogger.begin(filename);
+			if (logger_ret == 0) state_indicator.set_sd_state(SD_RECORDING);
+			else LOG_ERR("Failed to start SDLogger, ret: %d", logger_ret);
 		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);

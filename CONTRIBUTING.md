@@ -14,6 +14,9 @@ This repository contains the OpenEarable 2 firmware for the `openearable_v2/nrf5
 
 The main firmware lives at the repository root and is built through Zephyr and the nRF Connect SDK.
 
+Unit tests live under `tests/unit`. See [tests/README.md](tests/README.md) for the
+GitHub Actions workflow, optional local execution, and suite structure.
+
 - `src/audio`, `src/bluetooth`, `src/modules`: runtime audio, Bluetooth, and application modules.
 - `src/SensorManager`, `src/Battery`, `src/SD_Card`, `src/time_sync`: sensor, power, storage, and synchronization subsystems.
 - `src/drivers`, `src/Wire`, `src/utils`, `src/buttons`, `src/ParseInfo`: reusable device support and shared utilities.
@@ -144,6 +147,33 @@ This repository expects code to be documented.
 - Prefer clear control flow over compact but opaque code.
 - Avoid unrelated formatting churn.
 - Keep headers and source files aligned: declarations, ownership, and invariants should be easy to trace.
+
+### Static Analysis
+
+GitHub Actions runs advisory CodeChecker analysis for pull requests; findings
+and analyzer failures do not block merging. It analyzes the FOTA application
+without sysbuild using Clang Static Analyzer and Cppcheck. Style findings,
+Clang-Tidy, formatting, and automatic fixes are not enabled. The analyzer
+configuration is in [.codechecker.json](.codechecker.json).
+
+Local execution is optional. In an nRF Connect SDK `v3.0.1` Linux or WSL
+workspace, install CodeChecker `6.28.2`, Clang, and Cppcheck, then run:
+
+```bash
+sudo apt-get install clang cppcheck
+python -m pip install "codechecker==6.28.2"
+codechecker_config="$(pwd)/.codechecker.json"
+west build --no-sysbuild --board openearable_v2/nrf5340/cpuapp \
+  --pristine=always . -- -DFILE_SUFFIX=fota \
+  -DZEPHYR_SCA_VARIANT=codechecker \
+  -DCODECHECKER_CONFIG_FILE="${codechecker_config}" \
+  -DCODECHECKER_EXPORT=html,json
+```
+
+Reports are written to `<build-directory>/sca/codechecker/`. See Nordic's
+[CodeChecker documentation for nRF Connect SDK 3.0.1](https://nrfconnectdocs.nordicsemi.com/ncs/3.0.1/zephyr/develop/sca/codechecker.html)
+or the corresponding [upstream Zephyr 4.0 documentation](https://docs.zephyrproject.org/4.0.0/develop/sca/codechecker.html)
+for the available options.
 
 ## Validation Before Opening A Pull Request
 

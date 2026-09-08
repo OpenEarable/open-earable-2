@@ -115,7 +115,6 @@ struct sensor_config {
 	uint8_t storageOptions;
 } __attribute__((packed));
 
-
 struct battery_settings {
     float u_nominal;
     float u_term;

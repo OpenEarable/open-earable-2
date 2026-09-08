@@ -1,0 +1,14 @@
+{
+  "analyze": [
+    "--analyzers",
+    "clangsa",
+    "cppcheck",
+    "--disable",
+    "severity:STYLE",
+    "--file",
+    "*/open-earable-v2/*",
+    "--capture-analysis-output",
+    "--report-hash",
+    "context-free-v2"
+  ]
+}

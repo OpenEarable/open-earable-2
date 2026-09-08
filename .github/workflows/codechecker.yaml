@@ -1,0 +1,189 @@
+name: CodeChecker static analysis
+
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CODECHECKER_VERSION: "6.28.2"
+  ZEPHYR_SDK_VERSION: "0.17.0"
+
+jobs:
+  codechecker:
+    name: Advisory analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out application
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          path: zephyr-workspace/open-earable-v2
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            ccache \
+            clang \
+            cppcheck \
+            device-tree-compiler \
+            g++-multilib \
+            gcc-multilib \
+            gperf \
+            libmagic1 \
+            make \
+            ninja-build \
+            wget \
+            xz-utils
+
+      - name: Install Python tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "codechecker==${CODECHECKER_VERSION}" west
+
+      - name: Install Zephyr SDK
+        working-directory: zephyr-workspace
+        run: |
+          wget --quiet \
+            "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
+          tar xf "zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
+          "${PWD}/zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh" -c -t arm-zephyr-eabi
+
+      - name: Initialize Zephyr workspace
+        working-directory: zephyr-workspace
+        run: |
+          west init -l open-earable-v2
+          west update --narrow -o=--depth=1
+          python -m pip install -r zephyr/scripts/requirements.txt
+
+      - name: Register custom board
+        working-directory: zephyr-workspace
+        run: |
+          mkdir -p zephyr/boards/arm
+          cp -R open-earable-v2/boards/teco/. zephyr/boards/arm/
+
+      - name: Run CodeChecker
+        id: analysis
+        working-directory: zephyr-workspace
+        shell: bash
+        run: |
+          mkdir -p codechecker-output
+          set -o pipefail
+          set +e
+          west build \
+            --no-sysbuild \
+            --board openearable_v2/nrf5340/cpuapp \
+            --pristine=always \
+            open-earable-v2 \
+            -- \
+            -DFILE_SUFFIX=fota \
+            -DZEPHYR_SCA_VARIANT=codechecker \
+            -DCODECHECKER_ANALYZE_JOBS=4 \
+            -DCODECHECKER_CONFIG_FILE="${PWD}/open-earable-v2/.codechecker.json" \
+            -DCODECHECKER_EXPORT=html,json \
+            2>&1 | tee codechecker-output/analysis.log
+          analysis_exit=${PIPESTATUS[0]}
+          echo "exit_code=${analysis_exit}" >> "${GITHUB_OUTPUT}"
+          echo "CodeChecker/build exit code: ${analysis_exit}" >> codechecker-output/analysis.log
+          if [ "${analysis_exit}" -ne 0 ]; then
+            echo "::error::CodeChecker build failed; see codechecker-output/analysis.log"
+            exit "${analysis_exit}"
+          fi
+          if [ ! -s build/sca/codechecker/codechecker.json ]; then
+            echo "::error::CodeChecker did not produce build/sca/codechecker/codechecker.json"
+            exit 1
+          fi
+          if ! find build/sca/codechecker/codechecker.plist -maxdepth 1 -type f \
+            -name '*.plist' -print -quit | grep -q .; then
+            echo "::error::CodeChecker completed without analyzing any compilation commands"
+            exit 1
+          fi
+
+      - name: Prepare PR annotations
+        if: always()
+        working-directory: zephyr-workspace/open-earable-v2
+        env:
+          CODECHECKER_REPORT: ../build/sca/codechecker/codechecker.json
+          COMMENT_OUTPUT: ../codechecker-output/pr-comment.md
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python scripts/ci/codechecker_pr_report.py \
+            --report "${CODECHECKER_REPORT}" \
+            --analysis-dir ../build/sca/codechecker/codechecker.plist \
+            --comment-output "${COMMENT_OUTPUT}" \
+            --base "${PR_BASE_SHA}" \
+            --head "${PR_HEAD_SHA}"
+
+      - name: Collect complete report
+        if: always()
+        working-directory: zephyr-workspace
+        run: |
+          mkdir -p codechecker-output
+          if [ -d build/sca/codechecker ]; then
+            cp -R build/sca/codechecker codechecker-output/report
+          fi
+          if [ -f build/compile_commands.json ]; then
+            cp build/compile_commands.json codechecker-output/compile_commands.json
+          fi
+          {
+            echo "CodeChecker ${CODECHECKER_VERSION}"
+            echo "Analysis exit code: ${{ steps.analysis.outputs.exit_code }}"
+            echo "Commit: ${{ github.sha }}"
+          } > codechecker-output/run-information.txt
+
+      - name: Upload complete CodeChecker report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: codechecker-report-${{ github.run_number }}
+          path: zephyr-workspace/codechecker-output
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish advisory PR comment
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v8
+        env:
+          COMMENT_FILE: zephyr-workspace/codechecker-output/pr-comment.md
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- codechecker-advisory-report -->';
+            const body = fs.readFileSync(process.env.COMMENT_FILE, 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number, per_page: 100 }
+            );
+            const previous = comments.find(
+              comment => comment.user.type === 'Bot' && comment.body.includes(marker)
+            );
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: previous.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

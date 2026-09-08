@@ -25,6 +25,7 @@ const SampleRateSetting<6> IMU::sample_rates = {
 };
 
 void IMU::update_sensor(struct k_work *work) {
+	ARG_UNUSED(work);
 	int ret;
 
 	sBmx160SensorData_t magno_data;
@@ -57,6 +58,7 @@ void IMU::update_sensor(struct k_work *work) {
 */
 void IMU::sensor_timer_handler(struct k_timer *dummy)
 {
+	ARG_UNUSED(dummy);
 	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 };
 
@@ -86,7 +88,7 @@ bool IMU::init(struct k_msgq * queue) {
 void IMU::start(int sample_rate_idx) {
 	if (!_active) return;
 
-    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
+    k_timeout_t t = K_USEC(1000000.0f / sample_rates.true_sample_rates[sample_rate_idx]);
 
 	imu.setAccelODR(sample_rates.reg_vals[sample_rate_idx]);
 

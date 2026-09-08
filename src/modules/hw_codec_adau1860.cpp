@@ -26,6 +26,10 @@ LOG_MODULE_REGISTER(hw_codec, CONFIG_MODULE_HW_CODEC_LOG_LEVEL);
 
 #define VOLUME_ADJUST_STEP_DB 3
 
+/* Allow the DSP mute ramp and I2S clock domain to settle at source changes. */
+#define CODEC_MUTE_SETTLE_MS 100
+#define CODEC_I2S_PREROLL_MS 100
+
 ZBUS_SUBSCRIBER_DEFINE(volume_evt_sub, CONFIG_VOLUME_MSG_SUB_QUEUE_SIZE);
 
 static uint32_t prev_volume_reg_val = OUT_VOLUME_DEFAULT;
@@ -37,6 +41,11 @@ static struct k_thread volume_msg_sub_thread_data;
 K_THREAD_STACK_DEFINE(volume_msg_sub_thread_stack, CONFIG_VOLUME_MSG_SUB_STACK_SIZE);
 
 static enum audio_mode audio_mode;
+
+enum hw_codec_mic {
+	HW_CODEC_MIC_OUTER = 0,
+	HW_CODEC_MIC_INNER = 1,
+};
 
 static int settings_set_cb(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
 {
@@ -54,22 +63,46 @@ static int settings_set_cb(const char *name, size_t len, settings_read_cb read_c
 SETTINGS_STATIC_HANDLER_DEFINE(audio, "audio", NULL, settings_set_cb, NULL, NULL);
 
 int hw_codec_set_audio_mode(enum audio_mode mode) {
-    int ret;
-
-	audio_mode = mode;
-
-	settings_save_one("audio/mode", &mode, sizeof(mode));
+	int first_error = 0;
+	int ret;
 
 	ret = dac.fdsp_bank_select((uint8_t) mode);
+	if (ret) {
+		LOG_ERR("Failed to select DSP bank, ret: %d", ret);
+		first_error = ret;
+	}
+
 	// TODO: make writing to bank work
 	k_msleep(200);
 	ret = hw_codec_volume_adjust(0);
+	if (ret) {
+		LOG_ERR("Failed to adjust codec volume, ret: %d", ret);
+		if (!first_error) {
+			first_error = ret;
+		}
+	}
+
 	ret = dac.mute(muted);
 	if (ret) {
 		LOG_ERR("Failed to set audio mode, ret: %d", ret);
+		if (!first_error) {
+			first_error = ret;
+		}
+	}
+
+	if (first_error) {
+		/* Keep the persisted mode unchanged when the codec could not fully apply it. */
+		return first_error;
+	}
+
+	audio_mode = mode;
+	ret = settings_save_one("audio/mode", &mode, sizeof(mode));
+	if (ret) {
+		LOG_ERR("Failed to persist audio mode, ret: %d", ret);
 		return ret;
 	}
-	return ret;
+
+	return 0;
 }
 
 enum audio_mode hw_codec_get_audio_mode() {
@@ -285,6 +318,11 @@ int hw_codec_default_conf_enable(void)
 		return ret;
 	}
 
+	/* audio_datapath_aquire() starts I2S before enabling the codec. Keep the
+	 * output muted while the new clock stream becomes stable.
+	 */
+	k_msleep(CODEC_I2S_PREROLL_MS);
+
 	//ret = dac.setup();
 	if (!muted) {
 		ret = dac.mute(false);
@@ -305,8 +343,52 @@ int hw_codec_stop_audio(void)
 		return ret;
 	}
 
+	/* Do not remove the I2S clocks while the DSP is still applying mute. */
+	k_msleep(CODEC_MUTE_SETTLE_MS);
+
 	return 0;
 }
+
+/* Microphone (DMIC) gain control using ADAU186x DMIC_VOL0/1 registers.
+ * Per ADAU186x datasheet register DMIC_VOL0 (addr 0x4000C045):
+ *   0x00      = +24 dB
+ *   0x01-0x3F = +23.625 to +0.375 dB (decrement by 0.375 dB per step)
+ *   0x40      = 0 dB (reset value)
+ *   0x41-0xFD = -0.375 to -70.875 dB (decrement by 0.375 dB per step)
+ *   0xFE      = -71.25 dB
+ *   0xFF      = Mute
+ */
+int hw_codec_mic_gain_set(uint8_t gain_outer_reg, uint8_t gain_inner_reg)
+{
+	int ret;
+
+	ret = dac.mic_gain_write(HW_CODEC_MIC_OUTER, gain_outer_reg);
+	if (ret) {
+		LOG_ERR("Failed to set outer mic gain: %d", ret);
+		return ret;
+	}
+
+	ret = dac.mic_gain_write(HW_CODEC_MIC_INNER, gain_inner_reg);
+	if (ret) {
+		LOG_ERR("Failed to set inner mic gain: %d", ret);
+		return ret;
+	}
+
+	LOG_INF("DMIC gain set: outer=0x%02x, inner=0x%02x",
+		gain_outer_reg, gain_inner_reg);
+	return 0;
+}
+
+uint8_t hw_codec_mic_gain_get_outer(void)
+{
+	return dac.mic_gain_read(HW_CODEC_MIC_OUTER);
+}
+
+uint8_t hw_codec_mic_gain_get_inner(void)
+{
+	return dac.mic_gain_read(HW_CODEC_MIC_INNER);
+}
+
 
 int hw_codec_soft_reset(void)
 {

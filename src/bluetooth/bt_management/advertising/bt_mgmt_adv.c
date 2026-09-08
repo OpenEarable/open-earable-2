@@ -9,7 +9,7 @@
  #include <zephyr/zbus/zbus.h>
  #include <zephyr/bluetooth/bluetooth.h>
  #include <zephyr/bluetooth/conn.h>
- 
+
  #include "macros_common.h"
  #include "zbus_common.h"
  
@@ -47,8 +47,10 @@
 	 .peer = NULL,
  };
  
- static void bond_find(const struct bt_bond_info *info, void *user_data)
- {
+static void bond_find(const struct bt_bond_info *info, void *user_data)
+{
+	ARG_UNUSED(user_data);
+
 	 int ret;
 	 struct bt_conn *conn;
  
@@ -83,8 +85,10 @@
 	 }
  }
  
- static void filter_accept_list_add(const struct bt_bond_info *info, void *user_data)
- {
+static void filter_accept_list_add(const struct bt_bond_info *info, void *user_data)
+{
+	ARG_UNUSED(user_data);
+
 	 int ret;
  
 	 ret = bt_le_filter_accept_list_add(&info->addr);
@@ -227,8 +231,10 @@
 	 return 0;
  }
  
- static void advertising_process(struct k_work *work)
- {
+static void advertising_process(struct k_work *work)
+{
+	ARG_UNUSED(work);
+
 	 int ret;
 	 struct bt_mgmt_msg msg;
 	 uint8_t ext_adv_index;
@@ -470,8 +476,7 @@
 	 return 0;
  }
  
- void bt_mgmt_adv_init(void)
- {
-	 k_work_init(&adv_work, advertising_process);
- }
- 
+void bt_mgmt_adv_init(void)
+{
+	k_work_init(&adv_work, advertising_process);
+}

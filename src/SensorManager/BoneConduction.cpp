@@ -48,6 +48,7 @@ void BoneConduction::reset() {
 }
 
 void BoneConduction::update_sensor(struct k_work *work) {
+	ARG_UNUSED(work);
     uint64_t _time_stamp = micros();
 
     BoneConduction::sensor._sample_count += (_time_stamp - BoneConduction::sensor._last_time_stamp) / BoneConduction::sensor.t_sample_us;
@@ -103,18 +104,19 @@ void BoneConduction::update_sensor(struct k_work *work) {
 * @brief Submit a k_work on timer expiry.
 */
 void BoneConduction::sensor_timer_handler(struct k_timer *dummy) {
+	ARG_UNUSED(dummy);
 	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 }
 
 void BoneConduction::start(int sample_rate_idx) {
     if (!_active) return;
 
-    t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
+    t_sample_us = 1000000.0f / sample_rates.true_sample_rates[sample_rate_idx];
 
     k_timeout_t t = K_USEC(t_sample_us);
 
     int word_size = 3 * sizeof(int16_t) + 1;
-    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)), 512 / word_size - 8); // Buffer size is 512 bytes
+    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)), 512 / word_size - 8); // Buffer size is 512 bytes
     
     bma580.init(sample_rates.reg_vals[sample_rate_idx], _num_samples_buffered * word_size);
     bma580.start();

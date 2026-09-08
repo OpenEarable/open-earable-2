@@ -146,6 +146,6 @@ void BtMgmtConnIntervalStrategy::request_interval(uint16_t min_units, uint16_t m
     } else {
         LOG_INF("Requested CI [%u..%u] units (%.2f..%.2f ms)",
                 min_units, max_units,
-                min_units * 1.25f, max_units * 1.25f);
+                (double)(min_units * 1.25f), (double)(max_units * 1.25f));
     }
 }

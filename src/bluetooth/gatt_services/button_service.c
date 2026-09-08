@@ -23,6 +23,7 @@ static K_THREAD_STACK_DEFINE(thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_SIZE);
 static void button_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 				  uint16_t value)
 {
+	ARG_UNUSED(attr);
 	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
 }
 

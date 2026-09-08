@@ -66,6 +66,7 @@ bool PPG::init(struct k_msgq * queue) {
 }
 
 void PPG::update_sensor(struct k_work *work) {
+	ARG_UNUSED(work);
     int int_status;
     int status;
 
@@ -130,17 +131,18 @@ void PPG::update_sensor(struct k_work *work) {
 * @brief Submit a k_work on timer expiry.
 */
 void PPG::sensor_timer_handler(struct k_timer *dummy) {
+	ARG_UNUSED(dummy);
 	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 }
 
 void PPG::start(int sample_rate_idx) {
     if (!_active) return;
 
-    t_sample_us = 1e6 / sample_rates.true_sample_rates[sample_rate_idx];
+    t_sample_us = 1000000.0f / sample_rates.true_sample_rates[sample_rate_idx];
 
     k_timeout_t t = K_USEC(t_sample_us);
 
-    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1e3 / t_sample_us)), FIFO_SIZE / LED_NUM - 2);
+    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)), FIFO_SIZE / LED_NUM - 2);
     
     ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
     ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * LED_NUM);

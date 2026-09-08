@@ -6,6 +6,10 @@
 
 #include "streamctrl.h"
 
+#include <stdio.h>
+#include <inttypes.h>
+#include <string.h>
+#include "common/bt_str.h"
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/sys/reboot.h>
 
@@ -28,6 +32,8 @@
 
 #include "AutoOffManager.h"
 #include "BootState.h"
+#include "channel_assignment.h"
+#include "uicr.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(streamctrl, CONFIG_MAIN_LOG_LEVEL);
@@ -199,7 +205,11 @@ static void le_audio_msg_sub_thread(void)
 				break;
 			}
 
-			audio_system_start();
+			ret = audio_system_start();
+			if (ret) {
+				LOG_ERR("Failed to start audio system: %d", ret);
+				break;
+			}
 			stream_state_set(STATE_STREAMING);
 			if (msg.dir == BT_AUDIO_DIR_SOURCE) {
 				audio_system_encoder_start();
@@ -545,11 +555,15 @@ static void write_sirk(uint32_t sirk) {
 // Callback-Funktion für gefundene Geräte
 static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, struct net_buf_simple *ad)
 {
+	ARG_UNUSED(rssi);
+	ARG_UNUSED(type);
+
     char addr_str[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
-    int ret;
 	bool is_le_audio_device = false;
+	bool csis_rsi_found = false;
+	bool chip_id_found = false;
 	uint8_t csis_rsi[6];
 	uint8_t chip_id[8];
 
@@ -559,14 +573,14 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
             break; // Ungültige Länge
         }
 
-        uint8_t type = net_buf_simple_pull_u8(ad);
+        uint8_t data_type = net_buf_simple_pull_u8(ad);
         const uint8_t *data = ad->data;
         ad->data += len - 1;
         ad->len -= len - 1;
 
         // Suchen nach 16-bit Service UUIDs (LE Audio Services)
-        if (type == BT_DATA_SVC_DATA16) {
-            for (size_t i = 0; i < len - 1; i += 2) {
+        if (data_type == BT_DATA_SVC_DATA16) {
+            for (size_t i = 0; i + 1U < (size_t)(len - 1); i += 2) {
                 uint16_t uuid = (data[i + 1] << 8) | data[i];
 				if (uuid == BT_UUID_CAS_VAL) {
 					is_le_audio_device = true;
@@ -574,13 +588,24 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
             }
         }
 
-		if (is_le_audio_device && type == BT_DATA_MANUFACTURER_DATA) {
-			memset(chip_id, 0, sizeof(chip_id));
-			memcpy(chip_id, data, sizeof(chip_id));
+		if (is_le_audio_device && data_type == BT_DATA_MANUFACTURER_DATA) {
+			if (len > 1U && (size_t)(len - 1U) >= sizeof(chip_id)) {
+				memcpy(chip_id, data, sizeof(chip_id));
+				chip_id_found = true;
+			} else {
+				LOG_DBG("Ignoring short manufacturer chip ID (%u bytes)",
+					(unsigned int)(len - 1));
+			}
         }
 
-		if (type == BT_DATA_CSIS_RSI) {
-			memcpy(csis_rsi, data, sizeof(csis_rsi));
+		/* A valid RSI contains a 3-byte hash followed by a 3-byte random value. */
+		if (data_type == BT_DATA_CSIS_RSI) {
+			if (len > 1U && (size_t)(len - 1U) >= sizeof(csis_rsi)) {
+				memcpy(csis_rsi, data, sizeof(csis_rsi));
+				csis_rsi_found = true;
+			} else {
+				LOG_DBG("Ignoring short CSIS RSI (%u bytes)", (unsigned int)(len - 1));
+			}
 		}
 
 		// channel
@@ -592,10 +617,18 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 	if (is_le_audio_device) {
 		LOG_INF("Found LE-Audio device!");
 
-		uint32_t hash_ref = (csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
-		uint32_t hash;
+		/* Do not derive or persist a SIRK without a complete peer identity. */
+		if (!chip_id_found) {
+			LOG_DBG("Ignoring LE Audio device without manufacturer chip ID");
+			return;
+		}
 
-		uint32_t new_sirk = *((uint32_t *) chip_id) ^ oe_boot_state.device_id;
+		uint32_t hash;
+		uint32_t peer_device_id;
+
+		/* Copy from the byte array without alignment or aliasing assumptions. */
+		memcpy(&peer_device_id, chip_id, sizeof(peer_device_id));
+		uint32_t new_sirk = peer_device_id ^ oe_boot_state.device_id;
 
 		enum audio_channel channel;
 
@@ -603,15 +636,23 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 		channel_assignment_get(&channel);
 
 		if (channel == AUDIO_CH_L) {
-			LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
-			LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
-			LOG_INF("New Sirk: %016X", new_sirk);
+			LOG_INF("Device ID 1: %016" PRIX64, oe_boot_state.device_id);
+			LOG_INF("Device ID 2: %08" PRIX32, peer_device_id);
+			LOG_INF("New Sirk: %08" PRIX32, new_sirk);
 
 			//TODO: check if the device wants to pair (sirk == device_id)
 			//TODO: check channel
 
 			write_sirk(new_sirk);
 		} else if (channel == AUDIO_CH_R) {
+			/* Only right-channel matching validates the advertised RSI. */
+			if (!csis_rsi_found) {
+				LOG_DBG("Ignoring right-channel LE Audio device without CSIS RSI");
+				return;
+			}
+
+			uint32_t hash_ref =
+				(csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
 			uint8_t res[BT_CSIP_PADDED_RAND_SIZE];
 
 			uint8_t sirk[BT_CSIP_SIRK_SIZE + 1];
@@ -631,6 +672,10 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 			snprintf(sirk, BT_CSIP_SIRK_SIZE, "%08X", new_sirk);
 
 			int err = bt_encrypt_le(sirk, res, res);
+			if (err) {
+				LOG_ERR("Failed to calculate CSIS hash: %d", err);
+				return;
+			}
 
 			memcpy(out, res, BT_CSIP_CRYPTO_HASH_SIZE);
 

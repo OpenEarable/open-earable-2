@@ -61,14 +61,14 @@ BMA580_dev_inf dev_info = {
 BMA5_INTF_RET_TYPE bma5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
     int ret;
-    BMA580_dev_inf * dev_info = (BMA580_dev_inf *) intf_ptr;
+    BMA580_dev_inf * device_info = (BMA580_dev_inf *) intf_ptr;
 
-    dev_info->i2c_dev->aquire();
+    device_info->i2c_dev->aquire();
 
-    ret = i2c_burst_read(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
+    ret = i2c_burst_read(device_info->i2c_dev->master, device_info->addr, reg_addr, reg_data, len);
     if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
-    dev_info->i2c_dev->release();
+    device_info->i2c_dev->release();
     return 0;
 }
 
@@ -77,14 +77,14 @@ BMA5_INTF_RET_TYPE bma5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t l
  */
 BMA5_INTF_RET_TYPE bma5_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
-    BMA580_dev_inf * dev_info = (BMA580_dev_inf *) intf_ptr; 
+    BMA580_dev_inf * device_info = (BMA580_dev_inf *) intf_ptr;
 
-    dev_info->i2c_dev->aquire();
+    device_info->i2c_dev->aquire();
     
-    int ret = i2c_burst_write(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
+    int ret = i2c_burst_write(device_info->i2c_dev->master, device_info->addr, reg_addr, reg_data, len);
     if (ret) LOG_WRN("I2C write failed: %d", ret);
 
-    dev_info->i2c_dev->release();
+    device_info->i2c_dev->release();
 
     return 0;
 }
@@ -94,6 +94,7 @@ BMA5_INTF_RET_TYPE bma5_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uin
  */
 void bma5_delay_us(uint32_t period, void *intf_ptr)
 {
+    ARG_UNUSED(intf_ptr);
     k_usleep(period);
 }
 
@@ -160,7 +161,7 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
 /*!
  * @brief This internal API is used to enable accel and interrupt configuration settings.
  */
-int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
+int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *device)
 {
     int8_t rslt;
     uint8_t n_ints = 1;
@@ -171,10 +172,10 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     int_config.int_src = BMA5_INT_1;
 
     /* Get accel configurations */
-    rslt = bma5_get_acc_conf_0(&sensor_ctrl, dev);
+    rslt = bma5_get_acc_conf_0(&sensor_ctrl, device);
     bma5_check_rslt("bma5_get_acc_conf_0", rslt);
 
-    rslt = bma5_get_acc_conf(&acc_cfg, dev);
+    rslt = bma5_get_acc_conf(&acc_cfg, device);
     bma5_check_rslt("bma5_get_acc_conf", rslt);
 
     /* Set accel configurations */
@@ -188,7 +189,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     acc_cfg.noise_mode = BMA5_NOISE_MODE_LOWER_NOISE;
     acc_cfg.acc_drdy_int_auto_clear = BMA5_ACC_DRDY_INT_AUTO_CLEAR_DISABLED;
 
-    rslt = bma5_set_acc_conf(&acc_cfg, dev);
+    rslt = bma5_set_acc_conf(&acc_cfg, device);
     bma5_check_rslt("bma5_get_acc_conf", rslt);
 
     /*LOG_DBG("Accel configurations");
@@ -203,7 +204,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     /* Enable accel */
     sensor_ctrl = BMA5_SENSOR_CTRL_ENABLE;
 
-    rslt = bma5_set_acc_conf_0(sensor_ctrl, dev);
+    rslt = bma5_set_acc_conf_0(sensor_ctrl, device);
     bma5_check_rslt("bma5_set_acc_conf_0", rslt);
 
     if (rslt == BMA5_OK)
@@ -211,20 +212,20 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
         LOG_DBG("Accel enabled");
     }
 
-    rslt = bma5_get_acc_conf_0(&sensor_ctrl, dev);
+    rslt = bma5_get_acc_conf_0(&sensor_ctrl, device);
     bma5_check_rslt("bma5_set_acc_conf_0", rslt);
 
-    rslt = bma5_get_acc_conf(&get_acc_cfg, dev);
+    rslt = bma5_get_acc_conf(&get_acc_cfg, device);
     bma5_check_rslt("bma5_get_acc_conf", rslt);
 
-    rslt = bma5_get_int_conf(&int_config, n_ints, dev);
+    rslt = bma5_get_int_conf(&int_config, n_ints, device);
     bma5_check_rslt("bma5_get_int_conf", rslt);
 
     int_config.int_conf.int_mode = BMA5_INT1_MODE_LATCHED;
     int_config.int_conf.int_od = BMA5_INT1_OD_PUSH_PULL;
     int_config.int_conf.int_lvl = BMA5_INT1_LVL_ACTIVE_HIGH;
 
-    rslt = bma5_set_int_conf(&int_config, n_ints, dev);
+    rslt = bma5_set_int_conf(&int_config, n_ints, device);
     bma5_check_rslt("bma5_set_int_conf", rslt);
 
     /*LOG_DBG("\nInt Configurations");
@@ -238,24 +239,24 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
 /*!
  * @brief This internal API gets FIFO configurations.
  */
-int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_conf, struct bma5_dev *dev)
+int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_config, struct bma5_dev *device)
 {
     int8_t rslt;
-    struct bma5_fifo_conf read_fifo_conf = { 0 };
+    struct bma5_fifo_conf read_fifo_conf{};
 
     /* Set FIFO configuration.
      * NOTE 1: FIFO works only on header mode */
-    rslt = bma5_set_fifo_conf(fifo_conf, dev);
+    rslt = bma5_set_fifo_conf(fifo_config, device);
     bma5_check_rslt("bma5_set_fifo_conf", rslt);
 
     /* Get FIFO configuration register */
-    rslt = bma5_get_fifo_conf(&read_fifo_conf, dev);
+    rslt = bma5_get_fifo_conf(&read_fifo_conf, device);
     bma5_check_rslt("bma5_get_fifo_conf", rslt);
 
     return rslt;
 }
 
-int BMA580::init(int odr, int fifo_watermark_level) {
+int BMA580::init(int odr, int watermark_level) {
     int8_t rslt;
     struct bma580_int_map int_map, get_int_map;
     //struct bma5_fifo_conf fifo_conf;
@@ -315,7 +316,7 @@ int BMA580::init(int odr, int fifo_watermark_level) {
     /* Update FIFO structure */
     fifoframe.data = fifo_data;
 
-    rslt = bma5_set_fifo_wm(fifo_watermark_level, &dev);
+    rslt = bma5_set_fifo_wm(watermark_level, &dev);
     bma5_check_rslt("bma5_set_fifo_wm", rslt);
 
     return rslt;
@@ -336,7 +337,7 @@ int BMA580::stop() {
 int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
     int8_t rslt = BMA5_OK;
     uint8_t n_status = 1;
-    struct bma580_int_status_types int_status = { 0 };
+    struct bma580_int_status_types int_status{};
 
     fifoframe.fifo_avail_frames = 0;
 

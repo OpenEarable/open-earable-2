@@ -2,6 +2,7 @@
 #include "zbus_common.h"
 #include "openearable_common.h"
 #include <math.h>
+#include <stdlib.h>
 
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/logging/log.h>
@@ -18,6 +19,7 @@ static struct k_work_delayable ascr_lock_work;
 
 void ADAU1860::check_ascr_lock(struct k_work *work)
 {
+	ARG_UNUSED(work);
     uint8_t status2;
     dac.readReg(registers::STATUS2, &status2, sizeof(status2));
 
@@ -208,8 +210,9 @@ int ADAU1860::begin() {
                 uint8_t spt0_route1 = 33; // ASCRO 1
                 writeReg(registers::SPT0_ROUTE1, &spt0_route1, sizeof(spt0_route1));
 
-                // DMIC_VOL0
                 uint8_t dmic_vol = 0x20; // 12dB
+                // DMIC channel 0 - outer mic
+                // DMIC channel 1 - inner mic
                 writeReg(registers::DMIC_VOL0, &dmic_vol, sizeof(dmic_vol));
                 writeReg(registers::DMIC_VOL1, &dmic_vol, sizeof(dmic_vol));
 
@@ -343,10 +346,10 @@ int ADAU1860::setup_FDSP() {
         uint8_t fdsp_ctrl4 = 2; // framrate source DMIC01
         writeReg(registers::FDSP_CTRL4, &fdsp_ctrl4, sizeof(fdsp_ctrl4));
 
-        /*uint8_t fdsp_ctrl4 = 15; // fixed frame rate
+        /* uint8_t fdsp_ctrl4 = 15; // fixed frame rate
         writeReg(registers::FDSP_CTRL4, &fdsp_ctrl4, sizeof(fdsp_ctrl4));
 
-        /*uint8_t fdsp_ctrl5 = 0xFF; // fixed frame rate
+        uint8_t fdsp_ctrl5 = 0xFF; // fixed frame rate
         writeReg(registers::FDSP_CTRL5, &fdsp_ctrl5, sizeof(fdsp_ctrl5));
 
         uint8_t fdsp_ctrl6 = 0x01; // fixed frame rate
@@ -404,17 +407,17 @@ int ADAU1860::mute(bool active) {
 #endif
 }
 
-int ADAU1860::fdsp_safe_load(sl_address address, safe_load_params params, bool update_inactive) {
+int ADAU1860::fdsp_safe_load(sl_address safe_load_address, safe_load_params params, bool update_inactive) {
         // TODO: not working
         if (update_inactive) {
                 // write to non active banks
                 for (int i = 0; i < FDSP_NUM_BANKS; i++) {
                         if (i == _active_bank) continue;
-                        writeReg(FDSP_BANK(i, address), (uint8_t *) params, sizeof(safe_load_params));
+                        writeReg(FDSP_BANK(i, safe_load_address), (uint8_t *) params, sizeof(safe_load_params));
                 }
         }
 
-        uint8_t _address = address;
+        uint8_t _address = safe_load_address;
         writeReg(registers::FDSP_SL_ADDR, &_address, sizeof(_address));
         writeReg(registers::FDSP_SL_P0_0, (uint8_t *) params, sizeof(safe_load_params));
 
@@ -424,16 +427,16 @@ int ADAU1860::fdsp_safe_load(sl_address address, safe_load_params params, bool u
         return 0;
 }
 
-int ADAU1860::fdsp_safe_load(sl_address address, int n, uint32_t param, bool update_inactive) {
+int ADAU1860::fdsp_safe_load(sl_address safe_load_address, int n, uint32_t param, bool update_inactive) {
         uint32_t params[FDSP_NUM_PARAMS];
 
         for (int i = 0; i < FDSP_NUM_PARAMS; i++) {
-                params[i] = fdsp_param_bank_a[i][address];
+                params[i] = fdsp_param_bank_a[i][safe_load_address];
         }
 
         params[n] = param;
 
-        fdsp_safe_load(address, params, update_inactive);
+        fdsp_safe_load(safe_load_address, params, update_inactive);
 
         return 0;
 }
@@ -495,6 +498,18 @@ uint8_t ADAU1860::fdsp_get_volume() {
         return 0xFF-dac_vol;
 }
 
+int ADAU1860::mic_gain_write(uint8_t channel, uint8_t gain) {
+        uint32_t reg = (channel == 0) ? registers::DMIC_VOL0 : registers::DMIC_VOL1;
+        return writeReg(reg, &gain, sizeof(gain));
+}
+
+uint8_t ADAU1860::mic_gain_read(uint8_t channel) {
+        uint8_t val = 0;
+        uint32_t reg = (channel == 0) ? registers::DMIC_VOL0 : registers::DMIC_VOL1;
+        readReg(reg, &val, sizeof(val));
+        return val;
+}
+
 int ADAU1860::soft_reset(bool full_reset) {
         int ret = 0;
 
@@ -537,7 +552,7 @@ bool ADAU1860::readReg(uint32_t reg, uint8_t * buffer, uint16_t len) {
 
 }
 
-void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
+int ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         int ret;
         struct i2c_msg msg[2];
 
@@ -564,6 +579,8 @@ void ADAU1860::writeReg(uint32_t reg, uint8_t *buffer, uint16_t len) {
         }
 
         _i2c->release();
+
+        return ret;
 }
 
 #ifdef NOISE_GATE_ACTIVE
@@ -575,11 +592,12 @@ int cmd_dsp_noise_gate(const struct shell *shell, size_t argc, char **argv) {
 
     safe_load_params params;
 
-    params[0] = strtoul(argv[1], NULL, 16) | 0xC80;
-    params[1] = strtoul(argv[2], NULL, 16) | 0xD00;
-    params[2] = strtoul(argv[3], NULL, 16);
-    params[3] = strtoul(argv[4], NULL, 16);
-    params[4] = strtoul(argv[5], NULL, 16) | 0x80000000;
+    params[0] = static_cast<uint32_t>(strtoul(argv[1], nullptr, 16)) | 0xC80U;
+    params[1] = static_cast<uint32_t>(strtoul(argv[2], nullptr, 16)) | 0xD00U;
+    params[2] = static_cast<uint32_t>(strtoul(argv[3], nullptr, 16));
+    params[3] = static_cast<uint32_t>(strtoul(argv[4], nullptr, 16));
+    params[4] =
+        static_cast<uint32_t>(strtoul(argv[5], nullptr, 16)) | 0x80000000U;
 
     shell_print(shell, "Params:");
     for (int i = 0; i < FDSP_NUM_PARAMS; i++) {

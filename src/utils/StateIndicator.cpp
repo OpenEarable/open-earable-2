@@ -29,6 +29,10 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 	case BT_MGMT_DISCONNECTED:
 		state_indicator.set_pairing_state(PAIRED);
 		break;
+
+	default:
+		/* Other events do not affect the pairing state indication. */
+		break;
 	}
 }
 
@@ -63,9 +67,9 @@ void StateIndicator::init(struct earable_state state) {
     set_state(state);
 }
 
-void StateIndicator::set_custom_color(const RGBColor &color) {
-    memcpy(&this->color, color, sizeof(RGBColor));
-    if (_state.led_mode == CUSTOM) led_controller.setColor(color);
+void StateIndicator::set_custom_color(const RGBColor &custom_color) {
+    memcpy(&this->color, custom_color, sizeof(RGBColor));
+    if (_state.led_mode == CUSTOM) led_controller.setColor(custom_color);
 }
 
 void StateIndicator::set_dfu_active(bool active) {

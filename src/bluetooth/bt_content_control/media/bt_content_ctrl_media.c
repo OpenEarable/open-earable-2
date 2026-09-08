@@ -44,7 +44,7 @@ static struct media_ctlr mcc_peer[CONFIG_BT_MAX_CONN];
  */
 static int mcc_peer_index_free_get(void)
 {
-	for (int i = 0; i < ARRAY_SIZE(mcc_peer); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(mcc_peer); i++) {
 		if (mcc_peer[i].conn == NULL) {
 			return i;
 		}
@@ -162,6 +162,7 @@ static void mcc_send_command_cb(struct bt_conn *conn, int err, const struct mpl_
  */
 static void mcc_cmd_notification_cb(struct bt_conn *conn, int err, const struct mpl_cmd_ntf *ntf)
 {
+	ARG_UNUSED(conn);
 	LOG_DBG("mcc_cmd_ntf_cb");
 
 	if (err) {
@@ -179,6 +180,7 @@ static void mcc_cmd_notification_cb(struct bt_conn *conn, int err, const struct 
  */
 static void mcc_read_media_state_cb(struct bt_conn *conn, int err, uint8_t state)
 {
+	ARG_UNUSED(conn);
 	LOG_DBG("mcc_read_media_cb, state: %d", state);
 
 	if (err) {
@@ -199,6 +201,7 @@ static void mcc_read_media_state_cb(struct bt_conn *conn, int err, uint8_t state
 static void mcs_command_recv_cb(struct media_player *plr, int err,
 				const struct mpl_cmd_ntf *cmd_ntf)
 {
+	ARG_UNUSED(plr);
 	if (err) {
 		LOG_ERR("Command failed (%d)", err);
 		return;
@@ -223,6 +226,7 @@ static void mcs_command_recv_cb(struct media_player *plr, int err,
  */
 static void mcs_media_state_cb(struct media_player *plr, int err, uint8_t state)
 {
+	ARG_UNUSED(plr);
 	if (err) {
 		LOG_ERR("Media state failed (%d)", err);
 		return;

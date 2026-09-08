@@ -8,6 +8,23 @@ rsource "Kconfig.defaults"
 
 menu "Bluetooth"
 
+config AUDIO_RESPONSE_MAX_SAMPLES
+	int "Maximum uploaded audio response samples"
+	range 1 48000
+	default 32000
+	help
+	  Maximum number of signed 16-bit PCM samples retained by the audio
+	  response service. Storage for this buffer is reserved at build time.
+
+config AUDIO_RESPONSE_MAX_POINTS
+	int "Maximum audio response measurement points"
+	range 9 60
+	default 60
+	help
+	  Maximum number of frequency response points accepted in one audio
+	  response config request. The default keeps result notifications within a
+	  247-byte ATT MTU because the encoded result uses 2 + 4 * points bytes.
+
 rsource "bt_management/Kconfig"
 
 #----------------------------------------------------------------------------#

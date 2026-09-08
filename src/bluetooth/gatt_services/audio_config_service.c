@@ -12,6 +12,10 @@ LOG_MODULE_REGISTER(audio_config_service, CONFIG_BLE_LOG_LEVEL);
 static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
+    ARG_UNUSED(conn);
+    ARG_UNUSED(attr);
+    ARG_UNUSED(offset);
+    ARG_UNUSED(flags);
     if (len != sizeof(uint8_t)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
@@ -21,13 +25,21 @@ static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr 
         return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
     }
 
-    hw_codec_set_audio_mode((enum audio_mode)mode);
+    int ret = hw_codec_set_audio_mode((enum audio_mode)mode);
+    if (ret) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+
     return len;
 }
 
 static ssize_t write_mic_select(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
+    ARG_UNUSED(conn);
+    ARG_UNUSED(attr);
+    ARG_UNUSED(offset);
+    ARG_UNUSED(flags);
     if (len != sizeof(uint8_t)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
@@ -69,7 +81,52 @@ static ssize_t read_audio_channel(struct bt_conn *conn, const struct bt_gatt_att
     channel_assignment_get(&channel);
     uint8_t channel_u8 = channel;
 
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &channel_u8, sizeof(channel));
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &channel_u8, sizeof(channel_u8));
+}
+
+static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                              const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
+{
+    ARG_UNUSED(conn);
+    ARG_UNUSED(attr);
+    ARG_UNUSED(offset);
+    ARG_UNUSED(flags);
+    // Mic gain is 2 bytes: [outer_reg, inner_reg].
+    // Outer mic maps to DMIC_VOL0; inner mic maps to DMIC_VOL1.
+    // Per ADAU186x DMIC_VOL register (0x4000C045):
+    //   0x00      = +24 dB
+    //   0x01-0x3F = +23.625 to +0.375 dB (0.375 dB steps)
+    //   0x40      = 0 dB
+    //   0x41-0xFD = -0.375 to -70.875 dB (0.375 dB steps)
+    //   0xFE      = -71.25 dB
+    //   0xFF      = Mute
+    if (len != 2) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    uint8_t gain_outer = ((uint8_t*)buf)[0];
+    uint8_t gain_inner = ((uint8_t*)buf)[1];
+
+    int ret = hw_codec_mic_gain_set(gain_outer, gain_inner);
+    if (ret) {
+        LOG_ERR("Failed to set mic gain: %d", ret);
+        return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+    }
+
+    LOG_INF("DMIC gain via BLE: outer=0x%02x inner=0x%02x",
+            gain_outer, gain_inner);
+    return len;
+}
+
+static ssize_t read_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                            void *buf, uint16_t len, uint16_t offset)
+{
+    uint8_t gains[2] = {
+        hw_codec_mic_gain_get_outer(),
+        hw_codec_mic_gain_get_inner()
+    };
+
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, gains, sizeof(gains));
 }
 
 BT_GATT_SERVICE_DEFINE(audio_config_svc,
@@ -86,6 +143,10 @@ BT_GATT_SERVICE_DEFINE(audio_config_svc,
                        BT_GATT_CHRC_READ,
                        BT_GATT_PERM_READ,
                        read_audio_channel, NULL, NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_DMIC_GAIN,
+                       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
+                       BT_GATT_PERM_WRITE | BT_GATT_PERM_READ,
+                       read_dmic_gain, write_dmic_gain, NULL),
 );
 
 int init_audio_config_service(void)

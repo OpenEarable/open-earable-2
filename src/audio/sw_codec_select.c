@@ -163,6 +163,15 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 			break;
 		}
 		case SW_CODEC_STEREO: {
+			/* Stereo encoding consumes both channel pointers below. Reject mismatched
+			 * configurations so the caller can drop the frame safely.
+			 */
+			if (m_config.encoder.num_ch != AUDIO_CH_NUM) {
+				LOG_DBG("Rejecting stereo encode with %u configured channels",
+					(unsigned int)m_config.encoder.num_ch);
+				return -EINVAL;
+			}
+
 			for (int i = 0; i < m_config.encoder.num_ch; ++i) {
 				ret = sw_codec_sample_rate_convert(
 					&encoder_converters[i], CONFIG_AUDIO_SAMPLE_RATE_HZ,
@@ -238,13 +247,19 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 	switch (m_config.sw_codec) {
 	case SW_CODEC_LC3: {
 #if (CONFIG_SW_CODEC_LC3)
-		char *pcm_in_data_ptrs[m_config.decoder.channel_mode];
+		/* PLC override bypasses sample-rate conversion, so its branches assign these
+		 * fixed channel slots directly to zero-filled PCM buffers.
+		 */
+		char *pcm_in_data_ptrs[AUDIO_CH_NUM] = {0};
 
 		switch (m_config.decoder.channel_mode) {
 		case SW_CODEC_MONO: {
 			if (bad_frame && IS_ENABLED(CONFIG_SW_CODEC_OVERRIDE_PLC)) {
 				memset(decoded_data_mono[AUDIO_CH_L], 0, PCM_NUM_BYTES_MONO);
 				decoded_data_size = PCM_NUM_BYTES_MONO;
+				pcm_in_data_ptrs[AUDIO_CH_L] = decoded_data_mono[AUDIO_CH_L];
+				pcm_size_mono = decoded_data_size;
+				LOG_DBG("Replacing bad mono frame with silence");
 			} else {
 				ret = sw_codec_lc3_dec_run(
 					encoded_data, encoded_size, LC3_PCM_NUM_BYTES_MONO, 0,
@@ -284,6 +299,10 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 				memset(decoded_data_mono[AUDIO_CH_L], 0, PCM_NUM_BYTES_MONO);
 				memset(decoded_data_mono[AUDIO_CH_R], 0, PCM_NUM_BYTES_MONO);
 				decoded_data_size = PCM_NUM_BYTES_MONO;
+				pcm_in_data_ptrs[AUDIO_CH_L] = decoded_data_mono[AUDIO_CH_L];
+				pcm_in_data_ptrs[AUDIO_CH_R] = decoded_data_mono[AUDIO_CH_R];
+				pcm_size_mono = decoded_data_size;
+				LOG_DBG("Replacing bad stereo frame with silence");
 			} else {
 				/* Decode left channel */
 				ret = sw_codec_lc3_dec_run(
@@ -304,7 +323,8 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 					return ret;
 				}
 
-				for (int i = 0; i < m_config.decoder.channel_mode; ++i) {
+				/* Stereo always initializes both slots consumed by pscm_combine(). */
+				for (int i = 0; i < AUDIO_CH_NUM; ++i) {
 					ret = sw_codec_sample_rate_convert(
 						&decoder_converters[i],
 						m_config.decoder.sample_rate_hz,

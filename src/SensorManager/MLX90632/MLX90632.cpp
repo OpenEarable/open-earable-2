@@ -244,11 +244,9 @@ float MLX90632::getObjectTemp(status& returnError)
 
     double AMB = (sixRAM / 12.0) / VRta * pow(2, 19);
 
-    double sensorTemp = P_O + (AMB - P_R) / P_G + P_T * pow((AMB - P_R), 2);
-
-    float S = (float)(lowerRAM + upperRAM) / 2.0;
+    float S = (float)(lowerRAM + upperRAM) / 2.0f;
     double VRto = nineRAM + Ka * (sixRAM / 12.0);
-    double Sto = (S / 12.0) / VRto * (double)pow(2, 19);
+    double Sto = ((double)S / 12.0) / VRto * pow(2, 19);
 
     double TAdut = (AMB - Eb) / Ea + 25.0;
 
@@ -270,7 +268,7 @@ float MLX90632::getObjectTemp(status& returnError)
 float MLX90632::getObjectTempF()
 {
   float tempC = getObjectTemp();
-  float tempF = tempC * 9.0/5.0 + 32.0;
+  float tempF = tempC * 9.0f / 5.0f + 32.0f;
   return(tempF);
 }
 
@@ -324,9 +322,9 @@ float MLX90632::gatherSensorTemp(status &returnError)
 
   double AMB = (sixRAM / 12.0) / VRta * pow(2, 19);
 
-  double sensorTemp = P_O + (AMB - P_R) / P_G + P_T * pow((AMB - P_R), 2);
+  double calculated_sensor_temp = P_O + (AMB - P_R) / P_G + P_T * pow((AMB - P_R), 2);
 
-  return(sensorTemp);
+  return(calculated_sensor_temp);
 }
 
 //Returns true if device is busy doing measurement
@@ -348,9 +346,9 @@ bool MLX90632::eepromBusy()
 //Returns the cycle_pos from status register. cycle_pos is 0 to 31
 uint8_t MLX90632::getCyclePosition()
 {
-  uint16_t status = getStatus() >> BIT_CYCLE_POS; //Shave off last two bits
-  status &= 0x1F; //Get lower 5 bits.
-  return (status);
+  uint16_t cycle_status = getStatus() >> BIT_CYCLE_POS; //Shave off last two bits
+  cycle_status &= 0x1F; //Get lower 5 bits.
+  return (cycle_status);
 }
 
 //Returns true if new data is available
@@ -447,6 +445,7 @@ uint8_t MLX90632::getMode(status &returnError)
 //to something unknown you'll need to use the I2C scanner sketch to detect it again
 void MLX90632::writeI2CAddress(uint8_t newAddress)
 {
+	ARG_UNUSED(newAddress);
 
 }
 

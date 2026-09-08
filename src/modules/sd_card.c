@@ -259,7 +259,7 @@ int sd_card_list_files(char const *const path, char *buf, size_t *buf_size, bool
 					       entry.name);
 			}
 
-			if (len >= remaining_buf_size) {
+			if (len < 0 || (size_t)len >= remaining_buf_size) {
 				LOG_ERR("Failed to append to buffer, error: %d", len);
 				return -EINVAL;
 			}

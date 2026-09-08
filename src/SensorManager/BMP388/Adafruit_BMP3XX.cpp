@@ -112,9 +112,11 @@ bool Adafruit_BMP3XX::_init(void) {
   if (rslt != BMP3_OK)
     return false;
 
-  rslt = bmp3_init(&the_sensor);
 #ifdef BMP3XX_DEBUG
-  printk("Init result: %i\n", rslt);
+  const int8_t init_rslt = bmp3_init(&the_sensor);
+  printk("Init result: %i\n", init_rslt);
+#else
+  (void)bmp3_init(&the_sensor);
 #endif
 
   rslt = validate_trimming_param(&the_sensor);
@@ -432,7 +434,10 @@ int8_t i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
   return 0;
 }
 
-static void delay_usec(uint32_t us, void *intf_ptr) { k_usleep(us); }
+static void delay_usec(uint32_t us, void *intf_ptr) {
+  ARG_UNUSED(intf_ptr);
+  k_usleep(us);
+}
 
 static int8_t validate_trimming_param(struct bmp3_dev *dev) {
   int8_t rslt;

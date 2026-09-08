@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdint.h>
+#include <zephyr/types.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
@@ -29,7 +31,14 @@
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
 #include "decimation_filter.h"
+#include "../SensorManager/SensorManager.h"
 #include "arm_math.h"
+#include "hw_codec.h"
+//#include "../drivers/ADAU1860.h"
+
+#include "../SensorManager/SensorManager.h"
+#include "openearable_common.h"
+#include "SensorScheme.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
@@ -94,6 +103,10 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
 /* How often to print under-run warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
+
+/* Smooth the transition from silence to local buffer playback. */
+#define BUFFER_PLAY_FADE_IN_MS      5U
+#define BUFFER_PLAY_FADE_IN_SAMPLES ((CONFIG_AUDIO_SAMPLE_RATE_HZ * BUFFER_PLAY_FADE_IN_MS) / 1000U)
 
 enum drift_comp_state {
 	DRIFT_STATE_INIT,   /* Waiting for data to be received */
@@ -175,10 +188,8 @@ static struct {
 
 static struct k_msgq * sensor_queue;
 
-//extern struct audio_data fifo_rx;
-
 //K_MSGQ_DEFINE(rx_queue, sizeof(struct audio_data), 16, 4);
-extern struct k_msgq_t encoder_queue;
+extern struct k_msgq encoder_queue;
 
 // Definition eines zbus-Kanals
 ZBUS_CHAN_DEFINE(audio_channel, struct audio_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY, ZBUS_MSG_INIT(0));
@@ -190,17 +201,44 @@ static k_tid_t data_thread_id;
 
 bool _record_to_sd = false;
 
+// Buffer recording variables
+static bool _record_to_buffer = false;
+static int16_t *_record_buffer = NULL;
+static int _record_num_samples = 0;
+static int _record_current_index = 0;
+static bool _record_left = false;
+static bool _record_right = false;
+static void (*_record_callback)(void) = NULL;
+
 int _count = 0;
+
+static int16_t *buffer_play_data = NULL;
+static uint32_t buffer_play_pos;
+static uint32_t buffer_play_fade_pos;
+static uint32_t buffer_play_num_samples;
+static float buffer_play_amplitude;
+static bool buffer_play_loop;
+static void (*buffer_play_callback)(void) = NULL;
 
 extern struct k_poll_signal encoder_sig;
 extern struct k_poll_event logger_sig;
 
-/* Output buffer sized for the largest processed output: decimation factor 2. */
-static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t) / 2];
+/*
+ * Decimation output for one interleaved stereo audio block.
+ *
+ * The decimator supports factors down to 1, so its worst-case output contains
+ * every input sample. Seal check currently uses factor 3 (48 kHz -> 16 kHz);
+ * sizing this buffer for the old fixed factor 4 overflowed it on every block.
+ */
+static int16_t decimated_audio[BLOCK_SIZE_BYTES / sizeof(int16_t)];
 
 // Funktion für den neuen Thread
 static void data_thread(void *arg1, void *arg2, void *arg3)
 {
+	ARG_UNUSED(arg1);
+	ARG_UNUSED(arg2);
+	ARG_UNUSED(arg3);
+
     //struct audio_data audio_item;
     void *tmp_pcm_raw_data[CONFIG_FIFO_FRAME_SPLIT_NUM];
     //char pcm_raw_data[FRAME_SIZE_BYTES];
@@ -224,9 +262,7 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
     
             data_fifo_block_free(ctrl_blk.in.fifo, tmp_pcm_raw_data[i]);
 
-			unsigned int logger_signaled;
-
-			if (_record_to_sd) {
+			if (_record_to_sd || _record_to_buffer) {
 				/* Decimate audio data from 48kHz to the desired sampling rate */
 				int16_t *audio_block = (int16_t *)(audio_item.data + (i * BLOCK_SIZE_BYTES));
 				uint32_t num_frames = BLOCK_SIZE_BYTES / sizeof(int16_t) / 2; /* stereo frames */
@@ -236,6 +272,48 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 				// If decimator returns 0 frames (e.g. during cleanup), skip processing
 				if (decimated_frames <= 0) {
 					continue;
+				}
+
+				// Generic buffer recording
+				if (_record_to_buffer && _record_buffer != NULL) {
+					for(int frame_index = 0; frame_index < decimated_frames; frame_index++) {
+						_record_current_index++;
+						
+						// Skip samples during initial drop period
+						if (_record_current_index <= 0) {
+							continue;
+						}
+						
+						// Calculate actual buffer index (after initial drop)
+						int buffer_index = _record_current_index - 1;
+						
+						if (buffer_index < _record_num_samples) {
+							if (_record_left && _record_right) {
+								// Stereo recording - store both channels
+								if (buffer_index * 2 + 1 < _record_num_samples) {
+									_record_buffer[buffer_index * 2] = decimated_audio[2 * frame_index];     // Left
+									_record_buffer[buffer_index * 2 + 1] = decimated_audio[2 * frame_index + 1]; // Right
+								}
+							} else if (_record_left) {
+								// Left channel only
+								_record_buffer[buffer_index] = decimated_audio[2 * frame_index];
+							} else if (_record_right) {
+								// Right channel only
+								_record_buffer[buffer_index] = decimated_audio[2 * frame_index + 1];
+							}
+							
+						}
+						
+						// Check if recording is complete
+						if (buffer_index >= _record_num_samples || 
+						    (_record_left && _record_right && buffer_index * 2 >= _record_num_samples)) {
+							_record_to_buffer = false;
+							if (_record_callback) {
+								_record_callback();
+							}
+							break;
+						}
+					}
 				}
 
 				struct sensor_msg audio_msg;
@@ -253,17 +331,17 @@ static void data_thread(void *arg1, void *arg2, void *arg3)
 					audio_msg.data.size
 				};
 
-				void *data_ptrs[2] = {
+				const void *data_ptrs[2] = {
 					&audio_msg.data,
 					decimated_audio
 				};
 
-				if (decimated_frames == num_frames) {
+				if ((uint32_t)decimated_frames == num_frames) {
 					data_ptrs[1] = audio_block;
 				}
 	
 				if (decimated_frames > 0) {
-					sdlogger_write_data(&data_ptrs, data_size, 2);
+					sdlogger_write_data(data_ptrs, data_size, 2);
 				}
 			}
 
@@ -293,10 +371,39 @@ void record_to_sd(bool active) {
 }
 
 void audio_datapath_stop_recording(void) {
+	// Stop buffer recording
+	_record_to_buffer = false;
+	_record_buffer = NULL;
+	_record_callback = NULL;
+	
 	// Stop SD recording
 	_record_to_sd = false;
 	
 	LOG_DBG("Audio recording stopped safely");
+}
+
+void record_to_buffer_stop(void) {
+	_record_to_buffer = false;
+	_record_buffer = NULL;
+	_record_callback = NULL;
+	LOG_DBG("Buffer recording stopped");
+}
+
+void record_to_buffer(int16_t *buffer, int num_samples, int initial_drop, bool left, bool right, void (*callback)(void)) {
+	if (buffer == NULL || num_samples <= 0) {
+		LOG_ERR("Invalid buffer recording parameters");
+		return;
+	}
+	
+	_record_buffer = buffer;
+	_record_num_samples = num_samples;
+	_record_current_index = -initial_drop;
+	_record_left = left;
+	_record_right = right;
+	_record_callback = callback;
+	_record_to_buffer = true;
+	
+	LOG_INF("Started buffer recording: %d samples, initial_drop=%d, left=%d, right=%d", num_samples, initial_drop, left, right);
 }
 
 // Funktion, um den neuen Thread zu starten
@@ -329,6 +436,29 @@ static bool tone_active;
 /* Buffer which can hold max 1 period test tone at 100 Hz */
 static uint16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 100];
 static size_t test_tone_size;
+
+struct auxiliary_audio_state {
+	bool suspended;
+	bool record_to_sd;
+	bool record_to_buffer;
+	int16_t *record_buffer;
+	int record_num_samples;
+	int record_current_index;
+	bool record_left;
+	bool record_right;
+	void (*record_callback)(void);
+	bool tone_active;
+	uint32_t tone_remaining_ms;
+	int16_t *buffer_data;
+	uint32_t buffer_pos;
+	uint32_t buffer_fade_pos;
+	int buffer_num_samples;
+	float buffer_amplitude;
+	bool buffer_loop;
+	void (*buffer_callback)(void);
+};
+
+static struct auxiliary_audio_state auxiliary_audio_state;
 
 /**
  * @brief	Calculate error between sdu_ref and frame_start_ts_us.
@@ -494,8 +624,6 @@ static void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 
 static void pres_comp_state_set(enum pres_comp_state new_state)
 {
-	int ret;
-
 	if (new_state == ctrl_blk.pres_comp.state) {
 		return;
 	}
@@ -505,6 +633,8 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
 	LOG_INF("Pres comp state: %s", pres_comp_state_names[new_state]);
 
 #if CONFIG_BOARD_NRF5340_AUDIO_DK_NRF5340_CPUAPP
+	int ret;
+
 	if (new_state == PRES_STATE_LOCKED) {
 		ret = led_on(LED_APP_2_GREEN);
 	} else {
@@ -649,8 +779,20 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 
 static void tone_stop_worker(struct k_work *work)
 {
+	ARG_UNUSED(work);
+
 	tone_active = false;
 	memset(test_tone_buf, 0, sizeof(test_tone_buf));
+
+	LOG_INF("Tone playback stopped");
+	
+	// Call buffer playback callback if set
+	if (buffer_play_callback) {
+		buffer_play_callback();
+		buffer_play_callback = NULL;
+	}
+	buffer_play_data = NULL;
+	
 	LOG_DBG("Tone stopped");
 
 	struct sensor_config mic = {ID_MICRO, 0, 0};
@@ -661,10 +803,91 @@ K_WORK_DEFINE(tone_stop_work, tone_stop_worker);
 
 static void tone_stop_timer_handler(struct k_timer *dummy)
 {
+	ARG_UNUSED(dummy);
+
 	k_work_submit(&tone_stop_work);
 };
 
 K_TIMER_DEFINE(tone_stop_timer, tone_stop_timer_handler, NULL);
+
+int audio_datapath_auxiliary_suspend(void)
+{
+	if (auxiliary_audio_state.suspended) {
+		return -EBUSY;
+	}
+
+	auxiliary_audio_state = (struct auxiliary_audio_state) {
+		.suspended = true,
+		.record_to_sd = _record_to_sd,
+		.record_to_buffer = _record_to_buffer,
+		.record_buffer = _record_buffer,
+		.record_num_samples = _record_num_samples,
+		.record_current_index = _record_current_index,
+		.record_left = _record_left,
+		.record_right = _record_right,
+		.record_callback = _record_callback,
+		.tone_active = tone_active,
+		.tone_remaining_ms = k_timer_remaining_get(&tone_stop_timer),
+		.buffer_data = buffer_play_data,
+		.buffer_pos = buffer_play_pos,
+		.buffer_fade_pos = buffer_play_fade_pos,
+		.buffer_num_samples = buffer_play_num_samples,
+		.buffer_amplitude = buffer_play_amplitude,
+		.buffer_loop = buffer_play_loop,
+		.buffer_callback = buffer_play_callback,
+	};
+
+	k_timer_stop(&tone_stop_timer);
+	(void)k_work_cancel(&tone_stop_work);
+	_record_to_sd = false;
+	_record_to_buffer = false;
+	_record_buffer = NULL;
+	_record_callback = NULL;
+	tone_active = false;
+	buffer_play_data = NULL;
+	buffer_play_callback = NULL;
+
+	LOG_INF("Auxiliary audio suspended: tone=%d buffer=%d buffer_recording=%d sd_recording=%d",
+		auxiliary_audio_state.tone_active, auxiliary_audio_state.buffer_data != NULL,
+		auxiliary_audio_state.record_to_buffer, auxiliary_audio_state.record_to_sd);
+	return 0;
+}
+
+int audio_datapath_auxiliary_resume(void)
+{
+	if (!auxiliary_audio_state.suspended) {
+		return -EALREADY;
+	}
+
+	/* A completion queued by measurement playback must not clear restored state. */
+	(void)k_work_cancel(&tone_stop_work);
+	_record_to_sd = auxiliary_audio_state.record_to_sd;
+	_record_to_buffer = auxiliary_audio_state.record_to_buffer;
+	_record_buffer = auxiliary_audio_state.record_buffer;
+	_record_num_samples = auxiliary_audio_state.record_num_samples;
+	_record_current_index = auxiliary_audio_state.record_current_index;
+	_record_left = auxiliary_audio_state.record_left;
+	_record_right = auxiliary_audio_state.record_right;
+	_record_callback = auxiliary_audio_state.record_callback;
+	tone_active = auxiliary_audio_state.tone_active;
+	buffer_play_data = auxiliary_audio_state.buffer_data;
+	buffer_play_pos = auxiliary_audio_state.buffer_pos;
+	buffer_play_fade_pos = auxiliary_audio_state.buffer_fade_pos;
+	buffer_play_num_samples = auxiliary_audio_state.buffer_num_samples;
+	buffer_play_amplitude = auxiliary_audio_state.buffer_amplitude;
+	buffer_play_loop = auxiliary_audio_state.buffer_loop;
+	buffer_play_callback = auxiliary_audio_state.buffer_callback;
+
+	if (tone_active && auxiliary_audio_state.tone_remaining_ms > 0U) {
+		k_timer_start(&tone_stop_timer, K_MSEC(auxiliary_audio_state.tone_remaining_ms),
+			      K_NO_WAIT);
+	}
+
+	LOG_INF("Auxiliary audio resumed: tone=%d buffer=%d buffer_recording=%d sd_recording=%d",
+		tone_active, buffer_play_data != NULL, _record_to_buffer, _record_to_sd);
+	memset(&auxiliary_audio_state, 0, sizeof(auxiliary_audio_state));
+	return 0;
+}
 
 int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude)
 {
@@ -695,25 +918,100 @@ int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude)
 	return 0;
 }
 
+int audio_datapath_buffer_play(int16_t *buffer, int num_samples, bool loop, float amplitude, void (*callback)(void))
+{
+	if (buffer_play_data != NULL) {
+		return -EBUSY;
+	}
+
+	if (!IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
+		LOG_WRN("Test tone disabled");
+		return -ENOTSUP;
+	}
+
+	if (buffer == NULL || num_samples <= 0) {
+		LOG_ERR("Invalid buffer play parameters");
+		return -EINVAL;
+	}
+
+	buffer_play_data = buffer;
+	buffer_play_pos = 0;
+	buffer_play_fade_pos = 0;
+	buffer_play_num_samples = (uint32_t)num_samples;
+	buffer_play_amplitude = amplitude;
+	buffer_play_loop = loop;
+	buffer_play_callback = callback;
+
+	LOG_DBG("Buffer playback started: %d samples, loop=%d, amplitude=%.2f", num_samples, loop, (double)amplitude);
+	return 0;
+}
+
 void audio_datapath_tone_stop(void)
 {
 	k_timer_stop(&tone_stop_timer);
 	k_work_submit(&tone_stop_work);
 }
 
+void audio_datapath_buffer_stop(void)
+{
+	k_timer_stop(&tone_stop_timer);
+	buffer_play_data = NULL;
+	if (buffer_play_callback) {
+		buffer_play_callback();
+		buffer_play_callback = NULL;
+	}
+	LOG_DBG("Buffer playback stopped");
+}
+
 static void tone_mix(uint8_t *tx_buf)
 {
 	int ret;
-	int8_t tone_buf_continuous[BLK_MONO_SIZE_OCTETS];
-	static uint32_t finite_pos;
 
-	ret = contin_array_create(tone_buf_continuous, BLK_MONO_SIZE_OCTETS, test_tone_buf,
-				  test_tone_size, &finite_pos);
-	ERR_CHK(ret);
+	if (tone_active) {
+		int8_t tone_buf_continuous[BLK_MONO_SIZE_OCTETS];
+		static uint32_t finite_pos;
 
-	ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, tone_buf_continuous, BLK_MONO_SIZE_OCTETS,
-		      B_MONO_INTO_A_STEREO_L);
-	ERR_CHK(ret);
+		ret = contin_array_create(tone_buf_continuous, BLK_MONO_SIZE_OCTETS, test_tone_buf,
+					  test_tone_size, &finite_pos);
+		ERR_CHK(ret);
+
+		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, tone_buf_continuous, BLK_MONO_SIZE_OCTETS,
+			      B_MONO_INTO_A_STEREO_L);
+		ERR_CHK(ret);
+	} else if (buffer_play_data != NULL) {
+		int8_t buffer_play_buf[BLK_MONO_SIZE_OCTETS];
+		int samples_per_block = BLK_MONO_SIZE_OCTETS / sizeof(int16_t);
+
+		/* Copy buffer samples to playback buffer with amplitude scaling */
+		for (int i = 0; i < samples_per_block; i++) {
+			float gain = buffer_play_amplitude;
+
+			if (buffer_play_pos >= buffer_play_num_samples) {
+				if (buffer_play_loop) {
+					buffer_play_pos = 0; /* Loop the buffer */
+				} else {
+					/* Stop after one complete playback */
+					k_work_submit(&tone_stop_work);
+					memset(&buffer_play_buf[i * 2], 0, (samples_per_block - i) * 2);
+					break;
+				}
+			}
+
+			if (buffer_play_fade_pos < BUFFER_PLAY_FADE_IN_SAMPLES) {
+				gain *= (float)buffer_play_fade_pos / BUFFER_PLAY_FADE_IN_SAMPLES;
+				buffer_play_fade_pos++;
+			}
+
+			int16_t sample = (int16_t)(buffer_play_data[buffer_play_pos] * gain);
+			buffer_play_buf[i * 2] = sample & 0xFF;
+			buffer_play_buf[i * 2 + 1] = (sample >> 8) & 0xFF;
+			buffer_play_pos++;
+		}
+
+		ret = pcm_mix(tx_buf, BLK_STEREO_SIZE_OCTETS, buffer_play_buf, BLK_MONO_SIZE_OCTETS,
+			      B_MONO_INTO_A_STEREO_L);
+		ERR_CHK(ret);
+	}
 }
 
 /* Alternate-buffers used when there is no active audio stream.
@@ -774,6 +1072,8 @@ static void alt_buffer_free_both(void)
 }
 
 __attribute__((weak)) void bt_mgmt_report_audio_underrun(uint32_t count) {
+	ARG_UNUSED(count);
+
 	LOG_ERR("Audio underrun reported to bt_mgmt");
 }
 
@@ -793,6 +1093,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 {
 	int ret;
 	static bool underrun_condition;
+	static uint32_t released_tx_reuse_count;
 
 	alt_buffer_free(tx_buf_released);
 
@@ -838,12 +1139,24 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 				 * use alternative buffers
 				 */
 				ret = alt_buffer_get((void **)&tx_buf);
-				ERR_CHK(ret);
+				if (ret) {
+					released_tx_reuse_count++;
+					if (released_tx_reuse_count == 1U ||
+					    (released_tx_reuse_count % UNDERRUN_LOG_INTERVAL_BLKS) == 0U) {
+						LOG_WRN("No alternative I2S TX buffer available; "
+							"reusing released buffer as silence, total: %u",
+							(unsigned int)released_tx_reuse_count);
+					}
+					/* I2S no longer owns this buffer; recycle it as silence
+					 * instead of leaving tx_buf NULL.
+					 */
+					tx_buf = (uint8_t *)tx_buf_released;
+				}
 
 				memset(tx_buf, 0, BLK_STEREO_SIZE_OCTETS);
 			}
 
-			if (tone_active) {
+			if (tone_active || buffer_play_data != NULL) {
 				tone_mix(tx_buf);
 			}
 		}
@@ -1252,7 +1565,7 @@ int audio_datapath_aquire(struct data_fifo *fifo_rx) {
 	return ret;
 }
 
-int audio_datapath_release() {
+int audio_datapath_release(void) {
 	int ret = 0;
 
 	_count --;
