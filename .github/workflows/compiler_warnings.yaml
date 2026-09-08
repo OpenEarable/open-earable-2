@@ -1,0 +1,143 @@
+name: Report Compiler Warnings
+
+on:
+  pull_request: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  warnings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: zephyr-workspace/open-earable-v2
+          submodules: recursive
+
+      - name: Install build dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ccache cmake device-tree-compiler dfu-util file gcc gcc-multilib g++-multilib gperf libmagic1 libsdl2-dev make ninja-build python3-dev python3-pip python3-setuptools python3-tk python3-wheel wget xz-utils
+          version: 1.0
+          execute_install_scripts: true
+
+      - name: Set up Zephyr workspace
+        run: |
+          pip3 install west
+          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64_minimal.tar.xz
+          tar xf zephyr-sdk-0.17.0_linux-x86_64_minimal.tar.xz -C ~/
+          ~/zephyr-sdk-0.17.0/setup.sh -c -t arm-zephyr-eabi
+          cd zephyr-workspace
+          west init -l open-earable-v2
+          west update --narrow -o=--depth=1
+          pip3 install -r zephyr/scripts/requirements.txt
+
+      - name: Register custom board
+        run: |
+          mkdir -p zephyr-workspace/zephyr/boards/arm
+          cp -R zephyr-workspace/open-earable-v2/boards/teco/. zephyr-workspace/zephyr/boards/arm/
+
+      - name: Build with extended warnings
+        id: build
+        working-directory: zephyr-workspace
+        run: |
+          set -o pipefail
+          west build -d build-warnings --board openearable_v2/nrf5340/cpuapp \
+              --pristine=always open-earable-v2 -- \
+              -DFILE_SUFFIX=fota \
+              -DCMAKE_C_COMPILER_LAUNCHER="$PWD/open-earable-v2/tools/ci/extended-warning-compiler-launcher.sh" \
+              -DCMAKE_CXX_COMPILER_LAUNCHER="$PWD/open-earable-v2/tools/ci/extended-warning-compiler-launcher.sh" \
+            2>&1 | tee warning-build.log
+
+      - name: Prepare warning report
+        if: always()
+        run: |
+          mkdir -p warning-report
+          log=zephyr-workspace/warning-build.log
+          clean="${RUNNER_TEMP:-/tmp}/warning-build.log"
+          all=warning-report/compiler-warnings.txt
+          project=warning-report/project-warnings.txt
+          config=warning-report/configuration-warnings.txt
+          sed -E 's/\x1B\[[0-9;]*[mK]//g' "$log" 2>/dev/null > "$clean"
+          grep -Ei '(^|[[:space:]])warning:' "$clean" > "$all" || true
+          grep '/zephyr-workspace/open-earable-v2/' "$all" \
+            | sed -E 's#^.*/zephyr-workspace/open-earable-v2/##' \
+            | awk '!seen[$0]++' > "$project" || true
+          awk '
+            function flush() {
+              if (capturing && !seen[warning]++) {
+                print warning "\n"
+              }
+              capturing = 0
+              warning = ""
+            }
+            function is_configuration_warning() {
+              return $0 ~ /^[[:space:]]*(---[[:space:]]*)?[Ww][Aa][Rr][Nn][Ii][Nn][Gg]:/ ||
+                     $0 ~ /^CMake (Developer )?Warning([[:space:]]|$)/
+            }
+            function is_devicetree_warning() {
+              return $0 ~ /:[[:space:]]+Warning \([^)]*\):/
+            }
+            {
+              if (is_devicetree_warning()) {
+                flush()
+                if (!seen[$0]++) {
+                  print $0 "\n"
+                }
+                next
+              }
+              if (capturing && ($0 ~ /^[[:space:]]*$/ || is_configuration_warning())) {
+                flush()
+              }
+              if (!capturing && is_configuration_warning()) {
+                capturing = 1
+              }
+              if (capturing) {
+                warning = warning (warning == "" ? "" : "\n") $0
+              }
+            }
+            END { flush() }
+          ' "$clean" > "$config" || true
+
+          comment=warning-report/pr-comment.md
+          {
+            echo '## Compiler warnings'
+            echo
+            if [ '${{ steps.build.outcome }}' = success ]; then
+              echo 'The extended-warning build completed successfully.'
+            else
+              echo '⚠️ The extended-warning build failed; this report may be incomplete.'
+            fi
+            echo
+            echo '### Application compiler warnings'
+            if [ -s "$project" ]; then
+              echo '<details open><summary>Show warnings</summary>'
+              echo; echo '```text'; head -n 100 "$project"; echo '```'; echo '</details>'
+            else
+              echo 'None.'
+            fi
+            echo
+            echo "[View this workflow run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } | tee "$comment" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload complete warning report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiler-warnings
+          path: warning-report
+          if-no-files-found: error
+
+      - name: Comment on pull request
+        if: always()
+        continue-on-error: true
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: warning-report/pr-comment.md
+          comment-tag: compiler-warnings
