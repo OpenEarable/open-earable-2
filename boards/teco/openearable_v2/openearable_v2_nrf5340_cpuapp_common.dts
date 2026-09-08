@@ -146,7 +146,7 @@
         reg = <0x62>;
     };
 
-	mlx90632: mlx90632@3A {
+	mlx90632: mlx90632@3a {
         compatible = "i2c-device";
         reg = <0x3A>;
     };
@@ -266,4 +266,3 @@
  //#include "openearable_v2_nrf5340_cpuapp_partition_conf.dts"
  #include <common/nordic/nrf5340_cpuapp_partition.dtsi>
  #include "openearable_v2_nrf5340_shared.dtsi"
- 
