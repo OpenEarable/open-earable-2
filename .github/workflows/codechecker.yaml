@@ -62,7 +62,16 @@ jobs:
           wget --quiet \
             "https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
           tar xf "zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz"
-          "${PWD}/zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh" -c -t arm-zephyr-eabi
+          for attempt in 1 2 3; do
+            "${PWD}/zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh" -c -t arm-zephyr-eabi && break
+            if [ "${attempt}" -eq 3 ]; then
+              echo "::error::Failed to install arm-zephyr-eabi toolchain after ${attempt} attempts."
+              exit 20
+            fi
+            echo "Retrying Zephyr toolchain installation (attempt $((attempt + 1))/3)..."
+            rm -rf "${PWD}/zephyr-sdk-${ZEPHYR_SDK_VERSION}/arm-zephyr-eabi"
+            sleep 5
+          done
 
       - name: Initialize Zephyr workspace
         working-directory: zephyr-workspace
