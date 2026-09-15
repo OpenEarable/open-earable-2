@@ -487,21 +487,14 @@ void DFRobot_BMX160::getAllData(sBmx160SensorData_t *magn, sBmx160SensorData_t *
             const float bmm_y = compensateBmm150Y(raw_y, rhall);
             const float bmm_z = compensateBmm150Z(raw_z, rhall);
 
-            if (_standaloneBmi160) {
-                /*
-                 * The new PCB placement keeps BMM150 +X aligned with BMI160 +X.
-                 * Y and Z point in the opposite direction, so rotate the magnetic
-                 * vector into the accelerometer/gyroscope coordinate frame.
-                 */
-                magn->x = bmm_x;
-                magn->y = -bmm_y;
-                magn->z = -bmm_z;
-            } else {
-                /* BMX160 internally aligns its BMM150 die with the IMU frame. */
-                magn->x = bmm_x;
-                magn->y = bmm_y;
-                magn->z = bmm_z;
-            }
+            /*
+             * The external BMM150 uses the same magnetic-sensor axis orientation
+             * as the BMM150 in the BMX160 assembly. Keep the compensated axes
+             * unchanged on both hardware revisions.
+             */
+            magn->x = bmm_x;
+            magn->y = bmm_y;
+            magn->z = bmm_z;
         } else {
             *magn = {};
         }
