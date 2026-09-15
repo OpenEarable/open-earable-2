@@ -64,6 +64,8 @@ int main(void) {
 	ret = power_manager.begin();
 	ERR_CHK(ret);
 
+	detect_sensor_hardware_revision();
+
 	uint8_t standalone = uicr_standalone_get();
 
 	LOG_INF("Standalone mode: %i", standalone);

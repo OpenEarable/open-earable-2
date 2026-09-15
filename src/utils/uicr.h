@@ -63,6 +63,19 @@ uint64_t uicr_snr_get(void);
  */
 void uicr_hw_revision_get(char *hw_version);
 
+/**
+ * @brief Promote a 2.0.x hardware revision to 2.1.x.
+ *
+ * A blank UICR value is persisted as 2.1.0. An already-programmed 2.0.x
+ * value cannot be changed without erasing the full UICR page, so the
+ * promoted value is applied at runtime and reported through Device Info.
+ * The hardware probe repeats on every boot.
+ *
+ * @return 0 when no promotion is needed or the promoted value is active
+ * @return -EIO if a blank UICR value could not be programmed
+ */
+int uicr_hw_revision_promote_2_0_to_2_1(void);
+
 #ifdef __cplusplus
 }
 #endif
