@@ -575,19 +575,17 @@ int PowerManager::power_down(bool fault) {
     // power disonnected
     // prepare interrupts
 
-    led_controller.begin();
-    led_controller.power_off();
-
     stop_sensor_manager();
 
     bool charging = battery_controller.power_connected();
 
     if (!charging) {
+        // A wake-source error must not leave the device running after its LEDs are off.
         ret = battery_controller.set_wakeup_int();
-        if (ret != 0) return ret;
+        if (ret != 0) LOG_WRN("Failed to configure charger wake source: %d", ret);
 
-        ret = fuel_gauge.set_wakeup_int();
-        if (ret != 0) return ret;
+        ret = fuel_gauge.disable_wakeup_int();
+        if (ret != 0) LOG_WRN("Failed to disable fuel-gauge wake source: %d", ret);
         
         // check battery good
         //if (!fault) ret = power_switch.set_wakeup_int();
@@ -621,6 +619,10 @@ int PowerManager::power_down(bool fault) {
 
     // turn off error led
 	gpio_pin_set_dt(&error_led, 0);
+
+    // Keep the status LED active until cleanup finishes; it needs the rails suspended below.
+    led_controller.begin();
+    led_controller.power_off();
 
     if (charging) {
         //NVIC_SystemReset();
