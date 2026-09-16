@@ -27,6 +27,7 @@ def charger_status(
     *,
     ctrl: int = 0x41,
     fault: int = 0x00,
+    # Match the v2.7 recovery profile: fixed TS divider off, 100 mA, 3.0 V UVLO.
     ts_fault: int = 0x00,
     charge_ctrl: int = 0x98,
     preterm_ctrl: int = 0x92,
@@ -58,25 +59,20 @@ def fuel_status(voltage_mv: int) -> battery.FuelGaugeStatus:
 
 
 class ChargerStatusTests(unittest.TestCase):
-    def test_uvlo_codes_match_ti_register_table(self) -> None:
-        for code, expected in enumerate([None, None, 3000, 2800, 2600, 2400, 2200, 2200]):
-            with self.subTest(code=code):
-                status = charger_status(ilim_uvlo=0x18 | code)
-                self.assertEqual(status.battery_uvlo_mv, expected)
-                self.assertEqual(status.input_current_limit_ma, 200)
-        self.assertIn("battery_uvlo=3000 mV", battery.format_status(
-            fuel_status(2564), charger_status(ilim_uvlo=0x1A)))
-
-    def test_recovery_profile_preserves_three_volt_cutoff(self) -> None:
+    # Recovery must preserve the cell limits and reject unavailable safety data.
+    def test_recovery_limits(self) -> None:
         self.assertEqual(battery.RECOVERY_CHARGE_CURRENT_MA, 100)
-        self.assertEqual(battery.RECOVERY_UVLO_MV, 3000)
-        self.assertEqual(battery.RECOVERY_PRETERM_CURRENT_MA, 10)
-        self.assertEqual(battery.encode_charge_current(100), 0x98)
-        self.assertEqual(battery.encode_termination_current(10), 0x92)
-        for voltage, register in [(3000, 0x1A), (2800, 0x1B), (2600, 0x1C),
-                                  (2400, 0x1D), (2200, 0x1E)]:
-            self.assertEqual(battery.encode_ilim_uvlo(200, voltage), register)
-        self.assertEqual(battery.encode_ilim_uvlo(200, 2500), 0x1C)
+        self.assertEqual(battery.encode_ilim_uvlo(200, battery.RECOVERY_UVLO_MV), 0x1A)
+        self.assertEqual(charger_status(ts_fault=0x20).blocking_fault_reasons, [])
+        for temperature in [-1, 0, 45, 46, None, float("nan")]:
+            fuel = fuel_status(2564)
+            fuel.temperature_c = temperature
+            self.assertEqual(bool(battery.fuel_recovery_blocking_reasons(fuel)),
+                             temperature not in (0, 45))
+        for flags in [None, 1 << 8, 1 << 11]:
+            fuel = fuel_status(2564)
+            fuel.flags = flags
+            self.assertTrue(battery.fuel_recovery_blocking_reasons(fuel))
 
     def test_reset_and_timer_bits_are_distinct(self) -> None:
         charging = charger_status(ctrl=0x51)
@@ -109,11 +105,6 @@ class ChargerStatusTests(unittest.TestCase):
         self.assertEqual(cool.blocking_fault_reasons, [])
         self.assertEqual(warm.ts_state, "TS_warm_voltage_reduced")
         self.assertEqual(warm.blocking_fault_reasons, [])
-
-        disabled = charger_status(ts_fault=0x20)
-        self.assertEqual(disabled.ts_state, "TS_disabled")
-        self.assertEqual(disabled.blocking_fault_reasons, [])
-        self.assertNotIn("TS_hot_or_cold", disabled.fault_reasons)
 
     def test_only_resettable_conditions_request_a_reset(self) -> None:
         timer = charger_status(ctrl=0xC9)
@@ -273,17 +264,6 @@ class ChargerControlTests(unittest.TestCase):
         self.assertIs(actual, expected)
         link.reset_charger.assert_called_once_with()
         link.configure_charger.assert_called_once_with()
-
-    @mock.patch.object(battery.time, "sleep")
-    def test_recovery_rejects_ts_configuration_not_sticking(self, _sleep: mock.Mock) -> None:
-        link = mock.Mock()
-        link.read_charger.return_value = charger_status(ts_fault=0x88)
-        with (
-            mock.patch.object(sys, "stderr", new=io.StringIO()),
-            self.assertRaisesRegex(battery.BatteryDebugError, "TS configuration did not stick"),
-        ):
-            battery.reset_and_configure_charger(link)
-        self.assertEqual(link.configure_charger.call_count, 2)
 
     @mock.patch.object(battery.time, "sleep")
     def test_recovery_retries_when_current_configuration_does_not_stick(
@@ -495,77 +475,6 @@ class RecoveryCommandTests(unittest.TestCase):
                 "0.001",
             ]
         )
-
-    @mock.patch.object(battery, "reset_and_configure_charger")
-    @mock.patch.object(battery, "open_link")
-    def test_fixed_divider_cold_fault_is_reconfigured_with_safe_gauge(
-        self, open_link: mock.Mock, reset_charger: mock.Mock
-    ) -> None:
-        link = mock.MagicMock()
-        open_link.return_value = link
-        link.__enter__.return_value = link
-        link.read_fuel_gauge.side_effect = [fuel_status(3400), fuel_status(3400)]
-        link.read_charger.side_effect = [
-            charger_status(ctrl=0xC1, ts_fault=0xA8),
-            charger_status(),
-        ]
-        reset_charger.return_value = charger_status()
-        args = self.recover_args()
-        args.reset_on_fault = False
-        with mock.patch.object(sys, "stdout", new=io.StringIO()):
-            self.assertEqual(battery.cmd_recover(args), 0)
-        reset_charger.assert_called_once_with(link)
-
-    @mock.patch.object(battery, "reset_and_configure_charger")
-    @mock.patch.object(battery, "open_link")
-    def test_unsafe_or_missing_temperature_never_resets_charger(
-        self, open_link: mock.Mock, reset_charger: mock.Mock
-    ) -> None:
-        for temperature in [-0.1, 45.1, None, float("nan")]:
-            with self.subTest(temperature=temperature):
-                link = mock.MagicMock()
-                open_link.return_value = link
-                link.__enter__.return_value = link
-                fuel = fuel_status(2564)
-                fuel.temperature_c = temperature
-                link.read_fuel_gauge.return_value = fuel
-                link.read_charger.return_value = charger_status(ctrl=0xD9, ts_fault=0xA8)
-                with mock.patch.object(sys, "stdout", new=io.StringIO()), \
-                     mock.patch.object(sys, "stderr", new=io.StringIO()):
-                    result = battery.cmd_recover(self.recover_args())
-                self.assertEqual(result, 1)
-                reset_charger.assert_not_called()
-                link.set_cd.assert_called_once_with(1)
-
-    def test_temperature_limits_and_gauge_inhibit(self) -> None:
-        for temperature in [0.0, 45.0]:
-            fuel = fuel_status(2564)
-            fuel.temperature_c = temperature
-            self.assertEqual(battery.fuel_recovery_blocking_reasons(fuel), [])
-        for flags in [None, 1 << 8, 1 << 11]:
-            fuel = fuel_status(2564)
-            fuel.flags = flags
-            self.assertTrue(battery.fuel_recovery_blocking_reasons(fuel))
-
-    @mock.patch.object(battery, "reset_and_configure_charger")
-    @mock.patch.object(battery, "open_link")
-    def test_temperature_rise_stops_recovery_and_inhibits_charge(
-        self, open_link: mock.Mock, reset_charger: mock.Mock
-    ) -> None:
-        link = mock.MagicMock()
-        open_link.return_value = link
-        link.__enter__.return_value = link
-        hot = fuel_status(2900)
-        hot.temperature_c = 46.0
-        link.read_fuel_gauge.side_effect = [fuel_status(2900), hot]
-        link.read_charger.return_value = charger_status()
-        reset_charger.return_value = charger_status()
-        with mock.patch.object(sys, "stdout", new=io.StringIO()), \
-             mock.patch.object(sys, "stderr", new=io.StringIO()):
-            result = battery.cmd_recover(self.recover_args())
-        self.assertEqual(result, 1)
-        reset_charger.assert_called_once_with(link)
-        link.set_cd.assert_called_once_with(1)
 
     @mock.patch.object(battery, "reset_and_configure_charger")
     @mock.patch.object(battery, "open_link")

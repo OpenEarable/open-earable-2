@@ -9,6 +9,7 @@
 #include <zephyr/fatal.h>
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/drivers/gpio.h>
+/* Request charge-only recovery without I2C from the fatal handler. */
 #include <hal/nrf_power.h>
 #include "../Battery/BootState.h"
 

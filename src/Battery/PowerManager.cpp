@@ -19,8 +19,10 @@
 #endif
 
 #include <hal/nrf_ficr.h>
+// Keep the network core off during charge-only recovery and final shutdown.
 #include <hal/nrf_reset.h>
-#include "BatteryPolicy.h"
+#include <cmath>
+// Stop audio before removing its power supply.
 #include "../audio/audio_datapath.h"
 
 #include "../drivers/LED_Controller/KTD2026.h"
@@ -101,6 +103,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work *) {
 }
 
 int PowerManager::begin() {
+    // An uninitialized LED mode could select the default black custom color.
     earable_state oe_state = {};
 
     oe_state.charging_state = DISCHARGING;
@@ -322,11 +325,15 @@ void PowerManager::set_error_led(int val) {
 }
 
 bool PowerManager::check_battery() {
+    // Require checked measurements and hysteresis before starting application loads.
     bat_status status = {};
     float voltage, temperature;
     if (!fuel_gauge.read_safety_status(status, voltage, temperature)) return false;
-    return battery_policy::can_start(voltage, temperature, status.SYSDWN,
-                                    _battery_settings);
+    const float start_voltage = _battery_settings.u_vlo +
+        (CONFIG_BATTERY_SYSDOWN_SET_OFFSET + CONFIG_BATTERY_SYSDOWN_HYSTERESIS) / 1000.0f;
+    return std::isfinite(voltage) && std::isfinite(temperature) && !status.SYSDWN &&
+           voltage >= start_voltage && voltage <= _battery_settings.u_term + 0.1f &&
+           temperature >= _battery_settings.temp_min && temperature <= _battery_settings.temp_max;
 }
 
 void PowerManager::get_battery_status(battery_level_status &status) {
@@ -424,6 +431,7 @@ int PowerManager::power_down(bool fault) {
 }
 
 void PowerManager::set_charger_session(bool recovery_used, bool fault_latched) {
+    // Preserve the retry budget across both normal and fatal reboots.
     unsigned int key = irq_lock();
     timer_recovery_used = recovery_used;
     charger_fault_latched = fault_latched;
@@ -445,7 +453,7 @@ void PowerManager::finish_power_down() {
     if (indicator_ready) led_controller.power_off();
     gpio_pin_set_dt(&error_led, 0);
 
-    // A low battery alert can stay asserted. It must never wake an off device.
+    // A battery alert is not a request to turn an intentionally off device on.
     (void)fuel_gauge.disable_wakeup_int();
     LOG_INF("Power off%s", shutdown_fault ? " due to fault" : "");
 
@@ -484,12 +492,12 @@ void PowerManager::finish_power_down() {
 
 void PowerManager::charge_task() {
     if (stopping) return;
+    // A real USB disconnect ends the retry budget; polling continues on battery.
     bool usb = battery_controller.power_connected();
     if (usb != usb_connected) {
         usb_connected = usb;
         charger_configured = false;
         if (!usb) set_charger_session(false, false);
-        charge_inhibited = true;
         requested_current = 0;
     }
     if (!usb && !power_on) {
@@ -500,21 +508,18 @@ void PowerManager::charge_task() {
     bat_status battery = {};
     float voltage = 0, temperature = 0;
     bool valid = fuel_gauge.read_safety_status(battery, voltage, temperature);
-    bool safe = valid && battery_policy::can_charge(voltage, temperature,
-                                                    battery.CHGINH || battery.OTC,
-                                                    _battery_settings);
-    if (!usb && (!valid || battery.SYSDWN ||
-                 voltage <= battery_policy::shutdown_voltage(_battery_settings))) {
+    // Charge-only recovery may run below the application's restart voltage.
+    const float shutdown_voltage = _battery_settings.u_vlo + CONFIG_BATTERY_SYSDOWN_SET_OFFSET / 1000.0f;
+    const float start_voltage = shutdown_voltage + CONFIG_BATTERY_SYSDOWN_HYSTERESIS / 1000.0f;
+    bool safe = valid && std::isfinite(voltage) && std::isfinite(temperature) &&
+                !battery.CHGINH && !battery.OTC &&
+                voltage >= _battery_settings.u_charge_prevent && voltage <= _battery_settings.u_term + 0.1f &&
+                temperature >= _battery_settings.temp_min && temperature <= _battery_settings.temp_max;
+    // Stop application loads even on USB if the input cannot sustain them;
+    // charge-only recovery is allowed to stay on below this voltage.
+    if ((!usb || power_on) && (!valid || battery.SYSDWN || voltage <= shutdown_voltage)) {
         LOG_WRN("Battery shutdown: valid=%d voltage=%.3f", valid, voltage);
-        power_down(true);
-        return;
-    }
-    // A running application must also stop drawing a heavy load during USB
-    // recovery; a weak input must not let it drain the battery indefinitely.
-    if (usb && power_on && (!valid || battery.SYSDWN ||
-                           voltage <= battery_policy::shutdown_voltage(_battery_settings))) {
-        battery_controller.disable_charge();
-        charge_inhibited = true;
+        if (usb) battery_controller.disable_charge();
         power_down(true);
         return;
     }
@@ -522,7 +527,6 @@ void PowerManager::charge_task() {
     if (usb && !charger_configured && !charger_fault_latched) {
         charger_configured = (indicator_ready ? battery_controller.setup(_battery_settings)
                                              : battery_controller.setup_boot(_battery_settings)) == 0;
-        charge_inhibited = true;
         requested_current = 0;
         if (!charger_configured && indicator_ready) {
             // USB edges invalidate our configuration cache. If a PMIC reset
@@ -535,6 +539,7 @@ void PowerManager::charge_task() {
         }
     }
     if (usb && charger_configured && !indicator_ready) {
+        // A failed boot setup can recover later; initialize the indicator only then.
         earable_state state = {};
         state.pairing_state = PAIRED;
         state.charging_state = POWER_CONNECTED;
@@ -551,7 +556,6 @@ void PowerManager::charge_task() {
         // restart in charge-only mode so all rails are off before reconfiguration.
         LOG_ERR("Charger configuration lost; restarting into charge-only mode");
         charger_configured = false;
-        charge_inhibited = true;
         power_down(true);
         return;
     }
@@ -565,7 +569,6 @@ void PowerManager::charge_task() {
             LOG_WRN("Recovering charger safety timer once for this USB session");
             charger_configured = battery_controller.recover_charging(_battery_settings) == 0;
             if (!charger_configured) set_charger_session(true, true);
-            charge_inhibited = true;
             requested_current = 0;
             read_ok = battery_controller.read_status(ctrl, fault, ts);
             blocked = charger_fault_latched || !read_ok || (fault & 0xD0) ||
@@ -578,6 +581,7 @@ void PowerManager::charge_task() {
         if (ctrl & BIT(3)) set_charger_session(timer_recovery_used, true);
         blocked |= charger_fault_latched;
     }
+    // Keep charge permission in one place; status reads must not undo an inhibit.
     bool allow = usb && safe && charger_configured && !blocked;
     if (allow) {
         float current = (temperature < _battery_settings.temp_fast_min ||
@@ -591,24 +595,25 @@ void PowerManager::charge_task() {
             }
         }
     }
-    if (allow && charge_inhibited) {
-        charge_inhibited = battery_controller.enable_charge() != 0;
-    } else if (!allow && !charge_inhibited) {
-        battery_controller.disable_charge();
-        charge_inhibited = true;
-    }
-    battery_controller.enter_high_impedance();
+    // The driver preserves inhibition across status reads; do not cache it twice.
+    if (allow) allow = battery_controller.enable_charge() == 0;
+    if (!allow) battery_controller.disable_charge();
 
+    // Report the actual charging permission, including recovery and latched faults.
     struct battery_data message = {};
     message.battery_level = valid ? fuel_gauge.state_of_charge() : 0;
     if (!usb) {
         message.charging_state = DISCHARGING;
-        if (voltage < battery_policy::start_voltage(_battery_settings)) {
+#ifdef CONFIG_BATTERY_ENABLE_LOW_STATE
+        // Preserve the optional early warning while voltage enforces shutdown.
+        if (fuel_gauge.gauging_state().edv2) message.charging_state = BATTERY_LOW;
+#endif
+        if (voltage < start_voltage) {
             message.charging_state = BATTERY_CRITICAL;
         }
-    } else if (!allow || charge_inhibited) {
+    } else if (!allow) {
         message.charging_state = FAULT;
-    } else if (battery.SYSDWN || voltage < battery_policy::start_voltage(_battery_settings)) {
+    } else if (battery.SYSDWN || voltage < start_voltage) {
         message.charging_state = PRECHARGING;
     } else if ((ctrl >> 6) == 2) {
         message.charging_state = FULLY_CHARGED;
@@ -616,15 +621,18 @@ void PowerManager::charge_task() {
         float current = fuel_gauge.current();
         message.charging_state = current > 0.8f * requested_current - 2 * _battery_settings.i_term
                                      ? CHARGING : POWER_CONNECTED;
+        // Preserve the existing taper indication when trickle LEDs are disabled.
+        if (message.charging_state == POWER_CONNECTED && voltage > _battery_settings.u_term - 0.02f) {
 #ifdef CONFIG_BATTERY_ENABLE_TRICKLE_CHARGE
-        if (voltage > _battery_settings.u_term - 0.02f) {
             message.charging_state = TRICKLE_CHARGING;
-        }
+#else
+            message.charging_state = CHARGING;
 #endif
+        }
     } else {
         message.charging_state = (ctrl >> 6) == 3 ? FAULT : POWER_CONNECTED;
     }
-    chrg_interval = K_SECONDS(message.charging_state == FAULT ?
+    chrg_interval = K_SECONDS(message.charging_state == FAULT || message.charging_state == POWER_CONNECTED ?
         CONFIG_BATTERY_CHARGE_CONTROLLER_FAST_INTERVAL_SECONDS :
         CONFIG_BATTERY_CHARGE_CONTROLLER_NORMAL_INTERVAL_SECONDS);
     // Bound channel-lock/subscriber waits; synchronous listeners must also
@@ -637,6 +645,7 @@ int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **ar
     ARG_UNUSED(argc);
     ARG_UNUSED(argv);
 
+    // Leave a failed configuration visible instead of rebooting as if it succeeded.
     int ret = fuel_gauge.setup(power_manager._battery_settings);
     if (ret) {
         shell_error(shell, "Fuel gauge setup failed: %d", ret);
@@ -691,36 +700,13 @@ static int cmd_battery_info(const struct shell *shell, size_t argc, const char *
     shell_print(shell, "  Charge Control: enabled=%i, current=%.1f mA", 
             charge_ctrl.enabled, charge_ctrl.mAh);
 
-    chrg_state preterm = battery_controller.read_termination_control();
-    ilim_uvlo limits = battery_controller.read_uvlo_ilim();
-    shell_print(shell, "  Precharge/termination: %.1f mA, UVLO: %.3f V, input limit: %.1f mA",
-                preterm.mAh, limits.uvlo_v, limits.lim_mA);
-    shell_print(shell, "  Charge voltage: %.3f V, LDO voltage: %.3f V",
-                battery_controller.read_battery_voltage_control(), battery_controller.read_ldo_voltage());
     battery_controller.enter_high_impedance();
-    uint8_t control, fault, ts;
-    if (battery_controller.read_status(control, fault, ts)) {
-        shell_print(shell, "  Raw status: CTRL=0x%02x FAULT=0x%02x TS=0x%02x",
-                    control, fault, ts);
-    } else {
-        shell_error(shell, "  Charger status unavailable");
-    }
-    shell_print(shell, "  Gauge: SYSDWN=%i CHGINH=%i OTC=%i",
-                status.SYSDWN, status.CHGINH, status.OTC);
 
     return 0;
 }
 
-static int cmd_battery_off(const struct shell *shell, size_t argc, const char **argv) {
-    ARG_UNUSED(argc);
-    ARG_UNUSED(argv);
-    shell_print(shell, "Powering off; USB retains charging-only operation");
-    return power_manager.power_down();
-}
-
 SHELL_STATIC_SUBCMD_SET_CREATE(battery_cmd,
     SHELL_COND_CMD(CONFIG_SHELL, info, NULL, "Print battery info", cmd_battery_info),
-    SHELL_COND_CMD(CONFIG_SHELL, off, NULL, "Power off (charge-only on USB)", cmd_battery_off),
     SHELL_COND_CMD(CONFIG_SHELL, setup, NULL, "Setup fuel gauge", cmd_setup_fuel_gauge),
     SHELL_SUBCMD_SET_END);
 

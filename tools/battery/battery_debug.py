@@ -28,6 +28,7 @@ except ImportError as exc:  # pragma: no cover - depends on local workstation
 
 APP_CORE_DEVICE = "NRF5340_XXAA_APP"
 DEFAULT_SPEED_KHZ = 1000
+# Match the VARTA cell limits and firmware cutoff during manual recovery.
 RECOVERY_CHARGE_CURRENT_MA = 100
 RECOVERY_PRETERM_CURRENT_MA = 10.0
 RECOVERY_INPUT_LIMIT_MA = 200
@@ -37,9 +38,6 @@ RECOVERY_MAX_TEMPERATURE_C = 45.0
 # v2.7 has a fixed 57.7% VIN divider rather than a battery thermistor.
 # It falls inside TSOFF's 55%-60% tolerance band: use checked gauge temperature.
 RECOVERY_TS_CONFIG = 0x00
-# BQ25120A SLUSD08A, section 9.6.10, register 0x09. Codes 0 and 1
-# are reserved; 6 and 7 both select 2.2 V.
-BUVLO_MV_BY_CODE = {2: 3000, 3: 2800, 4: 2600, 5: 2400, 6: 2200, 7: 2200}
 
 TWIM1 = 0x50009000
 GPIO0 = 0x50842500
@@ -252,6 +250,7 @@ class ChargerStatus:
             reasons.append("BAT_UVLO")
         if self.battery_overcurrent:
             reasons.append("BAT_OCP")
+        # Disabled TS status bits are not temperature faults on v2.7.
         if self.ts_enabled and self.ts_fault_code:
             reasons.append(self.ts_state)
         if self.vindpm_active and self.charging_state_code == 3:
@@ -313,14 +312,6 @@ class ChargerStatus:
     @property
     def high_z(self) -> bool:
         return bool(self.charge_ctrl & 0x01)
-
-    @property
-    def battery_uvlo_mv(self) -> int | None:
-        return BUVLO_MV_BY_CODE.get(self.ilim_uvlo & 0x07)
-
-    @property
-    def input_current_limit_ma(self) -> int:
-        return 50 + 50 * ((self.ilim_uvlo >> 3) & 0x07)
 
 
 class JLinkBatteryInterface:
@@ -758,9 +749,6 @@ def format_status(fuel: FuelGaugeStatus, charger: ChargerStatus) -> str:
         f"SYS_enabled={charger.sys_enabled}",
         f"PG_present={charger.pg_present}",
         f"CD_raw={charger.cd_raw}",
-        f"battery_uvlo={charger.battery_uvlo_mv} mV"
-        if charger.battery_uvlo_mv is not None else "battery_uvlo=reserved_code",
-        f"input_current_limit={charger.input_current_limit_ma} mA",
     ]
     if charger.fault_reasons:
         fields.append(f"fault_reason={'+'.join(charger.fault_reasons)}")
@@ -887,6 +875,7 @@ def charger_blocking_reasons(
 
 
 def fuel_recovery_blocking_reasons(fuel: FuelGaugeStatus) -> list[str]:
+    # The fixed TS divider cannot protect the cell; require valid gauge data.
     reasons = []
     if fuel.temperature_c is None or not math.isfinite(fuel.temperature_c):
         reasons.append("battery_temperature_unavailable")

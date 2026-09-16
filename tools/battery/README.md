@@ -50,11 +50,6 @@ python3 tools/battery/battery_debug.py voltage --snr [YOUR_JLINK_SERIAL_NUMBER] 
 
 ## Full Status
 
-On running firmware, prefer its RTT shell command `battery info`: it reports
-voltage, current, temperature, charger settings and raw fault registers without
-borrowing the I2C peripheral. `battery off` requests the same shutdown path as
-the button; with USB connected it restarts into charging-only operation.
-
 Read fuel-gauge and charger state:
 
 ```bash
@@ -79,11 +74,6 @@ The charger status register has a few latched bits that are easy to confuse:
 The tool also names `VIN_OV`, `VIN_UV`, `BAT_UVLO`, `BAT_OCP`, VINDPM, and the
 three charger temperature states. `ts_fault=0x88` means charger-side temperature
 monitoring is enabled and currently normal; it is not a temperature fault.
-
-Status includes the decoded battery UVLO threshold and input current limit.
-For example, `ilim_uvlo=0x1a` means **3.0 V UVLO and a 200 mA input limit**;
-`0x1c` selects 2.6 V UVLO. See the
-[TI register definition, section 9.6.10](https://www.ti.com/lit/ds/symlink/bq25120a.pdf).
 
 ## Low-Battery Recovery
 
@@ -123,29 +113,18 @@ python3 tools/battery/battery_debug.py recover --snr [YOUR_JLINK_SERIAL_NUMBER] 
 During recovery, safety-timer faults are reset even without `--reset-on-fault`.
 The reset sequence pulses the charger `CD` pin, verifies that it moved high and
 back low, resets the charger registers, restores fast-charge current,
-precharge/termination current, input limit, battery UVLO, and the v2.7 TS
-setting. It verifies those settings and that the timer fault has cleared. A failed
+precharge/termination current, input current limit, and battery UVLO, and checks
+that those settings and the cleared timer fault read back correctly. A failed
 sequence is retried once. If a fault returns until `--max-fault-resets` is
 reached, recovery stops with an error instead of silently continuing with
 charging stopped.
 
-Recovery uses 100 mA fast charge, 10 mA shared precharge/termination current,
-a 200 mA USB input limit, and a **3.0 V battery UVLO threshold**. It preserves
-the discharge cutoff while recovering the cell. The 100 mA setting stays below
-the original VARTA CP1454 A4X's 105 mA fast-charge limit; recovery requires a
-valid battery temperature between 0 and 45 °C and readable safety flags with
-no charging inhibit. These limits follow the
-[VARTA CP1454 A4X cell specification, DS63145_4X](https://elektronik.ropla.eu/pdf/stock/vmb/cp1454_a4.pdf).
-The BQ25120A uses the same register for precharge and termination current;
-recovery retains the existing 10 mA setting for both. The v2.7 TS input is a
-fixed divider, not a cell thermistor, and can be misinterpreted as cold after a charger reset. Recovery verifies it is disabled
-and uses checked fuel-gauge temperature/safety flags to inhibit unsafe charging.
-
-`BAT_UVLO`, VINDPM, and the cool/warm temperature derating states do not trigger
-repeated resets; recovery monitors them while voltage progresses. Missing input
-power, input overvoltage, battery overcurrent, and an enabled TS hot/cold fault
-during monitoring stop recovery. On entry, the known fixed-divider TS fault can
-be corrected only after the separate fuel-gauge safety checks pass.
+Recovery uses 100 mA fast charge, 10 mA precharge/termination, a 200 mA input
+limit and 3.0 V battery UVLO. It requires readable safety flags and a battery
+temperature of 0–45 °C. The v2.7 TS input is a fixed divider, not a thermistor;
+recovery disables it after checking gauge temperature and electrical faults.
+Missing input power, input overvoltage, battery overcurrent or unsafe gauge
+readings stop recovery. Battery UVLO and current limiting do not trigger resets.
 
 ## Useful Options
 

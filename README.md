@@ -148,16 +148,7 @@ Battery states will overwrite LED connection states. All LED states can be manua
 | 🟢 Green - Pulsing  | Trickle charge; final voltage (constant voltage) reached. Can be disabled via config |
 | 🟩 Green - Solid    | Fully charged                                                               |
 
-Solid red means charging is inhibited or a fault needs attention. Low batteries
-remain in charging-only mode while voltage and temperature are checked. The
-firmware permits one safety-timer recovery per USB connection. Repeated faults,
-or a reboot after that recovery, inhibit charging until USB is disconnected.
-See the [battery diagnostics](tools/battery/README.md).
-
-Button-off disconnects the system supply on battery and retains charging-only
-operation on USB. By default, normal operation stops at 3.25 V and requires
-3.35 V to restart. The fuel gauge remains connected to the cell in the off state;
-firmware shutdown is not a complete battery-protection circuit.
+Solid red indicates a charging fault or inhibit. Firmware attempts one safety-timer recovery per USB connection; repeated faults require disconnecting USB before retrying.
 
 
 ### Discharging States

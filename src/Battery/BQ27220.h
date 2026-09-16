@@ -139,6 +139,7 @@ public:
     float standby_current();
     op_state operation_state();
     gauge_status gauging_state();
+    // Report configuration failures so charging stays inhibited until setup succeeds.
     bool write_command(commands command);
     int enter_config_update();
     int exit_config_update(bool init = true);
@@ -165,7 +166,7 @@ private:
 
     int address = DT_REG_ADDR(DT_NODELABEL(bq27220));
 
-    uint64_t last_i2c = 0;
+    uint64_t last_i2c;
 
     gpio_callback int_cb_data;
 

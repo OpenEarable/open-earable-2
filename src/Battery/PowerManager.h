@@ -2,6 +2,7 @@
 #define _POWER_MANAGER_H
 
 #include <zephyr/kernel.h>
+// Boot/button handling and the battery worker share these state flags.
 #include <atomic>
 
 #include "BQ27220.h"
@@ -30,6 +31,7 @@ public:
 
     static k_work_delayable power_down_work;
 private:
+    // Serialize shutdown with battery servicing and retain a bounded timer retry.
     std::atomic<bool> power_on{false};
     std::atomic<bool> stopping{false};
     bool shutdown_fault = false;
@@ -38,7 +40,6 @@ private:
     std::atomic<bool> indicator_ready{false};
     bool timer_recovery_used = false;
     bool charger_fault_latched = false;
-    bool charge_inhibited = true;
     float requested_current = 0;
     void finish_power_down();
     void set_charger_session(bool recovery_used, bool fault_latched);
@@ -63,6 +64,7 @@ private:
     static void fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
+    // Match the CP1454 A4X charge limits and cut system loads off above deep discharge.
     const battery_settings _battery_settings = {
         3.7, 4.3, 3.0, 2.5,  // Nominal, regulation, UVLO, charge-prevent voltage (V)
         10, 100, 200,        // Shared precharge/termination, fast charge, input (mA)

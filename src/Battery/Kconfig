@@ -83,6 +83,7 @@ config BATTERY_CHARGE_CONTROLLER_INTERVAL_SECONDS
 
 config BATTERY_CHARGE_CONTROLLER_NORMAL_INTERVAL_SECONDS
 	int "Normal Charge Controller Check Interval (seconds)"
+	# Keep polling comfortably within the charger's 50-second watchdog period.
 	range 1 20
 	default 10
 	help
@@ -90,6 +91,7 @@ config BATTERY_CHARGE_CONTROLLER_NORMAL_INTERVAL_SECONDS
 
 config BATTERY_CHARGE_CONTROLLER_FAST_INTERVAL_SECONDS
 	int "Fast Charge Controller Check Interval (seconds)"
+	# Fault recovery must keep servicing the charger watchdog too.
 	range 1 20
 	default 1
 	help

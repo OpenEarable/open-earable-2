@@ -8,6 +8,7 @@ LOG_MODULE_REGISTER(bq27220, LOG_LEVEL_DBG);
 
 namespace {
 
+// The gauge shares its RAM command window across transfers; lock whole operations.
 K_MUTEX_DEFINE(gauge_mutex);
 
 class GaugeLock {
@@ -16,6 +17,7 @@ public:
         ~GaugeLock() { k_mutex_unlock(&gauge_mutex); }
 };
 
+// Share the flag mapping with the checked safety snapshot.
 bat_status decode_battery_status(uint16_t flags) {
         bat_status status;
         status.DSG = flags & (1 << 0);
@@ -96,6 +98,7 @@ int BQ27220::disable_wakeup_int() {
 }
 
 bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
+        // Hold the locks through the quiet interval so another caller cannot shorten it.
         GaugeLock lock;
         _i2c->aquire();
         int ret;
@@ -112,6 +115,7 @@ bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 }
 
 bool BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
+        // Writes need the same transaction lock and quiet interval as reads.
         GaugeLock lock;
         _i2c->aquire();
         int ret;
@@ -161,6 +165,7 @@ bool BQ27220::read_safety_status(bat_status &status, float &voltage, float &temp
 }
 
 gauge_status BQ27220::gauging_state() {
+        // Keep command selection and its response together, including during setup.
         GaugeLock lock;
         gauge_status status;
 
@@ -285,8 +290,8 @@ op_state BQ27220::operation_state() {
 }
 
 bool BQ27220::write_command(BQ27220::commands cmd) {
-    // Commands on the wire are 16 bits; the C++ enum's storage may be wider.
-    return write_command(static_cast<uint16_t>(cmd));
+    // Propagate command failures so setup cannot report a partial profile as ready.
+    return writeReg(registers::CTRL, (uint8_t *) &cmd, sizeof(cmd));
 }
 
 bool BQ27220::write_command(uint16_t cmd) {
@@ -310,6 +315,7 @@ void BQ27220::active_mode() {
 }*/
 
 int BQ27220::enter_config_update() {
+    // A missing gauge or rejected command must not trap boot before charging starts.
     GaugeLock lock;
     uint16_t status = 0;
     if (!readReg(registers::OP_STAT, (uint8_t *)&status, sizeof(status))) return -EIO;
@@ -326,6 +332,7 @@ int BQ27220::enter_config_update() {
 }
 
 int BQ27220::exit_config_update(bool init) {
+    // Bound exit too: measurements stay frozen while configuration is active.
     GaugeLock lock;
     uint16_t status = 0;
     if (!readReg(registers::OP_STAT, (uint8_t *)&status, sizeof(status))) return -EIO;
@@ -342,12 +349,14 @@ int BQ27220::exit_config_update(bool init) {
 }
 
 bool BQ27220::read_RAM(uint16_t ram_address, uint8_t * data, int len) {
+        // A failed address selection must not be mistaken for a successful readback.
         if (!writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address))) return false;
         k_usleep(BQ27220_RAM_TIMEOUT_US);
         return readReg(0x40, data, len);
 }
 
 int BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len, bool check) {
+        // Stop on a failed transfer before using stale checksum data or committing it.
         uint8_t check_sum=0;
         uint8_t data_len=0;
         uint8_t buf[len];
@@ -376,6 +385,7 @@ int BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len, bool check
         k_usleep(BQ27220_RAM_TIMEOUT_US);
         
         if (check) {
+                // Compare only the caller's data, not the gauge's larger RAM block.
                 uint8_t * read_buff = (uint8_t *) k_malloc(len);
                 if (!read_buff) return -ENOMEM;
 
@@ -407,8 +417,7 @@ int BQ27220::write_RAM(uint16_t ram_address, uint16_t val, bool check) {
 }
 
 int BQ27220::setup(const battery_settings &_battery_settings, bool init) {
-        // Do not expose intermediate configuration measurements to the battery
-        // worker or BLE readers. Zephyr mutexes allow recursive driver calls.
+        // Keep polling and BLE reads out of the shared configuration window.
         GaugeLock lock;
         int ret;
 
@@ -423,151 +432,122 @@ int BQ27220::setup(const battery_settings &_battery_settings, bool init) {
 
         ret = enter_config_update();
         if (ret) return ret;
-        int result = [&]() -> int {
-            //k_usleep(1000);
+        // Preserve the first write failure, then still exit configuration and seal.
+        //k_usleep(1000);
 
-            //hibernate off (not supported by fuel gauge)
-            //ret = write_RAM(0x9220, 0);
+        //hibernate off (not supported by fuel gauge)
+        //ret = write_RAM(0x9220, 0);
 
-            // design and full charge capacity
-            ret = write_RAM(0x929F, _battery_settings.capacity);
-            if (ret) return ret;
-            ret = write_RAM(0x929D, _battery_settings.capacity); //130
-            if (ret) return ret;
-            // near full
-            ret = write_RAM(0x926B, 5);
-            if (ret) return ret;
+        // design and full charge capacity
+        ret = write_RAM(0x929F, _battery_settings.capacity);
+        if (!ret) ret = write_RAM(0x929D, _battery_settings.capacity); //130
+        // near full
+        if (!ret) ret = write_RAM(0x926B, 5);
 
-            ret = write_RAM(0x91F5, _battery_settings.temp_min * 10);
-            if (ret) return ret;
-            ret = write_RAM(0x91F7, _battery_settings.temp_max * 10);
-            if (ret) return ret;
+        if (!ret) ret = write_RAM(0x91F5, _battery_settings.temp_min * 10);
+        if (!ret) ret = write_RAM(0x91F7, _battery_settings.temp_max * 10);
 
-            // charge current
-            ret = write_RAM(0x91FB, _battery_settings.i_charge);
-            if (ret) return ret;
+        // charge current
+        if (!ret) ret = write_RAM(0x91FB, _battery_settings.i_charge);
 
-            // charge voltage
-            ret = write_RAM(0x91FD, _battery_settings.u_term * 1000);
-            if (ret) return ret;
+        // charge voltage
+        if (!ret) ret = write_RAM(0x91FD, _battery_settings.u_term * 1000);
 
-            // taper current
-            ret = write_RAM(0x9201, _battery_settings.i_term);
-            if (ret) return ret;
+        // taper current
+        if (!ret) ret = write_RAM(0x9201, _battery_settings.i_term);
 
-            // experimental: min taper capacity
-            ret = write_RAM(0x9203, 4); // standard: 25
-            if (ret) return ret;
+        // experimental: min taper capacity
+        if (!ret) ret = write_RAM(0x9203, 4); // standard: 25
 
-            // deadband
-            uint8_t val = 1;
-            ret = write_RAM(0x91DE, &val, sizeof(uint8_t));
-            if (ret) return ret;
+        // deadband
+        uint8_t val = 1;
+        if (!ret) ret = write_RAM(0x91DE, &val, sizeof(uint8_t));
         
-            // deadband CC (verursacht Probleme, rm zählt zu schnell?)
-            /*val = 5;
-            ret = write_RAM(0x91DF, &val, sizeof(uint8_t));
-            */
+        // deadband CC (verursacht Probleme, rm zählt zu schnell?)
+        /*val = 5;
+        ret = write_RAM(0x91DF, &val, sizeof(uint8_t));
+        */
         
-            // sleep current
-            ret = write_RAM(0x9217, 1);
-            if (ret) return ret;
+        // sleep current
+        if (!ret) ret = write_RAM(0x9217, 1);
 
-            // dischage current trd
-            ret = write_RAM(0x9228, 2);
-            if (ret) return ret;
-            // charge current trd
-            ret = write_RAM(0x922A, 2);
-            if (ret) return ret;
-            // quit current
-            ret = write_RAM(0x922C, 1);
-            if (ret) return ret;
+        // dischage current trd
+        if (!ret) ret = write_RAM(0x9228, 2);
+        // charge current trd
+        if (!ret) ret = write_RAM(0x922A, 2);
+        // quit current
+        if (!ret) ret = write_RAM(0x922C, 1);
 
-            //dod  0%: 4287
-            //dod 10%: 4125
-            //dod 20%: 3998
-            //dod 30%: 3878
-            //dod 40%: 3772
-            //dod 50%: 3689
-            //dod 60%: 3630
-            //dod 70%: 3588
-            //dod 80%: 3533
-            //dod 85%: 3495
-            //dod 90%: 3451, 3456
-            //dod 92.5%: 3435
-            //dod 95%: 3411, 3416 edv1: 6%
-            //dod 97.5%: 3350, edv0: 1.5%
-            //dod: 100%: 3250, 3269
-            //dod: 101.25%: 3188
-            //dod: 102.5%: 3123
-            //dod: 103.25%: 3089
+        //dod  0%: 4287
+        //dod 10%: 4125
+        //dod 20%: 3998
+        //dod 30%: 3878
+        //dod 40%: 3772
+        //dod 50%: 3689
+        //dod 60%: 3630
+        //dod 70%: 3588
+        //dod 80%: 3533
+        //dod 85%: 3495
+        //dod 90%: 3451, 3456
+        //dod 92.5%: 3435
+        //dod 95%: 3411, 3416 edv1: 6%
+        //dod 97.5%: 3350, edv0: 1.5%
+        //dod: 100%: 3250, 3269
+        //dod: 101.25%: 3188
+        //dod: 102.5%: 3123
+        //dod: 103.25%: 3089
 
-            // sysDown set Voltage
-            ret = write_RAM(0x9240, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET);
-            if (ret) return ret;
+        // sysDown set Voltage
+        if (!ret) ret = write_RAM(0x9240, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET);
 
-            // sysDown clear Voltage
-            ret = write_RAM(0x9243, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET + CONFIG_BATTERY_SYSDOWN_HYSTERESIS);
-            if (ret) return ret;
+        // sysDown clear Voltage
+        if (!ret) ret = write_RAM(0x9243, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET + CONFIG_BATTERY_SYSDOWN_HYSTERESIS);
 
-            // FD set
-            ret = write_RAM(0x9282, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET);
-            if (ret) return ret;
+        // FD set
+        if (!ret) ret = write_RAM(0x9282, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET);
 
-            // FD clear
-            ret = write_RAM(0x9284, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET + CONFIG_BATTERY_FD_HYSTERESIS);
-            if (ret) return ret;
+        // FD clear
+        if (!ret) ret = write_RAM(0x9284, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET + CONFIG_BATTERY_FD_HYSTERESIS);
 
-            // FC Voltage
-            ret = write_RAM(0x9288, _battery_settings.u_term * 1000 - CONFIG_BATTERY_FC_VOLTAGE_OFFSET);
-            if (ret) return ret;
+        // FC Voltage
+        if (!ret) ret = write_RAM(0x9288, _battery_settings.u_term * 1000 - CONFIG_BATTERY_FC_VOLTAGE_OFFSET);
 
-            // Electonic Load in 3µA steps
-            ret = write_RAM(0x9269, 6); // 18 µA
-            if (ret) return ret;
+        // Electonic Load in 3µA steps
+        if (!ret) ret = write_RAM(0x9269, 6); // 18 µA
 
-            // EMF
-            //write_RAM(0x92A7, 36001);
-            //C0
-            ret = write_RAM(0x92A9, 480); //bat1:250
-            if (ret) return ret;
-            //R0
-            ret = write_RAM(0x92AB, 19941); //bat1: 19941 //22542 //new bat:  17340
-            if (ret) return ret;
-            //R1
-            //write_RAM(0x92AF, 3160);
+        // EMF
+        //write_RAM(0x92A7, 36001);
+        //C0
+        if (!ret) ret = write_RAM(0x92A9, 480); //bat1:250
+        //R0
+        if (!ret) ret = write_RAM(0x92AB, 19941); //bat1: 19941 //22542 //new bat:  17340
+        //R1
+        //write_RAM(0x92AF, 3160);
 
-            // Configuration gauging FIXED_EDV
-            //ret = write_RAM(0x929B, 0x1022); //0x102A
+        // Configuration gauging FIXED_EDV
+        //ret = write_RAM(0x929B, 0x1022); //0x102A
 
-            //ret = write_RAM(0x927F, 0x0C8C);
+        //ret = write_RAM(0x927F, 0x0C8C);
 
-            // do not use, only on CT makes sense:
-            // SOC Flag, enable FC voltage detection
-            uint8_t flags_b = 0x8C;
-            ret = write_RAM(0x9281, &flags_b, sizeof(flags_b));
-            if (ret) return ret;
+        // do not use, only on CT makes sense:
+        // SOC Flag, enable FC voltage detection
+        uint8_t flags_b = 0x8C;
+        if (!ret) ret = write_RAM(0x9281, &flags_b, sizeof(flags_b));
 
-            // Overload current
-            ret = write_RAM(0x9264, _battery_settings.i_max);
-            if (ret) return ret;
+        // Overload current
+        if (!ret) ret = write_RAM(0x9264, _battery_settings.i_max);
 
-            // CEDV Smoothing Config
-            uint8_t cedv_conf = 0x0D; //Default: 0x08, Enable SMEXT, SMEN 0x0D
-            ret = write_RAM(0x9271, &cedv_conf, sizeof(cedv_conf));
-            if (ret) return ret;
+        // CEDV Smoothing Config
+        uint8_t cedv_conf = 0x0D; //Default: 0x08, Enable SMEXT, SMEN 0x0D
+        if (!ret) ret = write_RAM(0x9271, &cedv_conf, sizeof(cedv_conf));
 
-            ret = write_RAM(0x9272, 3700);
-            if (ret) return ret;
-
-            return 0;
-        }();
+        if (!ret) ret = write_RAM(0x9272, 3700);
 
         int exit_result = exit_config_update(init);
 
         // put fuel gauge to sealed state
         bool sealed = write_command(SEAL);
-        if (result) return result;
+        if (ret) return ret;
         if (exit_result) return exit_result;
         return sealed ? 0 : -EIO;
 }

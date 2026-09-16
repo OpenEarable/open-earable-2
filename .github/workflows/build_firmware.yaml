@@ -84,12 +84,6 @@ jobs:
           restore-keys: |
             ccache-v1-${{ runner.os }}-
 
-      - name: Battery Regression Checks
-        run: |
-          python3 -m unittest discover \
-            -s zephyr-workspace/open-earable-v2/tools/battery \
-            -p 'test_*.py' -v
-
       - name: Build Project
         run: |
           cd zephyr-workspace

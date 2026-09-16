@@ -523,7 +523,6 @@ int SDLogger::end() {
 
     // Close even when the card is full or flushing failed. Shutdown must be
     // able to continue, and already-written file metadata still needs syncing.
-
     LOG_INF("Close File ....");
 
     LOG_DBG("Max buffer fill: %d bytes", count_max_buffer_fill);
