@@ -9,6 +9,8 @@
 #include <zephyr/fatal.h>
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/drivers/gpio.h>
+#include <hal/nrf_power.h>
+#include "../Battery/BootState.h"
 
 /* Print everything from the error handler */
 #include <zephyr/logging/log.h>
@@ -23,6 +25,15 @@ static const struct gpio_dt_spec center_led_b = GPIO_DT_SPEC_GET(DT_NODELABEL(rg
 
 void error_handler(unsigned int reason, const struct arch_esf *esf)
 {
+#if CONFIG_BOARD_OPENEARABLE_V2_NRF5340_CPUAPP
+    /* A wearable must not drain its cell in the debug-build panic loop.
+     * Re-enter only the battery/charging path; do not restart the failing app.
+     * This path may run with interrupts locked, so no I2C or blocking cleanup.
+     */
+    NRF_POWER->GPREGRET[1] = oe_boot_request_charge_only(NRF_POWER->GPREGRET[1]);
+    sys_reboot(SYS_REBOOT_COLD);
+    CODE_UNREACHABLE;
+#endif
 #if (CONFIG_DEBUG)
 	LOG_ERR("Caught system error -- reason %d. Entering infinite loop", reason);
 	LOG_PANIC();

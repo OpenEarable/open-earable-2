@@ -28,10 +28,18 @@ except ImportError as exc:  # pragma: no cover - depends on local workstation
 
 APP_CORE_DEVICE = "NRF5340_XXAA_APP"
 DEFAULT_SPEED_KHZ = 1000
-RECOVERY_CHARGE_CURRENT_MA = 110
+RECOVERY_CHARGE_CURRENT_MA = 100
 RECOVERY_PRETERM_CURRENT_MA = 10.0
 RECOVERY_INPUT_LIMIT_MA = 200
-RECOVERY_UVLO_MV = 2500
+RECOVERY_UVLO_MV = 3000
+RECOVERY_MIN_TEMPERATURE_C = 0.0
+RECOVERY_MAX_TEMPERATURE_C = 45.0
+# v2.7 has a fixed 57.7% VIN divider rather than a battery thermistor.
+# It falls inside TSOFF's 55%-60% tolerance band: use checked gauge temperature.
+RECOVERY_TS_CONFIG = 0x00
+# BQ25120A SLUSD08A, section 9.6.10, register 0x09. Codes 0 and 1
+# are reserved; 6 and 7 both select 2.2 V.
+BUVLO_MV_BY_CODE = {2: 3000, 3: 2800, 4: 2600, 5: 2400, 6: 2200, 7: 2200}
 
 TWIM1 = 0x50009000
 GPIO0 = 0x50842500
@@ -244,7 +252,7 @@ class ChargerStatus:
             reasons.append("BAT_UVLO")
         if self.battery_overcurrent:
             reasons.append("BAT_OCP")
-        if self.ts_fault_code:
+        if self.ts_enabled and self.ts_fault_code:
             reasons.append(self.ts_state)
         if self.vindpm_active and self.charging_state_code == 3:
             reasons.append("VINDPM")
@@ -259,7 +267,7 @@ class ChargerStatus:
             reasons.append("VIN_OV")
         if self.battery_overcurrent:
             reasons.append("BAT_OCP")
-        if self.ts_fault_code == 1:
+        if self.ts_enabled and self.ts_fault_code == 1:
             reasons.append(self.ts_state)
         return reasons
 
@@ -289,6 +297,8 @@ class ChargerStatus:
 
     @property
     def ts_state(self) -> str:
+        if not self.ts_enabled:
+            return "TS_disabled"
         return {
             0: "TS_normal",
             1: "TS_hot_or_cold",
@@ -303,6 +313,14 @@ class ChargerStatus:
     @property
     def high_z(self) -> bool:
         return bool(self.charge_ctrl & 0x01)
+
+    @property
+    def battery_uvlo_mv(self) -> int | None:
+        return BUVLO_MV_BY_CODE.get(self.ilim_uvlo & 0x07)
+
+    @property
+    def input_current_limit_ma(self) -> int:
+        return 50 + 50 * ((self.ilim_uvlo >> 3) & 0x07)
 
 
 class JLinkBatteryInterface:
@@ -655,6 +673,7 @@ class JLinkBatteryInterface:
     def configure_charger(self) -> None:
         self.set_cd(0)
         writes = [
+            (0x02, RECOVERY_TS_CONFIG, "configure v2.7 fixed TS divider"),
             (
                 0x03,
                 encode_charge_current(RECOVERY_CHARGE_CURRENT_MA),
@@ -716,9 +735,10 @@ def encode_termination_current(ma: float) -> int:
 
 def encode_ilim_uvlo(input_limit_ma: int, uvlo_mv: int) -> int:
     ilim = max(50, min(400, int(input_limit_ma)))
-    uvlo = max(2200, min(3000, int(uvlo_mv))) / 1000.0
-    ilim_code = int(round(ilim / 50 - 1)) & 0x07
-    uvlo_code = int(round((3.0 - uvlo) * 5 + 2)) & 0x07
+    uvlo = max(2200, min(3000, int(uvlo_mv)))
+    ilim_code = ilim // 50 - 1
+    # Round the protection threshold upward, never below the requested value.
+    uvlo_code = (3000 - uvlo) // 200 + 2
     return (ilim_code << 3) | uvlo_code
 
 
@@ -738,6 +758,9 @@ def format_status(fuel: FuelGaugeStatus, charger: ChargerStatus) -> str:
         f"SYS_enabled={charger.sys_enabled}",
         f"PG_present={charger.pg_present}",
         f"CD_raw={charger.cd_raw}",
+        f"battery_uvlo={charger.battery_uvlo_mv} mV"
+        if charger.battery_uvlo_mv is not None else "battery_uvlo=reserved_code",
+        f"input_current_limit={charger.input_current_limit_ma} mA",
     ]
     if charger.fault_reasons:
         fields.append(f"fault_reason={'+'.join(charger.fault_reasons)}")
@@ -850,17 +873,37 @@ def open_link(args: argparse.Namespace) -> JLinkBatteryInterface:
     )
 
 
-def charger_blocking_reasons(charger: ChargerStatus) -> list[str]:
+def charger_blocking_reasons(
+    charger: ChargerStatus, *, configuring_fixed_divider: bool = False
+) -> list[str]:
     reasons = []
     if not charger.pg_present:
         reasons.append("input_power_missing")
-    reasons.extend(charger.blocking_fault_reasons)
+    reasons.extend(
+        reason for reason in charger.blocking_fault_reasons
+        if not (configuring_fixed_divider and reason == "TS_hot_or_cold")
+    )
+    return reasons
+
+
+def fuel_recovery_blocking_reasons(fuel: FuelGaugeStatus) -> list[str]:
+    reasons = []
+    if fuel.temperature_c is None or not math.isfinite(fuel.temperature_c):
+        reasons.append("battery_temperature_unavailable")
+    elif not RECOVERY_MIN_TEMPERATURE_C <= fuel.temperature_c <= RECOVERY_MAX_TEMPERATURE_C:
+        reasons.append("battery_temperature_outside_0_to_45_C")
+    if fuel.flags is None:
+        reasons.append("battery_safety_flags_unavailable")
+    elif fuel.flags & ((1 << 8) | (1 << 11)):
+        reasons.append("battery_charge_inhibited")
     return reasons
 
 
 def charger_recovery_reason(charger: ChargerStatus, reset_on_fault: bool) -> str | None:
     if charger.timer_fault:
         return "safety timer fault"
+    if charger.ts_enabled:
+        return "v2.7 fixed TS divider needs host configuration"
     if not reset_on_fault:
         return None
     if charger.cd_stat or charger.cd_raw:
@@ -875,7 +918,7 @@ def charger_recovery_reason(charger: ChargerStatus, reset_on_fault: bool) -> str
         charger.bat_uvlo
         or charger.vin_undervoltage
         or charger.vindpm_active
-        or charger.ts_fault_code in (2, 3)
+        or (charger.ts_enabled and charger.ts_fault_code in (2, 3))
     )
     if (
         charger.charging_state_code == 3
@@ -894,6 +937,12 @@ def reset_and_configure_charger(link: JLinkBatteryInterface) -> ChargerStatus:
             link.configure_charger()
             time.sleep(0.050)
             charger = link.read_charger()
+            if (charger.ts_fault & 0x8F) != RECOVERY_TS_CONFIG:
+                raise BatteryDebugError(
+                    "charger TS configuration did not stick: "
+                    f"read 0x{charger.ts_fault:02x}, expected "
+                    f"0x{RECOVERY_TS_CONFIG:02x} (mask 0x8f)"
+                )
             if charger_blocking_reasons(charger):
                 return charger
             if charger.timer_fault:
@@ -973,8 +1022,14 @@ def cmd_recover(args: argparse.Namespace) -> int:
         charger = link.read_charger()
         print("initial:", format_status(fuel, charger))
 
-        blockers = charger_blocking_reasons(charger)
+        # This board's fixed divider is not temperature data. Correct its TS
+        # setting only after independent gauge safety and electrical checks.
+        blockers = charger_blocking_reasons(
+            charger, configuring_fixed_divider=True
+        ) + fuel_recovery_blocking_reasons(fuel)
         if blockers:
+            if charger.pg_present:
+                link.set_cd(1)
             print(
                 "Recovery cannot continue while blocking fault(s) are active: "
                 f"{'+'.join(blockers)}.",
@@ -1003,8 +1058,10 @@ def cmd_recover(args: argparse.Namespace) -> int:
             print(f"resetting/configuring charger ({reason})")
             charger = reset_and_configure_charger(link)
             print("after reset:", format_status(fuel, charger))
-            blockers = charger_blocking_reasons(charger)
+            blockers = charger_blocking_reasons(charger) + fuel_recovery_blocking_reasons(fuel)
             if blockers:
+                if charger.pg_present:
+                    link.set_cd(1)
                 print(
                     "Recovery stopped because blocking fault(s) remained after "
                     f"reset: {'+'.join(blockers)}.",
@@ -1035,8 +1092,10 @@ def cmd_recover(args: argparse.Namespace) -> int:
             charger = link.read_charger()
             print(time.strftime("%H:%M:%S"), format_status(fuel, charger), flush=True)
 
-            blockers = charger_blocking_reasons(charger)
+            blockers = charger_blocking_reasons(charger) + fuel_recovery_blocking_reasons(fuel)
             if blockers:
+                if charger.pg_present:
+                    link.set_cd(1)
                 print(
                     "Recovery stopped because blocking fault(s) became active: "
                     f"{'+'.join(blockers)}.",
@@ -1088,8 +1147,10 @@ def cmd_recover(args: argparse.Namespace) -> int:
                     )
                     charger = reset_and_configure_charger(link)
                     print("after reset:", format_status(fuel, charger))
-                    blockers = charger_blocking_reasons(charger)
+                    blockers = charger_blocking_reasons(charger) + fuel_recovery_blocking_reasons(fuel)
                     if blockers:
+                        if charger.pg_present:
+                            link.set_cd(1)
                         print(
                             "Recovery stopped because blocking fault(s) remained "
                             f"after reset: {'+'.join(blockers)}.",

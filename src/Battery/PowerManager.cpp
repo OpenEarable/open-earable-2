@@ -19,6 +19,9 @@
 #endif
 
 #include <hal/nrf_ficr.h>
+#include <hal/nrf_reset.h>
+#include "BatteryPolicy.h"
+#include "../audio/audio_datapath.h"
 
 #include "../drivers/LED_Controller/KTD2026.h"
 #include "../drivers/ADAU1860.h"
@@ -35,240 +38,79 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(power_manager, LOG_LEVEL_DBG);
 
-//K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
-
+// Charger servicing must not wait behind Bluetooth, storage, or sensor work.
+K_THREAD_STACK_DEFINE(battery_work_stack, 4096);
+static struct k_work_q battery_work_queue;
 K_WORK_DELAYABLE_DEFINE(PowerManager::charge_ctrl_delayable, PowerManager::charge_ctrl_work_handler);
-
 K_WORK_DELAYABLE_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
-
-//K_WORK_DEFINE(PowerManager::power_down_work, PowerManager::power_down_work_handler);
-//K_WORK_DEFINE(PowerManager::charge_ctrl_work, PowerManager::charge_ctrl_work_handler);
 K_WORK_DEFINE(PowerManager::fuel_gauge_work, PowerManager::fuel_gauge_work_handler);
 K_WORK_DEFINE(PowerManager::battery_controller_work, PowerManager::battery_controller_work_handler);
 
 ZBUS_CHAN_DEFINE(battery_chan, struct battery_data, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
     ZBUS_MSG_INIT(0));
 
-static struct battery_data msg;
-
-//LoadSwitch PowerManager::v1_8_switch(GPIO_DT_SPEC_GET(DT_NODELABEL(load_switch), gpios));
-
-void PowerManager::fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-    LOG_DBG("Fuel Gauge GPOUT Interrupt");
-    k_work_submit(&fuel_gauge_work);
-}
-
-void PowerManager::battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-    k_work_submit(&battery_controller_work);
-}
-
-void PowerManager::power_good_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-    bool power_good = battery_controller.power_connected();
-
-    k_work_submit(&fuel_gauge_work);
-
-    if (power_good) {
-        power_manager.last_charging_state = 0;
-        k_work_schedule(&charge_ctrl_delayable, K_NO_WAIT);
-    } else {
-        k_work_cancel_delayable(&charge_ctrl_delayable);
-        if (!power_manager.power_on) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
+void PowerManager::fuel_gauge_callback(const struct device *, struct gpio_callback *, uint32_t) {
+    if (!power_manager.stopping) {
+        k_work_submit_to_queue(&battery_work_queue, &fuel_gauge_work);
     }
 }
 
-void PowerManager::power_down_work_handler(struct k_work * work) {
-	power_manager.power_down();
+void PowerManager::battery_controller_callback(const struct device *, struct gpio_callback *, uint32_t) {
+    if (!power_manager.stopping) {
+        k_work_submit_to_queue(&battery_work_queue, &battery_controller_work);
+    }
 }
 
-void PowerManager::charge_ctrl_work_handler(struct k_work * work) {
-	power_manager.charge_task();
-    // Schedule next execution
-    k_work_schedule(&charge_ctrl_delayable, power_manager.chrg_interval);
+void PowerManager::power_good_callback(const struct device *, struct gpio_callback *, uint32_t) {
+    if (!power_manager.stopping) {
+        // Both edges matter: unplugging must keep low-battery monitoring alive.
+        k_work_reschedule_for_queue(&battery_work_queue, &charge_ctrl_delayable, K_NO_WAIT);
+    }
 }
 
-void PowerManager::battery_controller_work_handler(struct k_work * work) {
-    button_state state;
+void PowerManager::power_down_work_handler(struct k_work *) {
+    power_manager.finish_power_down();
+}
 
-    //uint8_t val = gpio_pin_get_dt(&power_manager.error_led);
-    //gpio_pin_set_dt(&power_manager.error_led, 1 - val);
+void PowerManager::charge_ctrl_work_handler(struct k_work *) {
+    if (power_manager.stopping) return;
+    power_manager.charge_task();
+    if (!power_manager.stopping) {
+        k_work_schedule_for_queue(&battery_work_queue, &charge_ctrl_delayable,
+                                 power_manager.chrg_interval);
+    }
+}
 
+void PowerManager::battery_controller_work_handler(struct k_work *) {
+    if (power_manager.stopping) return;
     battery_controller.exit_high_impedance();
-    state = battery_controller.read_button_state();
+    button_state state = battery_controller.read_button_state();
     battery_controller.enter_high_impedance();
-
-    if (state.wake_2) {
-        power_manager.power_on = !power_manager.power_on;
-        //LOG_INF("Power on: %i", power_manager.power_on);
-
-        if (!power_manager.power_on) power_manager.power_down();
+    if (!state.wake_2) return;
+    if (power_manager.power_on) {
+        power_manager.power_down();
+    } else if (power_manager.charger_configured && power_manager.check_battery()) {
+        power_manager.power_on = true;
+    } else {
+        LOG_WRN("Ignoring start request until battery has recovered");
     }
-
 }
 
-void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
-    int ret;
-    battery_level_status status;
-
-    msg.battery_level = fuel_gauge.state_of_charge();
-
-    bat_status bat = fuel_gauge.battery_status();
-
-    power_manager.get_battery_status(status);
-
-    // full discharge
-    //if (bat.FD) k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
-    if (power_manager.power_on && bat.SYSDWN) {
-        LOG_WRN("Battery reached system down voltage.");
-        k_work_reschedule(&power_manager.power_down_work, K_NO_WAIT);
-    }
-
-    if (bat.CHGINH) {
-        power_manager.charging_disabled = true;
-        battery_controller.disable_charge();
-    } else if (power_manager.charging_disabled) {
-        battery_controller.enable_charge();
-    }
-
-    float current;
-    float target_current;
-    float voltage;
-
-    battery_controller.exit_high_impedance();
-
-    uint16_t charging_state = battery_controller.read_charging_state() >> 6;
-    gauge_status gs;
-
-    switch (charging_state) {
-        case 0:
-            LOG_INF("charging state: discharge");
-            msg.charging_state = DISCHARGING;
-
-            gs = fuel_gauge.gauging_state();
-
-            if (gs.edv2) {
-                #ifdef CONFIG_BATTERY_ENABLE_LOW_STATE
-                msg.charging_state = BATTERY_LOW;
-                #endif
-            }
-            if (gs.edv1) {
-                msg.charging_state = BATTERY_CRITICAL;
-            }
-            break;
-        case 1:
-            LOG_INF("charging state: charging");
-
-            if (bat.SYSDWN) {
-                msg.charging_state = PRECHARGING;
-                break;
-            }
-
-            current = fuel_gauge.current();
-            target_current = fuel_gauge.charge_current();
-            voltage = fuel_gauge.voltage();
-
-            msg.charging_state = POWER_CONNECTED;
-
-            LOG_DBG("Voltage: %.3f V", voltage);
-            LOG_DBG("Charging current: %.3f mA", current);
-            LOG_DBG("Target current: %.3f mA", target_current);
-            LOG_DBG("State of charge: %.3f %%", fuel_gauge.state_of_charge());
-
-            // check if target current is met (if not tapering)
-            if (current > 0.8 * target_current - 2 * power_manager._battery_settings.i_term) {
-                msg.charging_state = CHARGING;
-            } 
-            else if (voltage > power_manager._battery_settings.u_term - 0.02) {
-                #ifdef CONFIG_BATTERY_ENABLE_TRICKLE_CHARGE
-                msg.charging_state = TRICKLE_CHARGING;
-                #else
-                msg.charging_state = CHARGING;
-                #endif
-            }
-            
-            break;
-        case 2:
-            LOG_INF("charging state: done");
-            msg.charging_state = FULLY_CHARGED;
-            break;
-        case 3:
-            LOG_WRN("charging state: fault");
-            msg.charging_state = FAULT;
-
-            uint8_t fault = battery_controller.read_fault();
-            // Battery fuel gauge status
-            bat_status status = fuel_gauge.battery_status();
-            voltage = fuel_gauge.voltage();
-            current = fuel_gauge.current();
-
-            // cleared after read
-            if (fault & (1 << 4)) {
-                LOG_WRN("Input over voltage.");
-            }
-
-            // as long as fault exists
-            if (fault & (1 << 5)) {
-                bool power_connected = battery_controller.power_connected();
-                if (power_connected && current > 0.5 * power_manager._battery_settings.i_term) {
-                    msg.charging_state = PRECHARGING;
-                }
-                LOG_WRN("Battery under voltage: %.3f V", voltage);
-            }
-
-            // cleared after read
-            if (fault & (1 << 6)) {
-                LOG_WRN("Input under voltage");
-            }
-
-            // as long as fault exists
-            if (fault & (1 << 7)) {
-                LOG_WRN("Battery over voltage");
-            }
-
-            uint8_t ts_fault = battery_controller.read_ts_fault();
-
-            if ((ts_fault >> 5) & 0x7) {
-                LOG_WRN("TS_ENABLED: %i, TS FAULT: %i", ts_fault >> 7, (ts_fault >> 5) & 0x3);
-                battery_controller.setup(power_manager._battery_settings);
-            }
-
-            LOG_DBG("------------------ Battery Info ------------------");
-            LOG_DBG("Battery Status:");
-            LOG_DBG("  Present: %d, Full Charge: %d, Full Discharge: %d", 
-                    status.BATTPRES, status.FC, status.FD);
-
-            // Basic measurements
-            LOG_DBG("Basic Measurements:");
-            LOG_DBG("  Voltage: %.3f V", voltage);
-            LOG_DBG("  Current: %.3f mA", current);
-            break;
-    }
-
-    battery_controller.enter_high_impedance();
-
-    power_manager.last_charging_msg_state = msg.charging_state;
-    
-    // Adjust interval based on state
-    if (msg.charging_state == FAULT || msg.charging_state == POWER_CONNECTED) {
-        power_manager.chrg_interval = K_SECONDS(CONFIG_BATTERY_CHARGE_CONTROLLER_FAST_INTERVAL_SECONDS);
-    } else {
-        power_manager.chrg_interval = K_SECONDS(CONFIG_BATTERY_CHARGE_CONTROLLER_NORMAL_INTERVAL_SECONDS);
-    }
-
-	//ret = k_msgq_put(&battery_queue, &msg, K_NO_WAIT);
-    ret = zbus_chan_pub(&battery_chan, &msg, K_FOREVER);
-	if (ret) {
-		LOG_WRN("power manager msg queue full");
-	}
+void PowerManager::fuel_gauge_work_handler(struct k_work *) {
+    if (!power_manager.stopping) power_manager.charge_task();
 }
 
 int PowerManager::begin() {
-    earable_state oe_state;
+    earable_state oe_state = {};
 
     oe_state.charging_state = DISCHARGING;
     oe_state.pairing_state = PAIRED;
 
-    battery_controller.begin();
-    fuel_gauge.begin();
+    k_work_queue_start(&battery_work_queue, battery_work_stack,
+                       K_THREAD_STACK_SIZEOF(battery_work_stack), 5, NULL);
+    k_thread_name_set(&battery_work_queue.thread, "battery");
+    int controller_ret = battery_controller.begin();
+    int gauge_ret = fuel_gauge.begin();
     earable_btn.begin();
 
     battery_controller.exit_high_impedance();
@@ -277,6 +119,13 @@ int PowerManager::begin() {
 
     button_state btn = battery_controller.read_button_state();
 
+    uint8_t retained = oe_boot_flags(NRF_POWER->GPREGRET[1]);
+    bool remain_off = retained & OE_BOOT_FLAG_CHARGE_ONLY;
+    // Keep the USB-session safety state even when boot consumes the off request.
+    NRF_POWER->GPREGRET[1] = oe_boot_encode(retained & OE_BOOT_SAFETY_FLAGS);
+    timer_recovery_used = retained & OE_BOOT_FLAG_TIMER_USED;
+    charger_fault_latched = retained & OE_BOOT_FLAG_CHARGER_FAULT;
+    if (!battery_controller.power_connected()) set_charger_session(false, false);
     power_on = btn.wake_2;
 
     // get reset reason
@@ -287,7 +136,7 @@ int PowerManager::begin() {
     
     if (reset_reas & RESET_RESETREAS_RESETPIN_Msk) {
         oe_boot_state.timer_reset = bat_state & (1 << 4);
-        power_on |= oe_boot_state.timer_reset;
+        power_on = power_on || oe_boot_state.timer_reset;
     }
 
     /*if (reset_reas & RESET_RESETREAS_DOG1_Msk) {
@@ -296,44 +145,56 @@ int PowerManager::begin() {
 
     if (reset_reas & RESET_RESETREAS_SREQ_Msk) {
         LOG_INF("Rebooting ...");
-        power_on = true;
+        power_on = !remain_off;
     }
+    // A retained button/reset indication must not undo an explicit off request.
+    if (remain_off) power_on = false;
 
     /*if (reset_reas & RESET_RESETREAS_LOCKUP_Msk) {
         printk("Reset durch CPU Lockup\n");
     }*/
 
-    battery_controller.setup(_battery_settings);
-    battery_controller.set_int_callback(battery_controller_callback);
-
-    // check setup
-    op_state state = fuel_gauge.operation_state();
-    if (state.SEC != BQ27220::SEALED) {
-        //battery_controller.setup();
-        fuel_gauge.setup(_battery_settings);
+    charger_configured = controller_ret == 0 &&
+                         battery_controller.setup_boot(_battery_settings) == 0;
+    if (controller_ret || gauge_ret || !charger_configured) {
+        LOG_ERR("Battery hardware initialization failed");
+        power_on = false;
     }
 
-    //k_timer_init(&charge_timer, charge_timer_handler, NULL);
+    bool battery_condition = charger_configured && gauge_ret == 0 && check_battery();
 
-    bool battery_condition = check_battery();
+    // Gauge programming is never a prerequisite for depleted-cell recovery.
+    // Do it only on a healthy boot before any battery work can run. FCC is a
+    // learned value; use design capacity to identify an unconfigured profile.
+    if (battery_condition && power_on) {
+        op_state state = fuel_gauge.operation_state();
+        if (state.SEC != BQ27220::SEALED ||
+            fabsf(fuel_gauge.design_cap() - _battery_settings.capacity) > 0.5f ||
+            IS_ENABLED(CONFIG_SETUP_FUEL_GAUGE)) {
+            if (fuel_gauge.setup(_battery_settings) != 0) battery_condition = false;
+        }
+    }
 
     if (!battery_condition) LOG_WRN("Battery check failed.");
 
     // check charging state
     bool charging = battery_controller.power_connected();
+    // Setup above already covered this USB state. Only later edges should
+    // invalidate it; publishing callbacks must not race a redundant setup.
+    usb_connected = charging;
 
     if (!battery_condition) {
         power_on = false;
         // LOG_ERR("Bad battery condition.");
         if (!charging){
             //TODO: Flash red LED once
-            return power_down(false);
+            power_down(false);
+            k_sleep(K_FOREVER);
         }
     }
 
     if (charging) {
-        power_manager.last_charging_state = 0;
-        
+
         int ret = pm_device_runtime_enable(ls_1_8);
         if (ret != 0) {
             LOG_WRN("Error setting up load switch 1.8V.");
@@ -349,9 +210,19 @@ int PowerManager::begin() {
 
         oe_state.charging_state = POWER_CONNECTED;
 
-        state_indicator.init(oe_state);
+        // A reset PMIC defaults to LDO pass-through. Do not energize the LED
+        // rail until its 3.3 V configuration has been verified.
+        if (charger_configured) {
+            state_indicator.init(oe_state);
+            indicator_ready = true;
+        }
 
-        k_work_schedule(&charge_ctrl_delayable, K_NO_WAIT);
+        // Keep the network core off during battery recovery/charge-only boot.
+        nrf_reset_network_force_off(NRF_RESET, true);
+        battery_controller.set_int_callback(battery_controller_callback);
+        battery_controller.set_power_connect_callback(power_good_callback);
+        fuel_gauge.set_int_callback(fuel_gauge_callback);
+        k_work_schedule_for_queue(&battery_work_queue, &charge_ctrl_delayable, K_NO_WAIT);
 
         while(!power_on && battery_controller.power_connected()) {
             //__WFE();
@@ -361,14 +232,20 @@ int PowerManager::begin() {
         oe_state.charging_state = DISCHARGING;
     }
 
-    if (!power_on) return power_down();
+    if (!power_on || !check_battery() || !charger_configured || stopping) {
+        power_down();
+        k_sleep(K_FOREVER);
+    }
+    nrf_reset_network_force_off(NRF_RESET, false);
 
     //TODO: check power on condition
     // either not charging and edv1 or charging and edv0 and temperature
     
-    battery_controller.set_power_connect_callback(power_good_callback);
-    fuel_gauge.set_int_callback(fuel_gauge_callback);
-    //battery_controller.set_int_callback(battery_controller_callback);
+    if (!charging) {
+        battery_controller.set_power_connect_callback(power_good_callback);
+        fuel_gauge.set_int_callback(fuel_gauge_callback);
+        battery_controller.set_int_callback(battery_controller_callback);
+    }
 
     //float voltage = battery_controller.read_ldo_voltage();
     //if (voltage != 3.3) battery_controller.write_LDO_voltage_control(3.3);
@@ -402,13 +279,6 @@ int PowerManager::begin() {
         //return ret;
     }
 
-    // check if fuel gauge has wrong value
-    float capacity = fuel_gauge.capacity();
-    if (abs(capacity - _battery_settings.capacity) > 1e-4) {
-        fuel_gauge.setup(_battery_settings);
-        set_error_led();
-    }
-
 #ifdef CONFIG_BOOTLOADER_MCUBOOT
     bool img_confirmed = boot_is_img_confirmed();
 
@@ -420,13 +290,11 @@ int PowerManager::begin() {
 			sys_reboot(SYS_REBOOT_COLD);
 		}
         LOG_INF("Image confirmed");
-        #ifdef CONFIG_SETUP_FUEL_GAUGE
-        fuel_gauge.setup(_battery_settings);
-        #endif
 	}
 #endif
 
     state_indicator.init(oe_state);
+    indicator_ready = true;
 
     uint32_t device_id[2];
 
@@ -436,6 +304,9 @@ int PowerManager::begin() {
 
     oe_boot_state.device_id = (((uint64_t) device_id[1]) << 32) | device_id[0];
 
+    // Poll on battery as well as USB: gauge IRQs are an optimization, not
+    // the only protection against discharging below the shutdown threshold.
+    k_work_schedule_for_queue(&battery_work_queue, &charge_ctrl_delayable, K_NO_WAIT);
     return 0;
 }
 
@@ -444,40 +315,11 @@ void PowerManager::set_error_led(int val) {
 }
 
 bool PowerManager::check_battery() {
-    bool charging = battery_controller.power_connected();
-
-    if (charging) {
-        float voltage = fuel_gauge.voltage();
-
-        if (voltage < _battery_settings.u_charge_prevent) {
-            battery_controller.disable_charge();
-            return false;
-        }
-
-        float temp = fuel_gauge.temperature();
-        
-        if (temp < _battery_settings.temp_min || temp > _battery_settings.temp_max) {
-            // set params
-            battery_controller.disable_charge();
-            return false;
-        } else if (temp < _battery_settings.temp_fast_min || temp > _battery_settings.temp_fast_max) {
-            // set params
-            battery_controller.write_charging_control(_battery_settings.i_charge / 2);
-            battery_controller.enable_charge();
-        } else {
-            // normal params
-            battery_controller.write_charging_control(_battery_settings.i_charge);
-            battery_controller.enable_charge();
-        }
-    }
-
-    bat_status bs = fuel_gauge.battery_status();
-    if (bs.SYSDWN) return false;
-
-    //gauge_status gs = fuel_gauge.gauging_state();
-    //if (gs.edv1) return false; // critical battery state
-
-    return true;
+    bat_status status = {};
+    float voltage, temperature;
+    if (!fuel_gauge.read_safety_status(status, voltage, temperature)) return false;
+    return battery_policy::can_start(voltage, temperature, status.SYSDWN,
+                                    _battery_settings);
 }
 
 void PowerManager::get_battery_status(battery_level_status &status) {
@@ -564,139 +406,235 @@ void PowerManager::reboot() {
 }
 
 int PowerManager::power_down(bool fault) {
-    int ret;
-
-    // disconnect devices
-    uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
-    bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
-
-    ret = bt_le_adv_stop();
-
-    // power disonnected
-    // prepare interrupts
-
-    led_controller.begin();
-    led_controller.power_off();
-
-    stop_sensor_manager();
-
-    bool charging = battery_controller.power_connected();
-
-    if (!charging) {
-        ret = battery_controller.set_wakeup_int();
-        if (ret != 0) return ret;
-
-        ret = fuel_gauge.set_wakeup_int();
-        if (ret != 0) return ret;
-        
-        // check battery good
-        //if (!fault) ret = power_switch.set_wakeup_int();
-        //if (ret != 0) return ret;
-
-        battery_controller.enter_high_impedance();
-    }
-
-    //TODO: prevent crashing with bt_disable (does not wake up)
-    /*ret = bt_disable();
-
-    if (ret != 0) {
-        NVIC_SystemReset();
-        sys_reboot(SYS_REBOOT_COLD);
-    }*/
-
-    if (fault) {
-        LOG_WRN("Power off due to fault");
-    } else {
-        LOG_INF("Power off");
-    }
-    LOG_PANIC();
-
-    ret = bt_mgmt_stop_watchdog();
-    //ERR_CHK(ret);
-
-    dac.end();
-
-    // TODO: check states of load switch (should already be suspended
-    // if all devieses have been terminated correctly)
-
-    // turn off error led
-	gpio_pin_set_dt(&error_led, 0);
-
-    if (charging) {
-        //NVIC_SystemReset();
-        sys_reboot(SYS_REBOOT_COLD);
-        return 0;
-    }
-
-    ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
-
-    /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
-    ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
-    ERR_CHK(ret);*/
-
-    /*const struct device *const watch_dog = DEVICE_DT_GET(DT_CHOSEN(zephyr_bt_hci_rpmsg_ipc));
-    ret = pm_device_action_run(watch_dog, PM_DEVICE_ACTION_SUSPEND);
-    ERR_CHK(ret);*/
-
-    /*const struct device *const watch_dog = DEVICE_DT_GET(DT_ALIAS(watchdog0));
-    ret = pm_device_action_run(watch_dog, PM_DEVICE_ACTION_SUSPEND);
-    ERR_CHK(ret);*/
-
-    sys_poweroff();
-
-    // safety if poweroff failed
-    k_msleep(1000);
-
-    //NVIC_SystemReset();
-    sys_reboot(SYS_REBOOT_COLD);
+    // Serialize all shutdown paths with the charger worker. Never return to
+    // normal operation after partially shutting down the peripherals.
+    if (stopping.exchange(true)) return 0;
+    power_on = false;
+    shutdown_fault = fault;
+    k_work_cancel_delayable(&charge_ctrl_delayable);
+    k_work_reschedule_for_queue(&battery_work_queue, &power_down_work, K_NO_WAIT);
+    return 0;
 }
 
+void PowerManager::set_charger_session(bool recovery_used, bool fault_latched) {
+    unsigned int key = irq_lock();
+    timer_recovery_used = recovery_used;
+    charger_fault_latched = fault_latched;
+    uint8_t flags = oe_boot_flags(NRF_POWER->GPREGRET[1]) & OE_BOOT_FLAG_CHARGE_ONLY;
+    if (recovery_used) flags |= OE_BOOT_FLAG_TIMER_USED;
+    if (fault_latched) flags |= OE_BOOT_FLAG_CHARGER_FAULT;
+    NRF_POWER->GPREGRET[1] = oe_boot_encode(flags);
+    irq_unlock(key);
+}
 
-void PowerManager::charge_task() {
-    uint16_t charging_state = battery_controller.read_charging_state() >> 6;
+void PowerManager::finish_power_down() {
+    uint8_t reason = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
+    bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &reason);
+    (void)bt_le_adv_stop();
+    stop_sensor_manager();
+    (void)audio_datapath_stop();
+    (void)bt_mgmt_stop_watchdog();
+    dac.end();
+    if (indicator_ready) led_controller.power_off();
+    gpio_pin_set_dt(&error_led, 0);
 
-    //LOG_INF("Charger Watchdog ...................");
+    // A low battery alert can stay asserted. It must never wake an off device.
+    (void)fuel_gauge.disable_wakeup_int();
+    LOG_INF("Power off%s", shutdown_fault ? " due to fault" : "");
 
-    if (last_charging_state == 0) {
-        LOG_INF("Setting up charge controller ........");
-        battery_controller.setup(_battery_settings);
-        battery_controller.enable_charge();
+    if (battery_controller.power_connected()) {
+        NRF_POWER->GPREGRET[1] = oe_boot_request_charge_only(NRF_POWER->GPREGRET[1]);
+        sys_reboot(SYS_REBOOT_COLD);
+        CODE_UNREACHABLE;
     }
 
-    //if (last_charging_state != charging_state ||  ) {
-        k_work_submit(&fuel_gauge_work);
-        //state_inidicator.set_state()
-        /*switch (charging_state) {
-        case 0:
-            LOG_INF("charging state: ready");
-            break;
-        case 1:
-            LOG_INF("charging state: charging");
-            break;
-        case 2:
-            LOG_INF("charging state: done");
-            break;
-        case 3:
-            LOG_WRN("charging state: fault");
+    set_charger_session(false, false); // USB absence ends the retained session.
+    (void)pm_device_action_run(ls_sd, PM_DEVICE_ACTION_SUSPEND);
+    (void)pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
+    (void)pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
 
-            //battery_controller.setup(_battery_settings);
-            
-            break;
-        }*/
-    //}
+    // Ship mode removes SYS/PMID loads rather than just sleeping the CPU.
+    // MR must be released for the PMIC to complete this transition.
+    int ret = battery_controller.enter_ship_mode();
+    if (ret == -EBUSY || battery_controller.power_connected()) {
+        NRF_POWER->GPREGRET[1] = oe_boot_request_charge_only(NRF_POWER->GPREGRET[1]);
+        sys_reboot(SYS_REBOOT_COLD);
+        CODE_UNREACHABLE;
+    }
+    if (ret) {
+        LOG_ERR("Ship mode failed (%d); using SYSTEMOFF", ret);
+        battery_controller.enter_high_impedance();
+    }
+    (void)pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
+    nrf_reset_network_force_off(NRF_RESET, true);
+    // Level wake can already be asserted. Arm it only after blocking cleanup,
+    // with CPU interrupts masked, then enter SYSTEMOFF without another wait.
+    (void)irq_lock();
+    (void)battery_controller.set_wakeup_int();
+    sys_poweroff();
+    CODE_UNREACHABLE;
+}
 
-    last_charging_state = charging_state;
+void PowerManager::charge_task() {
+    if (stopping) return;
+    bool usb = battery_controller.power_connected();
+    if (usb != usb_connected) {
+        usb_connected = usb;
+        charger_configured = false;
+        if (!usb) set_charger_session(false, false);
+        charge_inhibited = true;
+        requested_current = 0;
+    }
+    if (!usb && !power_on) {
+        power_down();
+        return;
+    }
+
+    bat_status battery = {};
+    float voltage = 0, temperature = 0;
+    bool valid = fuel_gauge.read_safety_status(battery, voltage, temperature);
+    bool safe = valid && battery_policy::can_charge(voltage, temperature,
+                                                    battery.CHGINH || battery.OTC,
+                                                    _battery_settings);
+    if (!usb && (!valid || battery.SYSDWN ||
+                 voltage <= battery_policy::shutdown_voltage(_battery_settings))) {
+        LOG_WRN("Battery shutdown: valid=%d voltage=%.3f", valid, voltage);
+        power_down(true);
+        return;
+    }
+    // A running application must also stop drawing a heavy load during USB
+    // recovery; a weak input must not let it drain the battery indefinitely.
+    if (usb && power_on && (!valid || battery.SYSDWN ||
+                           voltage <= battery_policy::shutdown_voltage(_battery_settings))) {
+        battery_controller.disable_charge();
+        charge_inhibited = true;
+        power_down(true);
+        return;
+    }
+
+    if (usb && !charger_configured && !charger_fault_latched) {
+        charger_configured = (indicator_ready ? battery_controller.setup(_battery_settings)
+                                             : battery_controller.setup_boot(_battery_settings)) == 0;
+        charge_inhibited = true;
+        requested_current = 0;
+        if (!charger_configured && indicator_ready) {
+            // USB edges invalidate our configuration cache. If a PMIC reset
+            // also changed the LDO, setup cannot repair it with the live rail
+            // enabled. Retry through boot, where both enable sources are off.
+            // Persistent bus failures then stay in the boot retry path.
+            LOG_ERR("Runtime charger setup failed; restarting into charge-only mode");
+            power_down(true);
+            return;
+        }
+    }
+    if (usb && charger_configured && !indicator_ready) {
+        earable_state state = {};
+        state.pairing_state = PAIRED;
+        state.charging_state = POWER_CONNECTED;
+        state_indicator.init(state);
+        indicator_ready = true;
+    }
+    uint8_t ctrl = 0, fault = 0, ts = 0;
+    bool read_ok = battery_controller.read_status(ctrl, fault, ts);
+    if (usb && charger_configured && read_ok && !charger_fault_latched &&
+        !battery_controller.configuration_valid(_battery_settings,
+            requested_current > 0 ? requested_current : _battery_settings.i_charge)) {
+        // A PMIC watchdog reset also restores the LDO to pass-through. Its
+        // voltage cannot be changed while LSCTRL is high. Inhibit charging and
+        // restart in charge-only mode so all rails are off before reconfiguration.
+        LOG_ERR("Charger configuration lost; restarting into charge-only mode");
+        charger_configured = false;
+        charge_inhibited = true;
+        power_down(true);
+        return;
+    }
+    // VIN_OV, VIN_UV, BAT_OCP and hot/cold are electrical/thermal faults.
+    // BAT_UVLO and warm/cool derating alone are expected during recovery.
+    bool blocked = charger_fault_latched || !read_ok || (fault & 0xD0) ||
+                   ((ts & BIT(7)) && ((ts >> 5) & 3) == 1);
+    if (usb && read_ok && (ctrl & BIT(3))) {
+        if (safe && !blocked && !timer_recovery_used) {
+            set_charger_session(true, false);
+            LOG_WRN("Recovering charger safety timer once for this USB session");
+            charger_configured = battery_controller.recover_charging(_battery_settings) == 0;
+            if (!charger_configured) set_charger_session(true, true);
+            charge_inhibited = true;
+            requested_current = 0;
+            read_ok = battery_controller.read_status(ctrl, fault, ts);
+            blocked = charger_fault_latched || !read_ok || (fault & 0xD0) ||
+                      ((ts & BIT(7)) && ((ts >> 5) & 3) == 1);
+        } else {
+            // CD inhibition itself clears TIMER: remember exhaustion in software
+            // so a later poll cannot silently restart the same stalled battery.
+            set_charger_session(timer_recovery_used, true);
+        }
+        if (ctrl & BIT(3)) set_charger_session(timer_recovery_used, true);
+        blocked |= charger_fault_latched;
+    }
+    bool allow = usb && safe && charger_configured && !blocked;
+    if (allow) {
+        float current = (temperature < _battery_settings.temp_fast_min ||
+                         temperature > _battery_settings.temp_fast_max)
+                            ? _battery_settings.i_charge / 2 : _battery_settings.i_charge;
+        if (requested_current != current) {
+            if (battery_controller.write_charging_control(current) < 0) {
+                allow = false;
+            } else {
+                requested_current = current;
+            }
+        }
+    }
+    if (allow && charge_inhibited) {
+        charge_inhibited = battery_controller.enable_charge() != 0;
+    } else if (!allow && !charge_inhibited) {
+        battery_controller.disable_charge();
+        charge_inhibited = true;
+    }
+    battery_controller.enter_high_impedance();
+
+    struct battery_data message = {};
+    message.battery_level = valid ? fuel_gauge.state_of_charge() : 0;
+    if (!usb) {
+        message.charging_state = DISCHARGING;
+        if (voltage < battery_policy::start_voltage(_battery_settings)) {
+            message.charging_state = BATTERY_CRITICAL;
+        }
+    } else if (!allow || charge_inhibited) {
+        message.charging_state = FAULT;
+    } else if (battery.SYSDWN || voltage < battery_policy::start_voltage(_battery_settings)) {
+        message.charging_state = PRECHARGING;
+    } else if ((ctrl >> 6) == 2) {
+        message.charging_state = FULLY_CHARGED;
+    } else if ((ctrl >> 6) == 1) {
+        float current = fuel_gauge.current();
+        message.charging_state = current > 0.8f * requested_current - 2 * _battery_settings.i_term
+                                     ? CHARGING : POWER_CONNECTED;
+#ifdef CONFIG_BATTERY_ENABLE_TRICKLE_CHARGE
+        if (voltage > _battery_settings.u_term - 0.02f) {
+            message.charging_state = TRICKLE_CHARGING;
+        }
+#endif
+    } else {
+        message.charging_state = (ctrl >> 6) == 3 ? FAULT : POWER_CONNECTED;
+    }
+    chrg_interval = K_SECONDS(message.charging_state == FAULT ?
+        CONFIG_BATTERY_CHARGE_CONTROLLER_FAST_INTERVAL_SECONDS :
+        CONFIG_BATTERY_CHARGE_CONTROLLER_NORMAL_INTERVAL_SECONDS);
+    // Bound channel-lock/subscriber waits; synchronous listeners must also
+    // keep their I2C transactions bounded by the bus driver's transfer timeout.
+    int ret = zbus_chan_pub(&battery_chan, &message, K_MSEC(100));
+    if (ret) LOG_WRN("Battery state publication failed: %d", ret);
 }
 
 int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **argv) {
     ARG_UNUSED(argc);
     ARG_UNUSED(argv);
 
-    fuel_gauge.setup(power_manager._battery_settings);
-
+    int ret = fuel_gauge.setup(power_manager._battery_settings);
+    if (ret) {
+        shell_error(shell, "Fuel gauge setup failed: %d", ret);
+        return ret;
+    }
     power_manager.reboot();
 
     return 0;
@@ -746,13 +684,36 @@ static int cmd_battery_info(const struct shell *shell, size_t argc, const char *
     shell_print(shell, "  Charge Control: enabled=%i, current=%.1f mA", 
             charge_ctrl.enabled, charge_ctrl.mAh);
 
+    chrg_state preterm = battery_controller.read_termination_control();
+    ilim_uvlo limits = battery_controller.read_uvlo_ilim();
+    shell_print(shell, "  Precharge/termination: %.1f mA, UVLO: %.3f V, input limit: %.1f mA",
+                preterm.mAh, limits.uvlo_v, limits.lim_mA);
+    shell_print(shell, "  Charge voltage: %.3f V, LDO voltage: %.3f V",
+                battery_controller.read_battery_voltage_control(), battery_controller.read_ldo_voltage());
     battery_controller.enter_high_impedance();
+    uint8_t control, fault, ts;
+    if (battery_controller.read_status(control, fault, ts)) {
+        shell_print(shell, "  Raw status: CTRL=0x%02x FAULT=0x%02x TS=0x%02x",
+                    control, fault, ts);
+    } else {
+        shell_error(shell, "  Charger status unavailable");
+    }
+    shell_print(shell, "  Gauge: SYSDWN=%i CHGINH=%i OTC=%i",
+                status.SYSDWN, status.CHGINH, status.OTC);
 
     return 0;
 }
 
+static int cmd_battery_off(const struct shell *shell, size_t argc, const char **argv) {
+    ARG_UNUSED(argc);
+    ARG_UNUSED(argv);
+    shell_print(shell, "Powering off; USB retains charging-only operation");
+    return power_manager.power_down();
+}
+
 SHELL_STATIC_SUBCMD_SET_CREATE(battery_cmd,
     SHELL_COND_CMD(CONFIG_SHELL, info, NULL, "Print battery info", cmd_battery_info),
+    SHELL_COND_CMD(CONFIG_SHELL, off, NULL, "Power off (charge-only on USB)", cmd_battery_off),
     SHELL_COND_CMD(CONFIG_SHELL, setup, NULL, "Setup fuel gauge", cmd_setup_fuel_gauge),
     SHELL_SUBCMD_SET_END);
 

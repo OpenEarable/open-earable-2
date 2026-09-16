@@ -2,6 +2,7 @@
 #define _POWER_MANAGER_H
 
 #include <zephyr/kernel.h>
+#include <atomic>
 
 #include "BQ27220.h"
 #include "BQ25120a.h"
@@ -11,17 +12,14 @@
 #include "openearable_common.h"
 #include "BootState.h"
 
-#define DEBOUNCE_POWER_MS K_MSEC(1000)
-
 class PowerManager {
 public:
     int begin();
 
+    /** Queue an irreversible shutdown; USB reboots into charge-only mode.
+     * Returns 0 after accepting the request, including repeated requests.
+     */
     int power_down(bool fault = false);
-    //bool check_boot_condition();
-
-    //static LoadSwitch v1_8_switch;
-
     void reboot();
 
     void get_battery_status(battery_level_status &status);
@@ -32,15 +30,20 @@ public:
 
     static k_work_delayable power_down_work;
 private:
-    bool power_on = false;
-    bool charging_disabled = false;
-    uint16_t last_charging_state = 0;
-
-    enum charging_state last_charging_msg_state = DISCHARGING;
+    std::atomic<bool> power_on{false};
+    std::atomic<bool> stopping{false};
+    bool shutdown_fault = false;
+    bool usb_connected = false;
+    std::atomic<bool> charger_configured{false};
+    std::atomic<bool> indicator_ready{false};
+    bool timer_recovery_used = false;
+    bool charger_fault_latched = false;
+    bool charge_inhibited = true;
+    float requested_current = 0;
+    void finish_power_down();
+    void set_charger_session(bool recovery_used, bool fault_latched);
 
     void charge_task();
-
-    void power_connected();
 
     bool check_battery();
 
@@ -48,7 +51,6 @@ private:
 
     static k_work_delayable charge_ctrl_delayable;
 
-    //static k_work power_down_work;
     static k_work fuel_gauge_work;
     static k_work battery_controller_work;
 
@@ -62,10 +64,10 @@ private:
     static void battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
     const battery_settings _battery_settings = {
-        3.7, 4.3, 3.0, 2.5,  // Spannungen
-        10, 110, 200,        // Ströme
-        108,                 // Kapazität
-        0, 15, 45, 50        // Temperaturen
+        3.7, 4.3, 3.0, 2.5,  // Nominal, regulation, UVLO, charge-prevent voltage (V)
+        10, 100, 200,        // Shared precharge/termination, fast charge, input (mA)
+        108,                 // Design capacity (mAh), VARTA CP1454 A4X
+        0, 15, 45, 45        // Min, fast min/max, max charge temperature (C)
     };
 
     const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
