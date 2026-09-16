@@ -119,16 +119,12 @@ sequence is retried once. If a fault returns until `--max-fault-resets` is
 reached, recovery stops with an error instead of silently continuing with
 charging stopped.
 
-Restoring precharge and battery UVLO is important for deeply discharged cells.
-The BQ25120A reset defaults use 2 mA precharge and a 3.0 V battery UVLO threshold
-with hysteresis. Recovery instead applies the verified OpenEarable settings of
-10 mA precharge and 2.6 V UVLO, avoiding a prolonged low-current plateau.
-
-`BAT_UVLO`, VINDPM, and the cool/warm temperature derating states do not trigger
-repeated resets; recovery monitors them while voltage progresses. Missing input
-power, input overvoltage, battery overcurrent, and a hot/cold temperature
-suspension stop recovery immediately because software cannot safely clear the
-underlying electrical condition.
+Recovery uses 100 mA fast charge, 10 mA precharge/termination, a 200 mA input
+limit and 3.0 V battery UVLO. It requires readable safety flags and a battery
+temperature of 0–45 °C. The v2.7 TS input is a fixed divider, not a thermistor;
+recovery disables it after checking gauge temperature and electrical faults.
+Missing input power, input overvoltage, battery overcurrent or unsafe gauge
+readings stop recovery. Battery UVLO and current limiting do not trigger resets.
 
 ## Useful Options
 

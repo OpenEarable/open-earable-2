@@ -1,9 +1,44 @@
 #include "BQ27220.h"
 
 #include "openearable_common.h"
+#include <errno.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bq27220, LOG_LEVEL_DBG);
+
+namespace {
+
+// The gauge shares its RAM command window across transfers; lock whole operations.
+K_MUTEX_DEFINE(gauge_mutex);
+
+class GaugeLock {
+public:
+        GaugeLock() { k_mutex_lock(&gauge_mutex, K_FOREVER); }
+        ~GaugeLock() { k_mutex_unlock(&gauge_mutex); }
+};
+
+// Share the flag mapping with the checked safety snapshot.
+bat_status decode_battery_status(uint16_t flags) {
+        bat_status status;
+        status.DSG = flags & (1 << 0);
+        status.SYSDWN = flags & (1 << 1);
+        status.TDA = flags & (1 << 2);
+        status.BATTPRES = flags & (1 << 3);
+        status.AUTH_GD = flags & (1 << 4);
+        status.OCVGD = flags & (1 << 5);
+        status.TCA = flags & (1 << 6);
+        status.CHGINH = flags & (1 << 8);
+        status.FC = flags & (1 << 9);
+        status.OTD = flags & (1 << 10);
+        status.OTC = flags & (1 << 11);
+        status.SLEEP = flags & (1 << 12);
+        status.OCVFAIL = flags & (1 << 13);
+        status.OCVCOMP = flags & (1 << 14);
+        status.FD = flags & (1 << 15);
+        return status;
+}
+
+}
 
 BQ27220 fuel_gauge(&I2C1);
 
@@ -57,67 +92,81 @@ int BQ27220::set_wakeup_int() {
         return 0;
 }
 
+int BQ27220::disable_wakeup_int() {
+        // Battery warnings must not repeatedly wake an intentionally off device.
+        return gpio_pin_interrupt_configure_dt(&gpout_pin, GPIO_INT_DISABLE);
+}
+
 bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
-        int ret;
-        uint64_t now = micros();
-        int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
-
-        if (delay > 0) k_usleep(delay);
-
+        // Hold the locks through the quiet interval so another caller cannot shorten it.
+        GaugeLock lock;
         _i2c->aquire();
+        int ret;
+        uint64_t elapsed = micros() - last_i2c;
+        if (elapsed < BQ27220_I2C_TIMEOUT_US) k_usleep(BQ27220_I2C_TIMEOUT_US - elapsed);
 
         ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
         if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
-        _i2c->release();
-
         last_i2c = micros();
+        _i2c->release();
 
         return (ret == 0);
 }
 
-void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
-        int ret;
-        uint64_t now = micros();
-        int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
-
-        if (delay > 0) k_usleep(delay);
-
+bool BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
+        // Writes need the same transaction lock and quiet interval as reads.
+        GaugeLock lock;
         _i2c->aquire();
+        int ret;
+        uint64_t elapsed = micros() - last_i2c;
+        if (elapsed < BQ27220_I2C_TIMEOUT_US) k_usleep(BQ27220_I2C_TIMEOUT_US - elapsed);
 
         ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
         if (ret) LOG_WRN("I2C write failed: %d", ret);
 
-        _i2c->release();
-
         last_i2c = micros();
+        _i2c->release();
+        return ret == 0;
 }
 
 bat_status BQ27220::battery_status() {
-        bat_status status;
         uint16_t val = 0;
-        bool ret = readReg(registers::FLAGS, (uint8_t *) &val, sizeof(val));
+        readReg(registers::FLAGS, (uint8_t *) &val, sizeof(val));
+        return decode_battery_status(val);
+}
 
-        status.DSG = val & 0x1;
-        status.SYSDWN = val & (1 << 1);
-        status.TDA = val & (1 << 2);
-        status.BATTPRES = val & (1 << 3);
-        status.AUTH_GD = val & (1 << 4);
-        status.OCVGD = val & (1 << 5);
-        status.TCA = val & (1 << 6);
-        status.CHGINH = val & (1 << 8);
-        status.FC = val & (1 << 9);
-        status.OTD = val & (1 << 10);
-        status.OTC = val & (1 << 11);
-        status.SLEEP = val & (1 << 12);
-        status.OCVFAIL = val & (1 << 13);
-        status.OCVCOMP = val & (1 << 14);
-        status.FD = val & (1 << 15);
+bool BQ27220::read_safety_status(bat_status &status, float &voltage, float &temperature) {
+        GaugeLock lock;
+        uint8_t operation[2];
+        uint8_t flags[2];
+        uint8_t millivolts[2];
+        uint8_t decikelvin[2];
 
-        return status;
+        // A failed configuration exit can leave measurements frozen. Successful
+        // transport alone does not make those values suitable for charging.
+        if (!readReg(registers::OP_STAT, operation, sizeof(operation)) ||
+            ((operation[0] | (uint16_t(operation[1]) << 8)) & (1 << 10))) {
+                return false;
+        }
+
+        // Never turn a failed read into a plausible value (notably 0 V or clear
+        // alarm flags). Commit all outputs only after every read succeeds.
+        if (!readReg(registers::FLAGS, flags, sizeof(flags)) ||
+            !readReg(registers::VOLT, millivolts, sizeof(millivolts)) ||
+            !readReg(registers::TEMP, decikelvin, sizeof(decikelvin))) {
+                return false;
+        }
+
+        status = decode_battery_status(flags[0] | (uint16_t(flags[1]) << 8));
+        voltage = (millivolts[0] | (uint16_t(millivolts[1]) << 8)) / 1000.0f;
+        temperature = (decikelvin[0] | (uint16_t(decikelvin[1]) << 8)) / 10.0f - 273.15f;
+        return true;
 }
 
 gauge_status BQ27220::gauging_state() {
+        // Keep command selection and its response together, including during setup.
+        GaugeLock lock;
         gauge_status status;
 
         uint16_t state;
@@ -240,19 +289,21 @@ op_state BQ27220::operation_state() {
         return state;
 }
 
-void BQ27220::write_command(BQ27220::commands cmd) {
-    writeReg(registers::CTRL, (uint8_t *) &cmd, sizeof(cmd));
+bool BQ27220::write_command(BQ27220::commands cmd) {
+    // Propagate command failures so setup cannot report a partial profile as ready.
+    return writeReg(registers::CTRL, (uint8_t *) &cmd, sizeof(cmd));
 }
 
-void BQ27220::write_command(uint16_t cmd) {
-    writeReg(registers::CTRL, (uint8_t *) &cmd, sizeof(cmd));
+bool BQ27220::write_command(uint16_t cmd) {
+    return writeReg(registers::CTRL, (uint8_t *) &cmd, sizeof(cmd));
 }
 
-void BQ27220::full_access() {
-        write_command(0xffff);
+bool BQ27220::full_access() {
+        if (!write_command(0xffff)) return false;
         k_msleep(100);
-        write_command(0xffff);
+        if (!write_command(0xffff)) return false;
         k_msleep(100);
+        return true;
 }
 
 /*void BQ27220::sleep_mode() {
@@ -263,66 +314,60 @@ void BQ27220::active_mode() {
 
 }*/
 
-void BQ27220::enter_config_update() {
-    //write_command(0x14); //0x13);
-    op_state state = operation_state();
-    if (state.CFG_UPDATE) {
-        LOG_WRN("Already in CONFIG UPDATE MODE.");
-        return;
-    }
-    write_command(CONFIG_UPDATE_ENTER);
+int BQ27220::enter_config_update() {
+    // A missing gauge or rejected command must not trap boot before charging starts.
+    GaugeLock lock;
+    uint16_t status = 0;
+    if (!readReg(registers::OP_STAT, (uint8_t *)&status, sizeof(status))) return -EIO;
+    if (status & (1 << 10)) return 0;
+    if (!write_command(CONFIG_UPDATE_ENTER)) return -EIO;
     k_msleep(1100);
-    do {
-        state = operation_state();
+    for (int attempt = 0; attempt < 30; ++attempt) {
+        if (!readReg(registers::OP_STAT, (uint8_t *)&status, sizeof(status))) return -EIO;
+        if (status & (1 << 10)) return 0;
         k_msleep(100);
-    } 
-    while (!state.CFG_UPDATE);
-    LOG_INF("CONFIG UPDATE MODE entered.");
-
-    //if (state.CFG_UPDATE) printk("CONFIG UPDATE MODE entered.\n");
-    //else printk("Failed to enter CONFIG UPDATE MODE.\n");
+    }
+    LOG_ERR("Timed out entering fuel gauge configuration");
+    return -ETIMEDOUT;
 }
 
-void BQ27220::exit_config_update(bool init) {
-    op_state state = operation_state();
-    if (!state.CFG_UPDATE) {
-        LOG_WRN("Device is not in CONFIG UPDATE MODE.");
-        return;
-    }
-    if (init) write_command(CONFIG_UPDATE_EXIT);
-    else write_command(CONFIG_UPDATE_EXIT_NO_INIT);
+int BQ27220::exit_config_update(bool init) {
+    // Bound exit too: measurements stay frozen while configuration is active.
+    GaugeLock lock;
+    uint16_t status = 0;
+    if (!readReg(registers::OP_STAT, (uint8_t *)&status, sizeof(status))) return -EIO;
+    if (!(status & (1 << 10))) return 0;
+    if (!write_command(init ? CONFIG_UPDATE_EXIT : CONFIG_UPDATE_EXIT_NO_INIT)) return -EIO;
     k_msleep(1100);
-    do {
-        state = operation_state();
+    for (int attempt = 0; attempt < 30; ++attempt) {
+        if (!readReg(registers::OP_STAT, (uint8_t *)&status, sizeof(status))) return -EIO;
+        if (!(status & (1 << 10))) return 0;
         k_msleep(100);
-    } while (state.CFG_UPDATE);
-    LOG_INF("CONFIG UPDATE MODE exited.");
-    //if (!state.CFG_UPDATE) printk("CONFIG UPDATE MODE exited.\n");
-    //else printk("Failed to exit CONFIG UPDATE MODE.\n");
+    }
+    LOG_ERR("Timed out exiting fuel gauge configuration");
+    return -ETIMEDOUT;
 }
 
-void BQ27220::read_RAM(uint16_t ram_address, uint8_t * data, int len) {
-        bool ret;
-
-        writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address));
+bool BQ27220::read_RAM(uint16_t ram_address, uint8_t * data, int len) {
+        // A failed address selection must not be mistaken for a successful readback.
+        if (!writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address))) return false;
         k_usleep(BQ27220_RAM_TIMEOUT_US);
-        ret = readReg(0x40, data, len);
+        return readReg(0x40, data, len);
 }
 
 int BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len, bool check) {
+        // Stop on a failed transfer before using stale checksum data or committing it.
         uint8_t check_sum=0;
         uint8_t data_len=0;
         uint8_t buf[len];
 
-        bool ret;
-
-        writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address));
+        if (!writeReg(0x3E, (uint8_t *) &ram_address, sizeof(ram_address))) return -EIO;
 
         k_usleep(BQ27220_RAM_TIMEOUT_US);
 
-        ret = readReg(0x61, (uint8_t *) &data_len, sizeof(data_len));
-        ret = readReg(0x40, buf, len);
-        ret = readReg(0x60, (uint8_t *) &check_sum, sizeof(check_sum));
+        if (!readReg(0x61, (uint8_t *) &data_len, sizeof(data_len)) ||
+            !readReg(0x40, buf, len) ||
+            !readReg(0x60, (uint8_t *) &check_sum, sizeof(check_sum))) return -EIO;
 
         uint8_t my_check = (uint8_t)0xFF-check_sum; // - data[0] - data[1];
 
@@ -333,21 +378,26 @@ int BQ27220::write_RAM(uint16_t ram_address, uint8_t * data, int len, bool check
 
         my_check = (uint8_t)0xFF - my_check;
 
-        writeReg(0x40, (uint8_t *) data, len);
-        writeReg(0x60, (uint8_t *) &my_check, sizeof(my_check));
-        writeReg(0x61, (uint8_t *) &data_len, sizeof(data_len));
+        if (!writeReg(0x40, (uint8_t *) data, len) ||
+            !writeReg(0x60, (uint8_t *) &my_check, sizeof(my_check)) ||
+            !writeReg(0x61, (uint8_t *) &data_len, sizeof(data_len))) return -EIO;
 
         k_usleep(BQ27220_RAM_TIMEOUT_US);
         
         if (check) {
-                uint8_t * read_buff = (uint8_t *) k_malloc(data_len);
+                // Compare only the caller's data, not the gauge's larger RAM block.
+                uint8_t * read_buff = (uint8_t *) k_malloc(len);
+                if (!read_buff) return -ENOMEM;
 
-                read_RAM(ram_address, read_buff, data_len);
+                if (!read_RAM(ram_address, read_buff, len)) {
+                        k_free(read_buff);
+                        return -EIO;
+                }
 
-                for (int i = 0; i < data_len; i++) {
+                for (int i = 0; i < len; i++) {
                         if (read_buff[i] != data[i]) {
                                 k_free(read_buff);
-                                return -1;
+                                return -EIO;
                         }
                 }
 
@@ -366,19 +416,23 @@ int BQ27220::write_RAM(uint16_t ram_address, uint16_t val, bool check) {
         return write_RAM(ram_address, data, sizeof(val), check);
 }
 
-void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
+int BQ27220::setup(const battery_settings &_battery_settings, bool init) {
+        // Keep polling and BLE reads out of the shared configuration window.
+        GaugeLock lock;
         int ret;
 
         // unseal
-        write_command(0x0414);
+        if (!write_command(0x0414)) return -EIO;
         k_msleep(100);
-        write_command(0x3672);
+        if (!write_command(0x3672)) return -EIO;
         k_msleep(100);
         
         // full access
-        full_access();
+        if (!full_access()) return -EIO;
 
-        enter_config_update();
+        ret = enter_config_update();
+        if (ret) return ret;
+        // Preserve the first write failure, then still exit configuration and seal.
         //k_usleep(1000);
 
         //hibernate off (not supported by fuel gauge)
@@ -386,28 +440,28 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
 
         // design and full charge capacity
         ret = write_RAM(0x929F, _battery_settings.capacity);
-        ret = write_RAM(0x929D, _battery_settings.capacity); //130
+        if (!ret) ret = write_RAM(0x929D, _battery_settings.capacity); //130
         // near full
-        ret = write_RAM(0x926B, 5);
+        if (!ret) ret = write_RAM(0x926B, 5);
 
-        ret = write_RAM(0x91F5, _battery_settings.temp_min * 10);
-        ret = write_RAM(0x91F7, _battery_settings.temp_max * 10);
+        if (!ret) ret = write_RAM(0x91F5, _battery_settings.temp_min * 10);
+        if (!ret) ret = write_RAM(0x91F7, _battery_settings.temp_max * 10);
 
         // charge current
-        ret = write_RAM(0x91FB, _battery_settings.i_charge);
+        if (!ret) ret = write_RAM(0x91FB, _battery_settings.i_charge);
 
         // charge voltage
-        ret = write_RAM(0x91FD, _battery_settings.u_term * 1000);
+        if (!ret) ret = write_RAM(0x91FD, _battery_settings.u_term * 1000);
 
         // taper current
-        ret = write_RAM(0x9201, _battery_settings.i_term);
+        if (!ret) ret = write_RAM(0x9201, _battery_settings.i_term);
 
         // experimental: min taper capacity
-        ret = write_RAM(0x9203, 4); // standard: 25
+        if (!ret) ret = write_RAM(0x9203, 4); // standard: 25
 
         // deadband
         uint8_t val = 1;
-        ret = write_RAM(0x91DE, &val, sizeof(uint8_t));
+        if (!ret) ret = write_RAM(0x91DE, &val, sizeof(uint8_t));
         
         // deadband CC (verursacht Probleme, rm zählt zu schnell?)
         /*val = 5;
@@ -415,14 +469,14 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         */
         
         // sleep current
-        ret = write_RAM(0x9217, 1);
+        if (!ret) ret = write_RAM(0x9217, 1);
 
         // dischage current trd
-        ret = write_RAM(0x9228, 2);
+        if (!ret) ret = write_RAM(0x9228, 2);
         // charge current trd
-        ret = write_RAM(0x922A, 2);
+        if (!ret) ret = write_RAM(0x922A, 2);
         // quit current
-        ret = write_RAM(0x922C, 1);
+        if (!ret) ret = write_RAM(0x922C, 1);
 
         //dod  0%: 4287
         //dod 10%: 4125
@@ -444,29 +498,29 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         //dod: 103.25%: 3089
 
         // sysDown set Voltage
-        ret = write_RAM(0x9240, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET);
+        if (!ret) ret = write_RAM(0x9240, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET);
 
         // sysDown clear Voltage
-        ret = write_RAM(0x9243, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET + CONFIG_BATTERY_SYSDOWN_HYSTERESIS);
+        if (!ret) ret = write_RAM(0x9243, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_SYSDOWN_SET_OFFSET + CONFIG_BATTERY_SYSDOWN_HYSTERESIS);
 
         // FD set
-        ret = write_RAM(0x9282, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET);
+        if (!ret) ret = write_RAM(0x9282, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET);
 
         // FD clear
-        ret = write_RAM(0x9284, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET + CONFIG_BATTERY_FD_HYSTERESIS); 
+        if (!ret) ret = write_RAM(0x9284, _battery_settings.u_vlo * 1000 + CONFIG_BATTERY_FD_SET_OFFSET + CONFIG_BATTERY_FD_HYSTERESIS);
 
         // FC Voltage
-        ret = write_RAM(0x9288, _battery_settings.u_term * 1000 - CONFIG_BATTERY_FC_VOLTAGE_OFFSET);
+        if (!ret) ret = write_RAM(0x9288, _battery_settings.u_term * 1000 - CONFIG_BATTERY_FC_VOLTAGE_OFFSET);
 
         // Electonic Load in 3µA steps
-        ret = write_RAM(0x9269, 6); // 18 µA
+        if (!ret) ret = write_RAM(0x9269, 6); // 18 µA
 
         // EMF
         //write_RAM(0x92A7, 36001);
         //C0
-        ret = write_RAM(0x92A9, 480); //bat1:250
+        if (!ret) ret = write_RAM(0x92A9, 480); //bat1:250
         //R0
-        ret = write_RAM(0x92AB, 19941); //bat1: 19941 //22542 //new bat:  17340
+        if (!ret) ret = write_RAM(0x92AB, 19941); //bat1: 19941 //22542 //new bat:  17340
         //R1
         //write_RAM(0x92AF, 3160);
 
@@ -478,21 +532,24 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         // do not use, only on CT makes sense:
         // SOC Flag, enable FC voltage detection
         uint8_t flags_b = 0x8C;
-        ret = write_RAM(0x9281, &flags_b, sizeof(flags_b));
+        if (!ret) ret = write_RAM(0x9281, &flags_b, sizeof(flags_b));
 
         // Overload current
-        ret = write_RAM(0x9264, _battery_settings.i_max);
+        if (!ret) ret = write_RAM(0x9264, _battery_settings.i_max);
 
         // CEDV Smoothing Config
         uint8_t cedv_conf = 0x0D; //Default: 0x08, Enable SMEXT, SMEN 0x0D
-        ret = write_RAM(0x9271, &cedv_conf, sizeof(cedv_conf));
+        if (!ret) ret = write_RAM(0x9271, &cedv_conf, sizeof(cedv_conf));
 
-        ret = write_RAM(0x9272, 3700);
+        if (!ret) ret = write_RAM(0x9272, 3700);
 
-        exit_config_update(init);
+        int exit_result = exit_config_update(init);
 
         // put fuel gauge to sealed state
-        write_command(SEAL);
+        bool sealed = write_command(SEAL);
+        if (ret) return ret;
+        if (exit_result) return exit_result;
+        return sealed ? 0 : -EIO;
 }
 
 int BQ27220::set_int_callback(gpio_callback_handler_t handler) {

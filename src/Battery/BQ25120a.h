@@ -42,7 +42,8 @@ public:
         BAT_VOL_CTRL = 0x05,
         LS_LDO_CTRL = 0x07,
         BTN_CTRL = 0x08,
-        ILIM_UVLO = 0x09
+        ILIM_UVLO = 0x09,
+        TIMERS = 0x0B
     };
 
     BQ25120a(TWIM * i2c);
@@ -52,31 +53,42 @@ public:
 
     int reset();
 
-    void setup_ts_control();
+    int setup_ts_control();
 
-    void setup(const battery_settings &_battery_settings);
+    // Configuration is verified with charging inhibited. The power manager must
+    // approve battery conditions and call enable_charge() afterwards.
+    int setup(const battery_settings &_battery_settings);
+    // Boot only: holds the peripheral 3.3 V rail off while repairing retained
+    // LS/LDO state. Call before starting any consumers of that rail.
+    int setup_boot(const battery_settings &_battery_settings);
+    int recover_charging(const battery_settings &_battery_settings);
+    int enter_ship_mode();
+    bool read_status(uint8_t &control, uint8_t &fault, uint8_t &ts_fault);
+    // Detect watchdog/default-register drift without resetting the live rails.
+    // A mismatch or failed read inhibits charging until setup succeeds again.
+    bool configuration_valid(const battery_settings &settings, float current);
 
     bool power_connected();
-    void enter_high_impedance();
-    void exit_high_impedance();
-    void disable_charge();
-    void enable_charge();
+    int enter_high_impedance();
+    int exit_high_impedance();
+    int disable_charge();
+    int enable_charge();
     
     uint8_t read_charging_state();
     uint8_t read_fault();
     uint8_t read_ts_fault();
     chrg_state read_charging_control();
-    uint8_t write_charging_control(float mA);
+    int write_charging_control(float mA);
     float read_battery_voltage_control();
-    uint8_t write_battery_voltage_control(float volt);
+    int write_battery_voltage_control(float volt);
     struct chrg_state read_termination_control();
-    uint8_t write_termination_control(float mA, bool enable_termination = true);
+    int write_termination_control(float mA, bool enable_termination = true);
     ilim_uvlo read_uvlo_ilim();
-    uint8_t write_uvlo_ilim(ilim_uvlo param);
+    int write_uvlo_ilim(ilim_uvlo param);
     void disable_ts();
-    uint8_t write_LDO_voltage_control(float volt);
+    int write_LDO_voltage_control(float volt);
     float read_ldo_voltage();
-    uint8_t write_LS_control(bool enable);
+    int write_LS_control(bool enable);
 
     button_state read_button_state();
 
@@ -84,12 +96,17 @@ public:
     int set_int_callback(gpio_callback_handler_t handler);
 private:
     bool readReg(uint8_t reg, uint8_t * buffer, uint16_t len);
-    void writeReg(uint8_t reg, uint8_t * buffer, uint16_t len);
+    bool writeReg(uint8_t reg, const uint8_t * buffer, uint16_t len);
+    int write_verified(uint8_t reg, uint8_t value, uint8_t mask = 0xFF);
+    int set_cd(bool high);
+    void wait_for_i2c();
 
     const int address = DT_REG_ADDR(DT_NODELABEL(bq25120a));
 
-    uint64_t last_i2c;
-    uint64_t last_high_z;
+    uint64_t last_i2c = 0;
+    uint64_t last_high_z = 0;
+    bool charge_disabled = true;
+    bool configured = false;
 
     TWIM *_i2c;
 
@@ -99,6 +116,8 @@ private:
     const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
     const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), cd_gpios);
     const struct gpio_dt_spec int_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), int_gpios);
+    const struct gpio_dt_spec lsctrl_pin =
+        GPIO_DT_SPEC_GET(DT_CHILD(DT_NODELABEL(bq25120a), load_switch), enable_gpios);
 
     /*const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), pg_gpios, {0});
     const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), cd_gpios, {0});

@@ -27,10 +27,11 @@ def charger_status(
     *,
     ctrl: int = 0x41,
     fault: int = 0x00,
-    ts_fault: int = 0x88,
-    charge_ctrl: int = 0x9C,
+    # Match the v2.7 recovery profile: fixed TS divider off, 100 mA, 3.0 V UVLO.
+    ts_fault: int = 0x00,
+    charge_ctrl: int = 0x98,
     preterm_ctrl: int = 0x92,
-    ilim_uvlo: int = 0x1C,
+    ilim_uvlo: int = 0x1A,
     pg_present: bool = True,
     cd_raw: int = 0,
 ) -> battery.ChargerStatus:
@@ -58,6 +59,21 @@ def fuel_status(voltage_mv: int) -> battery.FuelGaugeStatus:
 
 
 class ChargerStatusTests(unittest.TestCase):
+    # Recovery must preserve the cell limits and reject unavailable safety data.
+    def test_recovery_limits(self) -> None:
+        self.assertEqual(battery.RECOVERY_CHARGE_CURRENT_MA, 100)
+        self.assertEqual(battery.encode_ilim_uvlo(200, battery.RECOVERY_UVLO_MV), 0x1A)
+        self.assertEqual(charger_status(ts_fault=0x20).blocking_fault_reasons, [])
+        for temperature in [-1, 0, 45, 46, None, float("nan")]:
+            fuel = fuel_status(2564)
+            fuel.temperature_c = temperature
+            self.assertEqual(bool(battery.fuel_recovery_blocking_reasons(fuel)),
+                             temperature not in (0, 45))
+        for flags in [None, 1 << 8, 1 << 11]:
+            fuel = fuel_status(2564)
+            fuel.flags = flags
+            self.assertTrue(battery.fuel_recovery_blocking_reasons(fuel))
+
     def test_reset_and_timer_bits_are_distinct(self) -> None:
         charging = charger_status(ctrl=0x51)
         timer_fault = charger_status(ctrl=0xD9)
@@ -187,6 +203,7 @@ class ChargerControlTests(unittest.TestCase):
         self.assertEqual(
             interface.bq25120a_write_u8.call_args_list,
             [
+                mock.call(0x02, battery.RECOVERY_TS_CONFIG),
                 mock.call(
                     0x03,
                     battery.encode_charge_current(

@@ -118,6 +118,11 @@ public:
     int begin();
 
     bat_status battery_status();
+    /** Read the inputs used for battery safety decisions.
+     * Returns false on an I2C failure or while configuration mode is active;
+     * outputs are unchanged on failure.
+     */
+    bool read_safety_status(bat_status &status, float &voltage, float &temperature);
     float temperature();
     float voltage();
     float capacity();
@@ -134,14 +139,16 @@ public:
     float standby_current();
     op_state operation_state();
     gauge_status gauging_state();
-    void write_command(commands command);
-    void enter_config_update();
-    void exit_config_update(bool init = true);
+    // Report configuration failures so charging stays inhibited until setup succeeds.
+    bool write_command(commands command);
+    int enter_config_update();
+    int exit_config_update(bool init = true);
 
-    void full_access();
-    void setup(const battery_settings &_battery_settings, bool init = true);
+    bool full_access();
+    int setup(const battery_settings &_battery_settings, bool init = true);
 
     int set_wakeup_int();
+    int disable_wakeup_int();
 
     //void sleep_mode();
     //void active_mode();
@@ -149,13 +156,13 @@ public:
     int set_int_callback(gpio_callback_handler_t handler);
 private:
     bool readReg(uint8_t reg, uint8_t * buffer, uint16_t len);
-    void writeReg(uint8_t reg, uint8_t * buffer, uint16_t len);
+    bool writeReg(uint8_t reg, uint8_t * buffer, uint16_t len);
 
-    void read_RAM(uint16_t ram_address, uint8_t * data, int len);
+    bool read_RAM(uint16_t ram_address, uint8_t * data, int len);
     int write_RAM(uint16_t ram_address, uint8_t * data, int len, bool check = false);
     int write_RAM(uint16_t ram_address, uint16_t val, bool check = false);
 
-    void write_command(uint16_t cmd);
+    bool write_command(uint16_t cmd);
 
     int address = DT_REG_ADDR(DT_NODELABEL(bq27220));
 

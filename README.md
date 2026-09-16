@@ -148,7 +148,7 @@ Battery states will overwrite LED connection states. All LED states can be manua
 | 🟢 Green - Pulsing  | Trickle charge; final voltage (constant voltage) reached. Can be disabled via config |
 | 🟩 Green - Solid    | Fully charged                                                               |
 
-*If your OpenEarable goes into deep discharge (solid red) after pre-charge (red pulse), you can unplug the OpenEarable and plug it in again. This should recover the device.
+Solid red indicates a charging fault or inhibit. Firmware attempts one safety-timer recovery per USB connection; repeated faults require disconnecting USB before retrying.
 
 
 ### Discharging States
