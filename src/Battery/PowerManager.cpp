@@ -125,7 +125,14 @@ int PowerManager::begin() {
     NRF_POWER->GPREGRET[1] = oe_boot_encode(retained & OE_BOOT_SAFETY_FLAGS);
     timer_recovery_used = retained & OE_BOOT_FLAG_TIMER_USED;
     charger_fault_latched = retained & OE_BOOT_FLAG_CHARGER_FAULT;
-    if (!battery_controller.power_connected()) set_charger_session(false, false);
+    if (!battery_controller.power_connected()) {
+        set_charger_session(false, false);
+    } else if (timer_recovery_used) {
+        // Boot's CD/configuration sequence resets the hardware timer, so its
+        // remaining recovery time or an unobserved second expiry is lost.
+        // Never grant another charging cycle after a used retry and a reset.
+        set_charger_session(true, true);
+    }
     power_on = btn.wake_2;
 
     // get reset reason
