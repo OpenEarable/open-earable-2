@@ -19,6 +19,7 @@
 #endif
 
 #include <hal/nrf_ficr.h>
+#include <hal/nrf_power.h>
 
 #include "../drivers/LED_Controller/KTD2026.h"
 #include "../drivers/ADAU1860.h"
@@ -34,6 +35,9 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(power_manager, LOG_LEVEL_DBG);
+
+// Keep GPREGRET[0] available to MCUboot; store this marker in GPREGRET[1].
+static constexpr uint32_t CHARGING_SHUTDOWN_MARKER = 0xA5;
 
 //K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
 
@@ -262,7 +266,8 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 }
 
 int PowerManager::begin() {
-    earable_state oe_state;
+    // A charging-only reboot must not inherit a random custom LED mode and appear off.
+    earable_state oe_state = {};
 
     oe_state.charging_state = DISCHARGING;
     oe_state.pairing_state = PAIRED;
@@ -277,6 +282,9 @@ int PowerManager::begin() {
 
     button_state btn = battery_controller.read_button_state();
 
+    // Button and auto-off shutdowns on USB reboot into charging-only operation.
+    bool charging_shutdown =
+        nrf_power_gpregret_get(NRF_POWER, 1) == CHARGING_SHUTDOWN_MARKER;
     power_on = btn.wake_2;
 
     // get reset reason
@@ -296,8 +304,10 @@ int PowerManager::begin() {
 
     if (reset_reas & RESET_RESETREAS_SREQ_Msk) {
         LOG_INF("Rebooting ...");
-        power_on = true;
+        power_on = !charging_shutdown;
     }
+    // A still-asserted button must not undo the shutdown that caused this reboot.
+    if (charging_shutdown) power_on = false;
 
     /*if (reset_reas & RESET_RESETREAS_LOCKUP_Msk) {
         printk("Reset durch CPU Lockup\n");
@@ -321,6 +331,8 @@ int PowerManager::begin() {
 
     // check charging state
     bool charging = battery_controller.power_connected();
+    // Without USB, this boot will enter System OFF; allow the next button wake.
+    if (charging_shutdown && !charging) nrf_power_gpregret_set(NRF_POWER, 1, 0);
 
     if (!battery_condition) {
         power_on = false;
@@ -357,6 +369,8 @@ int PowerManager::begin() {
             //__WFE();
             k_sleep(K_SECONDS(1));
         }
+        // The user turned the device on, or USB was removed: leave charging-only mode.
+        if (charging_shutdown) nrf_power_gpregret_set(NRF_POWER, 1, 0);
     } else {
         oe_state.charging_state = DISCHARGING;
     }
@@ -623,7 +637,8 @@ int PowerManager::power_down(bool fault) {
 	gpio_pin_set_dt(&error_led, 0);
 
     if (charging) {
-        //NVIC_SystemReset();
+        // Preserve the off request across the reset used to enter the charging UI.
+        nrf_power_gpregret_set(NRF_POWER, 1, CHARGING_SHUTDOWN_MARKER);
         sys_reboot(SYS_REBOOT_COLD);
         return 0;
     }
