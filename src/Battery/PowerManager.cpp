@@ -19,6 +19,7 @@
 #endif
 
 #include <hal/nrf_ficr.h>
+#include <hal/nrf_power.h>
 
 #include "../drivers/LED_Controller/KTD2026.h"
 #include "../drivers/ADAU1860.h"
@@ -34,6 +35,16 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(power_manager, LOG_LEVEL_DBG);
+
+static void shutdown_guard_expired(struct k_timer *timer) {
+    ARG_UNUSED(timer);
+    // Restart into the retained minimal-shutdown path if cleanup stops making progress.
+    sys_reboot(SYS_REBOOT_COLD);
+}
+
+K_TIMER_DEFINE(shutdown_guard, shutdown_guard_expired, NULL);
+
+extern "C" int openearable_power_rails_off(void);
 
 //K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
 
@@ -262,13 +273,22 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 }
 
 int PowerManager::begin() {
-    earable_state oe_state;
+    // Charging-only resets must not pass uninitialized flags to the status indicator.
+    earable_state oe_state = {};
+    bool shutdown_recovery =
+        nrf_power_gpregret_get(NRF_POWER, 1) == OE_SHUTDOWN_MARKER;
 
     oe_state.charging_state = DISCHARGING;
     oe_state.pairing_state = PAIRED;
 
     battery_controller.begin();
     fuel_gauge.begin();
+
+    // After a failed shutdown, avoid every I2C operation and retry the minimum path.
+    if (shutdown_recovery && !battery_controller.power_connected()) {
+        return power_down();
+    }
+
     earable_btn.begin();
 
     battery_controller.exit_high_impedance();
@@ -296,8 +316,10 @@ int PowerManager::begin() {
 
     if (reset_reas & RESET_RESETREAS_SREQ_Msk) {
         LOG_INF("Rebooting ...");
-        power_on = true;
+        power_on = !shutdown_recovery;
     }
+    // A reset used to finish shutdown must not turn the application back on.
+    if (shutdown_recovery) power_on = false;
 
     /*if (reset_reas & RESET_RESETREAS_LOCKUP_Msk) {
         printk("Reset durch CPU Lockup\n");
@@ -356,6 +378,10 @@ int PowerManager::begin() {
         while(!power_on && battery_controller.power_connected()) {
             //__WFE();
             k_sleep(K_SECONDS(1));
+        }
+        // Clear the request only when the user explicitly starts the application.
+        if (shutdown_recovery && power_on) {
+            nrf_power_gpregret_set(NRF_POWER, 1, 0);
         }
     } else {
         oe_state.charging_state = DISCHARGING;
@@ -566,16 +592,16 @@ void PowerManager::reboot() {
 int PowerManager::power_down(bool fault) {
     int ret;
 
-    // disconnect devices
-    uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
-    bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
+    bool recovery_shutdown =
+        nrf_power_gpregret_get(NRF_POWER, 1) == OE_SHUTDOWN_MARKER;
+    // Preserve the off request if any teardown operation blocks or faults.
+    nrf_power_gpregret_set(NRF_POWER, 1, OE_SHUTDOWN_MARKER);
+    k_timer_start(&shutdown_guard, K_SECONDS(30), K_NO_WAIT);
 
-    ret = bt_le_adv_stop();
-
-    // power disonnected
-    // prepare interrupts
-
-    stop_sensor_manager();
+    if (!recovery_shutdown) {
+        // System OFF tears Bluetooth down; avoid synchronous HCI waits here.
+        stop_sensor_manager();
+    }
 
     bool charging = battery_controller.power_connected();
 
@@ -602,38 +628,52 @@ int PowerManager::power_down(bool fault) {
         sys_reboot(SYS_REBOOT_COLD);
     }*/
 
-    if (fault) {
-        LOG_WRN("Power off due to fault");
-    } else {
-        LOG_INF("Power off");
+    if (!recovery_shutdown) {
+        if (fault) {
+            LOG_WRN("Power off due to fault");
+        } else {
+            LOG_INF("Power off");
+        }
+
+        ret = bt_mgmt_stop_watchdog();
+        if (ret != 0) LOG_WRN("Failed to stop task watchdog: %d", ret);
+
+        ret = dac.end();
+        if (ret != 0) LOG_WRN("Failed to stop DAC: %d", ret);
     }
-    LOG_PANIC();
-
-    ret = bt_mgmt_stop_watchdog();
-    //ERR_CHK(ret);
-
-    dac.end();
 
     // TODO: check states of load switch (should already be suspended
     // if all devieses have been terminated correctly)
 
     // turn off error led
-	gpio_pin_set_dt(&error_led, 0);
+	ret = gpio_pin_set_dt(&error_led, 0);
+    if (ret != 0) LOG_WRN("Failed to turn off error LED: %d", ret);
 
-    // Keep the status LED active until cleanup finishes; it needs the rails suspended below.
-    led_controller.begin();
-    led_controller.power_off();
-
-    if (charging) {
-        //NVIC_SystemReset();
-        sys_reboot(SYS_REBOOT_COLD);
-        return 0;
+    if (!recovery_shutdown) {
+        // Keep status indication available until every optional cleanup step has returned.
+        led_controller.begin();
+        led_controller.power_off();
     }
 
-    ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
-    ret = pm_device_action_run(cons, PM_DEVICE_ACTION_SUSPEND);
+    if (charging) {
+        // The marker keeps this reset in charging-only mode until an explicit start.
+        k_timer_stop(&shutdown_guard);
+        sys_reboot(SYS_REBOOT_COLD);
+        CODE_UNREACHABLE;
+    }
+
+    if (recovery_shutdown) {
+        // Bypass device-PM locks on the recovery attempt and drive every rail low directly.
+        ret = openearable_power_rails_off();
+        if (ret != 0) LOG_ERR("Failed to force power rails off: %d", ret);
+    } else {
+        ret = pm_device_action_run(ls_sd,  PM_DEVICE_ACTION_SUSPEND);
+        if (ret != 0 && ret != -EALREADY) LOG_ERR("Failed to turn off SD rail: %d", ret);
+        ret = pm_device_action_run(ls_3_3, PM_DEVICE_ACTION_SUSPEND);
+        if (ret != 0 && ret != -EALREADY) LOG_ERR("Failed to turn off 3.3 V rail: %d", ret);
+        ret = pm_device_action_run(ls_1_8, PM_DEVICE_ACTION_SUSPEND);
+        if (ret != 0 && ret != -EALREADY) LOG_ERR("Failed to turn off 1.8 V rail: %d", ret);
+    }
 
     /*const struct device *const i2c = DEVICE_DT_GET(DT_NODELABEL(i2c1));
     ret = pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND);
@@ -647,13 +687,11 @@ int PowerManager::power_down(bool fault) {
     ret = pm_device_action_run(watch_dog, PM_DEVICE_ACTION_SUSPEND);
     ERR_CHK(ret);*/
 
+    // Clean shutdown is complete; a future button wake may start normally.
+    k_timer_stop(&shutdown_guard);
+    nrf_power_gpregret_set(NRF_POWER, 1, 0);
     sys_poweroff();
-
-    // safety if poweroff failed
-    k_msleep(1000);
-
-    //NVIC_SystemReset();
-    sys_reboot(SYS_REBOOT_COLD);
+    CODE_UNREACHABLE;
 }
 
 

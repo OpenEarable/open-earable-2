@@ -3,6 +3,9 @@
 
 #include "openearable_common.h"
 
+// GPREGRET[0] is reserved for MCUboot; this marker survives a recovery reboot.
+#define OE_SHUTDOWN_MARKER 0xA5u
+
 #ifdef __cplusplus
 extern "C" {
 #endif

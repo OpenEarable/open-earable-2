@@ -45,25 +45,36 @@ struct load_switch_data {
     bool default_on;
 };
 
+static int set_load_switch(const struct gpio_dt_spec *pin, bool enabled)
+{
+    int ret = gpio_pin_set_dt(pin, enabled);
+    if (ret) {
+        // Reconfigure once in case the output state was lost before shutdown.
+        ret = gpio_pin_configure_dt(pin,
+            enabled ? GPIO_OUTPUT_ACTIVE : GPIO_OUTPUT_INACTIVE);
+    }
+    return ret;
+}
+
 int generic_pm_control(const struct device *dev, enum pm_device_action action)
 {
     struct load_switch_data *data = dev->data;
+    int ret;
 
     switch (action) {
     case PM_DEVICE_ACTION_SUSPEND:
-        /* suspend the device */
-        gpio_pin_set_dt(&data->ctrl_pin, 0);
+        ret = set_load_switch(&data->ctrl_pin, false);
         break;
     case PM_DEVICE_ACTION_RESUME:
-        /* resume the device */
-        gpio_pin_set_dt(&data->ctrl_pin, 1);
+        ret = set_load_switch(&data->ctrl_pin, true);
+        if (ret) return ret;
         k_usleep(data->delay_us); //LS: t_on = 250µs, LDO: 500µs
         break;
     default:
         return -ENOTSUP;
     }
 
-    return 0;
+    return ret;
 }
 
 int init_pm_device(const struct device *dev)
@@ -115,3 +126,18 @@ DEVICE_DT_DEFINE(load_switch_1_8_id, init_pm_device, PM_DEVICE_DT_GET(load_switc
 PM_DEVICE_DT_DEFINE(load_switch_3_3_id, generic_pm_control);
 DEVICE_DT_DEFINE(load_switch_3_3_id, init_pm_device, PM_DEVICE_DT_GET(load_switch_3_3_id),
                     &load_switch_3_3, NULL, POST_KERNEL, 80, NULL);
+
+int openearable_power_rails_off(void)
+{
+    int result = 0;
+    int ret = set_load_switch(&load_switch_sd_d.ctrl_pin, false);
+    if (ret) result = ret;
+
+    ret = set_load_switch(&load_switch_3_3.ctrl_pin, false);
+    if (ret && !result) result = ret;
+
+    ret = set_load_switch(&load_switch_1_8.ctrl_pin, false);
+    if (ret && !result) result = ret;
+
+    return result;
+}

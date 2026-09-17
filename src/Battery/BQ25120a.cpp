@@ -381,7 +381,12 @@ void BQ25120a::disable_ts() {
 
 bool BQ25120a::power_connected() {
         int pg = gpio_pin_get_dt(&pg_pin);
-        return pg;
+        if (pg < 0) {
+                // A GPIO read error must not reboot into charging mode indefinitely.
+                LOG_ERR("Failed to read charger power-good pin: %d", pg);
+                return false;
+        }
+        return pg != 0;
 }
 
 void BQ25120a::enter_high_impedance() {
