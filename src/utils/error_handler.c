@@ -10,6 +10,11 @@
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/drivers/gpio.h>
 
+#if CONFIG_BOARD_OPENEARABLE_V2_NRF5340_CPUAPP
+#include <hal/nrf_power.h>
+#include "../Battery/BootState.h"
+#endif
+
 /* Print everything from the error handler */
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(error_handler, CONFIG_ERROR_HANDLER_LOG_LEVEL);
@@ -23,6 +28,14 @@ static const struct gpio_dt_spec center_led_b = GPIO_DT_SPEC_GET(DT_NODELABEL(rg
 
 void error_handler(unsigned int reason, const struct arch_esf *esf)
 {
+#if CONFIG_BOARD_OPENEARABLE_V2_NRF5340_CPUAPP
+	ARG_UNUSED(reason);
+	ARG_UNUSED(esf);
+	// A fatal error must reboot into shutdown instead of draining in the debug loop.
+	nrf_power_gpregret_set(NRF_POWER, 1, OE_SHUTDOWN_MARKER);
+	sys_reboot(SYS_REBOOT_COLD);
+	CODE_UNREACHABLE;
+#endif
 #if (CONFIG_DEBUG)
 	LOG_ERR("Caught system error -- reason %d. Entering infinite loop", reason);
 	LOG_PANIC();

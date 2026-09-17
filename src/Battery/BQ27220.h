@@ -141,7 +141,7 @@ public:
     void full_access();
     void setup(const battery_settings &_battery_settings, bool init = true);
 
-    int set_wakeup_int();
+    int disable_wakeup_int();
 
     //void sleep_mode();
     //void active_mode();

@@ -474,10 +474,15 @@ int SDLogger::flush() {
         written = sd_card->write((char*)data, &req, false);
         k_mutex_unlock(&file_mutex);
 
-        if (written < 0) {
+        if (written <= 0) {
+            // A full FatFs volume can return a zero-byte write; retrying would block shutdown forever.
+            k_mutex_lock(&ring_mutex, K_FOREVER);
+            ring_buf_get_finish(&ring_buffer, 0);
+            k_mutex_unlock(&ring_mutex);
+            int error = written < 0 ? written : -ENOSPC;
             state_indicator.set_sd_state(SD_FAULT);
-            LOG_ERR("Failed to flush SD buffer: %d", written);
-            break;
+            LOG_ERR("Failed to flush SD buffer: %d", error);
+            return error;
         }
 
         k_mutex_lock(&ring_mutex, K_FOREVER);
@@ -510,12 +515,12 @@ int SDLogger::end() {
     atomic_set(&g_stop_writing, 1);
     k_poll_signal_raise(&logger_sig, 0);
 
-    ret = flush();
-    if (ret < 0) {
+    int flush_result = flush();
+    if (flush_result < 0) {
         LOG_ERR("Failed to flush file buffer.");
-        return ret;
     }
 
+    // Close after a flush error so shutdown can continue and sync already-written file data.
     LOG_INF("Close File ....");
 
     LOG_DBG("Max buffer fill: %d bytes", count_max_buffer_fill);
@@ -534,7 +539,7 @@ int SDLogger::end() {
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
 
-    return 0;
+    return flush_result < 0 ? flush_result : 0;
 }
 
 bool SDLogger::is_active() {

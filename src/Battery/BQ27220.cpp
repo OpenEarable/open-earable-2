@@ -39,22 +39,9 @@ int BQ27220::begin() {
         return 0;
 }
 
-int BQ27220::set_wakeup_int() {
-        int ret;
-
-        ret = device_is_ready(gpout_pin.port); //bool
-        if (!ret) {
-                LOG_ERR("GPOUT not ready.\n");
-                return -1;
-        }
-
-        ret = gpio_pin_interrupt_configure_dt(&gpout_pin, GPIO_INT_LEVEL_ACTIVE);
-        if (ret != 0) {
-                LOG_ERR("Failed to setup interrupt on GPOUT: ERROR -%i.\n", ret);
-                return ret;
-        }
-
-        return 0;
+int BQ27220::disable_wakeup_int() {
+        // Battery alerts are useful while running, but must not wake an intentionally off device.
+        return gpio_pin_interrupt_configure_dt(&gpout_pin, GPIO_INT_DISABLE);
 }
 
 bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
