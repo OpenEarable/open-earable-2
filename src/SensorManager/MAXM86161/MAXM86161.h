@@ -111,6 +111,8 @@ private:
 
     uint8_t _exposure_count = LED_NUM;
     uint8_t _exposure_output_indices[LED_NUM] = { 1, 2, 0, 3 };
+    ppg_sample _pending_sample = {};
+    uint8_t _pending_exposure_mask = 0;
 
     // void _set_led_sequence(char sequence);
 
