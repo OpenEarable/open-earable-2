@@ -146,12 +146,16 @@ int MAXM86161::read(ppg_sample *buffer, size_t buffer_capacity) {
     int status;
     int number_of_bytes;
     int fifo_items = 0;
-    int output_idx = -1;
+    size_t output_count = 0;
 
     status = _read_from_reg(REG_FIFO_DATA_COUNTER, fifo_items);
     if (status == 0){
-        int items_to_read = MIN(fifo_items, (int)(buffer_capacity * _exposure_count));
-        items_to_read -= items_to_read % _exposure_count;
+        int item_capacity = (int)(buffer_capacity * _exposure_count);
+        if (_pending_exposure_mask != 0) {
+            const int pending_items = __builtin_popcount((unsigned int)_pending_exposure_mask);
+            item_capacity -= pending_items;
+        }
+        int items_to_read = MIN(fifo_items, item_capacity);
         number_of_bytes = items_to_read * BYTES_PER_CH;
         
         status = _read_block(REG_FIFO_DATA, number_of_bytes, (uint8_t *) databuffer);
@@ -167,22 +171,36 @@ int MAXM86161::read(ppg_sample *buffer, size_t buffer_capacity) {
             uint8_t tag = val >> 19;
             val = val & ((1 << 19) - 1);
 
-            //LOG_INF("tag: %i, val: %i", tag, val);
+            /* Picket-fence replacement tags 13-15 correspond to exposures 1-3. */
+            if (tag >= 13 && tag <= 15) {
+                tag -= 12;
+            }
 
             if (tag == 1) {
-                if ((size_t)(output_idx + 1) >= buffer_capacity) {
+                memset(_pending_sample, 0, sizeof(_pending_sample));
+                _pending_exposure_mask = 0;
+            }
+            if (tag == 0 || tag > _exposure_count ||
+                (_pending_exposure_mask == 0 && tag != 1)) {
+                continue;
+            }
+
+            _pending_sample[_exposure_output_indices[tag - 1]] = val;
+            _pending_exposure_mask |= (uint8_t)(1U << (tag - 1));
+
+            const uint8_t complete_mask = (uint8_t)((1U << _exposure_count) - 1U);
+            if (_pending_exposure_mask == complete_mask) {
+                if (output_count >= buffer_capacity) {
                     break;
                 }
-                output_idx++;
-                memset(buffer[output_idx], 0, sizeof(ppg_sample));
+                memcpy(buffer[output_count], _pending_sample, sizeof(ppg_sample));
+                output_count++;
+                _pending_exposure_mask = 0;
             }
-            if (tag == 0 || tag > _exposure_count || output_idx < 0) continue;
-
-            buffer[output_idx][_exposure_output_indices[tag - 1]] = val;
         }
     }
     
-    return output_idx+1;
+    return (int)output_count;
 }
 
 
@@ -352,6 +370,8 @@ int MAXM86161::set_exposure_count(uint8_t count)
     _exposure_count = count;
     memcpy(_exposure_output_indices, output_indices[count - 1],
            sizeof(_exposure_output_indices));
+    memset(_pending_sample, 0, sizeof(_pending_sample));
+    _pending_exposure_mask = 0;
     return 0;
 }
 
