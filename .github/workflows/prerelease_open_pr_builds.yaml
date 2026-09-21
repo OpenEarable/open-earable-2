@@ -18,6 +18,10 @@ env:
   TAG: pr-builds
   BUILD_WORKFLOW_NAME: "Build OpenEarable v2 Firmware"
 
+concurrency:
+  group: prerelease-open-pr-builds
+  cancel-in-progress: false
+
 jobs:
   prerelease:
     if: |
@@ -93,18 +97,48 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p collected/upload
-          find collected -type f \( -name "*.elf" -o -name "*.zip" \) | while read -r f; do
-            pr=$(echo "$f" | sed -n 's#.*/pr-\([0-9]\+\)/.*#\1#p')
-            base=$(basename "$f")
+          release_id=$(gh api \
+            "repos/${{ github.repository }}/releases/tags/$TAG" \
+            --jq '.id')
+
+          find collected -mindepth 1 -maxdepth 1 -type d -name "pr-*" -print0 | \
+            sort -zV | while IFS= read -r -d '' out; do
+            pr=$(basename "$out" | sed -n 's/^pr-\([0-9]\+\)$/\1/p')
+            [ -n "$pr" ] || continue
+
+            # Asset names include the PR title. Delete every existing asset for
+            # this PR before uploading so title or capitalization changes do
+            # not collide with GitHub's case-insensitive asset-name check.
+            lower_prefix="pr-${pr}-"
+            existing_ids=$(gh api --paginate \
+              "repos/${{ github.repository }}/releases/$release_id/assets?per_page=100" | \
+              jq -r --arg prefix "$lower_prefix" \
+                '.[] | select((.name | ascii_downcase) | startswith($prefix)) | .id')
+            while IFS= read -r existing_id; do
+              [ -n "$existing_id" ] || continue
+              gh api --method DELETE \
+                "repos/${{ github.repository }}/releases/assets/$existing_id"
+            done <<< "$existing_ids"
+
             title_file="collected/pr-$pr/title.txt"
             if [ -f "$title_file" ]; then
               safe_title=$(cat "$title_file")
-              asset="pr-${pr}-${safe_title}-${base}"
             else
-              asset="pr-${pr}-${base}"
+              safe_title=""
             fi
-            cp "$f" "collected/upload/$asset"
-            gh release upload "$TAG" "collected/upload/$asset" --repo "${{ github.repository }}" --clobber
+
+            find "$out" -maxdepth 1 -type f \( -name "*.elf" -o -name "*.zip" \) -print0 | \
+              sort -z | while IFS= read -r -d '' f; do
+              base=$(basename "$f")
+              if [ -n "$safe_title" ]; then
+                asset="pr-${pr}-${safe_title}-${base}"
+              else
+                asset="pr-${pr}-${base}"
+              fi
+              cp "$f" "collected/upload/$asset"
+              gh release upload "$TAG" "collected/upload/$asset" \
+                --repo "${{ github.repository }}"
+            done
           done
           # delete assets of closed PRs
           open_prs="$(jq -r '.[].number' prs.json || true)"
