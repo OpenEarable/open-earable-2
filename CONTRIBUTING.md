@@ -192,7 +192,8 @@ west build --board openearable_v2/nrf5340/cpuapp --pristine=always . -- -DFILE_S
 - Audio builds reserve at least 48 KiB for the Newlib heap used by LC3. The
   linker rejects static buffers that consume this reserve. When changing audio
   memory use, run the linked-firmware allocation test in [tests/README.md](tests/README.md);
-  CI runs it for every firmware build.
+  CI checks an additional 8 KiB runtime reserve and repeated recording starts
+  and stops for every firmware build.
 - Rebuild any additional configuration affected by the change.
 - Flash hardware and smoke-test the changed behavior when the work touches sensors, Bluetooth, power management, storage, or audio paths.
 - Verify any developer tooling changes with the corresponding script in `tools/`.

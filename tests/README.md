@@ -13,10 +13,21 @@ These links target the nRF Connect SDK version pinned in
 
 ## GitHub Actions
 
-The firmware build also runs `audio/test_lc3_heap.py` against the actual linked
-application. It executes LC3 startup and Newlib allocation in an ARM emulator
-for all nine combinations of supported encoder/decoder sample rates. This
-catches runtime allocation failures that a successful link alone cannot detect.
+The firmware build also runs the `audio/test_lc3_heap.py` regression suite against
+the actual linked application. It executes LC3 and Newlib in an ARM emulator,
+using the firmware's configured frame duration, bit depth, and bitrate. It checks:
+
+- The linked image preserves the configured heap budget of at least 48 KiB.
+- All nine encoder/decoder sample-rate combinations leave room for an additional
+  8 KiB allocation and can start with that allocation already held by another user.
+- Repeated starts, stops, and sample-rate changes reuse the heap: three passes
+  over all nine combinations must not grow the allocator's arena after warmup.
+- Deliberately exhausting the heap produces the expected LC3 allocation failure,
+  verifying that the emulator respects the firmware's memory limit.
+
+The 8 KiB reserve is an explicit test budget for other libc users. This suite
+guards those recording scenarios on every firmware build; it cannot guarantee
+availability under arbitrary allocations, leaks elsewhere, or concurrent access.
 It does not test Bluetooth timing or microphone hardware. To run it locally:
 
 ```sh
