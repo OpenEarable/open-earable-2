@@ -189,10 +189,6 @@ west build --board openearable_v2/nrf5340/cpuapp --pristine=always . -- -DFILE_S
 
 ### Recommended When Relevant
 
-- Audio builds reserve enough Newlib heap for the maximum seal-check waveform,
-  duplex LC3, and an 8 KiB runtime budget. The linker rejects static buffers
-  that consume this reserve. When changing audio memory use, run the linked
-  firmware allocation test described in [tests/README.md](tests/README.md).
 - Rebuild any additional configuration affected by the change.
 - Flash hardware and smoke-test the changed behavior when the work touches sensors, Bluetooth, power management, storage, or audio paths.
 - Verify any developer tooling changes with the corresponding script in `tools/`.
