@@ -13,6 +13,17 @@ These links target the nRF Connect SDK version pinned in
 
 ## GitHub Actions
 
+The firmware build also runs `audio/test_lc3_heap.py` against the actual linked
+application. It executes LC3 startup and Newlib allocation in an ARM emulator
+for all nine combinations of supported encoder/decoder sample rates. This
+catches runtime allocation failures that a successful link alone cannot detect.
+It does not test Bluetooth timing or microphone hardware. To run it locally:
+
+```sh
+python3 -m pip install -r tests/audio/requirements.txt
+python3 tests/audio/test_lc3_heap.py build/<application-name>/zephyr/zephyr.elf
+```
+
 The [`Unit Tests`](../.github/workflows/unit_tests.yaml) workflow is the primary
 way to run the test suite. It runs for every pull request, for pushes to `main`,
 and when started manually from GitHub Actions.

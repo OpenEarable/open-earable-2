@@ -21,3 +21,8 @@ target_sources(app PRIVATE
 
 target_sources_ifdef(CONFIG_EQAULIZER_SOFTWARE app PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/Equalizer.cpp)
+
+# Fail the build before static buffers can starve the runtime audio codec.
+if(CONFIG_NEWLIB_LIBC AND NOT CONFIG_NEWLIB_LIBC_ALIGNED_HEAP_SIZE AND NOT CONFIG_MMU)
+    zephyr_linker_sources(SECTIONS ${CMAKE_CURRENT_SOURCE_DIR}/audio_heap.ld)
+endif()
