@@ -32,6 +32,10 @@ LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
 
 #define FIFO_TX_BLOCK_COUNT (CONFIG_FIFO_FRAME_SPLIT_NUM * CONFIG_FIFO_TX_FRAME_COUNT)
 #define FIFO_RX_BLOCK_COUNT (CONFIG_FIFO_FRAME_SPLIT_NUM * CONFIG_FIFO_RX_FRAME_COUNT)
+/* Twelve 10 ms frames preserve 120 ms of scheduling tolerance while leaving
+ * room for LC3 and a retained maximum-size audio-response waveform.
+ */
+#define ENCODER_QUEUE_FRAME_COUNT 12
 
 #define DEBUG_INTERVAL_NUM     1000
 #define TEST_TONE_BASE_FREQ_HZ 1000
@@ -40,7 +44,7 @@ K_THREAD_STACK_DEFINE(encoder_thread_stack, CONFIG_ENCODER_STACK_SIZE);
 
 DATA_FIFO_DEFINE(fifo_tx, FIFO_TX_BLOCK_COUNT, WB_UP(BLOCK_SIZE_BYTES));
 DATA_FIFO_DEFINE(fifo_rx, FIFO_RX_BLOCK_COUNT, WB_UP(BLOCK_SIZE_BYTES));
-K_MSGQ_DEFINE(encoder_queue, sizeof(struct audio_rx_data), 16, 4);
+K_MSGQ_DEFINE(encoder_queue, sizeof(struct audio_rx_data), ENCODER_QUEUE_FRAME_COUNT, 4);
 
 static K_SEM_DEFINE(sem_encoder_start, 0, 1);
 
@@ -133,11 +137,10 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	int debug_trans_count = 0;
 	size_t encoded_data_size = 0;
 
-	//void *tmp_pcm_raw_data[CONFIG_FIFO_FRAME_SPLIT_NUM];
-	char pcm_raw_data[FRAME_SIZE_BYTES];
+	/* Receive the complete queue item, including its size field. */
+	struct audio_rx_data pcm_frame;
 
 	static uint8_t *encoded_data;
-	//static size_t pcm_block_size;
 	static uint32_t test_tone_finite_pos;
 	static bool encode_failed;
 
@@ -145,26 +148,14 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 		/* Don't start encoding until the stream needing it has started */
 		(void)k_poll(&encoder_evt, 1, K_FOREVER);
 
-		/* Get PCM data from I2S */
-		/* Since one audio frame is divided into a number of
-		 * blocks, we need to fetch the pointers to all of these
-		 * blocks before copying it to a continuous area of memory
-		 * before sending it to the encoder
-		 */
-		/*for (int i = 0; i < CONFIG_FIFO_FRAME_SPLIT_NUM; i++) {
-			ret = data_fifo_pointer_last_filled_get(&fifo_rx, &tmp_pcm_raw_data[i],
-								&pcm_block_size, K_FOREVER);
-			ERR_CHK(ret);
-			memcpy(pcm_raw_data + (i * BLOCK_SIZE_BYTES), tmp_pcm_raw_data[i],
-			       pcm_block_size);
-
-			data_fifo_block_free(&fifo_rx, tmp_pcm_raw_data[i]);
-        }*/
-
-		//encoder_queue_get(&fifo_rx, tmp_pcm_raw_data, pcm_raw_data, FRAME_SIZE_BYTES);
-		ret = k_msgq_get(&encoder_queue, &pcm_raw_data, K_FOREVER);
+		ret = k_msgq_get(&encoder_queue, &pcm_frame, K_FOREVER);
 		if (ret) {
 			LOG_WRN("Failed to get message from msgq: %d", ret);
+			continue;
+		}
+
+		if (pcm_frame.size != sizeof(pcm_frame.data)) {
+			LOG_WRN("Dropping incomplete encoder frame: %zu bytes", pcm_frame.size);
 			continue;
 		}
 
@@ -184,12 +175,12 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 				ERR_CHK(ret);
 
 				ret = pscm_copy_pad(tmp, FRAME_SIZE_BYTES / 2,
-						    CONFIG_AUDIO_BIT_DEPTH_BITS, pcm_raw_data,
+						    CONFIG_AUDIO_BIT_DEPTH_BITS, pcm_frame.data,
 						    &num_bytes);
 				ERR_CHK(ret);
 			}
 
-			ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
+			ret = sw_codec_encode(pcm_frame.data, pcm_frame.size, &encoded_data,
 					      &encoded_data_size);
 			if (ret) {
 				if (!encode_failed) {
