@@ -411,7 +411,27 @@ ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize) {
         memcpy(buffer, &encodedSchemeSize, sizeof(encodedSchemeSize));
         buffer += sizeof(encodedSchemeSize);
 
-        ssize_t writtenSize = serializeSensorScheme(scheme, buffer, bufferSize - (buffer - bufferStart));
+        
+         
+         SensorScheme schemeForHeader = *scheme;
+
+        struct sensor_config activeConfig;
+        if (get_sensor_config_status(scheme->id, &activeConfig) == 0 &&
+            activeConfig.sampleRateIndex <
+                scheme->configOptions.frequencyOptions.frequencyCount) {
+
+            schemeForHeader.configOptions
+                .frequencyOptions
+                .defaultFrequencyIndex =
+                    activeConfig.sampleRateIndex;
+        }
+
+        ssize_t writtenSize = serializeSensorScheme(
+            &schemeForHeader,
+            buffer,
+            bufferSize - (buffer - bufferStart)    
+        );
+      
         if (writtenSize < 0) {
             return writtenSize;
         }
