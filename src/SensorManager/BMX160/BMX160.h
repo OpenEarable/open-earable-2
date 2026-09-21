@@ -23,6 +23,8 @@ public:
 
     explicit BMX160(TWIM *i2c);
 
+    bool detect();
+    bool isStandaloneBmi160() const;
     bool init();
     int start(uint8_t odr, float sample_rate_hz, uint8_t buffered_samples);
     int stop();
@@ -41,11 +43,13 @@ private:
 
     int8_t busRead(uint8_t reg_addr, uint8_t *data, uint16_t len);
     int8_t busWrite(uint8_t reg_addr, const uint8_t *data, uint16_t len);
+    bool probeAddress(uint8_t addr, uint8_t *chip_id);
     int configureMagnetometer();
     static uint8_t auxOdrFor(float sample_rate_hz);
 
     TWIM *_i2c;
     uint8_t _addr;
+    bool _standalone_bmi160 = false;
 
     struct bmi160_dev _bmi = {};
     struct bmm150_dev _bmm = {};

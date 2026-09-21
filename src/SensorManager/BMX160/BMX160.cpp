@@ -12,6 +12,8 @@ constexpr float ACCEL_SCALE_2G = (2.0f * EARTH_GRAVITY) / 32768.0f;
 constexpr float GYRO_SCALE_2000_DPS = 2000.0f / 32768.0f;
 constexpr uint8_t FIFO_FRAME_BYTES = 21; // header + 8-byte mag + 6-byte gyro + 6-byte accel
 constexpr uint8_t BMX160_CHIP_ID = 0xD8;
+constexpr uint8_t BMI160_I2C_ADDR_SDO_LOW = 0x68;
+constexpr uint8_t BMI160_I2C_ADDR_SDO_HIGH = 0x69;
 }
 
 BMX160 *BMX160::instance = nullptr;
@@ -78,9 +80,51 @@ int8_t BMX160::busWrite(uint8_t reg_addr, const uint8_t *data, uint16_t len)
     return ret == 0 ? BMI160_OK : BMI160_E_COM_FAIL;
 }
 
-bool BMX160::init()
+bool BMX160::probeAddress(uint8_t addr, uint8_t *chip_id)
+{
+    _i2c->aquire();
+    const int ret = i2c_burst_read(_i2c->master, addr, BMI160_CHIP_ID_ADDR, chip_id, 1);
+    _i2c->release();
+    return ret == 0;
+}
+
+bool BMX160::detect()
 {
     _i2c->begin();
+
+    uint8_t chip_id = 0;
+    // Hardware 2.1 selects the alternate address by pulling BMI160 SDO high.
+    if (probeAddress(BMI160_I2C_ADDR_SDO_HIGH, &chip_id) && chip_id == BMI160_CHIP_ID) {
+        _addr = BMI160_I2C_ADDR_SDO_HIGH;
+        _standalone_bmi160 = true;
+        LOG_INF("Standalone BMI160 detected at 0x%02x", _addr);
+        return true;
+    }
+
+    if (probeAddress(BMI160_I2C_ADDR_SDO_LOW, &chip_id) &&
+        (chip_id == BMX160_CHIP_ID || chip_id == BMI160_CHIP_ID)) {
+        _addr = BMI160_I2C_ADDR_SDO_LOW;
+        _standalone_bmi160 = false;
+        LOG_INF("%s detected at 0x%02x",
+                chip_id == BMX160_CHIP_ID ? "BMX160" : "BMI160", _addr);
+        return true;
+    }
+
+    _standalone_bmi160 = false;
+    LOG_WRN("No BMI160/BMX160 found at 0x68 or 0x69");
+    return false;
+}
+
+bool BMX160::isStandaloneBmi160() const
+{
+    return _standalone_bmi160;
+}
+
+bool BMX160::init()
+{
+    if (!detect()) {
+        return false;
+    }
 
     _bmi = {};
     _bmi.id = _addr;
@@ -278,6 +322,9 @@ int BMX160::read(BMX160Sample *samples, uint8_t max_samples)
         if (result != BMM150_OK) {
             return result;
         }
+        // Paired multi-pose validation showed that hardware 2.0 and 2.1 use
+        // the same BMM150 axis order. Keep Bosch's compensated X/Y/Z output
+        // unchanged; unit-specific hard/soft-iron calibration happens later.
         samples[i].mag[0] = mag.x;
         samples[i].mag[1] = mag.y;
         samples[i].mag[2] = mag.z;
