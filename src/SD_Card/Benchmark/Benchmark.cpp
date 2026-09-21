@@ -1,7 +1,7 @@
 #include "Benchmark.h"
 
-Benchmark::Benchmark(void (*benchmark_function)()) {
-    this->function = benchmark_function;
+Benchmark::Benchmark(void (*function)()) {
+    this->function = function;
 }
 
 void Benchmark::start() {

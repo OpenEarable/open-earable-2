@@ -15,7 +15,7 @@ enum ParseType {
     PARSE_TYPE_DOUBLE,
 };
 
-static const int parseTypeSizes[] = {
+const int parseTypeSizes[] = {
     1,  // PARSE_TYPE_INT8
     1,  // PARSE_TYPE_UINT8
 

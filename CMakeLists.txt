@@ -76,9 +76,6 @@ add_subdirectory(src/SD_Card/SDLogger)
 add_subdirectory(src/SD_Card/Benchmark)
 add_subdirectory(src/SD_Card/SD_Card_Manager)
 add_subdirectory(src/time_sync)
-add_subdirectory(protocol/generated/c)
-
-target_link_libraries(open_earable_protocols PRIVATE zephyr_interface)
 
 ## Cirrus Logic
 if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
@@ -91,5 +88,3 @@ endif()
 
 include(version.cmake)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
-
-target_link_libraries(app PRIVATE open_earable_protocols)
