@@ -99,6 +99,12 @@ jobs:
           # print detailed ccache statistics
           ccache -sv
 
+      - name: Verify audio runtime memory
+        run: |
+          python3 -m pip install -r zephyr-workspace/open-earable-v2/tests/audio/requirements.txt
+          python3 zephyr-workspace/open-earable-v2/tests/audio/test_audio_heap.py \
+            zephyr-workspace/build/open-earable-v2/zephyr/zephyr.elf
+
       - name: Check And Prepare Build Output
         run: |
           mkdir -p $(pwd)/workflow-board-temp/build-output
