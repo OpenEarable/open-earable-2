@@ -13,23 +13,6 @@ These links target the nRF Connect SDK version pinned in
 
 ## GitHub Actions
 
-The firmware build also runs `audio/test_audio_heap.py` against the linked
-application. It executes the real LC3 and Newlib allocation code in an ARM
-emulator. The test covers every supported encoder/decoder rate combination,
-multiple allocation orders for the maximum seal-check waveform and LC3, repeated
-recording restarts while the app reuses its uploaded waveform, and the temporary
-measurement capture. Each runtime scenario must retain an additional 8 KiB
-allocation budget.
-
-The test guards the known concurrent audio allocations; it cannot prove that
-arbitrary future allocations or leaks will fit. It does not exercise Bluetooth
-timing or microphone hardware. To run it locally:
-
-```sh
-python3 -m pip install -r tests/audio/requirements.txt
-python3 tests/audio/test_audio_heap.py build/<application-name>/zephyr/zephyr.elf
-```
-
 The [`Unit Tests`](../.github/workflows/unit_tests.yaml) workflow is the primary
 way to run the test suite. It runs for every pull request, for pushes to `main`,
 and when started manually from GitHub Actions.
