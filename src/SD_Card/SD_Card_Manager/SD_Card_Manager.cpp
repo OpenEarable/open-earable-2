@@ -35,7 +35,6 @@ bool SDCardManager::sd_inserted() {
 }
 
 void SDCardManager::unmount_work_handler(struct k_work *work) {
-	ARG_UNUSED(work);
 	int ret;
 
 	bool _inserted = sdcard_manager.sd_inserted();
@@ -44,9 +43,6 @@ void SDCardManager::unmount_work_handler(struct k_work *work) {
 
     if (!_inserted) {
 		ret = sdcard_manager.unmount();
-		if (ret != 0) {
-			LOG_ERR("Failed to unmount SD card: %d", ret);
-		}
 		LOG_INF("SD card unmounted due to card removal.");
 		
 		ret = zbus_chan_pub(&sd_card_chan, &msg, K_FOREVER);
@@ -59,13 +55,10 @@ void SDCardManager::unmount_work_handler(struct k_work *work) {
 K_WORK_DELAYABLE_DEFINE(SDCardManager::unmount_work, SDCardManager::unmount_work_handler);
 
 void SDCardManager::sd_card_state_change_isr(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
-	ARG_UNUSED(dev);
-	ARG_UNUSED(cb);
-	ARG_UNUSED(pins);
     k_work_reschedule(&sdcard_manager.unmount_work, SD_DEBOUNCE_MS);
 }
 
-SDCardManager::SDCardManager(): current_path(SD_ROOT_PATH) {
+SDCardManager::SDCardManager(): path(SD_ROOT_PATH) {
 	fs_dir_t_init(&this->dirp);
 }
 
@@ -115,11 +108,13 @@ int SDCardManager::aquire_ls() {
 }
 
 int SDCardManager::release_ls() {
+	int ret;
+
 	if (!ls_aquired) return -EALREADY;
 
-	(void)pm_device_runtime_put(ls_1_8);
-	(void)pm_device_runtime_put(ls_3_3);
-	(void)pm_device_runtime_put(ls_sd);
+	ret = pm_device_runtime_put(ls_1_8);
+	ret = pm_device_runtime_put(ls_3_3);
+	ret = pm_device_runtime_put(ls_sd);
 
 	ls_aquired = false;
 
@@ -130,7 +125,7 @@ void SDCardManager::init() {
 	int ret;
 
     if (!device_is_ready(sd_state_pin.port)) {
-		(void)aquire_ls();
+		ret = aquire_ls();
         LOG_ERR("SD state GPIO device not ready\n");
         return;
     }
@@ -180,7 +175,7 @@ int SDCardManager::mount() {
 	uint32_t sector_count;
 	size_t sector_size;
 
-	(void)aquire_ls();
+	ret = aquire_ls();
 
 	bool _sd_inserted = sd_inserted();
 
@@ -244,8 +239,8 @@ int SDCardManager::mount() {
 		return ret;
 	}
 
-	LOG_DBG("Root dir: %s", this->current_path.c_str());
-	ret = fs_opendir(&this->dirp, this->current_path.c_str());
+	LOG_DBG("Root dir: %s", this->path.c_str());
+	ret = fs_opendir(&this->dirp, this->path.c_str());
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	if (ret) {
 		release_ls();
@@ -287,7 +282,7 @@ int SDCardManager::cd(std::string path) {
 		return ret;
 	}
 
-	std::string abs_path_name = create_path(this->current_path, path);
+	std::string abs_path_name = create_path(this->path, path);
 
 	LOG_DBG("abs path name:\t%s", abs_path_name.c_str());
 
@@ -297,8 +292,8 @@ int SDCardManager::cd(std::string path) {
 	if (ret) {
 		LOG_ERR("Open SD card dir failed: %d", ret);
 		// Try to revert to the previous path if the new one fails
-		if (this->current_path != path) {
-			int rret = fs_opendir(&this->dirp, this->current_path.c_str());
+		if (this->path != path) {
+			int rret = fs_opendir(&this->dirp, this->path.c_str());
 			if (rret) {
 				LOG_ERR("Failed to cd back to previous dir: %d", rret);
 			}
@@ -307,7 +302,7 @@ int SDCardManager::cd(std::string path) {
 		return ret;
 	}
 
-	this->current_path = abs_path_name;
+	this->path = abs_path_name;
 
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
@@ -330,7 +325,7 @@ int SDCardManager::ls(char *buf, size_t *buf_size) {
 		return -ENODEV;
 	}
 
-	if (this->current_path.length() > CONFIG_FS_FATFS_MAX_LFN) {
+	if (this->path.length() > CONFIG_FS_FATFS_MAX_LFN) {
 		LOG_ERR("Path is too long");
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -FR_INVALID_NAME;
@@ -353,7 +348,7 @@ int SDCardManager::ls(char *buf, size_t *buf_size) {
 				&buf[used_buf_size], remaining_buf_size, "[%s]\t%s\n",
 				entry.type == FS_DIR_ENTRY_DIR ? "DIR " : "FILE", entry.name);
 
-			if (len < 0 || (size_t)len >= remaining_buf_size) {
+			if (len >= remaining_buf_size) {
 				LOG_ERR("Failed to append to buffer, error: %d", len);
 				k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 				return -EINVAL;
@@ -390,7 +385,7 @@ int SDCardManager::mkdir(std::string path) {
 		return -FR_INVALID_NAME;
 	}
 
-	std::string abs_path_name = create_path(this->current_path, path);
+	std::string abs_path_name = create_path(this->path, path);
 
 	ret = fs_mkdir(abs_path_name.c_str());
 	if (ret) {
@@ -422,7 +417,7 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 		return -ENAMETOOLONG;
 	}
 
-	std::string abs_path_name = create_path(this->current_path, path);
+	std::string abs_path_name = create_path(this->path, path);
 
 	if (this->tracked_file.is_open) {
 		LOG_ERR("File is already open");
@@ -451,7 +446,7 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 	}
 
 	this->tracked_file.is_open = true;
-	this->current_path = abs_path_name;
+	this->path = abs_path_name;
 
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
@@ -483,10 +478,10 @@ int SDCardManager::close_file() {
 		return ret;
 	}
 
-	LOG_DBG("File %s closed", this->current_path.c_str());
-	size_t last_slash_pos = this->current_path.find_last_of("/");
+	LOG_DBG("File %s closed", this->path.c_str());
+	size_t last_slash_pos = this->path.find_last_of("/");
 	if (last_slash_pos != std::string::npos) {
-		this->current_path = this->current_path.substr(0, last_slash_pos);
+		this->path = this->path.substr(0, last_slash_pos);
 	}
 	this->tracked_file.is_open = false;
 
@@ -644,7 +639,7 @@ int SDCardManager::rm(std::string path) {
 		return -FR_INVALID_NAME;
 	}
 
-	std::string abs_path_name = create_path(this->current_path, path);
+	std::string abs_path_name = create_path(this->path, path);
 
 	ret = fs_unlink(abs_path_name.c_str());
 	if (ret) {

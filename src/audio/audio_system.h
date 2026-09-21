@@ -39,24 +39,6 @@ void audio_system_encoder_stop(void);
 bool audio_system_encoder_is_started(void);
 
 /**
- * @brief Exclusively suspend the audio system while preserving requested state.
- *
- * Start, stop, and encoder requests received during the suspension are deferred
- * and applied by audio_system_resume().
- *
- * @return 0 on success, or -EBUSY if the system is already suspended.
- */
-int audio_system_suspend(void);
-
-/**
- * @brief Release an exclusive suspension and apply the latest audio state.
- *
- * @return 0 on success, -EALREADY if the system is not suspended, or a
- *         negative startup error when the preserved audio state cannot resume.
- */
-int audio_system_resume(void);
-
-/**
  * @brief	Toggle a test tone on and off.
  *
  * @note	A stream must already be running to use this feature.
@@ -105,11 +87,9 @@ int audio_system_config_set(uint32_t encoder_sample_rate_hz, uint32_t encoder_bi
 int audio_system_decode(void const *const encoded_data, size_t encoded_data_size, bool bad_frame);
 
 /**
- * @brief Initialize and start both HW and SW audio codecs.
- *
- * @return 0 on success, or a negative error returned by the codec or datapath.
+ * @brief	Initialize and start both HW and SW audio codec.
  */
-int audio_system_start(void);
+void audio_system_start(void);
 
 /**
  * @brief	Stop all activities related to audio.

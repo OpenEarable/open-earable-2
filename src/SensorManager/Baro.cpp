@@ -35,7 +35,6 @@ const SampleRateSetting<18> Baro::sample_rates = {
 };
 
 void Baro::update_sensor(struct k_work *work) {
-	ARG_UNUSED(work);
 	int ret;
 
 	bmp.performReading();
@@ -52,10 +51,7 @@ void Baro::update_sensor(struct k_work *work) {
 	msg_baro.data.size = 2 * sizeof(float);
 	msg_baro.data.time = micros();
 
-	float data[2] = {
-		static_cast<float>(bmp.temperature),
-		static_cast<float>(bmp.pressure),
-	};
+	float data[2] = {bmp.temperature, bmp.pressure};
 
 	memcpy(msg_baro.data.data, data, 2 * sizeof(float));
 
@@ -70,7 +66,6 @@ void Baro::update_sensor(struct k_work *work) {
 */
 void Baro::sensor_timer_handler(struct k_timer *dummy)
 {
-	ARG_UNUSED(dummy);
 	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
 };
 
@@ -98,7 +93,7 @@ bool Baro::init(struct k_msgq * queue) {
 void Baro::start(int sample_rate_idx) {
 	baro_initial_discard = 1;
 
-    k_timeout_t t = K_USEC(1000000.0f / sample_rates.true_sample_rates[sample_rate_idx]);
+    k_timeout_t t = K_USEC(1e6 / sample_rates.true_sample_rates[sample_rate_idx]);
     
     //bmp.set_interrogation_rate(setting.reg_val);
     //bmp.start();
