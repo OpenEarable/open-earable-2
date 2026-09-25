@@ -66,18 +66,8 @@ bool PPG::init(struct k_msgq * queue) {
         pm_device_runtime_get(ls_1_8);
         pm_device_runtime_get(ls_3_3);
 
-        const struct gpio_dt_spec LDO_EN = {
-            .port = DEVICE_DT_GET(DT_NODELABEL(gpio0)),
-            .pin = 6,
-            .dt_flags = GPIO_ACTIVE_HIGH
-        };
-
-        int ret = gpio_pin_configure_dt(&LDO_EN, GPIO_OUTPUT_ACTIVE);
-        if (ret != 0) {
-            LOG_WRN("Failed to set GPOUT as input.\n");
-            return false;
-        }
-
+        // PPG LDO_EN is supplied by V_LS. Leave P0.6/IO4 in its reset
+        // high-impedance state to avoid back-powering V_LS through the flex.
         k_msleep(5);
 
     	_active = true;
