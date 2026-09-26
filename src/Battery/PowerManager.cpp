@@ -29,7 +29,6 @@
 #include "../utils/StateIndicator.h"
 
 #include "bt_mgmt.h"
-#include "bt_mgmt_ctlr_cfg_internal.h"
 
 #include <zephyr/logging/log_ctrl.h>
 
@@ -561,8 +560,6 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
 }
 
 void PowerManager::reboot() {
-    int ret;
-    
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
@@ -570,9 +567,6 @@ void PowerManager::reboot() {
     (void)bt_le_adv_stop();
 
     stop_sensor_manager();
-
-    ret = bt_mgmt_stop_watchdog();
-    ERR_CHK(ret);
 
     dac.end();
 
@@ -626,9 +620,6 @@ int PowerManager::power_down(bool fault) {
         LOG_INF("Power off");
     }
     LOG_PANIC();
-
-    (void)bt_mgmt_stop_watchdog();
-    //ERR_CHK(ret);
 
     dac.end();
 

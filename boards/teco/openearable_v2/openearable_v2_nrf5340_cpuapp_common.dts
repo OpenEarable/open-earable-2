@@ -125,7 +125,7 @@
 	 };
  
 	 adau1860: adau1860@64 {
-		 compatible = "analog,adau1860";
+		 compatible = "adi,adau1860";
 		 reg = <0x64>;
 		 enable-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
 	 };
@@ -262,8 +262,4 @@
 	 nfct-pins-as-gpios;
  };
  
- /* Include partition configuration file */
- //#include "openearable_v2_nrf5340_cpuapp_partition_conf.dts"
- #include <common/nordic/nrf5340_cpuapp_partition.dtsi>
  #include "openearable_v2_nrf5340_shared.dtsi"
- 

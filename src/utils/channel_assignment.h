@@ -22,7 +22,7 @@
 
 static const char CH_L_TAG[] = "HL";
 static const char CH_R_TAG[] = "HR";
-static const char GW_TAG[] = "GW";
+static const char CHANNEL_GW_TAG[] = "GW";
 
 #ifdef __cplusplus
 extern "C" {
