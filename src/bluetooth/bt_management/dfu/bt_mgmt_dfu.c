@@ -89,7 +89,7 @@ static void dfu_set_bt_name(void)
 	}
 
 #if (CONFIG_AUDIO_DEV == GATEWAY)
-	ret = strlcat(name, GW_TAG, CONFIG_BT_DEVICE_NAME_MAX);
+	ret = strlcat(name, CHANNEL_GW_TAG, CONFIG_BT_DEVICE_NAME_MAX);
 	if (ret >= CONFIG_BT_DEVICE_NAME_MAX) {
 		LOG_ERR("Failed to set full BT name, will truncate");
 	}

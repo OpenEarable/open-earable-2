@@ -38,6 +38,9 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(streamctrl, CONFIG_MAIN_LOG_LEVEL);
 
+BUILD_ASSERT(CONFIG_BT_AUDIO_CONCURRENT_RX_STREAMS_MAX <= CONFIG_AUDIO_DECODE_CHANNELS_MAX);
+BUILD_ASSERT(CONFIG_BT_AUDIO_CONCURRENT_TX_STREAMS_MAX <= CONFIG_AUDIO_ENCODE_CHANNELS_MAX);
+
 ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 
 ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
@@ -390,6 +393,10 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 
 		break;
 
+	case BT_MGMT_PAIRING_COMPLETE:
+		/* Pairing state is handled by the OpenEarable application layer. */
+		break;
+
 	default:
 		LOG_WRN("Unexpected/unhandled bt_mgmt event: %d", msg->event);
 
@@ -483,6 +490,11 @@ static int ext_adv_populate(struct bt_data *ext_adv_buf, size_t ext_adv_buf_size
 		return ret;
 	}
 
+	ext_adv_buf[ext_adv_buf_cnt].type = BT_DATA_NAME_COMPLETE;
+	ext_adv_buf[ext_adv_buf_cnt].data = CONFIG_BT_DEVICE_NAME;
+	ext_adv_buf[ext_adv_buf_cnt].data_len = sizeof(CONFIG_BT_DEVICE_NAME) - 1;
+	ext_adv_buf_cnt++;
+
 	ret = unicast_server_adv_populate(&ext_adv_buf[ext_adv_buf_cnt],
 					  ext_adv_buf_size - ext_adv_buf_cnt);
 
@@ -509,15 +521,13 @@ uint8_t stream_state_get(void)
 	return strm_state;
 }
 
-void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
+void streamctrl_send(struct net_buf const *const audio_frame)
 {
 	int ret;
 	static int prev_ret;
 
-	struct le_audio_encoded_audio enc_audio = {.data = data, .size = size, .num_ch = num_ch};
-
 	if (strm_state == STATE_STREAMING) {
-		ret = unicast_server_send(enc_audio);
+		ret = unicast_server_send(audio_frame);
 
 		if (ret != 0 && ret != prev_ret) {
 			if (ret == -ECANCELED) {
@@ -757,7 +767,9 @@ int streamctrl_start() //streamctrl_start
 			if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
 			else LOG_ERR("UICR writing error: %i", ret);
 		} else {
-			struct bt_le_scan_param  * scan_param = BT_LE_SCAN_PARAM(NRF5340_AUDIO_GATEWAY_SCAN_TYPE, BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
+			struct bt_le_scan_param *scan_param =
+				BT_LE_SCAN_PARAM(NRF_AUDIO_GATEWAY_SCAN_TYPE,
+						 BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
 			
 			int err = bt_le_scan_start(scan_param, device_found);
 			if (err) LOG_ERR("Scanning failed to start (err %d)", err);

@@ -37,7 +37,6 @@ config AUDIO_MIN_PRES_DLY_US
 	help
 	  The minimum allowable presentation delay in microseconds.
 	  This needs to allow time for decoding and internal routing.
-	  For 48kHz sampling rate and 96kbps bitrate this is about 4000 us.
 
 config AUDIO_MAX_PRES_DLY_US
 	int "The maximum presentation delay"
@@ -62,17 +61,17 @@ choice AUDIO_SYSTEM_SAMPLE_RATE
 config AUDIO_SAMPLE_RATE_16000_HZ
 	bool "16 kHz"
 	help
-	  Sample rate of 16kHz is currently only valid for I2S/line-in.
+	  Sample rate of 16 kHz is currently only valid for I2S/line-in.
 
 config AUDIO_SAMPLE_RATE_24000_HZ
 	bool "24 kHz"
 	help
-	  Sample rate of 24kHz is currently only valid for I2S/line-in.
+	  Sample rate of 24 kHz is currently only valid for I2S/line-in.
 
 config AUDIO_SAMPLE_RATE_48000_HZ
 	bool "48 kHz"
 	help
-	  Sample rate of 48kHz is valid for both I2S/line-in and USB.
+	  Sample rate of 48 kHz is valid for both I2S/line-in and USB.
 endchoice
 
 config AUDIO_SAMPLE_RATE_HZ
@@ -111,6 +110,42 @@ config AUDIO_BIT_DEPTH_OCTETS
 	help
 	  Bit depth of one sample in storage given in octets.
 
+config AUDIO_DECODE_CHANNELS_MAX
+	int "Maximum number of audio channels to decode"
+	default 1
+	help
+	  Maximum number of audio channels that can be decoded.
+	  This number may have a large impact on memory and CPU usage.
+
+config AUDIO_ENCODE_CHANNELS_MAX
+	int "Maximum number of audio channels to encode"
+	default 2
+	help
+	  Maximum number of audio channels that can be encoded.
+	  This number may have a large impact on memory and CPU usage.
+
+config AUDIO_INPUT_CHANNELS
+	int "Maximum number of simultaneous audio input channels"
+	default 2 if AUDIO_SOURCE_I2S
+	default 2 if AUDIO_SOURCE_USB
+	default 1
+	range 1 2
+	help
+	  Maximum number of audio channels that can be physically input.
+	  This is dependent on the HW itself.
+
+config AUDIO_OUTPUT_CHANNELS
+	int "Maximum number of simultaneous audio output channels"
+	default 2 if AUDIO_SOURCE_I2S
+	default 2 if AUDIO_SOURCE_USB
+	default 1
+	range 1 2
+	help
+	  Maximum number of audio channels that can be physically output.
+	  This is dependent on the HW itself.
+	  Eg. for the nRF5340 Audio DK, the I2S supports 2 channels.
+	  However, the HW Codec's (CS47L63) DAC only supports 1 channel out.
+
 choice AUDIO_SOURCE_GATEWAY
 	prompt "Audio source for gateway"
 	default AUDIO_SOURCE_I2S if WALKIE_TALKIE_DEMO
@@ -119,13 +154,17 @@ choice AUDIO_SOURCE_GATEWAY
 	  Select audio source for the gateway.
 
 config AUDIO_SOURCE_USB
-	bool "Use USB as audio source"
+	bool "USB as audio source"
+	select USB_DEVICE_STACK_NEXT
+	select USBD_AUDIO2_CLASS
 	help
 	  Set USB as audio source. Note that this forces the
 	  stream to be unidirectional because of CPU load.
 
 config AUDIO_SOURCE_I2S
-	bool "Use I2S as audio source"
+	bool "I2S as audio source"
+	help
+	  Set I2S as audio source.
 endchoice
 
 choice AUDIO_MIC_SOURCE
@@ -133,34 +172,65 @@ choice AUDIO_MIC_SOURCE
 	prompt "Audio microphone source for bidirectional stream"
 	default AUDIO_MIC_I2S
 	help
-	  Select microphone source for the bidrectional le audio.
+	  Select the OpenEarable microphone source for bidirectional LE Audio.
 
 config AUDIO_MIC_PDM
-	bool "Use Mic via PDM"
+	bool "PDM microphone"
 
 config AUDIO_MIC_I2S
-	bool "Use Mic via I2S"
+	bool "I2S microphone"
 endchoice
 
 choice AUDIO_HEADSET_CHANNEL
 	prompt "Headset audio channel assignment"
 	default AUDIO_HEADSET_CHANNEL_RUNTIME
 	help
-	  Set whether audio channel assignment for the headset
-	  should happen at runtime or compile-time.
+	  Select whether the left/right channel is assigned at runtime or at
+	  compile time. The OpenEarable services still expose this assignment.
 
 config AUDIO_HEADSET_CHANNEL_RUNTIME
 	bool "Select at runtime"
 	help
-	  Make channel selection at runtime. Selected value is stored in persistent memory.
-	  Left channel: Hold volume-down button on headset while resetting headset.
-	  Right channel: Hold volume-up button on headset while resetting headset.
+	  Store the selected left/right channel in UICR.
 
 config AUDIO_HEADSET_CHANNEL_COMPILE_TIME
 	bool "Set at compile-time"
-	help
-	  Set channel selection at compile-time.
 endchoice
+
+config AUDIO_HEADSET_CHANNEL
+	int "Audio channel used by headset"
+	depends on AUDIO_HEADSET_CHANNEL_COMPILE_TIME
+	range 0 1
+	default 0
+	help
+	  Left = 0, right = 1.
+
+choice AUDIO_DEVICE_LOCATION_WHEN_TO_SET
+	prompt "Audio device location assignment"
+	default DEVICE_LOCATION_SET_RUNTIME
+	help
+	  Set whether audio location assignment
+	  should happen at runtime or compile-time.
+
+config DEVICE_LOCATION_SET_RUNTIME
+	bool "Select at runtime"
+	help
+	  Make location selection at runtime. Selected value is stored in persistent memory.
+	  FRONT_LEFT: Hold volume-down button while resetting headset.
+	  FRONT_RIGHT: Hold volume-up button while resetting headset.
+
+config DEVICE_LOCATION_SET_COMPILE_TIME
+	bool "Set at compile-time"
+	help
+	  Set location at compile-time.
+endchoice
+
+config DEVICE_LOCATION_AT_COMPILE_TIME
+	int "Device location bitfield according to bt_audio_location"
+	depends on DEVICE_LOCATION_SET_COMPILE_TIME
+	default 1
+	help
+	  Sets FRONT_LEFT location as default.
 
 config AUDIO_TEST_TONE
 	bool "Test tone instead of doing user defined action"
@@ -177,19 +247,6 @@ config AUDIO_MUTE
 	help
 	  Use button 5 to mute audio instead of
 	  doing a user defined action.
-
-if AUDIO_HEADSET_CHANNEL_COMPILE_TIME
-
-config AUDIO_HEADSET_CHANNEL
-	int "Audio channel used by headset"
-	range 0 1
-	default 0
-	help
-	  Audio channel compile-time selection.
-	  Left = 0.
-	  Right = 1.
-
-endif # AUDIO_HEADSET_CHANNEL_COMPILE_TIME
 
 #----------------------------------------------------------------------------#
 menu "SW Codec"
@@ -384,7 +441,7 @@ config BT_MGMT_MSG_SUB_STACK_SIZE
 
 config CONTENT_CONTROL_MSG_SUB_STACK_SIZE
 	int "Stack size for content control subscriber"
-	default 1024
+	default 1200
 
 endmenu # Stack sizes
 

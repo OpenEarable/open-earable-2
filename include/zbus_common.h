@@ -13,6 +13,7 @@
 
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
+#define ZBUS_STREAMS_NUM_MAX	8
 
 /***** Messages for zbus ******/
 
@@ -35,6 +36,7 @@ enum le_audio_evt_type {
 	LE_AUDIO_EVT_SYNC_LOST,
 	LE_AUDIO_EVT_NO_VALID_CFG,
 	LE_AUDIO_EVT_COORD_SET_DISCOVERED,
+	LE_AUDIO_EVT_DISCOVERY_COMPLETE,
 };
 
 struct le_audio_msg {
@@ -45,6 +47,16 @@ struct le_audio_msg {
 	uint8_t set_size;
 	uint8_t const *sirk;
 	struct stream_index idx;
+	struct bt_bap_stream *stream;
+};
+
+enum tx_data_status {
+	STATUS_NOT_SET = 0,		  /* Initial status */
+	STATUS_SENT_WITH_TS,		  /* Data sent with timestamp */
+	STATUS_SENT_WITHOUT_TS,		  /* Data sent without timestamp */
+	STATUS_OVERRUN_FLUSHED,		  /* Data overrun, flushed */
+	STATUS_UNDERRUN_EMPTY_SDU_ON_AIR, /* Data underrun, empty SDU on air */
+	STATUS_ERROR,			  /* Error occurred (e.g. failed to send) */
 };
 
 /**
@@ -53,14 +65,20 @@ struct le_audio_msg {
  */
 struct sdu_ref_msg {
 	uint32_t tx_sync_ts_us;
+	bool tx_sync_ts_us_valid;
 	uint32_t curr_ts_us;
+	enum tx_data_status status;
 	bool adjust;
+	struct stream_index idx[ZBUS_STREAMS_NUM_MAX];
+	uint8_t num_idx;
 };
 
 enum bt_mgmt_evt_type {
 	BT_MGMT_EXT_ADV_WITH_PA_READY = 1,
 	BT_MGMT_CONNECTED,
 	BT_MGMT_SECURITY_CHANGED,
+	BT_MGMT_PAIRING_COMPLETE,
+	BT_MGMT_BOND_DELETED,
 	BT_MGMT_PA_SYNCED,
 	BT_MGMT_PA_SYNC_LOST,
 	BT_MGMT_DISCONNECTED,
@@ -76,6 +94,8 @@ struct bt_mgmt_msg {
 	struct bt_le_per_adv_sync *pa_sync;
 	uint32_t broadcast_id;
 	uint8_t pa_sync_term_reason;
+	bt_addr_le_t addr;
+	bt_addr_le_t identity;
 };
 
 enum volume_evt_type {

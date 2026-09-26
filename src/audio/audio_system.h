@@ -4,18 +4,30 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+/** @file
+ * @defgroup audio_app_system Audio System
+ * @{
+ * @brief Core audio system API for Audio applications.
+ *
+ * This module provides the central audio processing functionality for the Audio
+ * applications, managing both hardware (DAC/ADC) and software codecs (such as LC3).
+ */
+
 #ifndef _AUDIO_SYSTEM_H_
 #define _AUDIO_SYSTEM_H_
 
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
-
-#define VALUE_NOT_SET 0
+#include <zephyr/net_buf.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "audio_defines.h"
+
+#define VALUE_NOT_SET 0
 
 /**
  * @brief	Start the execution of the encoder thread.
@@ -31,30 +43,11 @@ void audio_system_encoder_start(void);
 void audio_system_encoder_stop(void);
 
 /**
- * @brief	Check if the encoder is ready to accept PCM frames.
+ * @brief	Check if the encoder thread is currently enabled to execute.
  *
- * @retval	true	The software codec encoder is initialized and streaming is enabled.
- * @retval	false	The encoder is stopped or the codec has not been initialized.
+ * @return	true if encoder thread is enabled, false otherwise.
  */
 bool audio_system_encoder_is_started(void);
-
-/**
- * @brief Exclusively suspend the audio system while preserving requested state.
- *
- * Start, stop, and encoder requests received during the suspension are deferred
- * and applied by audio_system_resume().
- *
- * @return 0 on success, or -EBUSY if the system is already suspended.
- */
-int audio_system_suspend(void);
-
-/**
- * @brief Release an exclusive suspension and apply the latest audio state.
- *
- * @return 0 on success, -EALREADY if the system is not suspended, or a
- *         negative startup error when the preserved audio state cannot resume.
- */
-int audio_system_resume(void);
 
 /**
  * @brief	Toggle a test tone on and off.
@@ -94,20 +87,26 @@ int audio_system_config_set(uint32_t encoder_sample_rate_hz, uint32_t encoder_bi
 			    uint32_t decoder_sample_rate_hz);
 
 /**
+ * @brief	Set the number of channels for the encoder based on the given audio locations.
+ *
+ * @param[in]	locations	Audio locations bitmask.
+ *
+ * @retval	-EINVAL	Invalid number of channels derived from locations.
+ * @retval	0	On success.
+ */
+int audio_system_encoder_num_ch_set(uint32_t locations);
+
+/**
  * @brief	Decode data and then add it to TX FIFO buffer.
  *
- * @param[in]	encoded_data		Pointer to encoded data.
- * @param[in]	encoded_data_size	Size of encoded data.
- * @param[in]	bad_frame		Indication on missed or incomplete frame.
+ * @param[in]	audio_frame	Pointer to the audio data.
  *
  * @return	0 on success, error otherwise.
  */
-int audio_system_decode(void const *const encoded_data, size_t encoded_data_size, bool bad_frame);
+int audio_system_decode(struct net_buf *audio_frame);
 
 /**
- * @brief Initialize and start both HW and SW audio codecs.
- *
- * @return 0 on success, or a negative error returned by the codec or datapath.
+ * @brief	Initialize and start both HW and SW audio codec.
  */
 int audio_system_start(void);
 
@@ -117,16 +116,6 @@ int audio_system_start(void);
 void audio_system_stop(void);
 
 /**
- * @brief	Drop oldest block from the fifo_rx buffer.
- *
- * @note	This can be used to reduce latency by adjusting the timing of the completed frame
- *		that was sampled in relation to the connection interval in Bluetooth LE.
- *
- * @return	0 on success, -ECANCELED otherwise.
- */
-int audio_system_fifo_rx_block_drop(void);
-
-/**
  * @brief	Get number of decoder channels.
  *
  * @return	Number of decoder channels.
@@ -134,24 +123,23 @@ int audio_system_fifo_rx_block_drop(void);
 int audio_system_decoder_num_ch_get(void);
 
 /**
- * @brief	Initialize the audio_system.
+ * @brief	Initialize the audio system.
  *
  * @return	0 on success, error otherwise.
  */
 int audio_system_init(void);
 
-/**
- * @brief Set the encoder channel (left or right)
- *
- * @param[in] channel AUDIO_CH_L for left, AUDIO_CH_R for right
- * @return 0 on success, error otherwise
- */
+int audio_system_suspend(void);
+int audio_system_resume(void);
 int audio_system_set_encoder_channel(uint8_t channel);
-
-uint8_t audio_system_get_encoder_channel();
+uint8_t audio_system_get_encoder_channel(void);
 
 #ifdef __cplusplus
 }
 #endif
+
+/**
+ * @}
+ */
 
 #endif /* _AUDIO_SYSTEM_H_ */
