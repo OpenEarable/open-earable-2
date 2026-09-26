@@ -85,7 +85,8 @@ int main(void) {
 	streamctrl_start();
 
 	uint32_t sirk = uicr_sirk_get();
-
+	uint8_t bonded_device_count = 0;
+	bt_mgmt_num_bonds_get(&bonded_device_count);
 	if (sirk == 0xFFFFFFFFU) {
 		state_indicator.set_pairing_state(SET_PAIRING);
 	} else if (bonded_device_count > 0 && !oe_boot_state.timer_reset) {

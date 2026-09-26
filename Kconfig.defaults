@@ -11,11 +11,11 @@ config MAIN_THREAD_PRIORITY
 	default 10
 
 config MAIN_STACK_SIZE
-	default 1800 if SD_CARD_PLAYBACK
-	default 1600
+	default 2500 if SD_CARD_PLAYBACK
+	default 2000
 
 config SYSTEM_WORKQUEUE_STACK_SIZE
-	default 1200
+	default 2000
 
 # As long as thread names are used, config must be set to "y"
 config THREAD_NAME
@@ -48,7 +48,7 @@ config REGULATOR
 config CONTIN_ARRAY
 	default y
 
-config NRFX_I2S0
+config NRFX_I2S
 	default y
 
 config PCM_MIX
@@ -57,21 +57,12 @@ config PCM_MIX
 config PSCM
 	default y
 
-config DATA_FIFO
-	default y
-
 # Enable NRFX_CLOCK for ACLK control
 config NRFX_CLOCK
 	default y
 
 config I2C
 	default y
-
-choice LIBC_IMPLEMENTATION
-	# NOTE: Since we are not using minimal libc, error codes from
-	#       minimal libc are not used
-	default NEWLIB_LIBC
-endchoice
 
 # Audio codec LC3 related defines
 # FPU_SHARING enables preservation of the hardware floating point registers
@@ -110,9 +101,6 @@ config FILE_SYSTEM
 config FAT_FILESYSTEM_ELM
 	default y
 
-config FS_FATFS_HAS_RTC
-	default y
-
 config FS_FATFS_LFN
 	default y
 choice FS_FATFS_LFN_MODE
@@ -122,10 +110,4 @@ endchoice
 
 # exFAT enabled to support longer file names and higher transfer speed
 config FS_FATFS_EXFAT
-	default y
-
-config WATCHDOG
-	default y
-
-config TASK_WDT
 	default y
