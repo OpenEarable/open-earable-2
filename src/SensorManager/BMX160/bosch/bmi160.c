@@ -2502,6 +2502,10 @@ int8_t bmi160_start_foc(const struct bmi160_foc_conf *foc_conf,
         {
             /* Read the FOC config from the sensor */
             rslt = bmi160_get_regs(BMI160_FOC_CONF_ADDR, &data, 1, dev);
+            if (rslt != BMI160_OK)
+            {
+                return rslt;
+            }
 
             /* Set the FOC config for gyro */
             data = BMI160_SET_BITS(data, BMI160_GYRO_FOC_EN, foc_conf->foc_gyr_en);
@@ -5488,7 +5492,11 @@ static int8_t get_fifo_byte_counter(uint16_t *bytes_to_read, struct bmi160_dev c
     uint8_t data[2];
     uint8_t addr = BMI160_FIFO_LENGTH_ADDR;
 
-    rslt |= bmi160_get_regs(addr, data, 2, dev);
+    rslt = bmi160_get_regs(addr, data, 2, dev);
+    if (rslt != BMI160_OK)
+    {
+        return rslt;
+    }
     data[1] = data[1] & BMI160_FIFO_BYTE_COUNTER_MASK;
 
     /* Available data in FIFO is stored in bytes_to_read*/

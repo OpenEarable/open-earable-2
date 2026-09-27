@@ -55,7 +55,7 @@ jobs:
           west update --narrow -o=--depth=1
           python3 -m pip install -r zephyr/scripts/requirements.txt
 
-      - name: Test firmware version generation
+      - name: Run host regression tests
         working-directory: zephyr-workspace/open-earable-v2
         run: python3 -m unittest discover -s tests/host
 
