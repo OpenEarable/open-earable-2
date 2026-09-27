@@ -91,6 +91,7 @@ bool PPG::init(struct k_msgq * queue) {
 
 void PPG::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
+    if (!sensor._running) return;
     int int_status;
     int status;
 
@@ -116,12 +117,18 @@ void PPG::update_sensor(struct k_work *work) {
 
         PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
 
+        if (num_samples <= 0) return;
+        const uint64_t first_us = sensor.timestamps.begin(micros(), num_samples,
+            static_cast<uint32_t>(sensor.t_sample_us));
+        const uint32_t period_us = sensor.timestamps.period();
+
         int written = 0;
         const int _size = 4 * sizeof(uint32_t); // red, ir, green, ambient
 
         while (written < num_samples) {
             int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
             if (to_write <= 0) break;
+            if (period_us > UINT16_MAX) to_write = 1;
 
             msg_ppg.sd = sensor._sd_logging;
             msg_ppg.stream = sensor._ble_stream;
@@ -129,11 +136,10 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.data.id = ID_PPG;
             msg_ppg.data.size = to_write * _size + sizeof(uint16_t);
 
-            const uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)PPG::sensor.t_sample_us);
-            msg_ppg.data.time = _time_stamp - dt_us;
+            msg_ppg.data.time = first_us + static_cast<uint64_t>(written) * period_us;
 
             if (to_write > 1) {
-                uint16_t t_diff = PPG::sensor.t_sample_us;
+                uint16_t t_diff = period_us;
                 for (int i = 0; i < to_write; i++) {
                     memcpy(&msg_ppg.data.data[i * _size], &sensor.data_buffer[written + i], _size);
                 }
@@ -228,11 +234,11 @@ void PPG::start(int sample_rate_idx) {
         return;
     }
 
-    k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
+    timestamps.reset();
     _running = true;
     _sample_count = 0;
     _last_time_stamp = micros();
+    k_timer_start(&sensor.sensor_timer, t, t);
 }
 
 void PPG::stop() {

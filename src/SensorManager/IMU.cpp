@@ -25,6 +25,7 @@ const SampleRateSetting<6> IMU::sample_rates = {
 
 void IMU::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
+    if (!sensor._running) return;
 	const int num_samples = imu.read(sensor.sample_buffer, sensor.MAX_BUFFERED_SAMPLES);
 	const uint64_t read_finished_us = micros();
 
@@ -33,13 +34,15 @@ void IMU::update_sensor(struct k_work *work) {
 		return;
 	}
 
+	const uint64_t first_us = sensor.timestamps.begin(read_finished_us, num_samples,
+        static_cast<uint32_t>(sensor.t_sample_us));
+
 	for (int i = 0; i < num_samples; ++i) {
 		msg_imu.sd = sensor._sd_logging;
 		msg_imu.stream = sensor._ble_stream;
 		msg_imu.data.id = ID_IMU;
 		msg_imu.data.size = 9 * sizeof(float);
-		msg_imu.data.time = read_finished_us -
-			(uint64_t)((num_samples - 1 - i) * sensor.t_sample_us);
+		msg_imu.data.time = first_us + static_cast<uint64_t>(i) * sensor.timestamps.period();
 
 		memcpy(msg_imu.data.data, sensor.sample_buffer[i].accel, 3 * sizeof(float));
 		memcpy(msg_imu.data.data + 3 * sizeof(float), sensor.sample_buffer[i].gyro, 3 * sizeof(float));
@@ -100,6 +103,7 @@ void IMU::start(int sample_rate_idx) {
 	const uint32_t poll_period_us = (uint32_t)(num_samples_buffered * t_sample_us);
 	const k_timeout_t t = K_USEC(poll_period_us);
 
+	timestamps.reset();
 	_running = true;
 
 	// Let the FIFO collect the first complete batch before the first burst read.
