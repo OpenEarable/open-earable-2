@@ -420,6 +420,8 @@ int sw_codec_uninit(struct sw_codec_config sw_codec_cfg)
 int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 {
 	int ret;
+	bool encoder_attempted = false;
+	bool decoder_attempted = false;
 
 	switch (sw_codec_cfg.sw_codec) {
 	case SW_CODEC_LC3: {
@@ -430,6 +432,8 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 			if (ret) {
 				return ret;
 			}
+			/* LC3's global engine survives a failed session allocation. */
+			m_config.sw_codec = SW_CODEC_LC3;
 		}
 
 		if (sw_codec_cfg.encoder.enabled) {
@@ -444,32 +448,35 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 				CONFIG_AUDIO_FRAME_DURATION_US, sw_codec_cfg.encoder.bitrate,
 				sw_codec_cfg.encoder.num_ch);
 
+			encoder_attempted = true;
 			ret = sw_codec_lc3_enc_init(
 				sw_codec_cfg.encoder.sample_rate_hz, CONFIG_AUDIO_BIT_DEPTH_BITS,
 				CONFIG_AUDIO_FRAME_DURATION_US, sw_codec_cfg.encoder.bitrate,
 				sw_codec_cfg.encoder.num_ch, &pcm_bytes_req_enc);
 
 			if (ret) {
-				return ret;
+				goto fail;
 			}
 		}
 
 		if (sw_codec_cfg.decoder.enabled) {
 			if (m_config.decoder.enabled) {
 				LOG_WRN("The LC3 decoder is already initialized");
-				return -EALREADY;
+				ret = -EALREADY;
+				goto fail;
 			}
 
 			LOG_DBG("Decode: %dHz %dbits %dus %d channel(s)",
 				sw_codec_cfg.decoder.sample_rate_hz, CONFIG_AUDIO_BIT_DEPTH_BITS,
 				CONFIG_AUDIO_FRAME_DURATION_US, sw_codec_cfg.decoder.num_ch);
 
+			decoder_attempted = true;
 			ret = sw_codec_lc3_dec_init(
 				sw_codec_cfg.decoder.sample_rate_hz, CONFIG_AUDIO_BIT_DEPTH_BITS,
 				CONFIG_AUDIO_FRAME_DURATION_US, sw_codec_cfg.decoder.num_ch);
 
 			if (ret) {
-				return ret;
+				goto fail;
 			}
 		}
 		break;
@@ -496,7 +503,7 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 				LOG_ERR("Failed to initialize the sample rate converter for "
 					"encoding channel %d: %d",
 					i, ret);
-				return ret;
+				goto fail;
 			}
 		}
 	}
@@ -508,7 +515,7 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 				LOG_ERR("Failed to initialize the sample rate converter for "
 					"decoding channel %d: %d",
 					i, ret);
-				return ret;
+				goto fail;
 			}
 		}
 	}
@@ -519,4 +526,15 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 	LOG_INF("Microphone channel set to %d", m_config.encoder.audio_ch);
 
 	return 0;
+
+fail:
+#if CONFIG_SW_CODEC_LC3
+	if (decoder_attempted) {
+		(void)sw_codec_lc3_dec_uninit_all();
+	}
+	if (encoder_attempted) {
+		(void)sw_codec_lc3_enc_uninit_all();
+	}
+#endif
+	return ret;
 }
