@@ -107,3 +107,9 @@ python3 zephyr/scripts/twister \
 ```
 
 Open `twister-out/coverage/index.html` after the run.
+
+## Firmware version generation
+
+Run `python3 -m unittest discover -s tests/host` with Git and CMake on PATH.
+This test uses a temporary repository to verify development builds after an older
+tag, exact release tags, and dirty worktrees. The unit-test workflow also runs it.
