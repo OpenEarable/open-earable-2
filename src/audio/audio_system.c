@@ -134,7 +134,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	size_t encoded_data_size = 0;
 
 	//void *tmp_pcm_raw_data[CONFIG_FIFO_FRAME_SPLIT_NUM];
-	char pcm_raw_data[FRAME_SIZE_BYTES];
+	struct audio_rx_data pcm_frame;
 
 	static uint8_t *encoded_data;
 	//static size_t pcm_block_size;
@@ -162,9 +162,14 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
         }*/
 
 		//encoder_queue_get(&fifo_rx, tmp_pcm_raw_data, pcm_raw_data, FRAME_SIZE_BYTES);
-		ret = k_msgq_get(&encoder_queue, &pcm_raw_data, K_FOREVER);
+		ret = k_msgq_get(&encoder_queue, &pcm_frame, K_FOREVER);
 		if (ret) {
 			LOG_WRN("Failed to get message from msgq: %d", ret);
+			continue;
+		}
+
+		if (pcm_frame.size != sizeof(pcm_frame.data)) {
+			LOG_WRN("Dropping incomplete encoder frame: %zu bytes", pcm_frame.size);
 			continue;
 		}
 
@@ -184,12 +189,12 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 				ERR_CHK(ret);
 
 				ret = pscm_copy_pad(tmp, FRAME_SIZE_BYTES / 2,
-						    CONFIG_AUDIO_BIT_DEPTH_BITS, pcm_raw_data,
+						    CONFIG_AUDIO_BIT_DEPTH_BITS, pcm_frame.data,
 						    &num_bytes);
 				ERR_CHK(ret);
 			}
 
-			ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
+			ret = sw_codec_encode(pcm_frame.data, pcm_frame.size, &encoded_data,
 					      &encoded_data_size);
 			if (ret) {
 				if (!encode_failed) {
