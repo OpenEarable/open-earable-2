@@ -2502,6 +2502,10 @@ int8_t bmi160_start_foc(const struct bmi160_foc_conf *foc_conf,
         {
             /* Read the FOC config from the sensor */
             rslt = bmi160_get_regs(BMI160_FOC_CONF_ADDR, &data, 1, dev);
+            if (rslt != BMI160_OK)
+            {
+                return rslt;
+            }
 
             /* Set the FOC config for gyro */
             data = BMI160_SET_BITS(data, BMI160_GYRO_FOC_EN, foc_conf->foc_gyr_en);
