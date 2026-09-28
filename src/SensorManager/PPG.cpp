@@ -116,6 +116,11 @@ void PPG::update_sensor(struct k_work *work) {
 
         PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
 
+        if (num_samples <= 0) return;
+        const uint64_t first_us = sensor.timestamps.begin(micros(), num_samples,
+            static_cast<uint32_t>(sensor.t_sample_us));
+        const uint32_t period_us = sensor.timestamps.period();
+
         int written = 0;
         const int _size = 4 * sizeof(uint32_t); // red, ir, green, ambient
 
@@ -129,11 +134,10 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.data.id = ID_PPG;
             msg_ppg.data.size = to_write * _size + sizeof(uint16_t);
 
-            const uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)PPG::sensor.t_sample_us);
-            msg_ppg.data.time = _time_stamp - dt_us;
+            msg_ppg.data.time = first_us + static_cast<uint64_t>(written) * period_us;
 
             if (to_write > 1) {
-                uint16_t t_diff = PPG::sensor.t_sample_us;
+                uint16_t t_diff = period_us;
                 for (int i = 0; i < to_write; i++) {
                     memcpy(&msg_ppg.data.data[i * _size], &sensor.data_buffer[written + i], _size);
                 }
@@ -162,6 +166,7 @@ void PPG::sensor_timer_handler(struct k_timer *dummy) {
 
 void PPG::start(int sample_rate_idx) {
     if (!_active) return;
+    timestamps.reset();
 
     const float requested_rate = sample_rates.true_sample_rates[sample_rate_idx];
     const int requested_rate_register = sample_rates.reg_vals[sample_rate_idx];

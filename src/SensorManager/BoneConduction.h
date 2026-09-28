@@ -7,6 +7,7 @@
 //#include "MAX30102/MAX30102.h"
 #include "BMA580/BMA580_Sensor.h"
 #include "EdgeMLSensor.h"
+#include "FifoTimestamps.h"
 
 #include "openearable_common.h"
 #include "zbus_common.h"
@@ -26,6 +27,7 @@ public:
     const static SampleRateSetting<10> sample_rates;
 
 private:
+    FifoTimestamps timestamps;
     BMA580 bma580;
 
     /*! Number of accel frames to be extracted from FIFO */

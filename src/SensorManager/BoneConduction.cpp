@@ -67,6 +67,11 @@ void BoneConduction::update_sensor(struct k_work *work) {
         BoneConduction::sensor._sample_count = MAX(0, BoneConduction::sensor._num_samples_buffered - num_samples);
     }
 
+    if (num_samples <= 0) return;
+    const uint64_t first_us = sensor.timestamps.begin(micros(), num_samples,
+        static_cast<uint32_t>(sensor.t_sample_us));
+    const uint32_t period_us = sensor.timestamps.period();
+
     int written = 0;
 
     const int _size = 3 * sizeof(int16_t);
@@ -81,11 +86,10 @@ void BoneConduction::update_sensor(struct k_work *work) {
         msg_bc.data.id = ID_BONE_CONDUCTION;
         msg_bc.data.size = to_write * _size + sizeof(uint16_t);
 
-        uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)BoneConduction::sensor.t_sample_us);
-        msg_bc.data.time = _time_stamp - dt_us;
+        msg_bc.data.time = first_us + static_cast<uint64_t>(written) * period_us;
 
         if (to_write > 1) {
-            uint16_t t_diff = BoneConduction::sensor.t_sample_us;
+            uint16_t t_diff = period_us;
             for (int i = 0; i < to_write; i++) {
                 memcpy(&msg_bc.data.data[i * _size], &sensor.fifo_acc_data[written + i], _size);
             }
@@ -113,6 +117,7 @@ void BoneConduction::sensor_timer_handler(struct k_timer *dummy) {
 
 void BoneConduction::start(int sample_rate_idx) {
     if (!_active) return;
+    timestamps.reset();
 
     t_sample_us = 1000000.0f / sample_rates.true_sample_rates[sample_rate_idx];
 

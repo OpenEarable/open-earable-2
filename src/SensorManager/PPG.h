@@ -9,6 +9,7 @@
 //#include "MAX30102/MAX30102.h"
 #include "MAXM86161/MAXM86161.h"
 #include "EdgeMLSensor.h"
+#include "FifoTimestamps.h"
 
 #include "openearable_common.h"
 #include "zbus_common.h"
@@ -30,6 +31,7 @@ public:
     const static SampleRateSetting<16> sample_rates;
 
 private:
+    FifoTimestamps timestamps;
     static MAXM86161 ppg;
 
     static void sensor_timer_handler(struct k_timer *dummy);

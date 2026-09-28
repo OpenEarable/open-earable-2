@@ -2,6 +2,7 @@
 #define IMU_H
 
 #include "EdgeMLSensor.h"
+#include "FifoTimestamps.h"
 
 #include "openearable_common.h"
 #include "BMX160/BMX160.h"
@@ -16,6 +17,7 @@ public:
 
     const static SampleRateSetting<6> sample_rates;
 private:
+    FifoTimestamps timestamps;
     static BMX160 imu;
 
     static constexpr uint8_t MAX_BUFFERED_SAMPLES = BMX160::MAX_FIFO_SAMPLES;
