@@ -107,10 +107,3 @@ python3 zephyr/scripts/twister \
 ```
 
 Open `twister-out/coverage/index.html` after the run.
-
-## Host regression tests
-
-Run `python3 -m unittest discover -s tests/host` with Git, CMake and a C compiler on PATH.
-The version test uses a temporary repository to verify development builds after an older
-tag, exact release tags, and dirty worktrees. The sensor error test injects failed I²C reads into the Bosch driver.
-The unit-test workflow runs both.
