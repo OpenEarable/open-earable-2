@@ -52,6 +52,7 @@ void BoneConduction::reset() {
 
 void BoneConduction::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
+    if (!sensor._running) return;
     uint64_t _time_stamp = micros();
 
     BoneConduction::sensor._sample_count += (_time_stamp - BoneConduction::sensor._last_time_stamp) / BoneConduction::sensor.t_sample_us;
@@ -124,11 +125,10 @@ void BoneConduction::start(int sample_rate_idx) {
 
 	/* Drain the FIFO once per buffered block instead of once per sample. */
     k_timeout_t t = K_USEC(t_sample_us * _num_samples_buffered);
-	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
     _running = true;
     _sample_count = 0;
     _last_time_stamp = micros();
+    k_timer_start(&sensor.sensor_timer, t, t);
 }
 
 void BoneConduction::stop() {

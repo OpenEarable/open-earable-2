@@ -25,6 +25,7 @@ const SampleRateSetting<6> IMU::sample_rates = {
 
 void IMU::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
+    if (!sensor._running) return;
 	const int num_samples = imu.read(sensor.sample_buffer, sensor.MAX_BUFFERED_SAMPLES);
 	const uint64_t read_finished_us = micros();
 
