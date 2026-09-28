@@ -40,7 +40,7 @@ K_THREAD_STACK_DEFINE(encoder_thread_stack, CONFIG_ENCODER_STACK_SIZE);
 
 DATA_FIFO_DEFINE(fifo_tx, FIFO_TX_BLOCK_COUNT, WB_UP(BLOCK_SIZE_BYTES));
 DATA_FIFO_DEFINE(fifo_rx, FIFO_RX_BLOCK_COUNT, WB_UP(BLOCK_SIZE_BYTES));
-K_MSGQ_DEFINE(encoder_queue, sizeof(struct audio_rx_data), 16, 4);
+K_MSGQ_DEFINE(encoder_queue, sizeof(struct audio_rx_data), 8, 4);
 
 static K_SEM_DEFINE(sem_encoder_start, 0, 1);
 
