@@ -1,11 +1,10 @@
 #include "sensor_transport.h"
 #include <assert.h>
-#include <math.h>
 #include <string.h>
 
 int main(void)
 {
-    const uint8_t ids[] = {0, 1, 4, 6, 7, OE_SENSOR_COMPACT_IMU};
+    const uint8_t ids[] = {0, 1, 4, 6, 7};
     uint8_t sample[36];
     memset(sample, 0x5a, sizeof(sample));
     for (unsigned k = 0; k < sizeof(ids); ++k) {
@@ -36,24 +35,18 @@ int main(void)
     assert(!oe_sensor_batch_append(&b, 4, sample, 131070, 244));
     assert(!oe_sensor_sample_count(4, 17));
     assert(!oe_sensor_sample_count(99, 16));
-    /* Exhaustively verify all raw accel/gyro values survive float transport
-     * conversion without losing a bit of original sensor resolution. */
-    float values[9] = {0};
-    uint8_t compact[24];
-    for (int raw = INT16_MIN; raw <= INT16_MAX; ++raw) {
-        for (unsigned axis = 0; axis < 6; ++axis)
-            values[axis] = raw * (axis < 3 ? (2.0f * 9.80665f) / 32768.0f : 2000.0f / 32768.0f);
-        values[6] = -123.456f; values[7] = 5.5f; values[8] = 999.25f;
-        assert(oe_sensor_compact_imu((uint8_t *)values, compact));
-        for (unsigned axis = 0; axis < 6; ++axis)
-            assert((int16_t)(compact[2 * axis] | compact[2 * axis + 1] << 8) == raw);
-        assert(memcmp(compact + 12, values + 6, 12) == 0);
-    }
-    values[0] = NAN;
-    assert(!oe_sensor_compact_imu((uint8_t *)values, compact));
-    values[0] = 100;
-    assert(!oe_sensor_compact_imu((uint8_t *)values, compact));
-    values[0] = 0.123456f;
-    assert(!oe_sensor_compact_imu((uint8_t *)values, compact));
+    /* Only existing sensor IDs and byte-for-byte sample representations. */
+    assert(!oe_sensor_sample_size(0x80));
+    b = (struct oe_sensor_batch){0};
+    const uint64_t timestamp = UINT64_C(0x0102030405060708);
+    assert(oe_sensor_batch_append(&b, 0, sample, timestamp, 244));
+    assert(b.data[0] == 0 && b.data[1] == 36 && b.len == 46);
+    for (unsigned i = 0; i < 8; ++i)
+        assert(b.data[2 + i] == (uint8_t)(timestamp >> (8 * i)));
+    assert(memcmp(b.data + 10, sample, 36) == 0);
+    assert(oe_sensor_batch_append(&b, 0, sample, timestamp + 10000, 244));
+    assert(b.data[1] == 74 && b.len == 84);
+    assert(memcmp(b.data + 46, sample, 36) == 0);
+    assert((b.data[82] | b.data[83] << 8) == 10000);
     return 0;
 }

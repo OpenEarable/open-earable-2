@@ -12,7 +12,7 @@
 struct sensor_stream_stats {
     atomic_t produced, acquisition_dropped, enqueued, queue_dropped;
     atomic_t submitted, completed, send_dropped, invalid, mtu_dropped;
-    atomic_t bytes, notifications, compact_samples;
+    atomic_t bytes, notifications;
 };
 extern struct sensor_stream_stats sensor_stream_stats[8];
 

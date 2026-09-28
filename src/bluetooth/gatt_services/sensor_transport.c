@@ -1,12 +1,10 @@
 #include "sensor_transport.h"
-#include <math.h>
 #include <string.h>
 
 unsigned oe_sensor_sample_size(uint8_t id)
 {
     switch (id) {
     case 0: return 36;
-    case OE_SENSOR_COMPACT_IMU: return 24;
     case 1: return 8;
     case 4: return 16;
     case 6: return 4;
@@ -49,25 +47,5 @@ bool oe_sensor_batch_append(struct oe_sensor_batch *b, uint8_t id,
         b->data[len - 2] = b->period;
         b->data[len - 1] = b->period >> 8;
     }
-    return true;
-}
-
-bool oe_sensor_compact_imu(const uint8_t *floats, uint8_t *compact)
-{
-    for (unsigned i = 0; i < 6; ++i) {
-        float value;
-        memcpy(&value, floats + 4 * i, sizeof(value));
-        float scale = i < 3 ? (2.0f * 9.80665f) / 32768.0f : 2000.0f / 32768.0f;
-        float raw = value / scale;
-        if (!isfinite(raw) || raw < -32768.5f || raw >= 32767.5f) return false;
-        long rounded = lroundf(raw);
-        if (rounded < INT16_MIN || rounded > INT16_MAX) return false;
-        /* Never silently quantize samples from a different driver/range. */
-        if ((float)rounded * scale != value) return false;
-        uint16_t encoded = (uint16_t)(int16_t)rounded;
-        compact[2 * i] = encoded;
-        compact[2 * i + 1] = encoded >> 8;
-    }
-    memcpy(compact + 12, floats + 24, 12);
     return true;
 }

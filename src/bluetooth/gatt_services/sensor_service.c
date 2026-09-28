@@ -19,7 +19,6 @@ struct sensor_stream_stats sensor_stream_stats[8];
 static K_SEM_DEFINE(notify_available, 0, 1);
 static atomic_t stream_epoch;
 static struct bt_conn *sensor_conn;
-static bool compact_imu;
 struct queued_sensor { struct sensor_data data; uint32_t epoch; };
 
 static struct k_thread thread_data_notify;
@@ -93,7 +92,6 @@ static void reset_sensor_notification_state(void)
 	notify_enabled = false;
 	sensor_config_status_ntfy_enabled = false;
 	connection_complete = false;
-	compact_imu = false;
 	struct bt_conn *old = sensor_conn;
 	sensor_conn = NULL;
 	atomic_inc(&stream_epoch);
@@ -309,23 +307,6 @@ static ssize_t read_sensor_config_status(struct bt_conn *conn,
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, active_sensor_configs, size);
 }
 
-static ssize_t read_stream_format(struct bt_conn *conn, const struct bt_gatt_attr *attr,
-                                  void *buf, uint16_t len, uint16_t offset)
-{
-    const uint8_t supported = 1; /* bit 0: compact IMU notification ID 0x80 */
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &supported, sizeof(supported));
-}
-
-static void compact_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
-{
-    ARG_UNUSED(attr);
-    k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
-    compact_imu = value == BT_GATT_CCC_NOTIFY;
-    atomic_inc(&stream_epoch);
-    k_spin_unlock(&notify_state_lock, key);
-    k_msgq_purge(&gatt_queue);
-}
-
 BT_GATT_SERVICE_DEFINE(sensor_service,
 BT_GATT_PRIMARY_SERVICE(BT_UUID_SENSOR),
 BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_CONFIG,
@@ -348,11 +329,6 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_RECORDING_NAME,
 			BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
 			BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
 			read_sensor_rec_name, write_sensor_rec_name, NULL),
-BT_GATT_CHARACTERISTIC(BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(
-    0x34c2e3c1, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)),
-    BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY, BT_GATT_PERM_READ,
-    read_stream_format, NULL, NULL),
-BT_GATT_CCC(compact_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
 static struct sensor_notify_context *acquire_notify_context(const struct oe_sensor_batch *data,
@@ -360,7 +336,7 @@ static struct sensor_notify_context *acquire_notify_context(const struct oe_sens
 {
 	k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
 
-	if (!connection_complete || !(notify_enabled || compact_imu) || epoch != (uint32_t)atomic_get(&stream_epoch) || notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
+	if (!connection_complete || !notify_enabled || epoch != (uint32_t)atomic_get(&stream_epoch) || notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
 		k_spin_unlock(&notify_state_lock, key);
 		return NULL;
 	}
@@ -399,33 +375,32 @@ static void notify_complete(struct bt_conn *conn, void *user_data)
 		return;
 	}
 
-	atomic_add(&sensor_stream_stats[context->payload.data[0] & 0x7f].completed, context->payload.count);
+	atomic_add(&sensor_stream_stats[context->payload.data[0]].completed, context->payload.count);
 	generation = context->generation;
 	release_notify_context(context, generation);
 }
 
 /* A connection reference and epoch keep queued data out of a later session. */
-static struct bt_conn *stream_connection(uint32_t epoch, bool *compact)
+static struct bt_conn *stream_connection(uint32_t epoch)
 {
     k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
     struct bt_conn *conn = NULL;
-    if (connection_complete && (notify_enabled || compact_imu) && sensor_conn &&
+    if (connection_complete && notify_enabled && sensor_conn &&
         epoch == (uint32_t)atomic_get(&stream_epoch)) {
         conn = bt_conn_ref(sensor_conn);
-        if (compact) *compact = compact_imu && !notify_enabled;
     }
     k_spin_unlock(&notify_state_lock, key);
     return conn;
 }
 
-static void send_batch_to(struct oe_sensor_batch *batch, uint32_t epoch, unsigned attr_index)
+static void send_batch(struct oe_sensor_batch *batch, uint32_t epoch)
 {
     if (!batch->count) return;
-    struct sensor_stream_stats *stats = &sensor_stream_stats[batch->data[0] & 0x7f];
+    struct sensor_stream_stats *stats = &sensor_stream_stats[batch->data[0]];
     int64_t deadline = k_uptime_get() + 100;
     bool sent = false;
     while (k_uptime_get() < deadline) {
-        struct bt_conn *conn = stream_connection(epoch, NULL);
+        struct bt_conn *conn = stream_connection(epoch);
         if (!conn) break;
         uint32_t generation;
         struct sensor_notify_context *context = acquire_notify_context(batch, &generation, epoch);
@@ -435,14 +410,12 @@ static void send_batch_to(struct oe_sensor_batch *batch, uint32_t epoch, unsigne
             continue;
         }
         context->params.len = batch->len;
-        context->params.attr = &sensor_service.attrs[attr_index];
         int ret = bt_gatt_notify_cb(conn, &context->params);
         bt_conn_unref(conn);
         if (!ret) {
             atomic_add(&stats->submitted, batch->count);
             atomic_add(&stats->bytes, batch->len);
             atomic_inc(&stats->notifications);
-            if (batch->data[0] == OE_SENSOR_COMPACT_IMU) atomic_add(&stats->compact_samples, batch->count);
             mark_notify_context_in_flight(context, generation);
             sent = true;
             break;
@@ -453,22 +426,6 @@ static void send_batch_to(struct oe_sensor_batch *batch, uint32_t epoch, unsigne
         k_sleep(K_MSEC(1));
     }
     if (!sent) atomic_add(&stats->send_dropped, batch->count);
-}
-
-static void send_batch(struct oe_sensor_batch *batch, uint32_t epoch)
-{
-    if (!batch->count) return;
-    k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
-    bool valid = epoch == (uint32_t)atomic_get(&stream_epoch);
-    bool legacy = valid && notify_enabled;
-    bool compact = valid && compact_imu;
-    k_spin_unlock(&notify_state_lock, key);
-    /* The legacy characteristic never carries compact frames. When both
-     * channels are subscribed, both get the supported legacy representation. */
-    if (legacy) send_batch_to(batch, epoch, 4);
-    if (compact) send_batch_to(batch, epoch, 12);
-    if (!legacy && !compact)
-        atomic_add(&sensor_stream_stats[batch->data[0] & 0x7f].send_dropped, batch->count);
     batch->count = 0;
     batch->len = 0;
 }
@@ -504,10 +461,8 @@ static void notification_task(void)
             atomic_inc(&sensor_stream_stats[id].invalid);
             continue;
         }
-        bool compact = false;
-        struct bt_conn *conn = stream_connection(item.epoch, &compact);
+        struct bt_conn *conn = stream_connection(item.epoch);
         if (!conn) {
-            if (conn) bt_conn_unref(conn);
             atomic_add(&sensor_stream_stats[id].send_dropped, count);
             continue;
         }
@@ -521,17 +476,11 @@ static void notification_task(void)
         unsigned period = count > 1 ? sys_get_le16(data->data + data->size - 2) : 0;
         for (unsigned i = 0; i < count; ++i) {
             const uint8_t *sample = data->data + i * width;
-            uint8_t packed[24];
-            uint8_t wire_id = id;
-            if (id == ID_IMU && compact && oe_sensor_compact_imu(sample, packed)) {
-                sample = packed;
-                wire_id = OE_SENSOR_COMPACT_IMU;
-            }
             uint64_t time = data->time + (uint64_t)i * period;
             struct oe_sensor_batch *batch = &batches[id];
-            if (!oe_sensor_batch_append(batch, wire_id, sample, time, limit)) {
+            if (!oe_sensor_batch_append(batch, id, sample, time, limit)) {
                 send_batch(batch, epoch);
-                if (!oe_sensor_batch_append(batch, wire_id, sample, time, limit)) {
+                if (!oe_sensor_batch_append(batch, id, sample, time, limit)) {
                     atomic_inc(&sensor_stream_stats[id].mtu_dropped);
                     continue;
                 }
@@ -547,7 +496,7 @@ void sensor_queue_listener_cb(const struct zbus_channel *chan)
     if (!msg->stream || msg->data.id >= 8) return;
     unsigned count = oe_sensor_sample_count(msg->data.id, msg->data.size);
     struct queued_sensor item = { .data = msg->data, .epoch = atomic_get(&stream_epoch) };
-    struct bt_conn *conn = stream_connection(item.epoch, NULL);
+    struct bt_conn *conn = stream_connection(item.epoch);
     if (!conn) return;
     bt_conn_unref(conn);
     struct sensor_stream_stats *stats = &sensor_stream_stats[msg->data.id];
