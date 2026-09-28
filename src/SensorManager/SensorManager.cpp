@@ -191,17 +191,9 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 	}
 }
 
-// Worker-Funktion für die Sensor-Konfiguration
-static void config_work_handler(struct k_work *work) {
-	ARG_UNUSED(work);
-	int ret;
-	struct sensor_config config;
-	
-	ret = k_msgq_get(&config_queue, &config, K_NO_WAIT);
-	if (ret != 0) {
-		LOG_INF("No config available");
-	}
-
+// Apply one request; the worker below drains all requests, since k_work
+// submissions coalesce while an earlier sensor reconfiguration is running.
+static void apply_sensor_config(const struct sensor_config &config) {
     float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
 		LOG_ERR("Invalid sample rate %f for sensor %i", (double)sampleRate, config.sensorId);
@@ -270,6 +262,14 @@ static void config_work_handler(struct k_work *work) {
 	set_sensor_config_status(config);
 
 	if (active_sensors == 0) stop_sensor_manager();
+}
+
+static void config_work_handler(struct k_work *work) {
+    ARG_UNUSED(work);
+    struct sensor_config config;
+    while (k_msgq_get(&config_queue, &config, K_NO_WAIT) == 0) {
+        apply_sensor_config(config);
+    }
 }
 
 void config_sensor(struct sensor_config * config) {
