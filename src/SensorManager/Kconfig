@@ -17,7 +17,7 @@ config SENSOR_WORK_QUEUE_PRIO
 
 config SENSOR_GATT_NOTIFY_THREAD_PRIO
 	int "Priority for volume message subscribe thread"
-	default 6
+	default 5
 	help
 	  This is a preemptible thread.
 	  This thread will subscribe to sensor events from zbus.
@@ -58,9 +58,13 @@ config SENSOR_SD_SUB_QUEUE_SIZE
 	int "Queue size for button subscriber"
 	default 256
 
+config SENSOR_PUB_QUEUE_SIZE
+	int "Sensor publication queue length"
+	default 128
+
 config SENSOR_GATT_SUB_QUEUE_SIZE
-	int "Queue size for content control subscriber"
-	default 256
+	int "Sensor BLE queue length"
+	default 128
 
 endmenu # Zbus
 

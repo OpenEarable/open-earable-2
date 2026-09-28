@@ -50,6 +50,7 @@ bool Temp::init(struct k_msgq * queue) {
 
 void Temp::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
+    if (!sensor._running) return;
     if (!temp.dataAvailable()) return;
 
     MLX90632::status returnError;
@@ -69,9 +70,9 @@ void Temp::update_sensor(struct k_work *work) {
 
     memcpy(msg_temp.data.data, &temperature, sizeof(float));
 
-    int ret = k_msgq_put(sensor_queue, &msg_temp, K_NO_WAIT);
+    int ret = sensor_publish_sample(sensor_queue, &msg_temp);
     if (ret) {
-        LOG_WRN("sensor msg queue full");
+        LOG_DBG("sensor msg queue full");
     }
 }
 
@@ -80,7 +81,7 @@ void Temp::update_sensor(struct k_work *work) {
 */
 void Temp::sensor_timer_handler(struct k_timer *dummy) {
 	ARG_UNUSED(dummy);
-	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
+	k_work_submit_to_queue(&sensor_slow_work_q, &sensor.sensor_work);
 }
 
 void Temp::start(int sample_rate_idx) {
@@ -91,9 +92,8 @@ void Temp::start(int sample_rate_idx) {
     temp.setSampleRateRegVal(sample_rates.reg_vals[sample_rate_idx]);
     temp.continuousMode();
 
-	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
-    _running = true;
+	_running = true;
+    k_timer_start(&sensor.sensor_timer, t, t);
 }
 
 void Temp::stop() {
@@ -103,6 +103,8 @@ void Temp::stop() {
     _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+    struct k_work_sync sync;
+    k_work_cancel_sync(&sensor.sensor_work, &sync);
 
     temp.sleepMode();
 

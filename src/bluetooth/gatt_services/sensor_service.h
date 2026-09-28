@@ -6,6 +6,16 @@
 #include <zephyr/bluetooth/gatt.h>
 #include "openearable_common.h"
 #include "zbus_common.h"
+#include <zephyr/sys/atomic.h>
+
+/* Per-sensor sample counts, inspected without logging on the data path. */
+struct sensor_stream_stats {
+    atomic_t produced, acquisition_dropped, enqueued, queue_dropped;
+    atomic_t submitted, completed, send_dropped, invalid, mtu_dropped;
+    atomic_t bytes, notifications, compact_samples;
+};
+extern struct sensor_stream_stats sensor_stream_stats[8];
+
 
 #define BT_UUID_SENSOR_VAL \
 	BT_UUID_128_ENCODE(0x34c2e3bb, 0x34aa, 0x11eb, 0xadc1, 0x0242ac120002)

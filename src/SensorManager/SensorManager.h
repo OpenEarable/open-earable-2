@@ -18,6 +18,8 @@ enum sensor_manager_state {
 };
 
 extern struct k_work_q sensor_work_q;
+extern struct k_work_q sensor_slow_work_q;
+int sensor_publish_sample(struct k_msgq *queue, const struct sensor_msg *msg);
 
 enum sensor_manager_state get_state();
 

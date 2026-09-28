@@ -27,9 +27,9 @@
 #include "audio_datapath.h"
 
 #include <sensor_service.h>
+#include "../bluetooth/gatt_services/sensor_transport.h"
 
 #include <zephyr/logging/log.h>
-#include <sensor_service.h>
 LOG_MODULE_DECLARE(sensor_manager);
 
 std::set<int> ble_sensors = {};
@@ -41,7 +41,7 @@ EdgeMlSensor * get_sensor(enum sensor_id id);
 
 static sensor_manager_state _state;
 
-K_MSGQ_DEFINE(sensor_queue, sizeof(struct sensor_msg), 256, 4);
+K_MSGQ_DEFINE(sensor_queue, sizeof(struct sensor_msg), CONFIG_SENSOR_PUB_QUEUE_SIZE, 4);
 K_MSGQ_DEFINE(config_queue, sizeof(struct sensor_config), 16, 4);
 
 K_THREAD_STACK_DEFINE(sensor_work_q_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
@@ -62,6 +62,18 @@ static k_tid_t sensor_pub_id;
 static struct k_work config_work;
 
 struct k_work_q sensor_work_q;
+struct k_work_q sensor_slow_work_q;
+K_THREAD_STACK_DEFINE(sensor_slow_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
+
+int sensor_publish_sample(struct k_msgq *queue, const struct sensor_msg *sample)
+{
+    unsigned id = sample->data.id;
+    unsigned count = oe_sensor_sample_count(id, sample->data.size);
+    if (id < 8 && sample->stream) atomic_add(&sensor_stream_stats[id].produced, count);
+    int ret = k_msgq_put(queue, sample, K_NO_WAIT);
+    if (ret && id < 8 && sample->stream) atomic_add(&sensor_stream_stats[id].acquisition_dropped, count);
+    return ret;
+}
 
 K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE);
 
@@ -93,6 +105,11 @@ void init_sensor_manager() {
 
 	active_sensors = 0;
 
+    k_work_queue_init(&sensor_slow_work_q);
+    k_work_queue_start(&sensor_slow_work_q, sensor_slow_stack,
+        K_THREAD_STACK_SIZEOF(sensor_slow_stack),
+        K_PRIO_PREEMPT(CONFIG_SENSOR_WORK_QUEUE_PRIO + 1), NULL);
+    k_thread_name_set(&sensor_slow_work_q.thread, "SENSOR_SLOW");
 	k_work_queue_init(&sensor_work_q);
 
 	k_work_queue_start(&sensor_work_q, sensor_work_q_stack,
@@ -127,6 +144,7 @@ void start_sensor_manager() {
 	//empty message queue
 	k_msgq_purge(&sensor_queue);
 	k_work_queue_unplug(&sensor_work_q);
+    k_work_queue_unplug(&sensor_slow_work_q);
 
 	ble_sensors.clear();
 	sd_sensors.clear();
@@ -160,6 +178,7 @@ void stop_sensor_manager() {
 	auto_off_manager.allow(sensor_manager_auto_off_token);
 
 	k_work_queue_drain(&sensor_work_q, true);
+    k_work_queue_drain(&sensor_slow_work_q, true);
 
 	//k_thread_suspend(sensor_pub_id);
 	k_poll_signal_reset(&sensor_manager_sig);
@@ -279,7 +298,5 @@ void config_sensor(struct sensor_config * config) {
 		return;
 	}
 
-	//k_work_queue_drain(&sensor_work_q, true);
 	k_work_submit(&config_work);
-	//k_work_queue_unplug(&sensor_work_q);
 }

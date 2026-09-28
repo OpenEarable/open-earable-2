@@ -48,9 +48,9 @@ void IMU::update_sensor(struct k_work *work) {
 		memcpy(msg_imu.data.data + 3 * sizeof(float), sensor.sample_buffer[i].gyro, 3 * sizeof(float));
 		memcpy(msg_imu.data.data + 6 * sizeof(float), sensor.sample_buffer[i].mag, 3 * sizeof(float));
 
-		const int ret = k_msgq_put(sensor_queue, &msg_imu, K_NO_WAIT);
+		const int ret = sensor_publish_sample(sensor_queue, &msg_imu);
 		if (ret) {
-			LOG_WRN("sensor msg queue full");
+			LOG_DBG("sensor msg queue full");
 		}
 	}
 
@@ -119,6 +119,8 @@ void IMU::stop() {
 	_running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+    struct k_work_sync sync;
+    k_work_cancel_sync(&sensor.sensor_work, &sync);
 
 	imu.stop();
 

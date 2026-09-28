@@ -100,9 +100,9 @@ void BoneConduction::update_sensor(struct k_work *work) {
             memcpy(&msg_bc.data.data, &sensor.fifo_acc_data[written], _size);
         }
 
-        int ret = k_msgq_put(sensor_queue, &msg_bc, K_NO_WAIT);
+        int ret = sensor_publish_sample(sensor_queue, &msg_bc);
         if (ret) {
-            LOG_WRN("sensor msg queue full");
+            LOG_DBG("sensor msg queue full");
         }
 
         written += to_write;
@@ -145,6 +145,8 @@ void BoneConduction::stop() {
     _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+    struct k_work_sync sync;
+    k_work_cancel_sync(&sensor.sensor_work, &sync);
 
     bma580.stop();
 

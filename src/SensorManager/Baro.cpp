@@ -36,9 +36,10 @@ const SampleRateSetting<18> Baro::sample_rates = {
 
 void Baro::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
+    if (!sensor._running) return;
 	int ret;
 
-	bmp.performReading();
+	if (!bmp.performReading()) return;
 
 	if (baro_initial_discard > 0) {
 		baro_initial_discard--;
@@ -59,9 +60,9 @@ void Baro::update_sensor(struct k_work *work) {
 
 	memcpy(msg_baro.data.data, data, 2 * sizeof(float));
 
-	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
+	ret = sensor_publish_sample(sensor_queue, &msg_baro);
 	if (ret) {
-		LOG_WRN("sensor msg queue full");
+		LOG_DBG("sensor msg queue full");
 	}
 }
 
@@ -71,7 +72,7 @@ void Baro::update_sensor(struct k_work *work) {
 void Baro::sensor_timer_handler(struct k_timer *dummy)
 {
 	ARG_UNUSED(dummy);
-	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
+	k_work_submit_to_queue(&sensor_slow_work_q, &sensor.sensor_work);
 };
 
 bool Baro::init(struct k_msgq * queue) {
@@ -103,9 +104,8 @@ void Baro::start(int sample_rate_idx) {
     //bmp.set_interrogation_rate(setting.reg_val);
     //bmp.start();
 
-	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
 	_running = true;
+    k_timer_start(&sensor.sensor_timer, t, t);
 }
 
 void Baro::stop() {
@@ -115,6 +115,8 @@ void Baro::stop() {
 	_running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+    struct k_work_sync sync;
+    k_work_cancel_sync(&sensor.sensor_work, &sync);
 
     pm_device_runtime_put(ls_1_8);
 }

@@ -148,9 +148,9 @@ void PPG::update_sensor(struct k_work *work) {
                 memcpy(&msg_ppg.data.data, &sensor.data_buffer[written], _size);
             }
 
-            int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
+            int ret = sensor_publish_sample(sensor_queue, &msg_ppg);
             if (ret) {
-                LOG_WRN("sensor msg queue full");
+                LOG_DBG("sensor msg queue full");
             }
 
             written += to_write;
@@ -248,6 +248,8 @@ void PPG::stop() {
     _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+    struct k_work_sync sync;
+    k_work_cancel_sync(&sensor.sensor_work, &sync);
 
     ppg.stop();
 
