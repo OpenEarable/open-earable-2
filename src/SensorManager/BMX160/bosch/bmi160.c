@@ -5492,7 +5492,11 @@ static int8_t get_fifo_byte_counter(uint16_t *bytes_to_read, struct bmi160_dev c
     uint8_t data[2];
     uint8_t addr = BMI160_FIFO_LENGTH_ADDR;
 
-    rslt |= bmi160_get_regs(addr, data, 2, dev);
+    rslt = bmi160_get_regs(addr, data, 2, dev);
+    if (rslt != BMI160_OK)
+    {
+        return rslt;
+    }
     data[1] = data[1] & BMI160_FIFO_BYTE_COUNTER_MASK;
 
     /* Available data in FIFO is stored in bytes_to_read*/
