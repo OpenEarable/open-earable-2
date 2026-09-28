@@ -91,6 +91,7 @@ bool PPG::init(struct k_msgq * queue) {
 
 void PPG::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
+    if (!sensor._running) return;
     int int_status;
     int status;
 
@@ -228,11 +229,10 @@ void PPG::start(int sample_rate_idx) {
         return;
     }
 
-    k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
     _running = true;
     _sample_count = 0;
     _last_time_stamp = micros();
+    k_timer_start(&sensor.sensor_timer, t, t);
 }
 
 void PPG::stop() {
