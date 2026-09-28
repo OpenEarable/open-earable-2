@@ -122,6 +122,7 @@ void PPG::update_sensor(struct k_work *work) {
         while (written < num_samples) {
             int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
             if (to_write <= 0) break;
+            if (sensor.t_sample_us > UINT16_MAX) to_write = 1;
 
             msg_ppg.sd = sensor._sd_logging;
             msg_ppg.stream = sensor._ble_stream;
