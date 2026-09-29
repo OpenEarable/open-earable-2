@@ -3,8 +3,10 @@
 #include <data_fifo.h>
 #include <limits.h>
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #include <zephyr/audio_response_ble.h>
+#include <zephyr/bluetooth/conn.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/crc.h>
@@ -48,6 +50,7 @@ struct audio_response_transfer {
 	uint32_t expected_checksum;
 	uint32_t received_samples;
 	int16_t *samples;
+	struct bt_conn *owner;
 	bool active;
 	bool committed;
 };
@@ -64,6 +67,7 @@ struct audio_response_audio_session {
  * Carries the GATT write metadata and result through the generated union dispatcher.
  */
 struct transfer_control_dispatch_context {
+	struct bt_conn *conn;
 	uint16_t write_len;
 	ssize_t result;
 };
@@ -72,8 +76,7 @@ static const uint16_t default_frequencies[AUDIO_RESPONSE_DEFAULT_POINTS] = {
 	40, 60, 90, 135, 203, 304, 456, 683, 1025,
 };
 
-static int16_t captured_samples[AUDIO_RESPONSE_CAPTURE_SAMPLES];
-static int16_t uploaded_samples[CONFIG_AUDIO_RESPONSE_MAX_SAMPLES];
+static int16_t *captured_samples;
 static uint16_t requested_frequencies[CONFIG_AUDIO_RESPONSE_MAX_POINTS];
 static uint16_t decoded_config_frequencies[UINT8_MAX];
 static uint16_t result_frequencies[CONFIG_AUDIO_RESPONSE_MAX_POINTS];
@@ -89,8 +92,10 @@ static bool result_notifications_enabled;
 
 static struct k_work measurement_work;
 static struct k_work measurement_complete_work;
+static struct k_work disconnect_cleanup_work;
 static struct k_work_delayable transfer_ready_work;
 static struct k_work_delayable transfer_timeout_work;
+static bool transfer_owner_disconnected;
 K_MUTEX_DEFINE(service_mutex);
 
 extern struct data_fifo fifo_rx;
@@ -104,6 +109,9 @@ static uint16_t response_magnitude_for_bin(const int16_t *samples, size_t sample
 static int select_response_points(audio_response_config_t *config);
 static void reset_transfer(void);
 static int suspend_audio_for_measurement(void);
+static void stop_audio_response_activity(void);
+static void release_capture_buffer(void);
+static void resume_audio_after_response(void);
 static void restore_audio_after_measurement(void);
 
 /**
@@ -245,14 +253,19 @@ static int select_response_points(audio_response_config_t *config)
 }
 
 /**
- * Clear all transfer metadata and make the upload buffer reusable.
+ * Release the uploaded waveform and clear all transfer metadata.
  */
 static void reset_transfer(void)
 {
 	LOG_DBG("Reset transfer state: id=%u active=%d committed=%d received=%u/%u", transfer.id,
 		transfer.active, transfer.committed, transfer.received_samples, transfer.total_samples);
 	k_work_cancel_delayable(&transfer_ready_work);
+	free(transfer.samples);
+	if (transfer.owner != NULL) {
+		bt_conn_unref(transfer.owner);
+	}
 	memset(&transfer, 0, sizeof(transfer));
+	transfer_owner_disconnected = false;
 }
 
 /**
@@ -310,8 +323,11 @@ static ssize_t reject_transfer(enum audio_response_transfer_status status, ssize
 /**
  * Start a new audio-buffer upload.
  */
-static ssize_t start_transfer(const audio_response_transfer_start_t *start, uint16_t write_len)
+static ssize_t start_transfer(struct bt_conn *conn, const audio_response_transfer_start_t *start,
+			      uint16_t write_len)
 {
+	size_t sample_bytes;
+
 	LOG_INF("Transfer start requested: id=%u samples=%u rate=%u checksum=0x%08x",
 		start->transfer_id, start->total_samples, start->sampling_rate, start->checksum);
 
@@ -333,12 +349,21 @@ static ssize_t start_transfer(const audio_response_transfer_start_t *start, uint
 				       BT_GATT_ERR(BT_ATT_ERR_INSUFFICIENT_RESOURCES));
 	}
 
+	sample_bytes = start->total_samples * sizeof(*transfer.samples);
 	reset_transfer();
 	transfer.id = start->transfer_id;
 	transfer.total_samples = start->total_samples;
 	transfer.sampling_rate = start->sampling_rate;
 	transfer.expected_checksum = start->checksum;
-	transfer.samples = uploaded_samples;
+	transfer.samples = malloc(sample_bytes);
+	if (transfer.samples == NULL) {
+		LOG_WRN("Transfer allocation failed: id=%u samples=%u bytes=%zu", transfer.id,
+			transfer.total_samples, sample_bytes);
+		(void)notify_transfer_status(AUDIO_RESPONSE_TRANSFER_INSUFFICIENT_STORAGE, 0);
+		reset_transfer();
+		return BT_GATT_ERR(BT_ATT_ERR_INSUFFICIENT_RESOURCES);
+	}
+	transfer.owner = bt_conn_ref(conn);
 	transfer.active = true;
 	k_work_reschedule(&transfer_timeout_work, AUDIO_RESPONSE_TRANSFER_TIMEOUT);
 	(void)notify_transfer_status(AUDIO_RESPONSE_TRANSFER_READY, AUDIO_RESPONSE_TRANSFER_CREDITS);
@@ -415,7 +440,8 @@ static protocol_status_t dispatch_transfer_start(void *context,
 {
 	struct transfer_control_dispatch_context *dispatch_context = context;
 
-	dispatch_context->result = start_transfer(start, dispatch_context->write_len);
+	dispatch_context->result =
+		start_transfer(dispatch_context->conn, start, dispatch_context->write_len);
 	return PROTOCOL_OK;
 }
 
@@ -449,7 +475,6 @@ static protocol_status_t dispatch_transfer_abort(void *context,
 static ssize_t write_transfer_control(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 				      const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
-	ARG_UNUSED(conn);
 	ARG_UNUSED(attr);
 	ARG_UNUSED(flags);
 	static const audio_response_transfer_control_handler_t handlers = {
@@ -459,6 +484,7 @@ static ssize_t write_transfer_control(struct bt_conn *conn, const struct bt_gatt
 	};
 	audio_response_transfer_control_t control;
 	struct transfer_control_dispatch_context dispatch_context = {
+		.conn = conn,
 		.write_len = len,
 		.result = BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED),
 	};
@@ -693,15 +719,14 @@ static int suspend_audio_for_measurement(void)
 	return 0;
 }
 
-/**
- * Stop measurement-specific activity and restore the audio state captured by
- * suspend_audio_for_measurement(). Safe to call after partial setup.
- */
-static void restore_audio_after_measurement(void)
+/** Stop measurement-specific hardware activity. Safe after partial setup. */
+static void stop_audio_response_activity(void)
 {
 	int ret;
 
-	record_to_buffer_stop();
+	if (captured_samples != NULL) {
+		record_to_buffer_stop();
+	}
 	if (audio_session.measurement_playback_started) {
 		audio_datapath_buffer_stop();
 	}
@@ -717,6 +742,23 @@ static void restore_audio_after_measurement(void)
 			LOG_ERR("Failed to release measurement datapath: %d", ret);
 		}
 	}
+	audio_session.measurement_playback_started = false;
+	audio_session.measurement_codec_enabled = false;
+	audio_session.datapath_acquired = false;
+}
+
+/** Release the temporary microphone capture while normal audio is stopped. */
+static void release_capture_buffer(void)
+{
+	free(captured_samples);
+	captured_samples = NULL;
+}
+
+/** Restore the audio state captured by suspend_audio_for_measurement(). */
+static void resume_audio_after_response(void)
+{
+	int ret;
+
 	if (audio_session.auxiliary_audio_suspended) {
 		ret = audio_datapath_auxiliary_resume();
 		if (ret != 0) {
@@ -732,6 +774,14 @@ static void restore_audio_after_measurement(void)
 	memset(&audio_session, 0, sizeof(audio_session));
 }
 
+/** Stop the measurement, free its temporary capture, and resume normal audio. */
+static void restore_audio_after_measurement(void)
+{
+	stop_audio_response_activity();
+	release_capture_buffer();
+	resume_audio_after_response();
+}
+
 /**
  * Run the audio playback and capture setup from the system work queue.
  */
@@ -739,6 +789,14 @@ static void measurement_work_handler(struct k_work *work)
 {
 	ARG_UNUSED(work);
 	int ret;
+
+	k_mutex_lock(&service_mutex, K_FOREVER);
+	if (!measurement_active || !transfer.committed || transfer.samples == NULL) {
+		k_mutex_unlock(&service_mutex);
+		LOG_DBG("Ignoring stale audio response measurement request");
+		return;
+	}
+	k_mutex_unlock(&service_mutex);
 
 	LOG_INF("Starting audio response measurement: id=%u transfer_id=%u samples=%u volume=%.2f points=%u",
 		pending_config.id, pending_config.transfer_id, transfer.total_samples,
@@ -749,6 +807,13 @@ static void measurement_work_handler(struct k_work *work)
 		goto fail;
 	}
 	LOG_DBG("Audio system suspended for audio response measurement: id=%u", pending_config.id);
+	captured_samples = malloc(AUDIO_RESPONSE_CAPTURE_SAMPLES * sizeof(*captured_samples));
+	if (captured_samples == NULL) {
+		ret = -ENOMEM;
+		LOG_ERR("Failed to allocate audio response capture: %u bytes",
+			AUDIO_RESPONSE_CAPTURE_SAMPLES * (uint32_t)sizeof(*captured_samples));
+		goto fail;
+	}
 
 	if (!fifo_rx.initialized) {
 		LOG_DBG("Initializing RX FIFO for audio response measurement");
@@ -850,19 +915,29 @@ static void notify_result(void)
 static void measurement_complete_work_handler(struct k_work *work)
 {
 	ARG_UNUSED(work);
+	k_mutex_lock(&service_mutex, K_FOREVER);
+	if (!measurement_active || captured_samples == NULL) {
+		k_mutex_unlock(&service_mutex);
+		LOG_DBG("Ignoring stale audio response capture completion");
+		return;
+	}
+	k_mutex_unlock(&service_mutex);
+
 	LOG_INF("Audio response capture complete: id=%u", pending_config.id);
-	restore_audio_after_measurement();
+	stop_audio_response_activity();
 
 	for (size_t index = 0; index < pending_config.points; ++index) {
 		uint32_t bin = response_frequency_to_bin(pending_config.frequencies[index]);
 
 		result_frequencies[index] = pending_config.frequencies[index];
 		result_response[index] = response_magnitude_for_bin(
-			captured_samples, ARRAY_SIZE(captured_samples), bin);
+			captured_samples, AUDIO_RESPONSE_CAPTURE_SAMPLES, bin);
 	}
 	LOG_DBG("Audio response analysis complete: id=%u bins=%u result_points=%u",
 		pending_config.id,
 		AUDIO_RESPONSE_CAPTURE_SAMPLES / 2, pending_config.points);
+	release_capture_buffer();
+	resume_audio_after_response();
 	notify_result();
 
 	k_mutex_lock(&service_mutex, K_FOREVER);
@@ -902,6 +977,56 @@ static void transfer_timeout_work_handler(struct k_work *work)
 	k_mutex_unlock(&service_mutex);
 }
 
+/** Release per-connection audio-response memory after its client disconnects. */
+static void disconnect_cleanup_work_handler(struct k_work *work)
+{
+	ARG_UNUSED(work);
+	bool cleaned = false;
+
+	k_mutex_lock(&service_mutex, K_FOREVER);
+	if (transfer_owner_disconnected) {
+		stop_audio_response_activity();
+		release_capture_buffer();
+		reset_transfer();
+		resume_audio_after_response();
+		measurement_active = false;
+		cleaned = true;
+	}
+	k_mutex_unlock(&service_mutex);
+	if (cleaned) {
+		LOG_INF("Released audio response state after disconnect");
+	}
+}
+
+static void audio_response_disconnected(struct bt_conn *conn, uint8_t reason)
+{
+	ARG_UNUSED(reason);
+	bool submit_cleanup = false;
+	bool cleaned = false;
+
+	k_mutex_lock(&service_mutex, K_FOREVER);
+	if (transfer.owner == conn) {
+		if (measurement_active) {
+			transfer_owner_disconnected = true;
+			submit_cleanup = true;
+		} else {
+			reset_transfer();
+			cleaned = true;
+		}
+	}
+	k_mutex_unlock(&service_mutex);
+
+	if (submit_cleanup) {
+		k_work_submit(&disconnect_cleanup_work);
+	} else if (cleaned) {
+		LOG_INF("Released audio response state after disconnect");
+	}
+}
+
+BT_CONN_CB_DEFINE(audio_response_conn_callbacks) = {
+	.disconnected = audio_response_disconnected,
+};
+
 void audio_response_capture_complete(void)
 {
 	LOG_DBG("Audio response capture completion callback");
@@ -913,6 +1038,7 @@ int init_audio_response_service(void)
 	LOG_INF("Initializing audio response service");
 	k_work_init(&measurement_work, measurement_work_handler);
 	k_work_init(&measurement_complete_work, measurement_complete_work_handler);
+	k_work_init(&disconnect_cleanup_work, disconnect_cleanup_work_handler);
 	k_work_init_delayable(&transfer_ready_work, transfer_ready_work_handler);
 	k_work_init_delayable(&transfer_timeout_work, transfer_timeout_work_handler);
 	return 0;
