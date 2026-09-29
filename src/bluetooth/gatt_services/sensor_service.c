@@ -424,6 +424,10 @@ void sensor_queue_listener_cb(const struct zbus_channel *chan) {
 		ret = k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
 
 		if (ret) {
+			/* Keep live sensor data fresh when the link cannot drain the queue. */
+			struct sensor_data discarded;
+			(void)k_msgq_get(&gatt_queue, &discarded, K_NO_WAIT);
+			(void)k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
 			LOG_WRN("ble sensor stream queue full");
 		}
 	}
