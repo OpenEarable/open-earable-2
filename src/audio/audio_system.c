@@ -32,10 +32,10 @@ LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
 
 #define FIFO_TX_BLOCK_COUNT (CONFIG_FIFO_FRAME_SPLIT_NUM * CONFIG_FIFO_TX_FRAME_COUNT)
 #define FIFO_RX_BLOCK_COUNT (CONFIG_FIFO_FRAME_SPLIT_NUM * CONFIG_FIFO_RX_FRAME_COUNT)
-/* Nine 10 ms frames preserve 90 ms of scheduling tolerance while leaving
- * room for LC3 and a retained maximum-size audio-response waveform on 2.2.10.
+/* Seven 10 ms frames preserve 70 ms of scheduling tolerance while leaving
+ * room for LC3, sensor batches, and a maximum-size audio-response waveform.
  */
-#define ENCODER_QUEUE_FRAME_COUNT 9
+#define ENCODER_QUEUE_FRAME_COUNT 7
 
 #define DEBUG_INTERVAL_NUM     1000
 #define TEST_TONE_BASE_FREQ_HZ 1000
