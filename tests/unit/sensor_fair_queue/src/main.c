@@ -12,7 +12,7 @@ void setUp(void) {}
 
 static void init(unsigned capacity)
 {
-	memset(&queue, 0, sizeof(queue));
+	memset(&queue, 0xa5, sizeof(queue));
 	sensor_fair_queue_init(&queue, storage, sizeof(storage[0]), capacity, widths);
 }
 

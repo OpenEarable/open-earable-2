@@ -51,6 +51,7 @@ static void remove_entry(struct sensor_fair_queue *q, uint32_t i)
 void sensor_fair_queue_init(struct sensor_fair_queue *q, void *buffer,
 			   size_t item_size, uint32_t capacity, const uint8_t *widths)
 {
+	q->lock = (struct k_spinlock) {};
 	q->buffer = buffer;
 	q->item_size = item_size;
 	q->capacity = capacity;
