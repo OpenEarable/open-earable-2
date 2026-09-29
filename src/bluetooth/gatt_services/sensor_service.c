@@ -1,4 +1,5 @@
 #include "sensor_service.h"
+#include "sensor_fair_queue.h"
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 #include "../SensorManager/SensorManager.h"
@@ -23,7 +24,8 @@ ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
 static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_SENSOR_GATT_NOTIFY_STACK_SIZE);
 
-K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_data), CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE, 4);
+static struct sensor_fair_queue gatt_queue;
+static struct sensor_data gatt_queue_buffer[CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE + 1];
 
 static struct sensor_data sensor_data_value;
 static struct sensor_config config;
@@ -85,7 +87,7 @@ static void reset_sensor_notification_state(void)
 	connection_complete = false;
 	k_spin_unlock(&notify_state_lock, key);
 
-	k_msgq_purge(&gatt_queue);
+	sensor_fair_queue_purge(&gatt_queue);
 }
 
 /**
@@ -188,7 +190,7 @@ static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 
 	LOG_INF("Sensor data notifications %s", notify_enabled ? "enabled" : "disabled");
 
-	k_msgq_purge(&gatt_queue);
+	sensor_fair_queue_purge(&gatt_queue);
 }
 
 static void sensor_config_status_ccc_cfg_changed(const struct bt_gatt_attr *attr,
@@ -367,7 +369,7 @@ static void notification_task(void) {
 	struct sensor_data sensor_data;
 
 	while (1) {
-		ret = k_msgq_get(&gatt_queue, &sensor_data, K_FOREVER);
+		ret = sensor_fair_queue_get(&gatt_queue, &sensor_data, K_FOREVER);
 
 		if (ret != 0) {
 			LOG_WRN("No data to process");
@@ -421,13 +423,9 @@ void sensor_queue_listener_cb(const struct zbus_channel *chan) {
     msg = (struct sensor_msg *)zbus_chan_const_msg(&sensor_chan);
 
 	if (msg->stream) {
-		ret = k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
+		ret = sensor_fair_queue_put(&gatt_queue, &msg->data);
 
 		if (ret) {
-			/* Keep live sensor data fresh when the link cannot drain the queue. */
-			struct sensor_data discarded;
-			(void)k_msgq_get(&gatt_queue, &discarded, K_NO_WAIT);
-			(void)k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
 			LOG_WRN("ble sensor stream queue full");
 		}
 	}
@@ -508,6 +506,18 @@ int set_sensor_config_status(struct sensor_config sensor_configuration) {
 
 int init_sensor_service() {
 	int ret;
+	uint8_t widths[SENSOR_FAIR_QUEUE_IDS] = {0};
+	for (unsigned id = 0; id < SENSOR_FAIR_QUEUE_IDS; id++) {
+		struct SensorScheme *scheme = getSensorSchemeForId(id);
+		if (!scheme) continue;
+		for (unsigned g = 0; g < scheme->groupCount; g++) {
+			for (unsigned c = 0; c < scheme->groups[g].componentCount; c++) {
+				widths[id] += parseTypeSizes[scheme->groups[g].components[c].parseType];
+			}
+		}
+	}
+	sensor_fair_queue_init(&gatt_queue, gatt_queue_buffer, sizeof(gatt_queue_buffer[0]),
+			       CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE, widths);
 
 	thread_id_notify = k_thread_create(
 		&thread_data_notify, thread_stack_notify,
