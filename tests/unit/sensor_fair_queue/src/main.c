@@ -123,3 +123,13 @@ void test_invalid_sensor_or_oversized_payload_cannot_modify_queue(void)
 	TEST_ASSERT_EQUAL_INT(-EINVAL, sensor_fair_queue_put(&queue, &x));
 	TEST_ASSERT_EQUAL_UINT32(0, queue.used_msgs);
 }
+
+#ifdef __ZEPHYR__
+extern int unity_main(void);
+
+int main(void)
+{
+	(void)unity_main();
+	return 0;
+}
+#endif
