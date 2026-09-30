@@ -41,6 +41,12 @@ config SENSOR_WORK_QUEUE_STACK_SIZE
 	int "Stack size for power measurement thread"
 	default 1024
 
+config SENSOR_CONFIG_STACK_SIZE
+	int "Stack size for sensor configuration worker"
+	default 4096
+	help
+	  Separate preemptible worker for sensor initialization and storage setup.
+
 config SENSOR_GATT_NOTIFY_STACK_SIZE
 	int "Stack size"
 	default 2048
