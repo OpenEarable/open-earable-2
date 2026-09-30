@@ -60,7 +60,7 @@ config SENSOR_SD_SUB_QUEUE_SIZE
 
 config SENSOR_GATT_SUB_QUEUE_SIZE
 	int "Queue size for content control subscriber"
-	default 16
+	default 32
 
 endmenu # Zbus
 
