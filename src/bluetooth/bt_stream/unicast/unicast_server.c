@@ -22,6 +22,7 @@
 #include "bt_le_audio_tx.h"
 #include "le_audio.h"
 #include "audio_sdu_timing.h"
+#include "wireless_audio_configuration_service.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(unicast_server, CONFIG_UNICAST_SERVER_LOG_LEVEL);
@@ -166,6 +167,33 @@ static struct bt_pacs_cap caps[] = {
 static struct bt_cap_stream
 	cap_audio_streams[CONFIG_BT_ASCS_MAX_ASE_SNK_COUNT + CONFIG_BT_ASCS_MAX_ASE_SRC_COUNT];
 
+/** Return the session-local protocol identifier for a registered audio stream. */
+static int audio_stream_index_get(const struct bt_bap_stream *stream)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(cap_audio_streams); i++) {
+		if (&cap_audio_streams[i].bap_stream == stream) {
+			return (int)i;
+		}
+	}
+	return -ENOENT;
+}
+
+/** Report an ASE lifecycle transition for a registered audio stream. */
+static void audio_stream_state_report(struct bt_bap_stream *stream, enum bt_audio_dir dir,
+				      enum wireless_audio_lifecycle_state state)
+{
+	if (dir != BT_AUDIO_DIR_SINK && dir != BT_AUDIO_DIR_SOURCE) {
+		LOG_WRN("Cannot report state for stream %p with unknown direction", stream);
+		return;
+	}
+	const int index = audio_stream_index_get(stream);
+	if (index >= 0) {
+		wireless_audio_configuration_stream_state_set(stream->conn, (uint8_t)index, dir,
+							state);
+	}
+}
+
+
 static struct audio_sdu_timing rx_timing[ARRAY_SIZE(cap_audio_streams)];
 
 static struct audio_sdu_timing *rx_timing_get(struct bt_bap_stream *stream)
@@ -208,13 +236,11 @@ static int lc3_config_cb(struct bt_conn *conn, const struct bt_bap_ep *ep, enum 
 			if (dir == BT_AUDIO_DIR_SINK) {
 				LOG_DBG("BT_AUDIO_DIR_SINK");
 				le_audio_print_codec(codec, dir);
-				le_audio_event_publish(LE_AUDIO_EVT_CONFIG_RECEIVED, conn, dir);
 			}
 #if (CONFIG_BT_AUDIO_TX)
 			else if (dir == BT_AUDIO_DIR_SOURCE) {
 				LOG_DBG("BT_AUDIO_DIR_SOURCE");
 				le_audio_print_codec(codec, dir);
-				le_audio_event_publish(LE_AUDIO_EVT_CONFIG_RECEIVED, conn, dir);
 
 				/* CIS headset only supports one source stream for now */
 				cap_tx_streams[0] = cap_audio_stream;
@@ -226,7 +252,8 @@ static int lc3_config_cb(struct bt_conn *conn, const struct bt_bap_ep *ep, enum 
 			}
 
 			*stream = &cap_audio_stream->bap_stream;
-			*pref = qos_pref;
+			wireless_audio_configuration_audio_connection_set(conn);
+			wireless_audio_configuration_qos_preferences_get(dir, pref);
 
 			return 0;
 		}
@@ -241,6 +268,7 @@ static int lc3_reconfig_cb(struct bt_bap_stream *stream, enum bt_audio_dir dir,
 			   struct bt_bap_qos_cfg_pref *const pref, struct bt_bap_ascs_rsp *rsp)
 {
 	LOG_DBG("ASE Codec Reconfig: stream %p", (void *)stream);
+	wireless_audio_configuration_qos_preferences_get(dir, pref);
 
 	return 0;
 }
@@ -256,7 +284,6 @@ static int lc3_qos_cb(struct bt_bap_stream *stream, const struct bt_bap_qos_cfg 
 		return -EIO;
 	}
 
-	le_audio_event_publish(LE_AUDIO_EVT_PRES_DELAY_SET, stream->conn, dir);
 
 	LOG_DBG("QoS: stream %p qos %p", (void *)stream, (void *)qos);
 
@@ -267,6 +294,8 @@ static int lc3_enable_cb(struct bt_bap_stream *stream, const uint8_t *meta, size
 			 struct bt_bap_ascs_rsp *rsp)
 {
 	LOG_DBG("Enable: stream %p meta_len %d", (void *)stream, meta_len);
+	enum bt_audio_dir dir = le_audio_stream_dir_get(stream);
+	audio_stream_state_report(stream, dir, WIRELESS_AUDIO_LIFECYCLE_ENABLED);
 
 	return 0;
 }
@@ -295,6 +324,7 @@ static int lc3_disable_cb(struct bt_bap_stream *stream, struct bt_bap_ascs_rsp *
 	}
 
 	LOG_DBG("Disable: stream %p", (void *)stream);
+	audio_stream_state_report(stream, dir, WIRELESS_AUDIO_LIFECYCLE_QOS_CONFIGURED);
 
 	le_audio_event_publish(LE_AUDIO_EVT_NOT_STREAMING, stream->conn, dir);
 
@@ -312,6 +342,7 @@ static int lc3_stop_cb(struct bt_bap_stream *stream, struct bt_bap_ascs_rsp *rsp
 	}
 
 	LOG_DBG("Stop: stream %p", (void *)stream);
+	audio_stream_state_report(stream, dir, WIRELESS_AUDIO_LIFECYCLE_QOS_CONFIGURED);
 
 	le_audio_event_publish(LE_AUDIO_EVT_NOT_STREAMING, stream->conn, dir);
 
@@ -329,6 +360,7 @@ static int lc3_release_cb(struct bt_bap_stream *stream, struct bt_bap_ascs_rsp *
 	}
 
 	LOG_DBG("Release: stream %p", (void *)stream);
+	audio_stream_state_report(stream, dir, WIRELESS_AUDIO_LIFECYCLE_RELEASING);
 
 	le_audio_event_publish(LE_AUDIO_EVT_NOT_STREAMING, stream->conn, dir);
 
@@ -389,6 +421,41 @@ static void stream_sent_cb(struct bt_bap_stream *stream)
 }
 #endif /* (CONFIG_BT_AUDIO_TX) */
 
+/** Report a completed codec configuration after Zephyr has updated the stream object. */
+static void stream_configured_cb(struct bt_bap_stream *stream,
+				 const struct bt_bap_qos_cfg_pref *pref)
+{
+	ARG_UNUSED(pref);
+	const enum bt_audio_dir dir = le_audio_stream_dir_get(stream);
+	const int index = audio_stream_index_get(stream);
+
+	if (dir <= 0 || index < 0 || stream->codec_cfg == NULL) {
+		LOG_ERR("Incomplete codec configuration for stream %p", stream);
+		return;
+	}
+
+	wireless_audio_configuration_codec_configured(stream->conn, (uint8_t)index, dir,
+							stream->codec_cfg);
+	le_audio_event_publish(LE_AUDIO_EVT_CONFIG_RECEIVED, stream->conn, dir);
+}
+
+/** Report completed QoS after Zephyr has attached the negotiated tuple to the stream. */
+static void stream_qos_set_cb(struct bt_bap_stream *stream)
+{
+	const enum bt_audio_dir dir = le_audio_stream_dir_get(stream);
+	const int index = audio_stream_index_get(stream);
+
+	if (dir <= 0 || index < 0 || stream->qos == NULL) {
+		LOG_ERR("Incomplete QoS configuration for stream %p", stream);
+		return;
+	}
+
+	wireless_audio_configuration_qos_configured(stream->conn, (uint8_t)index, dir,
+							stream->qos);
+	le_audio_event_publish(LE_AUDIO_EVT_PRES_DELAY_SET, stream->conn, dir);
+}
+
+
 static void stream_enabled_cb(struct bt_bap_stream *stream)
 {
 	int ret;
@@ -430,6 +497,7 @@ static void stream_started_cb(struct bt_bap_stream *stream)
 	}
 
 	LOG_INF("Stream %p started", stream);
+	audio_stream_state_report(stream, dir, WIRELESS_AUDIO_LIFECYCLE_STREAMING);
 
 	if (dir == BT_AUDIO_DIR_SINK) {
 		concurrent_sink_streams_num++;
@@ -460,6 +528,7 @@ static void stream_stopped_cb(struct bt_bap_stream *stream, uint8_t reason)
 	}
 
 	LOG_DBG("Stream %p stopped. Reason: %d", stream, reason);
+	audio_stream_state_report(stream, dir, WIRELESS_AUDIO_LIFECYCLE_QOS_CONFIGURED);
 
 	if (dir == BT_AUDIO_DIR_SINK) {
 		concurrent_sink_streams_num--;
@@ -472,9 +541,13 @@ static void stream_released_cb(struct bt_bap_stream *stream)
 {
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Stream %p released", stream);
+	enum bt_audio_dir dir = le_audio_stream_dir_get(stream);
+	audio_stream_state_report(stream, dir, WIRELESS_AUDIO_LIFECYCLE_CONNECTED);
 }
 
 static struct bt_bap_stream_ops stream_ops = {
+	.configured = stream_configured_cb,
+	.qos_set = stream_qos_set_cb,
 #if (CONFIG_BT_AUDIO_RX)
 	.recv = stream_recv_cb,
 #endif /* (CONFIG_BT_AUDIO_RX) */

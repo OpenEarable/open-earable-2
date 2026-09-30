@@ -470,6 +470,7 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 							    NULL, NULL,
 							    CONFIG_AUDIO_FRAME_DURATION_US);
 			if (ret) {
+				LOG_ERR("Failed to initialize LC3 shared resources: %d", ret);
 				return ret;
 			}
 		}
@@ -492,6 +493,7 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 				CONFIG_AUDIO_FRAME_DURATION_US, sw_codec_cfg.encoder.bitrate,
 				sw_codec_cfg.encoder.num_ch, &pcm_bytes_req_enc);
 			if (ret) {
+				LOG_ERR("Failed to initialize LC3 encoder: %d", ret);
 				return ret;
 			}
 		}
@@ -510,6 +512,7 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 				sw_codec_cfg.decoder.sample_rate_hz, CONFIG_AUDIO_BIT_DEPTH_BITS,
 				CONFIG_AUDIO_FRAME_DURATION_US, sw_codec_cfg.decoder.num_ch);
 			if (ret) {
+				LOG_ERR("Failed to initialize LC3 decoder: %d", ret);
 				return ret;
 			}
 		}
