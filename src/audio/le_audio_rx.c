@@ -12,6 +12,7 @@
 #include "macros_common.h"
 #include "audio_system.h"
 #include "audio_sync_timer.h"
+#include "audio_sdu_timing.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(le_audio_rx, CONFIG_LE_AUDIO_RX_LOG_LEVEL);
@@ -22,6 +23,7 @@ struct ble_iso_data {
 	bool bad_frame;
 	uint32_t sdu_ref;
 	uint32_t recv_frame_ts;
+	bool timestamp_valid;
 } __packed;
 
 struct rx_stats {
@@ -37,10 +39,18 @@ K_THREAD_STACK_DEFINE(audio_datapath_thread_stack, CONFIG_AUDIO_DATAPATH_STACK_S
 
 DATA_FIFO_DEFINE(ble_fifo_rx, CONFIG_BUF_BLE_RX_PACKET_NUM, WB_UP(sizeof(struct ble_iso_data)));
 
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+/* Opt-in fixture fault: delay decoding without stopping I2S or the radio.
+ * The host uses this to verify presentation margin against late processing.
+ */
+volatile uint32_t audio_sync_rx_stall_us;
+volatile uint32_t audio_sync_rx_stall_count;
+#endif
+
 /* Callback for handling ISO RX */
 void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, bool bad_frame,
 			      uint32_t sdu_ref, enum audio_channel channel_index,
-			      size_t desired_data_size)
+			      size_t desired_data_size, uint16_t sequence, bool timestamp_valid)
 {
 	int ret;
 	uint32_t blocks_alloced_num, blocks_locked_num;
@@ -48,6 +58,7 @@ void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, boo
 	static struct rx_stats rx_stats[AUDIO_CH_NUM];
 	static uint32_t num_overruns;
 	static uint32_t num_thrown;
+	static struct audio_sdu_timing timing[AUDIO_CH_NUM];
 
 	if (!initialized) {
 		ERR_CHK_MSG(-EPERM, "Data received but le_audio_rx is not initialized");
@@ -55,6 +66,16 @@ void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, boo
 
 	/* Capture timestamp of when audio frame is received */
 	uint32_t recv_frame_ts = audio_sync_timer_capture();
+
+	if ((unsigned int)channel_index >= AUDIO_CH_NUM) {
+		return;
+	}
+	if (IS_ENABLED(CONFIG_AUDIO_SYNC_VALID_TIMESTAMPS) &&
+	    !audio_sdu_timing_resolve(&timing[channel_index], timestamp_valid, sequence,
+				     sdu_ref, recv_frame_ts, CONFIG_AUDIO_FRAME_DURATION_US,
+				     &sdu_ref)) {
+		return;
+	}
 
 	rx_stats[channel_index].recv_cnt++;
 
@@ -127,6 +148,7 @@ void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, boo
 	iso_received->data_size = data_size;
 	iso_received->sdu_ref = sdu_ref;
 	iso_received->recv_frame_ts = recv_frame_ts;
+	iso_received->timestamp_valid = timestamp_valid;
 
 	ret = data_fifo_block_lock(&ble_fifo_rx, (void *)&iso_received,
 				   sizeof(struct ble_iso_data));
@@ -151,6 +173,15 @@ static void audio_datapath_thread(void *dummy1, void *dummy2, void *dummy3)
 							&iso_received_size, K_FOREVER);
 		ERR_CHK(ret);
 
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+		uint32_t stall_us = MIN(audio_sync_rx_stall_us, 60000U);
+		if (stall_us != 0) {
+			audio_sync_rx_stall_us = 0;
+			k_usleep(stall_us);
+			audio_sync_rx_stall_count++;
+		}
+#endif
+
 		if (IS_ENABLED(CONFIG_AUDIO_SOURCE_USB) && (CONFIG_AUDIO_DEV == GATEWAY)) {
 			ret = audio_system_decode(iso_received->data, iso_received->data_size,
 						  iso_received->bad_frame);
@@ -158,7 +189,8 @@ static void audio_datapath_thread(void *dummy1, void *dummy2, void *dummy3)
 		} else {
 			audio_datapath_stream_out(iso_received->data, iso_received->data_size,
 						  iso_received->sdu_ref, iso_received->bad_frame,
-						  iso_received->recv_frame_ts);
+						  iso_received->recv_frame_ts,
+						  iso_received->timestamp_valid);
 		}
 		data_fifo_block_free(&ble_fifo_rx, (void *)iso_received);
 

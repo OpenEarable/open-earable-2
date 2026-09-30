@@ -16,10 +16,12 @@
  * @param[in] sdu_ref		SDU reference timestamp.
  * @param[in] channel_index	Which channel is received.
  * @param[in] desired_data_size	The expected data size.
+ * @param[in] sequence		ISO SDU sequence number (wraps at 16 bits).
+ * @param[in] timestamp_valid	Whether the controller supplied the timestamp.
  */
 void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, bool bad_frame,
 			      uint32_t sdu_ref, enum audio_channel channel_index,
-			      size_t desired_data_size);
+			      size_t desired_data_size, uint16_t sequence, bool timestamp_valid);
 
 /**
  * @brief Initialize the receive audio path.

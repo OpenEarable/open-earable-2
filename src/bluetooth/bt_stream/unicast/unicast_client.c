@@ -1315,7 +1315,8 @@ static void stream_recv_cb(struct bt_bap_stream *stream, const struct bt_iso_rec
 	}
 
 	receive_cb(buf->data, buf->len, bad_frame, info->ts, idx.lvl3,
-		   bt_audio_codec_cfg_get_octets_per_frame(stream->codec_cfg));
+		   bt_audio_codec_cfg_get_octets_per_frame(stream->codec_cfg), info->seq_num,
+		    (info->flags & BT_ISO_FLAGS_TS) != 0);
 }
 #endif /* (CONFIG_BT_AUDIO_RX) */
 

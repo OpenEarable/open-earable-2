@@ -125,9 +125,10 @@ void audio_datapath_pres_delay_us_get(uint32_t *delay_us);
  * @param sdu_ref_us ISO timestamp reference from BLE controller
  * @param bad_frame Indicating if the audio frame is bad or not
  * @param recv_frame_ts_us Timestamp of when audio frame was received
+ * @param timestamp_valid False for sequence-estimated or absent ISO references
  */
 void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref_us, bool bad_frame,
-			       uint32_t recv_frame_ts_us);
+			       uint32_t recv_frame_ts_us, bool timestamp_valid);
 
 /**
  * @brief Start the audio datapath module

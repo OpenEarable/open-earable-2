@@ -8,6 +8,50 @@ rsource "Kconfig.defaults"
 
 menu "Audio"
 
+config AUDIO_SYNC_VALID_TIMESTAMPS
+	bool "Resolve lost SDU timestamps from their sequence numbers"
+	default y
+	help
+	  Respect the ISO timestamp-valid flag. Use bounded sequence-based
+	  concealment when a timestamp is absent instead of resetting the
+	  audio reference to zero.
+
+config AUDIO_SYNC_ABSOLUTE_PRESENTATION
+	bool "Measure presentation from the rendered SDU reference"
+	default y
+
+config AUDIO_SYNC_CONTINUOUS_PRESENTATION
+	bool "Recheck presentation delay after locking"
+	default y
+
+config AUDIO_SYNC_RESET_ON_START
+	bool "Reset synchronization state on I2S restart"
+	default n
+
+config AUDIO_SYNC_WRAP_SAFE
+	bool "Use wrap-safe audio clock phase differences"
+	default y
+
+config AUDIO_SYNC_BOUNDED_CORRECTION
+	bool "Keep presentation corrections inside the queued audio"
+	default y
+
+config AUDIO_SYNC_SIGNED_CLOCK
+	bool "Clamp signed audio frequency corrections before narrowing"
+	default n
+
+config AUDIO_SYNC_FINE_DRIFT
+	bool "Use full proportional audio phase correction"
+	default n
+
+config AUDIO_SYNC_DIAGNOSTICS
+	bool "Record audio presentation timing for SWD inspection"
+	default n
+	help
+	  Record source timestamps and I2S completion times in a nonblocking RAM
+	  ring. Read it with tools/audio_sync/capture.py without stopping either
+	  processor. No logging or debug transport runs in the audio interrupt.
+
 choice AUDIO_FRAME_DURATION
 	prompt "Select frame duration - 7.5 ms frame duration is not tested"
 	default AUDIO_FRAME_DURATION_10_MS
@@ -32,12 +76,15 @@ config AUDIO_FRAME_DURATION_US
 
 config AUDIO_MIN_PRES_DLY_US
 	int "The minimum presentation delay"
+	default 40000 if AUDIO_DEV = 1
 	default 5000 if STREAM_BIDIRECTIONAL
 	default 3000
 	help
 	  The minimum allowable presentation delay in microseconds.
 	  This needs to allow time for decoding and internal routing.
 	  For 48kHz sampling rate and 96kbps bitrate this is about 4000 us.
+	  Headsets reserve four 10 ms frames for controller delivery jitter and
+	  decoding so both sides can meet the same presentation deadline.
 
 config AUDIO_MAX_PRES_DLY_US
 	int "The maximum presentation delay"

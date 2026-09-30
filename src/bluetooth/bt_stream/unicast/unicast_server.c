@@ -379,7 +379,8 @@ static uint8_t sirk_read_req_cb(struct bt_conn *conn, struct bt_csip_set_member_
 	 }
  
 	 receive_cb(buf->data, buf->len, bad_frame, info->ts, 0,
-			bt_audio_codec_cfg_get_octets_per_frame(stream->codec_cfg));
+			bt_audio_codec_cfg_get_octets_per_frame(stream->codec_cfg), info->seq_num,
+		    (info->flags & BT_ISO_FLAGS_TS) != 0);
  }
  #endif /* (CONFIG_BT_AUDIO_RX) */
  

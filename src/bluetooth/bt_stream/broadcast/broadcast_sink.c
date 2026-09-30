@@ -343,7 +343,8 @@ static void stream_recv_cb(struct bt_bap_stream *stream, const struct bt_iso_rec
 	}
 
 	receive_cb(buf->data, buf->len, bad_frame, info->ts, active_stream_index,
-		   active_stream.codec->octets_per_sdu);
+		   active_stream.codec->octets_per_sdu, info->seq_num,
+		    (info->flags & BT_ISO_FLAGS_TS) != 0);
 }
 
 static struct bt_bap_stream_ops stream_ops = {

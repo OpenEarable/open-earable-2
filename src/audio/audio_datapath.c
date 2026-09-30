@@ -43,6 +43,34 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
+/* Diagnostic builds can isolate changes without repeatedly rewriting flash.
+ * The host changes this mask only while phone playback is stopped. Production
+ * builds use their compile-time selections and expose no writable switches.
+ */
+enum audio_sync_fix {
+	AUDIO_SYNC_FIX_ABSOLUTE_PRESENTATION = BIT(0),
+	AUDIO_SYNC_FIX_CONTINUOUS_PRESENTATION = BIT(1),
+	AUDIO_SYNC_FIX_RESET_ON_START = BIT(2),
+	AUDIO_SYNC_FIX_WRAP_SAFE = BIT(3),
+	AUDIO_SYNC_FIX_BOUNDED_CORRECTION = BIT(4),
+	AUDIO_SYNC_FIX_SIGNED_CLOCK = BIT(5),
+	AUDIO_SYNC_FIX_FINE_DRIFT = BIT(6),
+};
+
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+volatile uint32_t audio_sync_fix_mask =
+	(IS_ENABLED(CONFIG_AUDIO_SYNC_ABSOLUTE_PRESENTATION) ? AUDIO_SYNC_FIX_ABSOLUTE_PRESENTATION : 0) |
+	(IS_ENABLED(CONFIG_AUDIO_SYNC_CONTINUOUS_PRESENTATION) ? AUDIO_SYNC_FIX_CONTINUOUS_PRESENTATION : 0) |
+	(IS_ENABLED(CONFIG_AUDIO_SYNC_RESET_ON_START) ? AUDIO_SYNC_FIX_RESET_ON_START : 0) |
+	(IS_ENABLED(CONFIG_AUDIO_SYNC_WRAP_SAFE) ? AUDIO_SYNC_FIX_WRAP_SAFE : 0) |
+	(IS_ENABLED(CONFIG_AUDIO_SYNC_BOUNDED_CORRECTION) ? AUDIO_SYNC_FIX_BOUNDED_CORRECTION : 0) |
+	(IS_ENABLED(CONFIG_AUDIO_SYNC_SIGNED_CLOCK) ? AUDIO_SYNC_FIX_SIGNED_CLOCK : 0) |
+	(IS_ENABLED(CONFIG_AUDIO_SYNC_FINE_DRIFT) ? AUDIO_SYNC_FIX_FINE_DRIFT : 0);
+#define AUDIO_SYNC_FIX_ENABLED(name) ((audio_sync_fix_mask & AUDIO_SYNC_FIX_##name) != 0)
+#else
+#define AUDIO_SYNC_FIX_ENABLED(name) IS_ENABLED(CONFIG_AUDIO_SYNC_##name)
+#endif
+
 /*
  * Terminology
  *   - sample: signed integer of audio waveform amplitude
@@ -95,7 +123,7 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 #define DRIFT_ERR_THRESH_LOCK	   16
 #define DRIFT_ERR_THRESH_UNLOCK	   32
 /* To get smaller corrections */
-#define DRIFT_REGULATOR_DIV_FACTOR 2
+#define DRIFT_REGULATOR_DIV_FACTOR (AUDIO_SYNC_FIX_ENABLED(FINE_DRIFT) ? 1 : 2)
 
 /* To allow BLE transmission and (host -> HCI -> controller) */
 #define JUST_IN_TIME_TARGET_DLY_US 3000
@@ -157,6 +185,7 @@ static struct {
 		uint16_t prod_blk_idx; /* Output producer audio block index */
 		uint16_t cons_blk_idx; /* Output consumer audio block index */
 		uint32_t prod_blk_ts[FIFO_NUM_BLKS];
+		bool prod_blk_valid[FIFO_NUM_BLKS];
 		/* Statistics */
 		uint32_t total_blk_underruns;
 	} out;
@@ -164,6 +193,9 @@ static struct {
 	uint32_t prev_drift_sdu_ref_us;
 	uint32_t prev_pres_sdu_ref_us;
 	uint32_t current_pres_dly_us;
+	bool current_pres_valid;
+	bool drift_reference_valid;
+	bool pending_tx_from_fifo;
 
 	struct {
 		enum drift_comp_state state: 8;
@@ -181,6 +213,81 @@ static struct {
 		bool enabled;
 	} pres_comp;
 } ctrl_blk;
+
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+/* Each timestamp uses the local controller clock. Subtracting the SDU
+ * reference removes its epoch, allowing presentation latency to be compared
+ * across the two members of a Bluetooth audio group. Only frame starts are
+ * recorded; the committed sequence is written last for nonhalting SWD reads.
+ */
+static struct {
+	uint32_t raw_sdu;
+	uint32_t sdu;
+	uint32_t received;
+	bool frame_start;
+	bool timestamp_valid;
+	bool bad_frame;
+} sync_block[FIFO_NUM_BLKS];
+
+struct audio_sync_record {
+	uint32_t sequence;
+	uint32_t completed;
+	uint32_t raw_sdu;
+	uint32_t sdu;
+	uint32_t received;
+	uint32_t presentation_delay;
+	uint32_t underruns;
+	uint32_t clock;
+	uint32_t states;
+	uint32_t queued;
+};
+
+/* Deliberately externally visible so the matching ELF identifies the ring. */
+volatile struct {
+	uint32_t magic;
+	uint32_t count;
+	struct audio_sync_record records[128];
+} audio_sync_diagnostics = {.magic = 0x41535931};
+
+/* Diagnostic positive control: insert this many silent 1 ms blocks before
+ * the next decoded frame. The host writes at most 10; normal value is zero.
+ */
+volatile uint32_t audio_sync_inject_blocks;
+
+static void audio_sync_record_completed(uint32_t timestamp, const uint32_t *released)
+{
+	uintptr_t address = (uintptr_t)released;
+	uintptr_t begin = (uintptr_t)ctrl_blk.out.fifo;
+	if (address < begin || address >= begin + sizeof(ctrl_blk.out.fifo) ||
+	    (address - begin) % BLK_STEREO_SIZE_OCTETS) {
+		return;
+	}
+	uint32_t index = (address - begin) / BLK_STEREO_SIZE_OCTETS;
+	if (!sync_block[index].frame_start) {
+		return;
+	}
+	uint32_t count = audio_sync_diagnostics.count;
+	volatile struct audio_sync_record *record = &audio_sync_diagnostics.records[count % 128];
+	record->sequence = 0;
+	__DMB();
+	record->completed = timestamp;
+	record->raw_sdu = sync_block[index].raw_sdu;
+	record->sdu = sync_block[index].sdu;
+	record->received = sync_block[index].received;
+	record->presentation_delay = ctrl_blk.pres_comp.pres_delay_us;
+	record->underruns = ctrl_blk.out.total_blk_underruns;
+	record->clock = NRF_CLOCK->HFCLKAUDIO.FREQUENCY;
+	record->states = ctrl_blk.drift_comp.state | (ctrl_blk.pres_comp.state << 8) |
+		(sync_block[index].timestamp_valid ? 0 : BIT(16)) |
+		(sync_block[index].bad_frame ? BIT(17) : 0);
+	record->queued = (ctrl_blk.out.prod_blk_idx + FIFO_NUM_BLKS -
+			  ctrl_blk.out.cons_blk_idx) % FIFO_NUM_BLKS;
+	__DMB();
+	record->sequence = count + 1;
+	__DMB();
+	audio_sync_diagnostics.count = count + 1;
+}
+#endif
 
 #include "openearable_common.h"
 
@@ -474,7 +581,9 @@ static int32_t err_us_calculate(uint32_t sdu_ref_us, uint32_t frame_start_ts_us)
 {
 	bool err_neg = false;
 
-	int64_t total_err = ((int64_t)sdu_ref_us - (int64_t)frame_start_ts_us);
+	int64_t total_err = AUDIO_SYNC_FIX_ENABLED(WRAP_SAFE) ?
+		(int32_t)(sdu_ref_us - frame_start_ts_us) :
+		((int64_t)sdu_ref_us - (int64_t)frame_start_ts_us);
 
 	/* Store sign for later use, since remainder operation is undefined for negatives */
 	if (total_err < 0) {
@@ -497,9 +606,10 @@ static int32_t err_us_calculate(uint32_t sdu_ref_us, uint32_t frame_start_ts_us)
 	return err_us;
 }
 
-static void hfclkaudio_set(uint16_t freq_value)
+static void hfclkaudio_set(int32_t freq_value)
 {
-	uint16_t freq_val = freq_value;
+	int32_t freq_val = AUDIO_SYNC_FIX_ENABLED(SIGNED_CLOCK) ?
+		freq_value : (uint16_t)freq_value;
 
 	freq_val = MIN(freq_val, APLL_FREQ_MAX);
 	freq_val = MAX(freq_val, APLL_FREQ_MIN);
@@ -527,6 +637,10 @@ static void drift_comp_state_set(enum drift_comp_state new_state)
  */
 static void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 {
+	if (IS_ENABLED(CONFIG_AUDIO_SYNC_VALID_TIMESTAMPS) &&
+	    CONFIG_AUDIO_DEV == HEADSET && !ctrl_blk.drift_reference_valid) {
+		return;
+	}
 	if (CONFIG_AUDIO_DEV == HEADSET) {
 		/** For headsets we do not use the timestamp gotten from hci_tx_sync_get to adjust
 		 * for drift
@@ -657,6 +771,11 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
 static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, uint32_t sdu_ref_us,
 						     bool sdu_ref_not_consecutive)
 {
+	if (AUDIO_SYNC_FIX_ENABLED(ABSOLUTE_PRESENTATION) &&
+	    !ctrl_blk.current_pres_valid) {
+		return;
+	}
+
 	if (ctrl_blk.drift_comp.state != DRIFT_STATE_LOCKED) {
 		/* Unconditionally reset state machine if drift compensation looses lock */
 		pres_comp_state_set(PRES_STATE_INIT);
@@ -672,7 +791,9 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 	}
 
 	int32_t wanted_pres_dly_us =
-		ctrl_blk.pres_comp.pres_delay_us - (recv_frame_ts_us - sdu_ref_us);
+		ctrl_blk.pres_comp.pres_delay_us -
+		(AUDIO_SYNC_FIX_ENABLED(ABSOLUTE_PRESENTATION) ? 0 :
+		 (recv_frame_ts_us - sdu_ref_us));
 	int32_t pres_adj_us = 0;
 
 	switch (ctrl_blk.pres_comp.state) {
@@ -713,6 +834,12 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 		break;
 	}
 	case PRES_STATE_LOCKED: {
+		/* Continue checking absolute latency: a FIFO underrun or lost frame
+		 * can change it without changing the oscillator phase. */
+		if (AUDIO_SYNC_FIX_ENABLED(CONTINUOUS_PRESENTATION) &&
+		    ++ctrl_blk.pres_comp.ctr >= PRES_COMP_NUM_DATA_PTS) {
+			pres_comp_state_set(PRES_STATE_INIT);
+		}
 		/*
 		 * Presentation delay compensation moves into PRES_STATE_WAIT if sdu_ref_us
 		 * and the previous sdu_ref_us originate from non-consecutive frames, or into
@@ -752,11 +879,23 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 		LOG_WRN("Requested presentation delay out of range: pres_adj_us=%d", pres_adj_us);
 	}
 
+	if (AUDIO_SYNC_FIX_ENABLED(BOUNDED_CORRECTION)) {
+		/* Keep the current DMA block and one queued block intact. Never
+		 * wrap the producer into an empty or full ring while correcting. */
+		int queued = filled_blocks_get();
+		pres_adj_blks = CLAMP(pres_adj_blks, -MAX(queued - 2, 0),
+				     MAX(FIFO_NUM_BLKS - queued - NUM_BLKS_IN_FRAME - 2, 0));
+	}
+
 	if (pres_adj_blks > 0) {
 		LOG_DBG("Presentation delay inserted: pres_adj_blks=%d", pres_adj_blks);
 
 		/* Increase presentation delay */
 		for (int i = 0; i < pres_adj_blks; i++) {
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+			sync_block[ctrl_blk.out.prod_blk_idx].frame_start = false;
+#endif
+			ctrl_blk.out.prod_blk_valid[ctrl_blk.out.prod_blk_idx] = false;
 			/* Mute audio block */
 			memset(&ctrl_blk.out.fifo[ctrl_blk.out.prod_blk_idx * BLK_STEREO_NUM_SAMPS],
 			       0, BLK_STEREO_SIZE_OCTETS);
@@ -1095,9 +1234,15 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	static bool underrun_condition;
 	static uint32_t released_tx_reuse_count;
 
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+	audio_sync_record_completed(frame_start_ts_us, tx_buf_released);
+#endif
+
 	alt_buffer_free(tx_buf_released);
 
 	/*** Presentation delay measurement ***/
+	ctrl_blk.current_pres_valid = ctrl_blk.pending_tx_from_fifo &&
+		ctrl_blk.out.prod_blk_valid[ctrl_blk.out.cons_blk_idx];
 	ctrl_blk.current_pres_dly_us =
 		frame_start_ts_us - ctrl_blk.out.prod_blk_ts[ctrl_blk.out.cons_blk_idx];
 
@@ -1119,6 +1264,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 					bt_mgmt_report_audio_underrun(ctrl_blk.out.total_blk_underruns);
 				}
 
+				ctrl_blk.pending_tx_from_fifo = true;
 				tx_buf = (uint8_t *)&ctrl_blk.out
 						 .fifo[next_out_blk_idx * BLK_STEREO_NUM_SAMPS];
 
@@ -1138,6 +1284,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 				 * No data available in out.fifo
 				 * use alternative buffers
 				 */
+				ctrl_blk.pending_tx_from_fifo = false;
 				ret = alt_buffer_get((void **)&tx_buf);
 				if (ret) {
 					released_tx_reuse_count++;
@@ -1258,6 +1405,7 @@ static void audio_datapath_i2s_start(void)
 	reset_eq();
 #endif
 
+	ctrl_blk.pending_tx_from_fifo = true;
 	/* Start I2S */
 	audio_i2s_start(tx_buf_one, rx_buf_one);
 	audio_i2s_set_next_buf(tx_buf_two, rx_buf_two);
@@ -1378,8 +1526,11 @@ void audio_datapath_pres_delay_us_get(uint32_t *delay_us)
 }
 
 void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref_us, bool bad_frame,
-			       uint32_t recv_frame_ts_us)
+			       uint32_t recv_frame_ts_us, bool timestamp_valid)
 {
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+	const uint32_t raw_sdu_ref_us = sdu_ref_us;
+#endif
 	if (!ctrl_blk.stream_started) {
 		LOG_WRN("Stream not started");
 		return;
@@ -1424,6 +1575,7 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 	}
 
 	ctrl_blk.prev_pres_sdu_ref_us = sdu_ref_us;
+	ctrl_blk.drift_reference_valid = timestamp_valid;
 
 	/*** Presentation compensation ***/
 	if (ctrl_blk.pres_comp.enabled) {
@@ -1457,6 +1609,22 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 	/*** Add audio data to FIFO buffer ***/
 	uint32_t num_blks_in_fifo = filled_blocks_get();
 
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+	uint32_t inject = MIN(audio_sync_inject_blocks, 10U);
+	if (inject && num_blks_in_fifo + NUM_BLKS_IN_FRAME + inject + 2 < FIFO_NUM_BLKS) {
+		audio_sync_inject_blocks = 0;
+		for (uint32_t i = 0; i < inject; i++) {
+			uint32_t index = ctrl_blk.out.prod_blk_idx;
+			memset(&ctrl_blk.out.fifo[index * BLK_STEREO_NUM_SAMPS], 0,
+			       BLK_STEREO_SIZE_OCTETS);
+			sync_block[index].frame_start = false;
+			ctrl_blk.out.prod_blk_valid[index] = false;
+			ctrl_blk.out.prod_blk_idx = NEXT_IDX(index);
+		}
+		num_blks_in_fifo += inject;
+	}
+#endif
+
 	if ((num_blks_in_fifo + NUM_BLKS_IN_FRAME) > FIFO_NUM_BLKS) {
 		LOG_WRN("Output audio stream overrun - Discarding audio frame");
 
@@ -1467,6 +1635,14 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 	uint32_t out_blk_idx = ctrl_blk.out.prod_blk_idx;
 
 	for (uint32_t i = 0; i < NUM_BLKS_IN_FRAME; i++) {
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+		sync_block[out_blk_idx].raw_sdu = raw_sdu_ref_us;
+		sync_block[out_blk_idx].sdu = sdu_ref_us;
+		sync_block[out_blk_idx].received = recv_frame_ts_us;
+		sync_block[out_blk_idx].frame_start = (i == 0);
+		sync_block[out_blk_idx].timestamp_valid = timestamp_valid;
+		sync_block[out_blk_idx].bad_frame = bad_frame;
+#endif
 		if (IS_ENABLED(CONFIG_AUDIO_BIT_DEPTH_16)) {
 			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
 			       &((int16_t *)ctrl_blk.decoded_data)[i * BLK_STEREO_NUM_SAMPS],
@@ -1490,7 +1666,10 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 		LOG_INF("time: %i", end - start);*/
 
 		/* Record producer block start reference */
-		ctrl_blk.out.prod_blk_ts[out_blk_idx] = recv_frame_ts_us + (i * BLK_PERIOD_US);
+		ctrl_blk.out.prod_blk_ts[out_blk_idx] =
+			(AUDIO_SYNC_FIX_ENABLED(ABSOLUTE_PRESENTATION) ?
+			 sdu_ref_us : recv_frame_ts_us) + (i * BLK_PERIOD_US);
+		ctrl_blk.out.prod_blk_valid[out_blk_idx] = true;
 
 		out_blk_idx = NEXT_IDX(out_blk_idx);
 	}
@@ -1510,8 +1689,23 @@ int audio_datapath_start(struct data_fifo *fifo_rx)
 	if (!ctrl_blk.stream_started) {
 		ctrl_blk.in.fifo = fifo_rx;
 
+		if (AUDIO_SYNC_FIX_ENABLED(RESET_ON_START)) {
+			ctrl_blk.prev_pres_sdu_ref_us = 0;
+			ctrl_blk.prev_drift_sdu_ref_us = 0;
+			ctrl_blk.drift_comp.ctr = 0;
+			ctrl_blk.drift_comp.state = DRIFT_STATE_INIT;
+			ctrl_blk.pres_comp.ctr = 0;
+			ctrl_blk.pres_comp.sum_err_dly_us = 0;
+			ctrl_blk.pres_comp.state = PRES_STATE_INIT;
+			ctrl_blk.current_pres_valid = false;
+			hfclkaudio_set(APLL_FREQ_CENTER);
+		}
+
 		/* Clear counters and mute initial audio */
 		memset(&ctrl_blk.out, 0, sizeof(ctrl_blk.out));
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+		memset(sync_block, 0, sizeof(sync_block));
+#endif
 
 		audio_datapath_i2s_start();
 		ctrl_blk.stream_started = true;

@@ -50,10 +50,12 @@
  * @param	sdu_ref		ISO timestamp.
  * @param	channel_index	Audio channel index.
  * @param	desired_size	The expected data size.
+ * @param	sequence	ISO SDU sequence number (wraps at 16 bits).
+ * @param	timestamp_valid Whether the controller supplied the ISO timestamp.
  */
 typedef void (*le_audio_receive_cb)(const uint8_t *const data, size_t size, bool bad_frame,
 				    uint32_t sdu_ref, enum audio_channel channel_index,
-				    size_t desired_size);
+				    size_t desired_size, uint16_t sequence, bool timestamp_valid);
 
 /**
  * @brief	Encoded audio data and information.
