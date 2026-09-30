@@ -27,6 +27,7 @@
 #include "audio_system.h"
 #include "streamctrl.h"
 #include "sd_card_playback.h"
+#include "audio_startup.h"
 
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
@@ -196,6 +197,7 @@ static struct {
 	bool current_pres_valid;
 	bool drift_reference_valid;
 	bool pending_tx_from_fifo;
+	struct audio_startup startup;
 
 	struct {
 		enum drift_comp_state state: 8;
@@ -227,6 +229,8 @@ static struct {
 	bool frame_start;
 	bool timestamp_valid;
 	bool bad_frame;
+	bool startup_muted;
+	bool startup_fading;
 } sync_block[FIFO_NUM_BLKS];
 
 struct audio_sync_record {
@@ -279,7 +283,9 @@ static void audio_sync_record_completed(uint32_t timestamp, const uint32_t *rele
 	record->clock = NRF_CLOCK->HFCLKAUDIO.FREQUENCY;
 	record->states = ctrl_blk.drift_comp.state | (ctrl_blk.pres_comp.state << 8) |
 		(sync_block[index].timestamp_valid ? 0 : BIT(16)) |
-		(sync_block[index].bad_frame ? BIT(17) : 0);
+		(sync_block[index].bad_frame ? BIT(17) : 0) |
+		(sync_block[index].startup_muted ? BIT(18) : 0) |
+		(sync_block[index].startup_fading ? BIT(19) : 0);
 	record->queued = (ctrl_blk.out.prod_blk_idx + FIFO_NUM_BLKS -
 			  ctrl_blk.out.cons_blk_idx) % FIFO_NUM_BLKS;
 	__DMB();
@@ -1217,6 +1223,51 @@ __attribute__((weak)) void bt_mgmt_report_audio_underrun(uint32_t count) {
 }
 
 
+/* Apply only to Bluetooth PCM; local tones are mixed afterward. */
+static void audio_datapath_startup_apply(uint8_t *buffer)
+{
+	const uint32_t fade_frames = CONFIG_AUDIO_SAMPLE_RATE_HZ * 5U / 1000U;
+	bool streaming = stream_state_get() == STATE_STREAMING;
+	if (!streaming) {
+		ctrl_blk.startup = (struct audio_startup){0};
+	}
+	int32_t error_us = (int32_t)(ctrl_blk.current_pres_dly_us -
+				   ctrl_blk.pres_comp.pres_delay_us);
+	bool synchronized = !ctrl_blk.pres_comp.enabled ||
+		(ctrl_blk.drift_comp.state == DRIFT_STATE_LOCKED &&
+		 ctrl_blk.pres_comp.state == PRES_STATE_LOCKED &&
+		 (!AUDIO_SYNC_FIX_ENABLED(ABSOLUTE_PRESENTATION) ||
+		  (error_us > -BLK_PERIOD_US / 2 && error_us < BLK_PERIOD_US / 2)));
+	bool ready = streaming && audio_startup_ready(&ctrl_blk.startup,
+		ctrl_blk.pending_tx_from_fifo && ctrl_blk.current_pres_valid &&
+		ctrl_blk.drift_reference_valid && synchronized);
+
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+	if (ctrl_blk.pending_tx_from_fifo) {
+		sync_block[ctrl_blk.out.cons_blk_idx].startup_muted = !ready;
+		sync_block[ctrl_blk.out.cons_blk_idx].startup_fading =
+			ready && ctrl_blk.startup.fade_frames < fade_frames;
+	}
+#endif
+	if (!ready) {
+		/* Consume and timestamp real FIFO blocks while silent, so the clock
+		 * and presentation controllers can settle without audible gaps.
+		 */
+		memset(buffer, 0, BLK_STEREO_SIZE_OCTETS);
+	} else if (ctrl_blk.startup.fade_frames < fade_frames) {
+#if CONFIG_AUDIO_BIT_DEPTH_16
+		int16_t *samples = (int16_t *)buffer;
+#else
+		int32_t *samples = (int32_t *)buffer;
+#endif
+		for (uint32_t i = 0; i < BLK_STEREO_NUM_SAMPS; i += 2) {
+			uint32_t gain = audio_startup_gain(&ctrl_blk.startup, fade_frames);
+			samples[i] = audio_startup_scale(samples[i], gain, fade_frames);
+			samples[i + 1] = audio_startup_scale(samples[i + 1], gain, fade_frames);
+		}
+	}
+}
+
 /*
  * This handler function is called every time I2S needs new buffers for
  * TX and RX data.
@@ -1302,6 +1353,8 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 
 				memset(tx_buf, 0, BLK_STEREO_SIZE_OCTETS);
 			}
+
+			audio_datapath_startup_apply(tx_buf);
 
 			if (tone_active || buffer_play_data != NULL) {
 				tone_mix(tx_buf);
@@ -1703,6 +1756,7 @@ int audio_datapath_start(struct data_fifo *fifo_rx)
 
 		/* Clear counters and mute initial audio */
 		memset(&ctrl_blk.out, 0, sizeof(ctrl_blk.out));
+		ctrl_blk.startup = (struct audio_startup){0};
 #if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
 		memset(sync_block, 0, sizeof(sync_block));
 #endif

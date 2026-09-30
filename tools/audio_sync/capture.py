@@ -190,6 +190,8 @@ def main():
                         record.update(time=now, snr=args.snr, side=side,
                                       timestamp_valid=not bool(record["states"] & (1 << 16)),
                                       bad_frame=bool(record["states"] & (1 << 17)),
+                                      startup_muted=bool(record["states"] & (1 << 18)),
+                                      startup_fading=bool(record["states"] & (1 << 19)),
                                       delay_us=signed_delta(record["completed"], record["raw_sdu"]),
                                       estimated_delay_us=signed_delta(record["completed"], record["sdu"]),
                                       receive_us=signed_delta(record["received"], record["raw_sdu"]))

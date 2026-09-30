@@ -50,6 +50,15 @@ stereo timing comparison. `bad_frame` separately marks damaged or missing
 encoded audio, including cases where its timestamp is valid. Neither kind of
 missing data is evidence of good sound quality.
 
+`startup_muted` and `startup_fading` describe the gain applied to the recorded
+FIFO block before it was handed to I2S (state bits 18 and 19). Muted blocks
+still carry timestamps and participate in synchronization. The startup gate
+waits for clock and presentation lock plus 20 consecutive valid 1 ms blocks
+near the presentation target, then ramps both PCM channels over 5 ms. It
+remains open during subsequent presentation measurements and resets on a
+stream stop, including when microphone recording keeps I2S running. Local
+tones and buffer playback are mixed after this gate.
+
 For a physical buffer positive control, `capture.py --inject-at 60 ...`
 inserts one silent 1 ms block on that device after 60 seconds. This deliberately
 changes playback timing, and must only be used with the matching diagnostic
@@ -101,8 +110,9 @@ integration baseline `fcf67146` plus these application changes. The application
 sources are identical between those baselines; the integration baseline also
 set a 2500 µs controller connection-event reservation in the network-core
 configuration. That radio override is not part of this PR. A clean FOTA build
-and the eight host checks were repeated on the PR base; the complete rebased
-application/network image has not been flashed for another hardware run.
+and the eight host checks were repeated on the PR base; the original investigation did not reflash the complete rebased
+application/network image. The cold-start/sensor follow-up below now tests
+that complete image on both devices.
 
 The clocks could report lock while the two FIFOs retained different numbers
 of audio blocks. The original presentation controller stopped measuring after
@@ -140,3 +150,41 @@ similarly small residuals. The listener confirmed centered, clean sound on the
 reduced candidate. Inspect the JSON for the long-run result, isolated damaged
 packets, recording gaps and startup exclusions; a clean median alone is not
 a claim of uninterrupted or acoustically measured output.
+
+## Cold-start and sensor-start follow-up
+
+The follow-up is recorded in
+[`startup-sensor-results-2026-09-30.json`](startup-sensor-results-2026-09-30.json).
+Starting the IMU while a local stereo signal was playing caused 354/355
+additional 1 ms underruns (left/right), with ISO delivery delayed by up to
+392 ms. Bone-conduction and optical-temperature setup caused shorter gaps.
+Moving sensor configuration from the cooperative system workqueue to its own
+preemptible queue removed these stalls. The queue is separate from the sensor
+polling queue because shutdown drains that polling queue synchronously.
+
+Both the retained-radio run and a run with the complete `2.2.10` application
+and network firmware passed all five sensor starts without additional buffer
+underruns or a valid frame more than 100 µs from its presentation target.
+For reproduction, start audio, connect GATT after 25 seconds, subscribe to
+sensor data, then write `000201`, `040c01`, `070601`, `060701`, and `011101` to
+sensor configuration characteristic `34c2e3be-34aa-11eb-adc1-0242ac120002`,
+spacing writes by 12 seconds. These select IMU, PPG, bone conduction, optical
+temperature, and barometer streaming. Read configuration status afterward and
+stop the sensors with the same requests ending in `00`.
+
+Previously the first decoded PCM played before timing lock, including the
+subsequent silence insertions used to build the presentation margin. The new
+startup gate consumes that settling PCM silently. It does not pause or rewind
+the phone: the tradeoff is additional startup silence (about 0.7–1.0 seconds
+of received audio in the initial runs), followed by a 5 ms fade. Brief phone
+pauses that keep the Bluetooth stream running do not close the gate.
+Listening confirmation is separate from these digital timing measurements.
+
+After one interrupted restart run (the left earphone rebooted and powered off,
+with no confirmed cause), six complete paired starts and brief pause/resumes
+passed. No audible valid frame exceeded ±100 µs of its target, and none of
+the steady playback segments added an underrun. Occasional damaged packets
+are retained in the results; a missing ear or failed SWD capture is not a pass.
+The sustained right-ear packet-loss pattern seen with the retained radio did
+not recur in these complete-image tests, but that does not establish that all
+radio-loss causes have been removed.

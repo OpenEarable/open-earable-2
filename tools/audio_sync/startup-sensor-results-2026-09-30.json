@@ -1,0 +1,657 @@
+{
+  "base_commit": "20668c14eb1b9158a25d39ee1a5fb7d184176cab",
+  "bench_directory": "/Users/tobi/open-earable-2/tmp/audio-drift-2026-09-30/startup-sensor",
+  "sensors": {
+    "000201": "IMU 100 Hz",
+    "040c01": "PPG rate index 12",
+    "070601": "bone conduction rate index 6",
+    "060701": "optical temperature rate index 7",
+    "011101": "barometer rate index 17"
+  },
+  "runs": [
+    {
+      "case": "baseline",
+      "start": 1790765735.315,
+      "ears": {
+        "left": {
+          "frames": 16833,
+          "first_audible_after_play_s": 1.1172409057617188,
+          "first_audible_delay_us": 2260,
+          "startup_muted_frames": 0,
+          "bad_frames": 141,
+          "capture_errors": [],
+          "steady_underruns": 458,
+          "steady_frames_outside_100us": 80,
+          "sensor_starts": [
+            {
+              "config": "000201",
+              "time": 1790765776.723,
+              "underruns_added": 354,
+              "max_receive_us": 389201,
+              "bad_frames": 37,
+              "off_target_frames": 30
+            },
+            {
+              "config": "040c01",
+              "time": 1790765789.151,
+              "underruns_added": 0,
+              "max_receive_us": 7803,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "070601",
+              "time": 1790765801.203,
+              "underruns_added": 12,
+              "max_receive_us": 47574,
+              "bad_frames": 28,
+              "off_target_frames": 21
+            },
+            {
+              "config": "060701",
+              "time": 1790765813.315,
+              "underruns_added": 92,
+              "max_receive_us": 127505,
+              "bad_frames": 22,
+              "off_target_frames": 29
+            },
+            {
+              "config": "011101",
+              "time": 1790765825.484,
+              "underruns_added": 0,
+              "max_receive_us": -801,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            }
+          ]
+        },
+        "right": {
+          "frames": 16833,
+          "first_audible_after_play_s": 1.1763489246368408,
+          "first_audible_delay_us": 309,
+          "startup_muted_frames": 0,
+          "bad_frames": 5932,
+          "capture_errors": [],
+          "steady_underruns": 462,
+          "steady_frames_outside_100us": 61,
+          "sensor_starts": [
+            {
+              "config": "000201",
+              "time": 1790765777.104,
+              "underruns_added": 355,
+              "max_receive_us": 391856,
+              "bad_frames": 67,
+              "off_target_frames": 30
+            },
+            {
+              "config": "040c01",
+              "time": 1790765789.524,
+              "underruns_added": 0,
+              "max_receive_us": 5498,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "070601",
+              "time": 1790765801.562,
+              "underruns_added": 10,
+              "max_receive_us": 45276,
+              "bad_frames": 205,
+              "off_target_frames": 1
+            },
+            {
+              "config": "060701",
+              "time": 1790765813.64,
+              "underruns_added": 97,
+              "max_receive_us": 133150,
+              "bad_frames": 202,
+              "off_target_frames": 30
+            },
+            {
+              "config": "011101",
+              "time": 1790765825.905,
+              "underruns_added": 0,
+              "max_receive_us": 5687,
+              "bad_frames": 256,
+              "off_target_frames": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "candidate-v1",
+      "start": 1790766139.967,
+      "ears": {
+        "left": {
+          "frames": 16915,
+          "first_audible_after_play_s": 2.1766910552978516,
+          "first_audible_delay_us": 40987,
+          "startup_muted_frames": 99,
+          "bad_frames": 54,
+          "capture_errors": [],
+          "steady_underruns": 0,
+          "steady_frames_outside_100us": 0,
+          "sensor_starts": [
+            {
+              "config": "000201",
+              "time": 1790766181.259,
+              "underruns_added": 0,
+              "max_receive_us": -970,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "040c01",
+              "time": 1790766193.304,
+              "underruns_added": 0,
+              "max_receive_us": -815,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "070601",
+              "time": 1790766205.343,
+              "underruns_added": 0,
+              "max_receive_us": -846,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "060701",
+              "time": 1790766217.385,
+              "underruns_added": 0,
+              "max_receive_us": -1620,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "011101",
+              "time": 1790766229.423,
+              "underruns_added": 0,
+              "max_receive_us": -961,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            }
+          ]
+        },
+        "right": {
+          "frames": 16921,
+          "first_audible_after_play_s": 1.711230993270874,
+          "first_audible_delay_us": 40987,
+          "startup_muted_frames": 69,
+          "bad_frames": 8360,
+          "capture_errors": [],
+          "steady_underruns": 0,
+          "steady_frames_outside_100us": 0,
+          "sensor_starts": [
+            {
+              "config": "000201",
+              "time": 1790766181.277,
+              "underruns_added": 0,
+              "max_receive_us": 5676,
+              "bad_frames": 257,
+              "off_target_frames": 0
+            },
+            {
+              "config": "040c01",
+              "time": 1790766193.318,
+              "underruns_added": 0,
+              "max_receive_us": 5697,
+              "bad_frames": 257,
+              "off_target_frames": 0
+            },
+            {
+              "config": "070601",
+              "time": 1790766205.351,
+              "underruns_added": 0,
+              "max_receive_us": 5706,
+              "bad_frames": 238,
+              "off_target_frames": 0
+            },
+            {
+              "config": "060701",
+              "time": 1790766217.472,
+              "underruns_added": 0,
+              "max_receive_us": 5699,
+              "bad_frames": 239,
+              "off_target_frames": 0
+            },
+            {
+              "config": "011101",
+              "time": 1790766229.57,
+              "underruns_added": 0,
+              "max_receive_us": 15697,
+              "bad_frames": 239,
+              "off_target_frames": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "candidate-full2210",
+      "start": 1790766415.451,
+      "ears": {
+        "left": {
+          "frames": 16893,
+          "first_audible_after_play_s": 2.2021892070770264,
+          "first_audible_delay_us": 40979,
+          "startup_muted_frames": 99,
+          "bad_frames": 13,
+          "capture_errors": [],
+          "steady_underruns": 0,
+          "steady_frames_outside_100us": 0,
+          "sensor_starts": [
+            {
+              "config": "000201",
+              "time": 1790766456.731,
+              "underruns_added": 0,
+              "max_receive_us": -811,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "040c01",
+              "time": 1790766468.764,
+              "underruns_added": 0,
+              "max_receive_us": -779,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "070601",
+              "time": 1790766480.815,
+              "underruns_added": 0,
+              "max_receive_us": -758,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "060701",
+              "time": 1790766492.908,
+              "underruns_added": 0,
+              "max_receive_us": -1636,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "011101",
+              "time": 1790766505.007,
+              "underruns_added": 0,
+              "max_receive_us": -1646,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            }
+          ]
+        },
+        "right": {
+          "frames": 16904,
+          "first_audible_after_play_s": 1.7533221244812012,
+          "first_audible_delay_us": 40988,
+          "startup_muted_frames": 70,
+          "bad_frames": 67,
+          "capture_errors": [],
+          "steady_underruns": 0,
+          "steady_frames_outside_100us": 0,
+          "sensor_starts": [
+            {
+              "config": "000201",
+              "time": 1790766456.796,
+              "underruns_added": 0,
+              "max_receive_us": -3583,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "040c01",
+              "time": 1790766468.826,
+              "underruns_added": 0,
+              "max_receive_us": -3558,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "070601",
+              "time": 1790766480.853,
+              "underruns_added": 0,
+              "max_receive_us": -3566,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "060701",
+              "time": 1790766493.049,
+              "underruns_added": 0,
+              "max_receive_us": -3535,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            },
+            {
+              "config": "011101",
+              "time": 1790766505.208,
+              "underruns_added": 0,
+              "max_receive_us": -4432,
+              "bad_frames": 0,
+              "off_target_frames": 0
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Timestamps measure digital playback, not the DAC or acoustic output.",
+    "The first candidate used the retained network firmware; a sustained right-side packet-loss episode remained and is included in the bad-frame counts."
+  ],
+  "network_image": {
+    "time": 1790766383.0477812,
+    "image": "/Users/tobi/open-earable-2/tmp/audio-drift-2026-09-30/startup-sensor-v1/net.hex",
+    "sha256": "9798c0b261750ba7046b2ae5430eaecbe7157fe376bcbce8e8c024f4893b9688"
+  },
+  "validation": {
+    "host_tests": 9,
+    "clean_production_build": "/Users/tobi/open-earable-2/tmp/audio-drift-2026-09-30/startup-sensor-production-clean/build.json"
+  },
+  "interrupted_restart_test": {
+    "path": "/Users/tobi/open-earable-2/tmp/audio-drift-2026-09-30/startup-sensor/full2210-restarts",
+    "valid_stereo_test": false,
+    "reason": "Left earphone unexpectedly rebooted and powered off about six seconds into the first repetition. Its SWD capture failed; later repetitions have only right-ear data and must not be reported as stereo passes."
+  },
+  "repeated_starts": {
+    "runs": [
+      {
+        "case": "cold-repeat-0",
+        "ears": {
+          "left": {
+            "frames": 1643,
+            "muted_frames": 89,
+            "first_audible_s": 2.1290900707244873,
+            "audible_off_target": 0,
+            "steady_frames": 1240,
+            "steady_underruns": 0,
+            "steady_bad_frames": 1
+          },
+          "right": {
+            "frames": 1642,
+            "muted_frames": 115,
+            "first_audible_s": 2.4360852241516113,
+            "audible_off_target": 0,
+            "steady_frames": 1202,
+            "steady_underruns": 0,
+            "steady_bad_frames": 3
+          }
+        }
+      },
+      {
+        "case": "cold-repeat-1",
+        "ears": {
+          "left": {
+            "frames": 1634,
+            "muted_frames": 59,
+            "first_audible_s": 1.7572290897369385,
+            "audible_off_target": 0,
+            "steady_frames": 1232,
+            "steady_underruns": 0,
+            "steady_bad_frames": 0
+          },
+          "right": {
+            "frames": 1641,
+            "muted_frames": 89,
+            "first_audible_s": 2.0876240730285645,
+            "audible_off_target": 0,
+            "steady_frames": 1200,
+            "steady_underruns": 0,
+            "steady_bad_frames": 0
+          }
+        }
+      },
+      {
+        "case": "cold-repeat-2",
+        "ears": {
+          "left": {
+            "frames": 1637,
+            "muted_frames": 88,
+            "first_audible_s": 2.1675570011138916,
+            "audible_off_target": 0,
+            "steady_frames": 1236,
+            "steady_underruns": 0,
+            "steady_bad_frames": 0
+          },
+          "right": {
+            "frames": 1641,
+            "muted_frames": 90,
+            "first_audible_s": 2.097133159637451,
+            "audible_off_target": 0,
+            "steady_frames": 1204,
+            "steady_underruns": 0,
+            "steady_bad_frames": 2
+          }
+        }
+      },
+      {
+        "case": "cold-repeat-3",
+        "ears": {
+          "left": {
+            "frames": 1642,
+            "muted_frames": 89,
+            "first_audible_s": 2.112912893295288,
+            "audible_off_target": 0,
+            "steady_frames": 1238,
+            "steady_underruns": 0,
+            "steady_bad_frames": 2
+          },
+          "right": {
+            "frames": 1639,
+            "muted_frames": 98,
+            "first_audible_s": 1.993096113204956,
+            "audible_off_target": 0,
+            "steady_frames": 1204,
+            "steady_underruns": 0,
+            "steady_bad_frames": 2
+          }
+        }
+      },
+      {
+        "case": "cold-repeat-4",
+        "ears": {
+          "left": {
+            "frames": 1641,
+            "muted_frames": 94,
+            "first_audible_s": 2.1302359104156494,
+            "audible_off_target": 0,
+            "steady_frames": 1238,
+            "steady_underruns": 0,
+            "steady_bad_frames": 0
+          },
+          "right": {
+            "frames": 1648,
+            "muted_frames": 98,
+            "first_audible_s": 2.0975842475891113,
+            "audible_off_target": 0,
+            "steady_frames": 1242,
+            "steady_underruns": 0,
+            "steady_bad_frames": 1
+          }
+        }
+      },
+      {
+        "case": "cold-repeat-5",
+        "ears": {
+          "left": {
+            "frames": 1612,
+            "muted_frames": 98,
+            "first_audible_s": 2.3129189014434814,
+            "audible_off_target": 0,
+            "steady_frames": 1206,
+            "steady_underruns": 0,
+            "steady_bad_frames": 0
+          },
+          "right": {
+            "frames": 1607,
+            "muted_frames": 87,
+            "first_audible_s": 2.171736001968384,
+            "audible_off_target": 0,
+            "steady_frames": 1243,
+            "steady_underruns": 0,
+            "steady_bad_frames": 2
+          }
+        }
+      }
+    ],
+    "capture_errors": {
+      "left": [],
+      "right": []
+    },
+    "paired_analysis": {
+      "duration_s": 133.1341860294342,
+      "settle_s": 5,
+      "sides": {
+        "left": {
+          "delay_us": {
+            "n": 7497,
+            "min": 40971,
+            "max": 41030,
+            "median": 40989,
+            "p01": 40977,
+            "p99": 41019
+          },
+          "estimated_timestamp_frames": 0,
+          "bad_frames": 3,
+          "target_error_us": {
+            "n": 7497,
+            "min": -29,
+            "max": 30,
+            "median": -11,
+            "p01": -23,
+            "p99": 19
+          },
+          "off_target_frames_100us": 0,
+          "receive_us": {
+            "n": 7497,
+            "min": -1892,
+            "max": 18349,
+            "median": -1737,
+            "p01": -1887,
+            "p99": -1705
+          },
+          "timestamp_estimation_us": {
+            "n": 7497,
+            "min": 0,
+            "max": 0,
+            "median": 0,
+            "p01": 0,
+            "p99": 0
+          },
+          "states": {
+            "259": 3746,
+            "771": 3407,
+            "3": 341,
+            "131843": 1,
+            "131331": 2
+          },
+          "presentation_delay_us": [
+            40000
+          ],
+          "excluded_transition_frames": 4362,
+          "new_underruns": 0
+        },
+        "right": {
+          "delay_us": {
+            "n": 7402,
+            "min": 40968,
+            "max": 41028,
+            "median": 40990.0,
+            "p01": 40976,
+            "p99": 41019
+          },
+          "estimated_timestamp_frames": 0,
+          "bad_frames": 9,
+          "target_error_us": {
+            "n": 7402,
+            "min": -32,
+            "max": 28,
+            "median": -10.0,
+            "p01": -24,
+            "p99": 19
+          },
+          "off_target_frames_100us": 0,
+          "receive_us": {
+            "n": 7402,
+            "min": -4535,
+            "max": 5519,
+            "median": -4504.0,
+            "p01": -4506,
+            "p99": -4472
+          },
+          "timestamp_estimation_us": {
+            "n": 7402,
+            "min": 0,
+            "max": 0,
+            "median": 0.0,
+            "p01": 0,
+            "p99": 0
+          },
+          "states": {
+            "259": 3695,
+            "771": 3359,
+            "3": 339,
+            "131843": 3,
+            "131331": 6
+          },
+          "presentation_delay_us": [
+            40000
+          ],
+          "excluded_transition_frames": 4796,
+          "new_underruns": 0
+        }
+      },
+      "excluded_intervals": [
+        [
+          1790766839.639871,
+          1790766844.639871
+        ],
+        [
+          1790766838.666,
+          1790766843.666
+        ],
+        [
+          1790766856.146484,
+          1790766866.187
+        ],
+        [
+          1790766878.6825569,
+          1790766888.735
+        ],
+        [
+          1790766901.2111402,
+          1790766911.267
+        ],
+        [
+          1790766923.727193,
+          1790766933.768
+        ],
+        [
+          1790766946.221428,
+          1790766956.294
+        ],
+        [
+          1790766968.756236,
+          1790766973.774057
+        ]
+      ],
+      "right_minus_left_us": {
+        "n": 74,
+        "min": -7.0,
+        "max": 5.0,
+        "median": 0.0,
+        "p01": -7.0,
+        "p99": 5.0
+      },
+      "injections": [],
+      "processing_stalls": [],
+      "presentation_overrides": [],
+      "capture_errors": []
+    }
+  }
+}
