@@ -45,6 +45,7 @@ config AUDIO_SYNC_FINE_DRIFT
 	default n
 
 config AUDIO_SYNC_DIAGNOSTICS
+	select NRFX_TIMER2
 	bool "Record audio presentation timing for SWD inspection"
 	default n
 	help

@@ -5,6 +5,7 @@
  */
 
  #include "audio_sync_timer.h"
+ #include "audio_sync_clock.h"
 
  #include <zephyr/kernel.h>
  #include <zephyr/init.h>
@@ -30,6 +31,10 @@
  
  static const nrfx_timer_t audio_sync_hf_timer_instance =
 	 NRFX_TIMER_INSTANCE(AUDIO_SYNC_HF_TIMER_INSTANCE_NUMBER);
+
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+static const nrfx_timer_t audio_sync_probe_timer = NRFX_TIMER_INSTANCE(2);
+#endif
  
  static uint8_t dppi_channel_i2s_frame_start;
  
@@ -58,97 +63,77 @@
 				   .interrupt_priority = NRFX_TIMER_DEFAULT_CONFIG_IRQ_PRIORITY,
 				   .p_context = NULL};
  
- static uint32_t timestamp_from_rtc_and_timer_get(uint32_t ticks, uint32_t remainder_us)
+ /* TIMER1 runs continuously. Every RTC tick latches it into CC2. Reading
+  * a stable RTC counter / CC2 pair gives one coherent reference, instead of
+  * combining a delayed RTC capture with a remainder from the preceding tick.
+  */
+ static uint32_t timestamp_from_anchor_get(uint32_t captured_us)
  {
-	 const uint64_t rtc_ticks_in_femto_units = 30517578125UL;
-	 const uint32_t rtc_overflow_time_us = 512000000UL;
- 
-	 return ((ticks * rtc_ticks_in_femto_units) / 1000000000UL) +
-			(num_rtc_overflows * rtc_overflow_time_us) + remainder_us;
+	 uint32_t ticks = 0, anchor = 0, overflows = 0;
+	 bool stable = false;
+	 unsigned int key = irq_lock();
+	 for (unsigned int attempt = 0; attempt < 16; ++attempt) {
+		 overflows = num_rtc_overflows + nrf_rtc_event_check(
+			 audio_sync_lf_timer_instance.p_reg, NRF_RTC_EVENT_OVERFLOW);
+		 ticks = nrf_rtc_counter_get(audio_sync_lf_timer_instance.p_reg);
+		 anchor = nrf_timer_cc_get(NRF_TIMER1, 2);
+		 nrf_timer_task_trigger(NRF_TIMER1, NRF_TIMER_TASK_CAPTURE3);
+		 uint32_t now = nrf_timer_cc_get(NRF_TIMER1, 3);
+		 uint32_t age = now - anchor;
+		 if (ticks == nrf_rtc_counter_get(audio_sync_lf_timer_instance.p_reg) &&
+		     anchor == nrf_timer_cc_get(NRF_TIMER1, 2) &&
+		     overflows == num_rtc_overflows + nrf_rtc_event_check(
+			 audio_sync_lf_timer_instance.p_reg, NRF_RTC_EVENT_OVERFLOW) &&
+		     age >= 2 && age <= 28) {
+			 stable = true;
+			 break;
+		 }
+		 k_busy_wait(1);
+	 }
+	 uint32_t result = audio_sync_clock_from_anchor(ticks, overflows, anchor, captured_us);
+	 irq_unlock(key);
+	 if (!stable) {
+		 /* Bounded even before the controller starts TIMER1. */
+		 LOG_WRN("Audio timer reference unavailable");
+	 }
+	 return result;
  }
- 
+
  uint32_t audio_sync_timer_capture(void)
  {
-	 /* Ensure that the follow product specification statement is handled:
-	  *
-	  * There is a delay of 6 PCLK16M periods from when the TASKS_CAPTURE[n] is triggered
-	  * until the corresponding CC[n] register is updated.
-	  *
-	  * Lets have a stale value in the CC[n] register and compare that it is different when
-	  * we capture using DPPI.
-	  *
-	  * We ensure it is stale by setting it as the previous tick relative to current
-	  * counter value.
-	  */
-	 uint32_t tick_stale = nrf_rtc_counter_get(audio_sync_lf_timer_instance.p_reg);
- 
-	 /* Set a stale value in the CC[n] register */
-	 tick_stale--;
-	 nrf_rtc_cc_set(audio_sync_lf_timer_instance.p_reg,
-				AUDIO_SYNC_LF_TIMER_CURR_TIME_CAPTURE_CHANNEL, tick_stale);
- 
-	 /* Trigger EGU task to capture RTC and TIMER value */
+	 unsigned int key = irq_lock();
 	 nrf_egu_task_trigger(NRF_EGU0, NRF_EGU_TASK_TRIGGER0);
- 
-	 /* Read captured RTC value */
-	 uint32_t tick = nrf_rtc_cc_get(audio_sync_lf_timer_instance.p_reg,
-						AUDIO_SYNC_LF_TIMER_CURR_TIME_CAPTURE_CHANNEL);
- 
-	 /* If required, wait until CC[n] register is updated */
-	 while (tick == tick_stale) {
-		 tick = nrf_rtc_cc_get(audio_sync_lf_timer_instance.p_reg,
-					   AUDIO_SYNC_LF_TIMER_CURR_TIME_CAPTURE_CHANNEL);
-	 }
- 
-	 /* Read captured TIMER value */
-	 uint32_t remainder_us =
-		 nrf_timer_cc_get(NRF_TIMER1, AUDIO_SYNC_HF_TIMER_CURR_TIME_CAPTURE_CHANNEL);
- 
-	 return timestamp_from_rtc_and_timer_get(tick, remainder_us);
+	 /* Let the EGU/DPPI capture complete, even if called twice in one us. */
+	 k_busy_wait(1);
+	 uint32_t captured = nrf_timer_cc_get(NRF_TIMER1,
+		 AUDIO_SYNC_HF_TIMER_CURR_TIME_CAPTURE_CHANNEL);
+	 uint32_t result = timestamp_from_anchor_get(captured);
+	 irq_unlock(key);
+	 return result;
  }
- 
+
  uint32_t audio_sync_timer_capture_get(void)
  {
-	 uint32_t cc_get_calls = 0;
-	 uint32_t tick = 0;
-	 static uint32_t prev_tick;
-	 uint32_t remainder_us = 0;
-	 static uint32_t prev_remainder_us;
- 
-	 /* This function is called too soon after I2S frame start may
-	  * result in values not yet being updated in the *_cc_get calls.
-	  * Ref: OCT-2585. To ensure new values are fetched, they are
-	  * read in a while-loop with a timeout.
+	 unsigned int key = irq_lock();
+	 static uint32_t previous;
+	 uint32_t captured;
+	 unsigned int attempts = 0;
+	 /* NEXT_BUFFERS_NEEDED can precede FRAMESTART. A free-running capture
+	  * changes on every 1 ms block, unlike the former RTC-tick remainder.
 	  */
- 
 	 do {
-		 tick = nrf_rtc_cc_get(audio_sync_lf_timer_instance.p_reg,
-					   AUDIO_SYNC_LF_TIMER_I2S_FRAME_START_EVT_CAPTURE_CHANNEL);
-		 cc_get_calls++;
-		 if (cc_get_calls > CC_GET_CALLS_MAX) {
-			 LOG_WRN("Unable to get new CC value");
-			 break;
-		 }
-	 } while (tick == prev_tick);
- 
-	 cc_get_calls = 0;
- 
-	 do {
-		 remainder_us = nrf_timer_cc_get(
-			 NRF_TIMER1, AUDIO_SYNC_HF_TIMER_I2S_FRAME_START_EVT_CAPTURE_CHANNEL);
-		 cc_get_calls++;
-		 if (cc_get_calls > CC_GET_CALLS_MAX) {
-			 LOG_WRN("Unable to get new CC value");
-			 break;
-		 }
-	 } while (remainder_us == prev_remainder_us);
- 
-	 prev_tick = tick;
-	 prev_remainder_us = remainder_us;
- 
-	 return timestamp_from_rtc_and_timer_get(tick, remainder_us);
+		 captured = nrf_timer_cc_get(NRF_TIMER1,
+			 AUDIO_SYNC_HF_TIMER_I2S_FRAME_START_EVT_CAPTURE_CHANNEL);
+		 if (captured != previous) break;
+		 k_busy_wait(1);
+	 } while (++attempts < CC_GET_CALLS_MAX);
+	 if (captured == previous) LOG_WRN("Unable to get new I2S capture");
+	 previous = captured;
+	 uint32_t result = timestamp_from_anchor_get(captured);
+	 irq_unlock(key);
+	 return result;
  }
- 
+
  static void unused_timer_isr_handler(nrf_timer_event_t event_type, void *ctx)
  {
 	 ARG_UNUSED(event_type);
@@ -162,6 +147,18 @@
 	 }
  }
  
+ /* Keep overflow event acknowledgement and epoch update indivisible to the
+  * higher-priority I2S reader. Otherwise it could see an already cleared event
+  * with an epoch that has not yet been incremented. Runs once per 512 seconds.
+  */
+ static void rtc_irq_handler(const void *unused)
+ {
+	 ARG_UNUSED(unused);
+	 unsigned int key = irq_lock();
+	 nrfx_rtc_0_irq_handler();
+	 irq_unlock(key);
+ }
+
  /**
   * @brief Initialize audio sync timer
   *
@@ -188,7 +185,7 @@
 		 return -ENODEV;
 	 }
  
-	 IRQ_CONNECT(RTC0_IRQn, IRQ_PRIO_LOWEST, nrfx_isr, nrfx_rtc_0_irq_handler, 0);
+	 IRQ_CONNECT(RTC0_IRQn, IRQ_PRIO_LOWEST, rtc_irq_handler, NULL, 0);
 	 nrfx_rtc_overflow_enable(&audio_sync_lf_timer_instance, true);
  
 	 /* Initialize capturing of I2S frame start event timestamps */
@@ -208,6 +205,18 @@
 				   dppi_channel_i2s_frame_start);
  
 	 nrf_i2s_publish_set(NRF_I2S0, NRF_I2S_EVENT_FRAMESTART, dppi_channel_i2s_frame_start);
+#if defined(CONFIG_AUDIO_SYNC_DIAGNOSTICS)
+	 /* Independent free-running clock: a discontinuity in the RTC/TIMER1
+	  * reconstruction must not be mistaken for a physical I2S timing jump.
+	  */
+	 nrfx_timer_config_t probe_cfg = cfg;
+	 probe_cfg.frequency = NRFX_MHZ_TO_HZ(16UL);
+	 ret = nrfx_timer_init(&audio_sync_probe_timer, &probe_cfg, unused_timer_isr_handler);
+	 if (ret != NRFX_SUCCESS) return -ENODEV;
+	 nrf_timer_subscribe_set(audio_sync_probe_timer.p_reg, NRF_TIMER_TASK_CAPTURE0,
+				dppi_channel_i2s_frame_start);
+	 nrfx_timer_enable(&audio_sync_probe_timer);
+#endif
 	 ret = nrfx_dppi_channel_enable(&dppi, dppi_channel_i2s_frame_start);
 	 if (ret - NRFX_ERROR_BASE_NUM) {
 		 LOG_ERR("nrfx DPPI channel enable error (I2S frame start): %d", ret);
@@ -268,7 +277,7 @@
  
 	 nrf_rtc_publish_set(audio_sync_lf_timer_instance.p_reg, NRF_RTC_EVENT_TICK,
 				 dppi_channel_timer_sync_with_rtc);
-	 nrf_timer_subscribe_set(audio_sync_hf_timer_instance.p_reg, NRF_TIMER_TASK_CLEAR,
+	 nrf_timer_subscribe_set(audio_sync_hf_timer_instance.p_reg, NRF_TIMER_TASK_CAPTURE2,
 				 dppi_channel_timer_sync_with_rtc);
  
 	 nrfx_rtc_tick_enable(&audio_sync_lf_timer_instance, false);

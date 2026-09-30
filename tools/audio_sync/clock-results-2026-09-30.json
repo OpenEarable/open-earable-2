@@ -1,0 +1,754 @@
+{
+  "base_commit": "6544b707487e26b755464a1601f7fbd3e16a9637",
+  "bench_directory": "/Users/tobi/open-earable-2/tmp/stereo-precision-2026-09-30",
+  "cause": "Independent RTC and RTC-reset TIMER1 captures can straddle a tick; combining the next RTC tick with the prior TIMER remainder creates a false roughly31us timestamp step. The regulator responds to the false phase error.",
+  "fix": "Free-running TIMER1 anchored by each RTC tick, stable reference snapshot, signed offsets across wrap, atomic pending-overflow epoch accounting, bounded waits.",
+  "diagnostic_runs": {
+    "timer-probe-max": {
+      "timing": {
+        "duration_s": 59.88704514503479,
+        "settle_s": 0,
+        "sides": {
+          "left": {
+            "delay_us": {
+              "n": 6021,
+              "min": 40973,
+              "max": 41021,
+              "median": 40988,
+              "p01": 40977,
+              "p99": 41019
+            },
+            "estimated_timestamp_frames": 0,
+            "bad_frames": 1,
+            "target_error_us": {
+              "n": 6021,
+              "min": -27,
+              "max": 21,
+              "median": -12,
+              "p01": -23,
+              "p99": 19
+            },
+            "off_target_frames_100us": 0,
+            "receive_us": {
+              "n": 6021,
+              "min": -1712,
+              "max": -266,
+              "median": -1704,
+              "p01": -1710,
+              "p99": -1647
+            },
+            "timestamp_estimation_us": {
+              "n": 6021,
+              "min": 0,
+              "max": 0,
+              "median": 0,
+              "p01": 0,
+              "p99": 0
+            },
+            "states": {
+              "771": 2739,
+              "3": 274,
+              "259": 3007,
+              "131331": 1
+            },
+            "presentation_delay_us": [
+              40000
+            ],
+            "excluded_transition_frames": 0,
+            "new_underruns": 0
+          },
+          "right": {
+            "delay_us": {
+              "n": 6024,
+              "min": 40973,
+              "max": 41022,
+              "median": 40989.0,
+              "p01": 40979,
+              "p99": 41019
+            },
+            "estimated_timestamp_frames": 0,
+            "bad_frames": 1,
+            "target_error_us": {
+              "n": 6024,
+              "min": -27,
+              "max": 22,
+              "median": -11.0,
+              "p01": -21,
+              "p99": 19
+            },
+            "off_target_frames_100us": 0,
+            "receive_us": {
+              "n": 6024,
+              "min": -4511,
+              "max": 146,
+              "median": -4502.0,
+              "p01": -4508,
+              "p99": -4446
+            },
+            "timestamp_estimation_us": {
+              "n": 6024,
+              "min": 0,
+              "max": 0,
+              "median": 0.0,
+              "p01": 0,
+              "p99": 0
+            },
+            "states": {
+              "771": 2736,
+              "3": 274,
+              "259": 3013,
+              "131843": 1
+            },
+            "presentation_delay_us": [
+              40000
+            ],
+            "excluded_transition_frames": 0,
+            "new_underruns": 0
+          }
+        },
+        "right_minus_left_us": {
+          "n": 60,
+          "min": -3.5,
+          "max": 3,
+          "median": 0.0,
+          "p01": -3.5,
+          "p99": 3.0
+        },
+        "injections": [],
+        "processing_stalls": [],
+        "presentation_overrides": [],
+        "capture_errors": []
+      },
+      "independent_counter": {
+        "left": {
+          "pairs": 6020,
+          "reconstruction_error_percentiles_us": [
+            -35.84455073669233,
+            -30.54190309364174,
+            0.0,
+            30.427825982472598,
+            36.040513124236895
+          ],
+          "positive_tick_spikes": 129,
+          "negative_tick_spikes": 129,
+          "positive_spike_remainder_histogram": {
+            "30": 109,
+            "31": 11,
+            "29": 9
+          },
+          "negative_spike_previous_remainder_histogram": {
+            "30": 109,
+            "31": 11,
+            "29": 9
+          }
+        },
+        "right": {
+          "pairs": 6023,
+          "reconstruction_error_percentiles_us": [
+            -34.87187714588799,
+            -30.375750520182557,
+            0.0,
+            30.93757931277447,
+            33.81042911461191
+          ],
+          "positive_tick_spikes": 125,
+          "negative_tick_spikes": 125,
+          "positive_spike_remainder_histogram": {
+            "30": 80,
+            "31": 45
+          },
+          "negative_spike_previous_remainder_histogram": {
+            "30": 80,
+            "31": 45
+          }
+        }
+      }
+    },
+    "coherent-max": {
+      "timing": {
+        "duration_s": 59.68616509437561,
+        "settle_s": 0,
+        "sides": {
+          "left": {
+            "delay_us": {
+              "n": 6004,
+              "min": 40989,
+              "max": 40995,
+              "median": 40992.0,
+              "p01": 40990,
+              "p99": 40995
+            },
+            "estimated_timestamp_frames": 0,
+            "bad_frames": 1,
+            "target_error_us": {
+              "n": 6004,
+              "min": -11,
+              "max": -5,
+              "median": -8.0,
+              "p01": -10,
+              "p99": -5
+            },
+            "off_target_frames_100us": 0,
+            "receive_us": {
+              "n": 6004,
+              "min": -1878,
+              "max": 8319,
+              "median": -1850.0,
+              "p01": -1876,
+              "p99": -1657
+            },
+            "timestamp_estimation_us": {
+              "n": 6004,
+              "min": 0,
+              "max": 0,
+              "median": 0.0,
+              "p01": 0,
+              "p99": 0
+            },
+            "states": {
+              "259": 3001,
+              "771": 2729,
+              "3": 273,
+              "131843": 1
+            },
+            "presentation_delay_us": [
+              40000
+            ],
+            "excluded_transition_frames": 0,
+            "new_underruns": 0
+          },
+          "right": {
+            "delay_us": {
+              "n": 5968,
+              "min": 40987,
+              "max": 40994,
+              "median": 40991.0,
+              "p01": 40988,
+              "p99": 40993
+            },
+            "estimated_timestamp_frames": 0,
+            "bad_frames": 1,
+            "target_error_us": {
+              "n": 5968,
+              "min": -13,
+              "max": -6,
+              "median": -9.0,
+              "p01": -12,
+              "p99": -7
+            },
+            "off_target_frames_100us": 0,
+            "receive_us": {
+              "n": 5968,
+              "min": -4681,
+              "max": -3070,
+              "median": -4673.0,
+              "p01": -4679,
+              "p99": -4623
+            },
+            "timestamp_estimation_us": {
+              "n": 5968,
+              "min": 0,
+              "max": 0,
+              "median": 0.0,
+              "p01": 0,
+              "p99": 0
+            },
+            "states": {
+              "771": 2714,
+              "3": 272,
+              "259": 2981,
+              "131843": 1
+            },
+            "presentation_delay_us": [
+              40000
+            ],
+            "excluded_transition_frames": 0,
+            "new_underruns": 0
+          }
+        },
+        "right_minus_left_us": {
+          "n": 59,
+          "min": -3.0,
+          "max": -1.0,
+          "median": -2.0,
+          "p01": -3.0,
+          "p99": -1.0
+        },
+        "injections": [],
+        "processing_stalls": [],
+        "presentation_overrides": [],
+        "capture_errors": []
+      },
+      "independent_counter": {
+        "left": {
+          "pairs": 6003,
+          "reconstruction_error_percentiles_us": [
+            -7.110544153407318,
+            -4.148777326970085,
+            0.0,
+            4.259585296422317,
+            6.359075570999266
+          ],
+          "positive_tick_spikes": 0,
+          "negative_tick_spikes": 0,
+          "positive_spike_remainder_histogram": {},
+          "negative_spike_previous_remainder_histogram": {}
+        },
+        "right": {
+          "pairs": 5967,
+          "reconstruction_error_percentiles_us": [
+            -6.62089936188022,
+            -3.5590230732509736,
+            0.0,
+            3.3736591826891162,
+            5.302825690821919
+          ],
+          "positive_tick_spikes": 0,
+          "negative_tick_spikes": 0,
+          "positive_spike_remainder_histogram": {},
+          "negative_spike_previous_remainder_histogram": {}
+        }
+      }
+    },
+    "coherent-soak-max": {
+      "timing": {
+        "duration_s": 599.9231951236725,
+        "settle_s": 0,
+        "sides": {
+          "left": {
+            "delay_us": {
+              "n": 59999,
+              "min": 40991,
+              "max": 40998,
+              "median": 40994,
+              "p01": 40992,
+              "p99": 40997
+            },
+            "estimated_timestamp_frames": 0,
+            "bad_frames": 0,
+            "target_error_us": {
+              "n": 59999,
+              "min": -9,
+              "max": -2,
+              "median": -6,
+              "p01": -8,
+              "p99": -3
+            },
+            "off_target_frames_100us": 0,
+            "receive_us": {
+              "n": 59999,
+              "min": -1877,
+              "max": 2827,
+              "median": -1867,
+              "p01": -1874,
+              "p99": -1812
+            },
+            "timestamp_estimation_us": {
+              "n": 59999,
+              "min": 0,
+              "max": 0,
+              "median": 0,
+              "p01": 0,
+              "p99": 0
+            },
+            "states": {
+              "259": 30000,
+              "771": 27271,
+              "3": 2728
+            },
+            "presentation_delay_us": [
+              40000
+            ],
+            "excluded_transition_frames": 0,
+            "new_underruns": 0
+          },
+          "right": {
+            "delay_us": {
+              "n": 59995,
+              "min": 40991,
+              "max": 40998,
+              "median": 40995,
+              "p01": 40992,
+              "p99": 40997
+            },
+            "estimated_timestamp_frames": 0,
+            "bad_frames": 2,
+            "target_error_us": {
+              "n": 59995,
+              "min": -9,
+              "max": -2,
+              "median": -5,
+              "p01": -8,
+              "p99": -3
+            },
+            "off_target_frames_100us": 0,
+            "receive_us": {
+              "n": 59995,
+              "min": -4512,
+              "max": 66,
+              "median": -4502,
+              "p01": -4508,
+              "p99": -4449
+            },
+            "timestamp_estimation_us": {
+              "n": 59995,
+              "min": 0,
+              "max": 0,
+              "median": 0,
+              "p01": 0,
+              "p99": 0
+            },
+            "states": {
+              "771": 27270,
+              "3": 2727,
+              "259": 29996,
+              "131843": 1,
+              "131331": 1
+            },
+            "presentation_delay_us": [
+              40000
+            ],
+            "excluded_transition_frames": 0,
+            "new_underruns": 0
+          }
+        },
+        "right_minus_left_us": {
+          "n": 600,
+          "min": -1.0,
+          "max": 2.0,
+          "median": 0.0,
+          "p01": -1.0,
+          "p99": 2
+        },
+        "injections": [],
+        "processing_stalls": [],
+        "presentation_overrides": [],
+        "capture_errors": []
+      },
+      "independent_counter": {
+        "left": {
+          "pairs": 59998,
+          "reconstruction_error_percentiles_us": [
+            -8.555759352053428,
+            -4.455820895883644,
+            0.0,
+            4.221541754553819,
+            7.793710675980037
+          ],
+          "positive_tick_spikes": 0,
+          "negative_tick_spikes": 0,
+          "positive_spike_remainder_histogram": {},
+          "negative_spike_previous_remainder_histogram": {}
+        },
+        "right": {
+          "pairs": 59994,
+          "reconstruction_error_percentiles_us": [
+            -6.864905321457627,
+            -3.6186469222221422,
+            0.0,
+            3.49596838746751,
+            6.245577016718016
+          ],
+          "positive_tick_spikes": 0,
+          "negative_tick_spikes": 0,
+          "positive_spike_remainder_histogram": {},
+          "negative_spike_previous_remainder_histogram": {}
+        }
+      }
+    },
+    "coherent-sensors-off": {
+      "timing": {
+        "duration_s": 59.662201166152954,
+        "settle_s": 0,
+        "sides": {
+          "left": {
+            "delay_us": {
+              "n": 6001,
+              "min": 40985,
+              "max": 40993,
+              "median": 40989,
+              "p01": 40986,
+              "p99": 40991
+            },
+            "estimated_timestamp_frames": 0,
+            "bad_frames": 1,
+            "target_error_us": {
+              "n": 6001,
+              "min": -15,
+              "max": -7,
+              "median": -11,
+              "p01": -14,
+              "p99": -9
+            },
+            "off_target_frames_100us": 0,
+            "receive_us": {
+              "n": 6001,
+              "min": -1712,
+              "max": 8313,
+              "median": -1709,
+              "p01": -1710,
+              "p99": -1682
+            },
+            "timestamp_estimation_us": {
+              "n": 6001,
+              "min": 0,
+              "max": 0,
+              "median": 0,
+              "p01": 0,
+              "p99": 0
+            },
+            "states": {
+              "771": 2728,
+              "3": 273,
+              "259": 2999,
+              "131843": 1
+            },
+            "presentation_delay_us": [
+              40000
+            ],
+            "excluded_transition_frames": 0,
+            "new_underruns": 0
+          },
+          "right": {
+            "delay_us": {
+              "n": 5998,
+              "min": 40987,
+              "max": 40996,
+              "median": 40991.0,
+              "p01": 40988,
+              "p99": 40994
+            },
+            "estimated_timestamp_frames": 0,
+            "bad_frames": 0,
+            "target_error_us": {
+              "n": 5998,
+              "min": -13,
+              "max": -4,
+              "median": -9.0,
+              "p01": -12,
+              "p99": -6
+            },
+            "off_target_frames_100us": 0,
+            "receive_us": {
+              "n": 5998,
+              "min": -4509,
+              "max": 103,
+              "median": -4506.0,
+              "p01": -4508,
+              "p99": -4480
+            },
+            "timestamp_estimation_us": {
+              "n": 5998,
+              "min": 0,
+              "max": 0,
+              "median": 0.0,
+              "p01": 0,
+              "p99": 0
+            },
+            "states": {
+              "771": 2722,
+              "3": 273,
+              "259": 3003
+            },
+            "presentation_delay_us": [
+              40000
+            ],
+            "excluded_transition_frames": 0,
+            "new_underruns": 0
+          }
+        },
+        "right_minus_left_us": {
+          "n": 60,
+          "min": 1,
+          "max": 3.0,
+          "median": 2.0,
+          "p01": 1,
+          "p99": 3.0
+        },
+        "injections": [],
+        "processing_stalls": [],
+        "presentation_overrides": [],
+        "capture_errors": []
+      },
+      "independent_counter": {
+        "left": {
+          "pairs": 6000,
+          "reconstruction_error_percentiles_us": [
+            -7.5535700783839275,
+            -4.537319776582971,
+            0.0,
+            4.275410223954805,
+            6.858046310060672
+          ],
+          "positive_tick_spikes": 0,
+          "negative_tick_spikes": 0,
+          "positive_spike_remainder_histogram": {},
+          "negative_spike_previous_remainder_histogram": {}
+        },
+        "right": {
+          "pairs": 5997,
+          "reconstruction_error_percentiles_us": [
+            -6.247292351124997,
+            -3.622521054312383,
+            0.0,
+            3.501690994854287,
+            5.558318975203292
+          ],
+          "positive_tick_spikes": 0,
+          "negative_tick_spikes": 0,
+          "positive_spike_remainder_histogram": {},
+          "negative_spike_previous_remainder_histogram": {}
+        }
+      }
+    }
+  },
+  "rtc_wrap_audit": "measurements/coherent-soak-max/rtc-wrap-audit.json",
+  "startup_audit": {
+    "method": "Audit all recorded 10ms frame releases from explicit phone playback start through measurement completion, including warmup. Gate state accompanies the released block. This is a timing/startup-gate check, not a waveform or acoustic crackle count.",
+    "runs": {
+      "coherent-max": {
+        "left": {
+          "captured_frames": 7886,
+          "muted_frames": 89,
+          "first_unmuted_delay_us": 40994,
+          "unmuted_error_us_range": [
+            -11,
+            -3
+          ],
+          "unmuted_off_target_100us": 0,
+          "new_underruns_after_first_unmuted": 0
+        },
+        "right": {
+          "captured_frames": 7889,
+          "muted_frames": 100,
+          "first_unmuted_delay_us": 40995,
+          "unmuted_error_us_range": [
+            -13,
+            -5
+          ],
+          "unmuted_off_target_100us": 0,
+          "new_underruns_after_first_unmuted": 0
+        }
+      },
+      "coherent-soak-max": {
+        "left": {
+          "captured_frames": 61886,
+          "muted_frames": 89,
+          "first_unmuted_delay_us": 40994,
+          "unmuted_error_us_range": [
+            -9,
+            -2
+          ],
+          "unmuted_off_target_100us": 0,
+          "new_underruns_after_first_unmuted": 0
+        },
+        "right": {
+          "captured_frames": 61887,
+          "muted_frames": 99,
+          "first_unmuted_delay_us": 40993,
+          "unmuted_error_us_range": [
+            -9,
+            -2
+          ],
+          "unmuted_off_target_100us": 0,
+          "new_underruns_after_first_unmuted": 0
+        }
+      },
+      "coherent-sensors-off": {
+        "left": {
+          "captured_frames": 7882,
+          "muted_frames": 100,
+          "first_unmuted_delay_us": 40991,
+          "unmuted_error_us_range": [
+            -16,
+            -7
+          ],
+          "unmuted_off_target_100us": 0,
+          "new_underruns_after_first_unmuted": 0
+        },
+        "right": {
+          "captured_frames": 7885,
+          "muted_frames": 99,
+          "first_unmuted_delay_us": 40991,
+          "unmuted_error_us_range": [
+            -13,
+            -4
+          ],
+          "unmuted_off_target_100us": 0,
+          "new_underruns_after_first_unmuted": 0
+        }
+      }
+    }
+  },
+  "codec_experiment": "Phase source3->2->3 did not show a repeatable benefit; no codec phase or routing changes retained.",
+  "production_validation": {
+    "case": "coherent-production-final-music1-sensors1-r1",
+    "duration_s": 60,
+    "music": true,
+    "sensors": true,
+    "payload_pair_kBps": 16.133766666666666,
+    "audio": {
+      "left": {
+        "span_s": 60.16384172439575,
+        "clock_uncertainty_s": 0.04882205009460449,
+        "start_margin_s": 0.06707453727722168,
+        "end_margin_s": 0.09676718711853027,
+        "delta": {
+          "ISO_FRAMES": 6017,
+          "ISO_BAD_FRAMES": 2,
+          "ISO_SIZE_MISMATCH": 2,
+          "RX_QUEUE_OVERRUNS": 0,
+          "I2S_UNDERRUN_BLOCKS": 0
+        }
+      },
+      "right": {
+        "span_s": 60.20460796356201,
+        "clock_uncertainty_s": 0.04882205009460449,
+        "start_margin_s": 0.13901352882385254,
+        "end_margin_s": 0.06559443473815918,
+        "delta": {
+          "ISO_FRAMES": 6021,
+          "ISO_BAD_FRAMES": 2,
+          "ISO_SIZE_MISMATCH": 2,
+          "RX_QUEUE_OVERRUNS": 0,
+          "I2S_UNDERRUN_BLOCKS": 0
+        }
+      }
+    },
+    "sensor_rates": {
+      "left": {
+        "0": 38.13333333333333,
+        "4": 111.31666666666666,
+        "7": 274.75,
+        "6": 17.766666666666666,
+        "1": 41.03333333333333
+      },
+      "right": {
+        "0": 51.916666666666664,
+        "4": 292.71666666666664,
+        "7": 614,
+        "6": 32.46666666666667,
+        "1": 70.71666666666667
+      }
+    }
+  },
+  "production_builds": [
+    "coherent-production-final (FOTA)",
+    "coherent-production-standard"
+  ],
+  "flashed_images": {
+    "time": 1790787085.1270301,
+    "image": {
+      "app.hex": "3be0661e0333855898b067cfecce50d97cb8d7ab6fc5363ad7bb30063ddd1586",
+      "net.hex": "5fb1a7caeb217f1902ce79fa43d52482f8e1883eaeda6a849a3f88ebe8f84225"
+    }
+  },
+  "host_tests": 11,
+  "limits": [
+    "Digital SDU-to-I2S timing does not include DAC, speaker or acoustic latency.",
+    "Independent TIMER2 uses HFINT; local rate normalization distinguishes isolated reconstruction errors without assuming calibrated16MHz.",
+    "Bad ISO frames are measured separately from buffer gaps; neither is a direct audible-glitch count.",
+    "The new clock patch was tested on one pair and Pixel9a. A single clean-production throughput run is not proof of identical performance across phones.",
+    "The combined radio+clock production image was tested; the radio-only PR309 repair has its separate completed comparison."
+  ]
+}

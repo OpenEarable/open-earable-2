@@ -244,14 +244,19 @@ struct audio_sync_record {
 	uint32_t clock;
 	uint32_t states;
 	uint32_t queued;
+	uint32_t capture_rtc;
+	uint32_t capture_timer;
+	uint32_t free_timer;
 };
 
-/* Deliberately externally visible so the matching ELF identifies the ring. */
+/* Externally visible for nonhalting reads using the matching ELF. ABI 2 adds
+ * independent timer observations without increasing the diagnostic RAM budget.
+ */
 volatile struct {
 	uint32_t magic;
 	uint32_t count;
-	struct audio_sync_record records[128];
-} audio_sync_diagnostics = {.magic = 0x41535931};
+	struct audio_sync_record records[96];
+} audio_sync_diagnostics = {.magic = 0x41535932};
 
 /* Diagnostic positive control: insert this many silent 1 ms blocks before
  * the next decoded frame. The host writes at most 10; normal value is zero.
@@ -271,7 +276,7 @@ static void audio_sync_record_completed(uint32_t timestamp, const uint32_t *rele
 		return;
 	}
 	uint32_t count = audio_sync_diagnostics.count;
-	volatile struct audio_sync_record *record = &audio_sync_diagnostics.records[count % 128];
+	volatile struct audio_sync_record *record = &audio_sync_diagnostics.records[count % 96];
 	record->sequence = 0;
 	__DMB();
 	record->completed = timestamp;
@@ -288,6 +293,9 @@ static void audio_sync_record_completed(uint32_t timestamp, const uint32_t *rele
 		(sync_block[index].startup_fading ? BIT(19) : 0);
 	record->queued = (ctrl_blk.out.prod_blk_idx + FIFO_NUM_BLKS -
 			  ctrl_blk.out.cons_blk_idx) % FIFO_NUM_BLKS;
+	record->capture_rtc = NRF_RTC0->CC[0];
+	record->capture_timer = NRF_TIMER1->CC[0];
+	record->free_timer = NRF_TIMER2->CC[0];
 	__DMB();
 	record->sequence = count + 1;
 	__DMB();

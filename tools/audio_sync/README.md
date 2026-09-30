@@ -193,3 +193,59 @@ The listener subsequently confirmed that both reported issues were resolved
 ("ja geht alles"). The final video recorder lost SWD access on both ears and
 the phone was no longer visible over USB; that partial capture remains in the
 evidence and is not counted as a completed pass.
+
+### Coherent clock reference and independent counter
+
+The presentation clock now combines a free-running 1 MHz TIMER1 capture with
+one coherent RTC-tick reference. It does not combine an asynchronously captured
+RTC count with a timer remainder that may belong to the preceding tick. The
+reference read avoids tick transitions and includes pending RTC overflows; the
+I2S capture waits for FRAMESTART with a bounded timeout.
+
+Diagnostic ABI 2 (`0x41535932`) has 96 records and adds `capture_rtc`,
+`capture_timer`, and `free_timer`. The last field comes from a separate,
+free-running TIMER2 at the nominal 16 MHz setting, latched by the same I2S event.
+The capture tool accepts both ABI versions. TIMER2 is enabled only in diagnostic
+builds. Its actual rate follows the application HF clock, which may use HFINT;
+calibrate its rate locally before comparing intervals with controller time.
+It is useful for distinguishing real frame timing changes from timestamp
+reconstruction errors, but it is not an independently calibrated acoustic clock.
+
+The codec loopback experiments used during investigation are retained with the
+bench evidence, not enabled in the production audio path.
+
+
+## Coherent clock follow-up
+
+[`clock-results-2026-09-30.json`](clock-results-2026-09-30.json) records the
+follow-up with the PR309 radio reservation repair retained. Independent timer
+captures confirmed false approximately 31 us steps when the original delayed
+RTC capture crossed a tick but the reset TIMER1 remainder did not. A 60-second
+loaded run had 129 positive steps and matching reversals on the left and 125
+on the right. Those false phase errors caused unnecessary clock corrections.
+
+TIMER1 now runs continuously and is latched by every RTC tick. Reconstruction
+uses a stable RTC/capture anchor, signed offsets across counter wrap, and an
+atomic overflow epoch update. It does not use the delayed frame RTC capture
+to decide which tick contains the frame. Capture waits are bounded.
+
+The corrected 600-second all-sensor playback run had zero such steps, zero
+new buffer underruns, and paired one-second median differences of -1 to +2 us.
+All valid recorded frames stayed within 9 us of the digital target, including
+both real 512-second RTC wraps. Two isolated bad radio frames occurred on the
+right. A separate sensors-off restart also had no false steps or buffer gaps.
+The recorded startup gates kept unready frames muted; no unmuted frame in
+these three playback starts exceeded 16 us target error.
+
+Both production FOTA and standard builds and all 11 host tests pass. The clean
+combined production image was flashed and verified on both earphones. Its
+60-second all-sensor/music check delivered 16.13 kB/s pair sensor payload,
+with zero buffer gaps or receive-queue overruns and two bad ISO frames per
+side. This one run retains a substantial gain over the earlier 10.21 kB/s
+audio-only baseline, but does not establish statistically identical throughput
+to the earlier 17.62 kB/s mean with the radio repair. The completed PR309
+comparison is separate from these clock measurements.
+
+Codec synchronization source3/source2/source3 trials showed no repeatable
+benefit, so no codec changes were retained. Digital timing and codec roundtrip
+checks do not certify acoustic phase alignment at the speakers.

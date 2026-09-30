@@ -111,8 +111,11 @@ def main():
         elif args.fix_mask is not None:
             raise RuntimeError("Firmware has no diagnostic isolation mask")
         magic, initial = probe.memory_read32(address, 2)
-        if magic != 0x41535931:
+        if magic not in (0x41535931, 0x41535932):
             raise RuntimeError("Diagnostic ABI mismatch: check the flashed ELF")
+        fields = FIELDS + (("capture_rtc", "capture_timer", "free_timer") if magic == 0x41535932 else ())
+        capacity = 96 if magic == 0x41535932 else CAPACITY
+        record_size = len(fields) * 4
         if delay_steps:
             output = subprocess.check_output(
                 [args.gdb, "-batch", str(args.elf), "-ex",
@@ -160,7 +163,7 @@ def main():
                                                          time=time.time())) + "\n")
                             stall_count = new_stall_count
                     before = probe.memory_read32(address + 4, 1)[0]
-                    data = (bytes(probe.memory_read8(address + 8, CAPACITY * RECORD_SIZE))
+                    data = (bytes(probe.memory_read8(address + 8, capacity * record_size))
                             if before > last else b"")
                     after = probe.memory_read32(address + 4, 1)[0]
                     read_failures = 0
@@ -174,17 +177,17 @@ def main():
                     continue
                 if before < last:
                     raise RuntimeError("Target reset during measurement")
-                if before - last > CAPACITY:
-                    output.write(json.dumps(dict(event="lost", records=before-last-CAPACITY)) + "\n")
-                    last = before - CAPACITY
+                if before - last > capacity:
+                    output.write(json.dumps(dict(event="lost", records=before-last-capacity)) + "\n")
+                    last = before - capacity
                 if before > last:
                     now = time.time()
                     for sequence in range(last + 1, before + 1):
-                        if after - sequence >= CAPACITY:
+                        if after - sequence >= capacity:
                             output.write(json.dumps(dict(event="overwritten", sequence=sequence)) + "\n")
                             continue
-                        values = struct.unpack_from("<10I", data, ((sequence-1) % CAPACITY)*RECORD_SIZE)
-                        record = dict(zip(FIELDS, values))
+                        values = struct.unpack_from(f"<{len(fields)}I", data, ((sequence-1) % capacity)*record_size)
+                        record = dict(zip(fields, values))
                         if record["sequence"] != sequence:
                             raise RuntimeError("Inconsistent ring record")
                         record.update(time=now, snr=args.snr, side=side,
