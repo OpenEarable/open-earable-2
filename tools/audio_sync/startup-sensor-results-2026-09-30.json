@@ -653,5 +653,173 @@
       "presentation_overrides": [],
       "capture_errors": []
     }
+  },
+  "listener_confirmation": {
+    "response": "ja geht alles",
+    "context": "Asked whether cold-start crackling was gone and starting the usual sensor kept audio playing."
+  },
+  "final_video_capture": {
+    "completed": false,
+    "note": "Both SWD recorders ended with read errors. The partial capture is not counted as a completed pass; the listener separately confirmed both fixes.",
+    "partial_analysis": {
+      "duration_s": 67.53293108940125,
+      "settle_s": 0,
+      "sides": {
+        "left": {
+          "delay_us": {
+            "n": 6379,
+            "min": 40974,
+            "max": 41022,
+            "median": 40990,
+            "p01": 40978,
+            "p99": 41020
+          },
+          "estimated_timestamp_frames": 0,
+          "bad_frames": 2,
+          "target_error_us": {
+            "n": 6379,
+            "min": -26,
+            "max": 22,
+            "median": -10,
+            "p01": -22,
+            "p99": 20
+          },
+          "off_target_frames_100us": 0,
+          "receive_us": {
+            "n": 6379,
+            "min": -1895,
+            "max": 18345,
+            "median": -1737,
+            "p01": -1886,
+            "p99": -1703
+          },
+          "timestamp_estimation_us": {
+            "n": 6379,
+            "min": 0,
+            "max": 0,
+            "median": 0,
+            "p01": 0,
+            "p99": 0
+          },
+          "states": {
+            "771": 2897,
+            "3": 290,
+            "259": 3190,
+            "131843": 2
+          },
+          "presentation_delay_us": [
+            40000
+          ],
+          "excluded_transition_frames": 0,
+          "new_underruns": 0
+        },
+        "right": {
+          "delay_us": {
+            "n": 6484,
+            "min": -478,
+            "max": 41021,
+            "median": 40988.0,
+            "p01": 9968,
+            "p99": 41019
+          },
+          "estimated_timestamp_frames": 0,
+          "bad_frames": 61,
+          "target_error_us": {
+            "n": 6484,
+            "min": -41478,
+            "max": 21,
+            "median": -12.0,
+            "p01": -31032,
+            "p99": 19
+          },
+          "off_target_frames_100us": 81,
+          "receive_us": {
+            "n": 6484,
+            "min": -4507,
+            "max": 5520,
+            "median": -4504.0,
+            "p01": -4506,
+            "p99": -3581
+          },
+          "timestamp_estimation_us": {
+            "n": 6484,
+            "min": 0,
+            "max": 0,
+            "median": 0.0,
+            "p01": 0,
+            "p99": 0
+          },
+          "states": {
+            "771": 2885,
+            "3": 289,
+            "259": 3179,
+            "131843": 22,
+            "131075": 2,
+            "131331": 22,
+            "393987": 4,
+            "262145": 10,
+            "262146": 50,
+            "393218": 9,
+            "393475": 2,
+            "262403": 9,
+            "262659": 1
+          },
+          "presentation_delay_us": [
+            40000
+          ],
+          "excluded_transition_frames": 0,
+          "new_underruns": 100
+        }
+      },
+      "excluded_intervals": [
+        [
+          1790767086.007067,
+          1790767086.007067
+        ]
+      ],
+      "right_minus_left_us": {
+        "n": 63,
+        "min": -5.0,
+        "max": 1.0,
+        "median": -2.0,
+        "p01": -5.0,
+        "p99": 0
+      },
+      "injections": [],
+      "processing_stalls": [],
+      "presentation_overrides": [],
+      "capture_errors": [
+        {
+          "event": "read_error",
+          "time": 1790767149.8349419,
+          "message": "Unspecified error."
+        },
+        {
+          "event": "read_error",
+          "time": 1790767150.042036,
+          "message": "Unspecified error."
+        },
+        {
+          "event": "read_error",
+          "time": 1790767150.2492921,
+          "message": "Unspecified error."
+        },
+        {
+          "event": "read_error",
+          "time": 1790767153.644471,
+          "message": "Unspecified error."
+        },
+        {
+          "event": "read_error",
+          "time": 1790767153.8516831,
+          "message": "Unspecified error."
+        },
+        {
+          "event": "read_error",
+          "time": 1790767154.0589252,
+          "message": "Unspecified error."
+        }
+      ]
+    }
   }
 }

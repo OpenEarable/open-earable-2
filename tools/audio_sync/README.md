@@ -188,3 +188,8 @@ are retained in the results; a missing ear or failed SWD capture is not a pass.
 The sustained right-ear packet-loss pattern seen with the retained radio did
 not recur in these complete-image tests, but that does not establish that all
 radio-loss causes have been removed.
+
+The listener subsequently confirmed that both reported issues were resolved
+("ja geht alles"). The final video recorder lost SWD access on both ears and
+the phone was no longer visible over USB; that partial capture remains in the
+evidence and is not counted as a completed pass.
