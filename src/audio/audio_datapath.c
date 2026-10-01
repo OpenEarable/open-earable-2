@@ -96,7 +96,8 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 /* How often to print under-run warning */
 #define LOG_INTERVAL_BLKS 5000
 
-NET_BUF_POOL_FIXED_DEFINE(pool_i2s_rx, FIFO_NUM_BLKS / CONFIG_FIFO_FRAME_SPLIT_NUM,
+/* Complete frames: queued input plus one encoding frame and one being filled by I2S. */
+NET_BUF_POOL_FIXED_DEFINE(pool_i2s_rx, CONFIG_FIFO_RX_FRAME_COUNT + 2,
 			  (BLK_MULTI_CHAN_SIZE_OCTETS * CONFIG_FIFO_FRAME_SPLIT_NUM),
 			  sizeof(struct audio_metadata), NULL);
 NET_BUF_POOL_FIXED_DEFINE(audio_pcm_pool, FIFO_NUM_BUFS, PCM_NUM_BYTES_MULTI_CHAN,

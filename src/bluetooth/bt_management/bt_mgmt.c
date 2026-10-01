@@ -19,6 +19,8 @@
 #include "zbus_common.h"
 #include "button_manager.h"
 #include "bt_mgmt_adv_internal.h"
+#include "BootState.h"
+#include "uicr.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
@@ -477,6 +479,17 @@ int bt_mgmt_init(void)
 	ret = k_sem_take(&sem_bt_enabled, K_MSEC(BT_ENABLE_TIMEOUT_MS));
 	if (ret) {
 		LOG_ERR("bt_enable timed out");
+		return ret;
+	}
+
+	/* Keep the pair-specific name used by the phone and OpenEarable app. */
+	char name[CONFIG_BT_DEVICE_NAME_MAX];
+	uint32_t sirk = uicr_sirk_get();
+
+	snprintf(name, sizeof(name), "%s-%04X", CONFIG_BT_DEVICE_NAME,
+		 (unsigned int)((sirk != 0xFFFFFFFFU ? sirk : oe_boot_state.device_id) & 0xFFFF));
+	ret = bt_set_name(name);
+	if (ret) {
 		return ret;
 	}
 
