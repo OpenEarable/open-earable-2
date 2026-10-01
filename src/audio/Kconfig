@@ -39,11 +39,15 @@ config AUDIO_FRAME_DURATION_US
 
 config AUDIO_MIN_PRES_DLY_US
 	int "The minimum presentation delay"
+	default 40000 if BOARD_OPENEARABLE_V2_NRF5340_CPUAPP && AUDIO_DEV = 1
 	default 5000 if STREAM_BIDIRECTIONAL
 	default 3000
 	help
 	  The minimum allowable presentation delay in microseconds.
 	  This needs to allow time for decoding and internal routing.
+	  OpenEarable headsets reserve four 10 ms frames for controller delivery
+	  jitter. A 5 ms deadline can empty the output FIFO when a late frame
+	  arrives after startup synchronization, causing a jump to and from zero.
 
 config AUDIO_MAX_PRES_DLY_US
 	int "The maximum presentation delay"
