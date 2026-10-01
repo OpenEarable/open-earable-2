@@ -113,6 +113,13 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
 	ERR_CHK(ret);
 
+	ret = bt_conn_le_param_update(conn,
+		BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_CONN_INTERVAL,
+				 CONFIG_BLE_ACL_SLAVE_LATENCY, CONFIG_BLE_ACL_SUP_TIMEOUT));
+	if (ret && ret != -EALREADY) {
+		LOG_WRN("Connection parameter update request failed: %d", ret);
+	}
+
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		ret = bt_conn_set_security(conn, BT_SECURITY_L2);
 		if (ret) {
