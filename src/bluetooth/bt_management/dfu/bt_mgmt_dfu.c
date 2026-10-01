@@ -7,6 +7,7 @@
 /* Override compiler definition to use size-bounded string copying and concatenation function */
 #define _BSD_SOURCE
 #include "bt_mgmt_dfu_internal.h"
+#include "bt_mgmt_ctlr_cfg_internal.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/bluetooth/bluetooth.h>
@@ -124,6 +125,7 @@ static void dfu_set_bt_name(void)
 void bt_mgmt_dfu_start(void)
 {
 	LOG_INF("Entering SMP server mode");
+	(void)bt_mgmt_stop_watchdog();
 
 	bt_conn_cb_register(&dfu_conn_callbacks);
 	dfu_set_bt_name();
