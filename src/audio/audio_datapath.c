@@ -1353,6 +1353,22 @@ void audio_datapath_stream_out(struct net_buf *audio_frame_in)
 		return;
 	}
 
+	/* Both OpenEarable speakers are wired to I2S slot 0. Bluetooth's right
+	 * location describes which music channel this earphone receives, not the
+	 * physical slot used by its mono DAC. The SDK decoder preserves locations.
+	 */
+	if (IS_ENABLED(CONFIG_BOARD_OPENEARABLE_V2_NRF5340_CPUAPP) &&
+	    meta_in->locations == BT_AUDIO_LOCATION_FRONT_RIGHT) {
+		for (size_t i = 0; i < audio_frame_out->len;
+		     i += 2U * CONFIG_AUDIO_BIT_DEPTH_OCTETS) {
+			memcpy(&audio_frame_out->data[i],
+			       &audio_frame_out->data[i + CONFIG_AUDIO_BIT_DEPTH_OCTETS],
+			       CONFIG_AUDIO_BIT_DEPTH_OCTETS);
+			memset(&audio_frame_out->data[i + CONFIG_AUDIO_BIT_DEPTH_OCTETS], 0,
+			       CONFIG_AUDIO_BIT_DEPTH_OCTETS);
+		}
+	}
+
 	/*** Add audio data to FIFO buffer ***/
 	uint32_t num_blks_in_fifo = filled_blocks_get();
 
