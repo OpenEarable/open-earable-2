@@ -1,0 +1,216 @@
+{
+  "audio_config": {
+    "sources": [
+      "src/bluetooth/gatt_services/audio_config_service.h",
+      "src/bluetooth/gatt_services/audio_config_service.c"
+    ],
+    "uuids": {
+      "BT_UUID_AUDIO_CONFIG_SERVICE": "1410df95-5f68-4ebb-a7c7-5e0fb9ae7557",
+      "BT_UUID_AUDIO_MODE": "1410df96-5f68-4ebb-a7c7-5e0fb9ae7557",
+      "BT_UUID_MIC_SELECT": "1410df97-5f68-4ebb-a7c7-5e0fb9ae7557",
+      "BT_UUID_AUDIO_CHANNEL": "1410df98-5f68-4ebb-a7c7-5e0fb9ae7557",
+      "BT_UUID_DMIC_GAIN": "1410df99-5f68-4ebb-a7c7-5e0fb9ae7557"
+    },
+    "characteristics": [
+      {
+        "uuid_macro": "BT_UUID_AUDIO_MODE",
+        "properties": "BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_WRITE | BT_GATT_PERM_READ"
+      },
+      {
+        "uuid_macro": "BT_UUID_MIC_SELECT",
+        "properties": "BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_WRITE | BT_GATT_PERM_READ"
+      },
+      {
+        "uuid_macro": "BT_UUID_AUDIO_CHANNEL",
+        "properties": "BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_READ"
+      },
+      {
+        "uuid_macro": "BT_UUID_DMIC_GAIN",
+        "properties": "BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_WRITE | BT_GATT_PERM_READ"
+      }
+    ]
+  },
+  "led": {
+    "sources": [
+      "src/bluetooth/gatt_services/led_service.cpp",
+      "src/bluetooth/gatt_services/led_service.h"
+    ],
+    "uuids": {
+      "BT_UUID_LED": "81040a2e-4819-11ee-be56-0242ac120002",
+      "BT_UUID_LED_RGB": "81040e7a-4819-11ee-be56-0242ac120002",
+      "BT_UUID_LED_STATE": "81040e7b-4819-11ee-be56-0242ac120002"
+    },
+    "characteristics": [
+      {
+        "uuid_macro": "BT_UUID_LED_RGB",
+        "properties": "BT_GATT_CHRC_WRITE",
+        "permissions": "BT_GATT_PERM_WRITE"
+      },
+      {
+        "uuid_macro": "BT_UUID_LED_STATE",
+        "properties": "BT_GATT_CHRC_WRITE",
+        "permissions": "BT_GATT_PERM_WRITE"
+      }
+    ]
+  },
+  "button": {
+    "sources": [
+      "src/bluetooth/gatt_services/button_service.h",
+      "src/bluetooth/gatt_services/button_service.c"
+    ],
+    "uuids": {
+      "BT_UUID_BUTTON": "29c10bdc-4773-11ee-be56-0242ac120002",
+      "BT_UUID_BUTTON_STATE": "29c10f38-4773-11ee-be56-0242ac120002"
+    },
+    "characteristics": [
+      {
+        "uuid_macro": "BT_UUID_BUTTON_STATE",
+        "properties": "BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY",
+        "permissions": "BT_GATT_PERM_READ"
+      }
+    ]
+  },
+  "power_saving": {
+    "sources": [
+      "src/bluetooth/gatt_services/power_saving_service.h",
+      "src/bluetooth/gatt_services/power_saving_service.c"
+    ],
+    "uuids": {
+      "BT_UUID_POWER_SAVING_SERVICE": "d63fd1f0-5f68-4ebb-a7c7-5e0fb9ae7557",
+      "BT_UUID_POWER_SAVING_MODE": "d63fd1f1-5f68-4ebb-a7c7-5e0fb9ae7557",
+      "BT_UUID_POWER_SAVING_SUPPORTED_MODES": "d63fd1f2-5f68-4ebb-a7c7-5e0fb9ae7557"
+    },
+    "characteristics": [
+      {
+        "uuid_macro": "BT_UUID_POWER_SAVING_MODE",
+        "properties": "BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE",
+        "permissions": "BT_GATT_PERM_READ | BT_GATT_PERM_WRITE"
+      },
+      {
+        "uuid_macro": "BT_UUID_POWER_SAVING_SUPPORTED_MODES",
+        "properties": "BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_READ"
+      }
+    ]
+  },
+  "device_info": {
+    "sources": [
+      "src/bluetooth/gatt_services/device_info.c",
+      "src/bluetooth/gatt_services/device_info.h"
+    ],
+    "uuids": {
+      "BT_UUID_DEVICE_INFO": "45622510-6468-465a-b141-0b9b0f96b468",
+      "BT_UUID_IDENT": "45622511-6468-465a-b141-0b9b0f96b468",
+      "BT_UUID_GENERATION": "45622512-6468-465a-b141-0b9b0f96b468",
+      "BT_UUID_FIRMWARE": "45622513-6468-465a-b141-0b9b0f96b468"
+    },
+    "characteristics": [
+      {
+        "uuid_macro": "BT_UUID_IDENT",
+        "properties": "BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_READ"
+      },
+      {
+        "uuid_macro": "BT_UUID_GENERATION",
+        "properties": "BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_READ"
+      },
+      {
+        "uuid_macro": "BT_UUID_FIRMWARE",
+        "properties": "BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_READ"
+      }
+    ]
+  },
+  "sensor": {
+    "sources": [
+      "src/bluetooth/gatt_services/sensor_service.c",
+      "src/bluetooth/gatt_services/sensor_service.h"
+    ],
+    "uuids": {
+      "BT_UUID_SENSOR": "34c2e3bb-34aa-11eb-adc1-0242ac120002",
+      "BT_UUID_SENSOR_CONFIG": "34c2e3be-34aa-11eb-adc1-0242ac120002",
+      "BT_UUID_SENSOR_CONFIG_STATUS": "34c2e3bf-34aa-11eb-adc1-0242ac120002",
+      "BT_UUID_SENSOR_RECORDING_NAME": "34c2e3c0-34aa-11eb-adc1-0242ac120002",
+      "BT_UUID_SENSOR_DATA": "34c2e3bc-34aa-11eb-adc1-0242ac120002"
+    },
+    "characteristics": [
+      {
+        "uuid_macro": "BT_UUID_SENSOR_CONFIG",
+        "properties": "BT_GATT_CHRC_WRITE",
+        "permissions": "BT_GATT_PERM_WRITE"
+      },
+      {
+        "uuid_macro": "BT_UUID_SENSOR_DATA",
+        "properties": "BT_GATT_CHRC_NOTIFY",
+        "permissions": "BT_GATT_PERM_NONE"
+      },
+      {
+        "uuid_macro": "BT_UUID_SENSOR_CONFIG_STATUS",
+        "properties": "BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY",
+        "permissions": "BT_GATT_PERM_READ"
+      },
+      {
+        "uuid_macro": "BT_UUID_SENSOR_RECORDING_NAME",
+        "properties": "BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE",
+        "permissions": "BT_GATT_PERM_READ | BT_GATT_PERM_WRITE"
+      }
+    ]
+  },
+  "parse_info": {
+    "sources": [
+      "src/ParseInfo/SensorScheme.cpp",
+      "src/ParseInfo/SensorScheme.h"
+    ],
+    "uuids": {
+      "BT_UUID_PARSE_INFO_SERVICE": "caa25cb7-7e1b-44f2-adc9-e8c06c9ced43",
+      "BT_UUID_PARSE_INFO_CHARAC": "caa25cb9-7e1b-44f2-adc9-e8c06c9ced43",
+      "BT_UUID_PARSE_INFO_REQUEST_CHARAC": "caa25cba-7e1b-44f2-adc9-e8c06c9ced43",
+      "BT_UUID_PARSE_INFO_RESPONSE_CHARAC": "caa25cbb-7e1b-44f2-adc9-e8c06c9ced43"
+    },
+    "characteristics": [
+      {
+        "uuid_macro": "BT_UUID_PARSE_INFO_CHARAC",
+        "properties": "BT_GATT_CHRC_READ",
+        "permissions": "BT_GATT_PERM_READ"
+      },
+      {
+        "uuid_macro": "BT_UUID_PARSE_INFO_REQUEST_CHARAC",
+        "properties": "BT_GATT_CHRC_WRITE",
+        "permissions": "BT_GATT_PERM_WRITE"
+      },
+      {
+        "uuid_macro": "BT_UUID_PARSE_INFO_RESPONSE_CHARAC",
+        "properties": "BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY",
+        "permissions": "BT_GATT_PERM_READ"
+      }
+    ]
+  },
+  "time_sync": {
+    "sources": [
+      "src/time_sync/time_sync.c",
+      "src/time_sync/time_sync.h"
+    ],
+    "uuids": {
+      "BT_UUID_TIME_SYNC_SERVICE": "2e04cbf7-939d-4be5-823e-271838b75259",
+      "BT_UUID_TIME_SYNC_OFFSET_CHARAC": "2e04cbf8-939d-4be5-823e-271838b75259",
+      "BT_UUID_TIME_SYNC_RTT_CHARAC": "2e04cbf9-939d-4be5-823e-271838b75259"
+    },
+    "characteristics": [
+      {
+        "uuid_macro": "BT_UUID_TIME_SYNC_OFFSET_CHARAC",
+        "properties": "BT_GATT_CHRC_WRITE",
+        "permissions": "BT_GATT_PERM_WRITE"
+      },
+      {
+        "uuid_macro": "BT_UUID_TIME_SYNC_RTT_CHARAC",
+        "properties": "BT_GATT_CHRC_WRITE | BT_GATT_CHRC_NOTIFY",
+        "permissions": "BT_GATT_PERM_WRITE"
+      }
+    ]
+  }
+}

@@ -20,7 +20,7 @@ The time offset packet is used to calculate the offset between the device's inte
 
 | Field          | Size (bytes) | Description                             |
 |----------------|--------------|-----------------------------------------|
-| offset         | 8            | Device time offset in microseconds      |
+| offset         | 8            | Signed delta added to the current device time offset, in microseconds |
 
 ## Time syncing workflow
 
@@ -34,3 +34,7 @@ The `Time Sync` GATT service can be found with the service UUID `2e04cbf7-939d-4
 |----------------------|----------------------------------------|----------------|-------------------------------------------|
 | Time Offset          | `2e04cbf8-939d-4be5-823e-271838b75259` | Write          | Offset between device time and unix time  |
 | RTT calculation      | `2e04cbf9-939d-4be5-823e-271838b75259` | Write / Notify | Used to calculate RTT and sync time.      |
+
+The Time Offset value is a little-endian `int64` delta. Each write adds it to
+the existing offset; it does not replace the offset. See the
+[wire-contract baseline](../../doc/protocols/wire-contract-baseline.md).

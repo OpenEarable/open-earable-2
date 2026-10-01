@@ -1,0 +1,216 @@
+[
+  {
+    "name": "audio_mode_anc",
+    "hex": "02",
+    "fields": {
+      "mode": 2
+    }
+  },
+  {
+    "name": "mic_select_right",
+    "hex": "01",
+    "fields": {
+      "microphone": 1
+    }
+  },
+  {
+    "name": "audio_channel_left",
+    "hex": "00",
+    "fields": {
+      "channel": 0
+    }
+  },
+  {
+    "name": "dmic_gain",
+    "hex": "40ff",
+    "fields": {
+      "outer": 64,
+      "inner": 255
+    }
+  },
+  {
+    "name": "led_rgb",
+    "hex": "123456",
+    "fields": {
+      "red": 18,
+      "green": 52,
+      "blue": 86
+    }
+  },
+  {
+    "name": "led_custom",
+    "hex": "01",
+    "fields": {
+      "mode": 1
+    }
+  },
+  {
+    "name": "button_pressed",
+    "hex": "01",
+    "fields": {
+      "state": 1
+    }
+  },
+  {
+    "name": "power_saving_balanced",
+    "hex": "02",
+    "fields": {
+      "mode": 2
+    }
+  },
+  {
+    "name": "supported_modes",
+    "hex": "0400034f666601074d696e696d616c020842616c616e636564030a41676772657373697665",
+    "fields": {
+      "names": [
+        "Off",
+        "Minimal",
+        "Balanced",
+        "Aggressive"
+      ]
+    }
+  },
+  {
+    "name": "sensor_config",
+    "hex": "060103",
+    "fields": {
+      "sensor_id": 6,
+      "rate_index": 1,
+      "storage_mask": 3
+    }
+  },
+  {
+    "name": "sensor_status",
+    "hex": "060103070001",
+    "fields": {
+      "configs": [
+        [
+          6,
+          1,
+          3
+        ],
+        [
+          7,
+          0,
+          1
+        ]
+      ]
+    }
+  },
+  {
+    "name": "recording_name",
+    "hex": "6578616d706c65",
+    "fields": {
+      "name": "example"
+    }
+  },
+  {
+    "name": "sensor_single",
+    "hex": "060408070605040302010000c03f",
+    "fields": {
+      "sensor_id": 6,
+      "timestamp": 72623859790382856,
+      "samples": [
+        1.5
+      ]
+    }
+  },
+  {
+    "name": "sensor_batch",
+    "hex": "060a08070605040302010000c03f000000c0e803",
+    "fields": {
+      "sensor_id": 6,
+      "timestamp": 72623859790382856,
+      "samples": [
+        1.5,
+        -2.0
+      ],
+      "period_us": 1000
+    }
+  },
+  {
+    "name": "time_sync_request",
+    "hex": "01003412080706050403020100000000000000000000000000000000",
+    "fields": {
+      "version": 1,
+      "op": 0,
+      "sequence": 4660,
+      "t1": 72623859790382856,
+      "t2": 0,
+      "t3": 0
+    }
+  },
+  {
+    "name": "time_sync_response",
+    "hex": "010134120807060504030201c8000000000000002c01000000000000",
+    "fields": {
+      "version": 1,
+      "op": 1,
+      "sequence": 4660,
+      "t1": 72623859790382856,
+      "t2": 200,
+      "t3": 300
+    }
+  },
+  {
+    "name": "time_offset_negative",
+    "hex": "18fcffffffffffff",
+    "fields": {
+      "delta_us": -1000
+    }
+  },
+  {
+    "name": "parse_component",
+    "hex": "06016701780143",
+    "fields": {
+      "type": 6,
+      "group": "g",
+      "name": "x",
+      "unit": "C"
+    }
+  },
+  {
+    "name": "parse_scheme",
+    "hex": "0601540106016701780143130200010000803f00000040",
+    "fields": {
+      "id": 6,
+      "name": "T",
+      "component_count": 1,
+      "options": 19,
+      "frequencies": [
+        1.0,
+        2.0
+      ]
+    }
+  },
+  {
+    "name": "parse_storage",
+    "hex": "010617000601540106016701780143130200010000803f00000040",
+    "fields": {
+      "sensor_ids": [
+        6
+      ],
+      "scheme_hex": "0601540106016701780143130200010000803f00000040"
+    }
+  },
+  {
+    "name": "oe_header_v3",
+    "hex": "03000807060504030201360000001b000000887766554433221101010617000601540106016701780143130200010000803f00000040",
+    "fields": {
+      "version": 3,
+      "timestamp": 72623859790382856,
+      "header_size": 54,
+      "parse_info_size": 27,
+      "device_id": 1234605616436508552,
+      "side": 1
+    }
+  },
+  {
+    "name": "device_identifier",
+    "hex": "30783132333435363738000000000000000000",
+    "fields": {
+      "device_id": 305419896,
+      "length": 19
+    }
+  }
+]

@@ -1,5 +1,9 @@
 # Sensor ParseInfo Scheme
 
+> Current firmware wire formats and implemented UUIDs are recorded in
+> [the wire-contract baseline](../../doc/protocols/wire-contract-baseline.md).
+> The sensor-data layout and obsolete UUID entries below describe older firmware.
+
 ## BLE Specification
 
 The following table contains the BLE specifications with the available Services and Characteristics as well as UUIDs.

@@ -107,3 +107,15 @@ python3 zephyr/scripts/twister \
 ```
 
 Open `twister-out/coverage/index.html` after the run.
+
+## Protocol compatibility baseline
+
+Host-only BLE metadata and serializer checks are available without Zephyr:
+
+```sh
+python3 -m unittest discover -s tests/protocol_contracts -v
+```
+
+They require Python 3 and host C/C++ compilers. See the
+[wire-contract baseline](../doc/protocols/wire-contract-baseline.md) for fixture
+coverage and migration requirements.
