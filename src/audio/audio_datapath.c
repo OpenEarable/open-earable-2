@@ -27,6 +27,7 @@
 #include "audio_system.h"
 #include "streamctrl.h"
 #include "sd_card_playback.h"
+#include "audio_startup.h"
 
 #include "Equalizer.h"
 #include "sdlogger_wrapper.h"
@@ -157,6 +158,7 @@ static struct {
 		uint16_t prod_blk_idx; /* Output producer audio block index */
 		uint16_t cons_blk_idx; /* Output consumer audio block index */
 		uint32_t prod_blk_ts[FIFO_NUM_BLKS];
+		bool prod_blk_valid[FIFO_NUM_BLKS];
 		/* Statistics */
 		uint32_t total_blk_underruns;
 	} out;
@@ -164,6 +166,7 @@ static struct {
 	uint32_t prev_drift_sdu_ref_us;
 	uint32_t prev_pres_sdu_ref_us;
 	uint32_t current_pres_dly_us;
+	struct audio_startup startup;
 
 	struct {
 		enum drift_comp_state state: 8;
@@ -757,6 +760,7 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 
 		/* Increase presentation delay */
 		for (int i = 0; i < pres_adj_blks; i++) {
+			ctrl_blk.out.prod_blk_valid[ctrl_blk.out.prod_blk_idx] = false;
 			/* Mute audio block */
 			memset(&ctrl_blk.out.fifo[ctrl_blk.out.prod_blk_idx * BLK_STEREO_NUM_SAMPS],
 			       0, BLK_STEREO_SIZE_OCTETS);
@@ -1078,6 +1082,38 @@ __attribute__((weak)) void bt_mgmt_report_audio_underrun(uint32_t count) {
 }
 
 
+/* Consume startup PCM normally so timing can settle, but keep it inaudible.
+ * Local tones and buffer playback are mixed after this gate.
+ */
+static void audio_datapath_startup_apply(uint8_t *buffer, bool valid_pcm)
+{
+	if (CONFIG_AUDIO_DEV != HEADSET) {
+		return;
+	}
+
+	const uint32_t fade_frames = CONFIG_AUDIO_SAMPLE_RATE_HZ * 5U / 1000U;
+	bool synchronized =
+		(!ctrl_blk.drift_comp.enabled || ctrl_blk.drift_comp.state == DRIFT_STATE_LOCKED) &&
+		(!ctrl_blk.pres_comp.enabled || ctrl_blk.pres_comp.state == PRES_STATE_LOCKED);
+	bool ready = audio_startup_ready(&ctrl_blk.startup,
+		stream_state_get() == STATE_STREAMING, valid_pcm && synchronized);
+
+	if (!ready) {
+		memset(buffer, 0, BLK_STEREO_SIZE_OCTETS);
+	} else if (ctrl_blk.startup.fade_frames < fade_frames) {
+#if CONFIG_AUDIO_BIT_DEPTH_16
+		int16_t *samples = (int16_t *)buffer;
+#else
+		int32_t *samples = (int32_t *)buffer;
+#endif
+		for (uint32_t i = 0; i < BLK_STEREO_NUM_SAMPS; i += 2) {
+			uint32_t gain = audio_startup_gain(&ctrl_blk.startup, fade_frames);
+			samples[i] = audio_startup_scale(samples[i], gain, fade_frames);
+			samples[i + 1] = audio_startup_scale(samples[i + 1], gain, fade_frames);
+		}
+	}
+}
+
 /*
  * This handler function is called every time I2S needs new buffers for
  * TX and RX data.
@@ -1106,6 +1142,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 
 	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
 		if (tx_buf_released != NULL) {
+			bool valid_pcm = false;
 			/* Double buffered index */
 			uint32_t next_out_blk_idx = NEXT_IDX(ctrl_blk.out.cons_blk_idx);
 
@@ -1121,6 +1158,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 
 				tx_buf = (uint8_t *)&ctrl_blk.out
 						 .fifo[next_out_blk_idx * BLK_STEREO_NUM_SAMPS];
+				valid_pcm = ctrl_blk.out.prod_blk_valid[next_out_blk_idx];
 
 			} else {
 				if (stream_state_get() == STATE_STREAMING) {
@@ -1155,6 +1193,8 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 
 				memset(tx_buf, 0, BLK_STEREO_SIZE_OCTETS);
 			}
+
+			audio_datapath_startup_apply(tx_buf, valid_pcm);
 
 			if (tone_active || buffer_play_data != NULL) {
 				tone_mix(tx_buf);
@@ -1491,6 +1531,7 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 
 		/* Record producer block start reference */
 		ctrl_blk.out.prod_blk_ts[out_blk_idx] = recv_frame_ts_us + (i * BLK_PERIOD_US);
+		ctrl_blk.out.prod_blk_valid[out_blk_idx] = !bad_frame;
 
 		out_blk_idx = NEXT_IDX(out_blk_idx);
 	}
@@ -1512,6 +1553,7 @@ int audio_datapath_start(struct data_fifo *fifo_rx)
 
 		/* Clear counters and mute initial audio */
 		memset(&ctrl_blk.out, 0, sizeof(ctrl_blk.out));
+		ctrl_blk.startup = (struct audio_startup){0};
 
 		audio_datapath_i2s_start();
 		ctrl_blk.stream_started = true;
