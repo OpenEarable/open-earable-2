@@ -33,6 +33,9 @@ int bt_content_ctrl_start(struct bt_conn *conn);
  */
 int bt_content_ctrl_stop(struct bt_conn *conn);
 
+/** Send next-track to the media player; NULL targets all discovered peers. */
+int bt_content_ctrl_next_track(struct bt_conn *conn);
+
 /**
  * @brief	Handle disconnected connection for the content control services.
  *
