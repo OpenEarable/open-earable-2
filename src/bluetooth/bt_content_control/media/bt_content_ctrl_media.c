@@ -454,6 +454,16 @@ int bt_content_ctrl_media_pause(struct bt_conn *conn)
 	return 0;
 }
 
+int bt_content_ctrl_media_next_track(struct bt_conn *conn)
+{
+	struct mpl_cmd cmd = {
+		.opcode = BT_MCS_OPC_NEXT_TRACK,
+		.use_param = false,
+	};
+
+	return mpl_cmd_send(conn, &cmd);
+}
+
 bool bt_content_ctlr_media_state_playing(void)
 {
 	if (media_player_state == BT_MCS_MEDIA_STATE_PLAYING) {

@@ -86,6 +86,15 @@ int bt_content_ctrl_stop(struct bt_conn *conn)
 	return 0;
 }
 
+int bt_content_ctrl_next_track(struct bt_conn *conn)
+{
+	if (!IS_ENABLED(CONFIG_BT_MCC) && !IS_ENABLED(CONFIG_BT_MCS)) {
+		return -ENOTSUP;
+	}
+
+	return bt_content_ctrl_media_next_track(conn);
+}
+
 int bt_content_ctrl_conn_disconnected(struct bt_conn *conn)
 {
 	int ret;
