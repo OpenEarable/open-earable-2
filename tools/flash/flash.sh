@@ -1,17 +1,24 @@
 #!/bin/bash
 
+# Stop immediately if preparation, flashing, or reset fails.
+set -e
+
 # Default parameters
 CLOCKSPEED=8000
 CHIP=NRF53
+BUILD_DIR=build
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 --snr <serial_number> [--left|--right] [--standalone] [--hw x.y.z]"
+    echo "Usage: $0 --snr <serial_number> [--left|--right] [--standalone] [--hw x.y.z] [--build-dir path] [--clockspeed kHz]"
     echo "  --snr: Device serial number (required)"
     echo "  --left: Flash left earable configuration"
     echo "  --right: Flash right earable configuration"
     echo "  --standalone: Configure device for standalone mode"
     echo "  --hw: Set hardware version (format: x.y.z, e.g., 2.0.0)"
+    echo "  --build-dir: Sysbuild output directory (default: $BUILD_DIR)"
+    echo "  --clockspeed: J-Link clock in kHz (default: 8000)"
     exit 1
 }
 
@@ -23,6 +30,8 @@ while [[ "$#" -gt 0 ]]; do
         --right) RIGHT=true ;;
         --standalone) STANDALONE=true ;;
         --hw) HW_VERSION="$2"; shift ;;
+        --build-dir) BUILD_DIR="$2"; shift ;;
+        --clockspeed) CLOCKSPEED="$2"; shift ;;
         *) show_usage ;;
     esac
     shift
@@ -37,6 +46,15 @@ fi
 # Validate serial number is numeric
 if ! [[ "$SNR" =~ ^[0-9]+$ ]]; then
     echo "Error: Serial number must be numeric"
+    exit 1
+fi
+
+if [ "$LEFT" == true ] && [ "$RIGHT" == true ]; then
+    echo "Error: Choose either --left or --right, not both"
+    exit 1
+fi
+if ! [[ "$CLOCKSPEED" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Error: Clock speed must be a positive integer"
     exit 1
 fi
 
@@ -74,16 +92,35 @@ if [ -n "$HW_VERSION" ]; then
     HW_VALUE=$(printf "0x%02X%02X%02X00" $HW_MAJOR $HW_MINOR $HW_PATCH)
 fi
 
-if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
-    nrfjprog --readuicr ./tools/flash/uicr_backup.hex -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+if [ "$STANDALONE" == true ] && [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
+    echo "Error: --standalone can only be used with --left or --right"
+    show_usage
 fi
 
-nrfjprog --program ./build/merged_CPUNET.hex --chiperase --verify -f $CHIP --coprocessor CP_NETWORK --snr $SNR --clockspeed $CLOCKSPEED
-
-nrfjprog --program ./build/merged.hex --chiperase --verify -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
+# Validate and merge every required image before accessing the device.
+FLASH_DIR=$(mktemp -d "${TMPDIR:-/tmp}/openearable-flash-${SNR}.XXXXXX")
+cleanup() {
+    status=$?
+    if [ "$status" -eq 0 ]; then
+        rm -rf -- "$FLASH_DIR"
+    else
+        echo "Flash failed; images and any UICR backup retained at: $FLASH_DIR" >&2
+    fi
+}
+trap cleanup EXIT
+"${PYTHON:-python3}" "$SCRIPT_DIR/prepare_images.py" --build-dir "$BUILD_DIR" --output-dir "$FLASH_DIR"
+UICR_BACKUP="$FLASH_DIR/uicr_backup.hex"
 
 if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
-    nrfjprog --program ./tools/flash/uicr_backup.hex -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED --verify
+    nrfjprog --coprocessor CP_APPLICATION --readuicr "$UICR_BACKUP" -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+fi
+
+nrfjprog --program "$FLASH_DIR/merged_CPUNET.hex" --chiperase --verify -f $CHIP --coprocessor CP_NETWORK --snr $SNR --clockspeed $CLOCKSPEED
+
+nrfjprog --program "$FLASH_DIR/merged.hex" --chiperase --verify -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
+
+if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
+    nrfjprog --coprocessor CP_APPLICATION --program "$UICR_BACKUP" -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED --verify
 fi
 
 if [ "$LEFT" == true ]; then
@@ -104,4 +141,8 @@ if [ -n "$HW_VERSION" ]; then
     echo "Hardware version set to $HW_VERSION"
 fi
 
-nrfjprog --reset -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+# Start both cores cleanly, then request application power-on through SREQ.
+nrfjprog --pinreset -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
+sleep 5
+nrfjprog --reset -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
+echo "Device reset; application is starting."
