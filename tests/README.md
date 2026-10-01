@@ -1,11 +1,11 @@
 # Tests
 
 Unit tests live in `tests/unit`. Zephyr's
-[Twister test runner](https://docs.nordicsemi.com/bundle/ncs-3.0.1/page/zephyr/develop/test/twister.html)
+[Twister test runner](https://docs.nordicsemi.com/bundle/ncs-3.4.1/page/zephyr/develop/test/twister.html)
 builds each
-[Unity suite](https://github.com/nrfconnect/sdk-nrf/blob/v3.0.1/doc/nrf/test_and_optimize/test_framework/testing_unity_cmock.rst)
+[Unity suite](https://github.com/nrfconnect/sdk-nrf/blob/v3.4.1/doc/nrf/test_and_optimize/test_framework/testing_unity_cmock.rst)
 as a Linux executable using
-[`native_sim/native/64`](https://docs.nordicsemi.com/bundle/ncs-3.0.1/page/zephyr/boards/native/native_sim/doc/index.html),
+[`native_sim/native/64`](https://docs.nordicsemi.com/bundle/ncs-3.4.1/page/zephyr/boards/native/native_sim/doc/index.html),
 so the tests run on a development computer or GitHub Actions runner and do not
 require OpenEarable hardware.
 These links target the nRF Connect SDK version pinned in
@@ -95,7 +95,7 @@ Unity runner can call the nRF Connect SDK's C teardown function.
 ## Generate coverage
 
 Install `gcovr` in the active Python environment and run Twister with
-[coverage enabled](https://docs.nordicsemi.com/bundle/ncs-3.0.1/page/zephyr/develop/test/coverage.html):
+[coverage enabled](https://docs.nordicsemi.com/bundle/ncs-3.4.1/page/zephyr/develop/test/coverage.html):
 
 ```sh
 python3 -m pip install gcovr
