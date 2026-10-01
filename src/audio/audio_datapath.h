@@ -20,7 +20,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <zephyr/net_buf.h>
-#include <data_fifo.h>
 
 #include "sw_codec_select.h"
 #include "audio_defines.h"
@@ -58,7 +57,10 @@ void audio_datapath_stop_recording(void);
 int audio_datapath_auxiliary_suspend(void);
 int audio_datapath_auxiliary_resume(void);
 void set_sensor_queue(struct k_msgq *queue);
-int audio_datapath_aquire(struct data_fifo *fifo_rx);
+/* Share I2S with microphone capture and local audio; NULL means no encoder input. */
+int audio_datapath_aquire(struct k_msgq *queue_rx);
+/* Call after disabling the encoder producer, before starting another session. */
+void audio_datapath_encoder_reset(void);
 int audio_datapath_release(void);
 
 int audio_datapath_decimator_init(uint8_t factor);

@@ -41,8 +41,6 @@ K_THREAD_STACK_DEFINE(encoder_thread_stack, CONFIG_ENCODER_STACK_SIZE);
 K_MSGQ_DEFINE(audio_q_out, sizeof(struct net_buf *), FIFO_OUT_BLOCK_COUNT, sizeof(void *));
 K_MSGQ_DEFINE(audio_q_in, sizeof(struct net_buf *), FIFO_IN_BLOCK_COUNT, sizeof(void *));
 
-NET_BUF_POOL_FIXED_DEFINE(audio_q_in_pool, FIFO_IN_BLOCK_COUNT, FRAME_SIZE_BYTES,
-			  sizeof(struct audio_metadata), NULL);
 NET_BUF_POOL_FIXED_DEFINE(audio_q_enc_pool, FIFO_ENC_POOL_BLK_COUNT, ENC_MULTI_CHAN_MAX_FRAME_SIZE,
 			  sizeof(struct audio_metadata), NULL);
 NET_BUF_POOL_FIXED_DEFINE(audio_q_dec_pool, FIFO_DEC_POOL_BLK_COUNT, PCM_NUM_BYTES_MULTI_CHAN,
@@ -50,12 +48,12 @@ NET_BUF_POOL_FIXED_DEFINE(audio_q_dec_pool, FIFO_DEC_POOL_BLK_COUNT, PCM_NUM_BYT
 NET_BUF_POOL_FIXED_DEFINE(audio_q_out_pool, FIFO_OUT_BLOCK_COUNT, USB_BLOCK_MULTI_CHAN_1MS_SIZE,
 			  sizeof(struct audio_metadata), NULL);
 
-static K_SEM_DEFINE(sem_encoder_start, 0, 1);
-
 static struct k_thread encoder_thread_data;
 static k_tid_t encoder_thread_id;
 
 static struct k_poll_signal encoder_sig;
+static atomic_t encoder_started;
+static atomic_t encoder_generation;
 
 static struct k_poll_event encoder_evt =
 	K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &encoder_sig);
@@ -123,7 +121,9 @@ static void audio_headset_configure(void)
 	}
 
 	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL)) {
-		sw_codec_cfg.encoder.audio_loc = BT_AUDIO_LOCATION_MONO_AUDIO;
+		sw_codec_cfg.encoder.audio_loc = encoder_channel == 0U
+						? BT_AUDIO_LOCATION_FRONT_LEFT
+						: BT_AUDIO_LOCATION_FRONT_RIGHT;
 		sw_codec_cfg.encoder.num_ch = 1;
 	}
 
@@ -145,27 +145,33 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	int ret;
 	uint32_t audio_q_num_used;
 	static uint32_t test_tone_finite_pos;
-	struct net_buf *audio_frame_out = NULL;
 	int debug_trans_count = 0;
 
 	while (1) {
 		/* Don't start encoding until the stream needing it has started */
+		encoder_evt.state = K_POLL_STATE_NOT_READY;
 		ret = k_poll(&encoder_evt, 1, K_FOREVER);
 		ERR_CHK_MSG(ret, "Encoder poll failed");
 
 		/* Get complete PCM frame from USB */
 		struct net_buf *audio_frame_in;
+		struct net_buf *audio_frame_out = NULL;
+		atomic_val_t generation = atomic_get(&encoder_generation);
 
 		ret = k_msgq_get(&audio_q_in, (void *)&audio_frame_in, K_FOREVER);
-		ERR_CHK_MSG(ret, "Failed to get complete audio frame from IN queue");
+		if (ret) {
+			continue;
+		}
 
-		if (likely(sw_codec_cfg.initialized && sw_codec_cfg.encoder.enabled)) {
+		/* Stop/uninit must not free LC3 state while this frame is being encoded. */
+		k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+		if (audio_system_encoder_is_started() &&
+		    generation == atomic_get(&encoder_generation)) {
 			audio_frame_out = net_buf_alloc(&audio_q_enc_pool, K_NO_WAIT);
 
 			if (unlikely(audio_frame_out == NULL)) {
 				LOG_WRN("Out of encoder buffers");
-				net_buf_unref(audio_frame_in);
-				continue;
+				goto frame_done;
 			}
 
 			/* Configure the meta data */
@@ -206,12 +212,21 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 			}
 
 			ret = sw_codec_encode(audio_frame_in, audio_frame_out);
-			ERR_CHK_MSG(ret, "Encode failed");
+			if (ret) {
+				LOG_WRN_RATELIMIT("Audio encode failed, dropping frame: %d", ret);
+				goto frame_done;
+			}
+			streamctrl_send(audio_frame_out);
 		} else {
 			LOG_INF_RATELIMIT("Encoder not initialized or enabled, data dropped");
 		}
 
+frame_done:
+		if (audio_frame_out != NULL) {
+			net_buf_unref(audio_frame_out);
+		}
 		net_buf_unref(audio_frame_in);
+		k_mutex_unlock(&audio_system_state_mutex);
 
 		/* Print block usage - reduced overhead */
 		if (unlikely(++debug_trans_count >= DEBUG_INTERVAL_NUM)) {
@@ -220,41 +235,66 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 			debug_trans_count = 0;
 		}
 
-		if (sw_codec_cfg.encoder.enabled) {
-			streamctrl_send(audio_frame_out);
-			net_buf_unref(audio_frame_out);
-		}
-
 		STACK_USAGE_PRINT("encoder_thread", &encoder_thread_data);
 	}
 }
 
-void audio_system_encoder_start(void)
+static void audio_queue_drain(struct k_msgq *queue)
 {
-	if (audio_system_suspended) {
-		encoder_resume_requested = true;
+	struct net_buf *frame;
+
+	while (k_msgq_get(queue, &frame, K_NO_WAIT) == 0) {
+		net_buf_unref(frame);
+	}
+	/* Wake a consumer blocked on a stopped session after releasing all buffers. */
+	k_msgq_purge(queue);
+}
+
+static void audio_system_encoder_stop_internal(void)
+{
+	atomic_clear(&encoder_started);
+	atomic_inc(&encoder_generation);
+	k_poll_signal_reset(&encoder_sig);
+	audio_datapath_encoder_reset();
+	audio_queue_drain(&audio_q_in);
+}
+
+static void audio_system_encoder_start_internal(void)
+{
+	audio_system_encoder_stop_internal();
+	if (!sw_codec_cfg.initialized || !sw_codec_cfg.encoder.enabled || !sw_codec_is_initialized()) {
+		LOG_WRN("Encoder start ignored because codec is not initialized");
 		return;
 	}
-	LOG_DBG("Encoder started");
+	atomic_set(&encoder_started, true);
 	k_poll_signal_raise(&encoder_sig, 0);
+}
+
+void audio_system_encoder_start(void)
+{
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+	if (audio_system_suspended) {
+		encoder_resume_requested = true;
+	} else {
+		audio_system_encoder_start_internal();
+	}
+	k_mutex_unlock(&audio_system_state_mutex);
 }
 
 void audio_system_encoder_stop(void)
 {
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
 	if (audio_system_suspended) {
 		encoder_resume_requested = false;
-		return;
+	} else {
+		audio_system_encoder_stop_internal();
 	}
-	k_poll_signal_reset(&encoder_sig);
+	k_mutex_unlock(&audio_system_state_mutex);
 }
 
 bool audio_system_encoder_is_started(void)
 {
-	int set, res;
-
-	k_poll_signal_check(&encoder_sig, &set, &res);
-
-	return (set == 0 ? false : true);
+	return atomic_get(&encoder_started);
 }
 
 int audio_system_encode_test_tone_set(uint32_t freq)
@@ -542,7 +582,7 @@ static int audio_system_start_internal(void)
 		ERR_CHK(ret);
 	}
 
-	ret = audio_datapath_start(&audio_q_in);
+	ret = audio_datapath_aquire(&audio_q_in);
 	if (ret) {
 		goto cleanup_codec;
 	}
@@ -550,7 +590,7 @@ static int audio_system_start_internal(void)
 	if (IS_ENABLED(CONFIG_BOARD_OPENEARABLE_V2_NRF5340_CPUAPP)) {
 		ret = hw_codec_default_conf_enable();
 		if (ret) {
-			(void)audio_datapath_stop();
+			(void)audio_datapath_release();
 			goto cleanup_codec;
 		}
 	}
@@ -578,9 +618,11 @@ int audio_system_start(void)
 	return ret;
 }
 
-void audio_system_stop(void)
+static void audio_system_stop_internal(void)
 {
 	int ret;
+
+	audio_system_encoder_stop_internal();
 
 	if (!sw_codec_cfg.initialized) {
 		LOG_WRN("Codec already unitialized");
@@ -600,13 +642,25 @@ void audio_system_stop(void)
 		ERR_CHK(ret);
 	}
 
-	ret = audio_datapath_stop();
+	ret = audio_datapath_release();
 	ERR_CHK(ret);
 #endif /* ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB) */
 
 	ret = sw_codec_uninit(sw_codec_cfg);
 	ERR_CHK_MSG(ret, "Failed to uninit codec");
 	sw_codec_cfg.initialized = false;
+}
+
+void audio_system_stop(void)
+{
+	k_mutex_lock(&audio_system_state_mutex, K_FOREVER);
+	if (audio_system_suspended) {
+		audio_system_resume_requested = false;
+		encoder_resume_requested = false;
+	} else {
+		audio_system_stop_internal();
+	}
+	k_mutex_unlock(&audio_system_state_mutex);
 }
 
 int audio_system_suspend(void)
@@ -621,7 +675,7 @@ int audio_system_suspend(void)
 	encoder_resume_requested = audio_system_encoder_is_started();
 	audio_system_suspended = true;
 	if (audio_system_resume_requested) {
-		audio_system_stop();
+		audio_system_stop_internal();
 	}
 	k_mutex_unlock(&audio_system_state_mutex);
 	return 0;
@@ -641,7 +695,7 @@ int audio_system_resume(void)
 	if (audio_system_resume_requested) {
 		ret = audio_system_start_internal();
 		if (ret == 0 && encoder_resume_requested) {
-			audio_system_encoder_start();
+			audio_system_encoder_start_internal();
 		}
 	}
 	audio_system_resume_requested = false;

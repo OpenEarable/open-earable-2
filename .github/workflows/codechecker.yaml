@@ -14,7 +14,7 @@ concurrency:
 
 env:
   CODECHECKER_VERSION: "6.28.2"
-  ZEPHYR_SDK_VERSION: "0.17.0"
+  ZEPHYR_SDK_VERSION: "1.0.1"
 
 jobs:
   codechecker:
@@ -69,7 +69,7 @@ jobs:
               exit 20
             fi
             echo "Retrying Zephyr toolchain installation (attempt $((attempt + 1))/3)..."
-            rm -rf "${PWD}/zephyr-sdk-${ZEPHYR_SDK_VERSION}/arm-zephyr-eabi"
+            rm -rf "${PWD}/zephyr-sdk-${ZEPHYR_SDK_VERSION}/gnu/arm-zephyr-eabi"
             sleep 5
           done
 
