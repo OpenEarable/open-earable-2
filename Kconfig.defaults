@@ -111,3 +111,7 @@ endchoice
 # exFAT enabled to support longer file names and higher transfer speed
 config FS_FATFS_EXFAT
 	default y
+
+# The SD logger owns a 32768-byte ring; Zephyr now defaults to a 32767-byte limit.
+config RING_BUFFER_LARGE
+	default y

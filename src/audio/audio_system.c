@@ -25,7 +25,7 @@
 LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
 
 #define FIFO_OUT_BLOCK_COUNT (USB_1MS_BLOCKS_NUM_MAX * CONFIG_FIFO_TX_FRAME_COUNT)
-#define FIFO_IN_BLOCK_COUNT  (CONFIG_FIFO_FRAME_SPLIT_NUM * CONFIG_FIFO_RX_FRAME_COUNT)
+#define FIFO_IN_BLOCK_COUNT  CONFIG_FIFO_RX_FRAME_COUNT
 
 /* Size these to fit the use case as part of optimization (e.g. increase decoder pool when it is
  * wrapped in a thread).
@@ -38,15 +38,17 @@ LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
 
 K_THREAD_STACK_DEFINE(encoder_thread_stack, CONFIG_ENCODER_STACK_SIZE);
 
-K_MSGQ_DEFINE(audio_q_out, sizeof(struct net_buf *), FIFO_OUT_BLOCK_COUNT, sizeof(void *));
 K_MSGQ_DEFINE(audio_q_in, sizeof(struct net_buf *), FIFO_IN_BLOCK_COUNT, sizeof(void *));
 
 NET_BUF_POOL_FIXED_DEFINE(audio_q_enc_pool, FIFO_ENC_POOL_BLK_COUNT, ENC_MULTI_CHAN_MAX_FRAME_SIZE,
 			  sizeof(struct audio_metadata), NULL);
+#if CONFIG_AUDIO_SOURCE_USB && (CONFIG_AUDIO_DEV == GATEWAY)
+K_MSGQ_DEFINE(audio_q_out, sizeof(struct net_buf *), FIFO_OUT_BLOCK_COUNT, sizeof(void *));
 NET_BUF_POOL_FIXED_DEFINE(audio_q_dec_pool, FIFO_DEC_POOL_BLK_COUNT, PCM_NUM_BYTES_MULTI_CHAN,
 			  sizeof(struct audio_metadata), NULL);
 NET_BUF_POOL_FIXED_DEFINE(audio_q_out_pool, FIFO_OUT_BLOCK_COUNT, USB_BLOCK_MULTI_CHAN_1MS_SIZE,
 			  sizeof(struct audio_metadata), NULL);
+#endif
 
 static struct k_thread encoder_thread_data;
 static k_tid_t encoder_thread_id;
@@ -68,6 +70,7 @@ static uint8_t encoder_channel;
 static int16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 1000];
 static size_t test_tone_size;
 
+#if CONFIG_AUDIO_SOURCE_USB && (CONFIG_AUDIO_DEV == GATEWAY)
 static struct net_buf *usb_out_spillover;
 
 /* The meta data for the decoder and the expected format of the USB.
@@ -81,6 +84,8 @@ static struct audio_metadata decoder_meta = {.data_coding = PCM,
 					     .interleaved = false,
 					     .locations = BT_AUDIO_LOCATION_MONO_AUDIO,
 					     .bad_data = 0};
+
+#endif
 
 bool sample_rate_valid(uint32_t sample_rate_hz)
 {
@@ -381,6 +386,7 @@ int audio_system_config_set(uint32_t encoder_sample_rate_hz, uint32_t encoder_bi
 	return 0;
 }
 
+#if CONFIG_AUDIO_SOURCE_USB && (CONFIG_AUDIO_DEV == GATEWAY)
 /* This function is only used on gateway using USB as audio source and bidirectional stream */
 int audio_system_decode(struct net_buf *audio_frame_in)
 {
@@ -536,6 +542,8 @@ int audio_system_decode(struct net_buf *audio_frame_in)
 
 	return 0;
 }
+
+#endif
 
 /**@brief Initializes the FIFOs, the codec, and starts the I2S
  */
