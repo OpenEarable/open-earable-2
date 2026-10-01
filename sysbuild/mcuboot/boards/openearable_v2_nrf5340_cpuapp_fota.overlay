@@ -2,6 +2,8 @@
 
 / {
 	chosen {
+		/* Board overlays take precedence over app_fota.overlay. */
+		zephyr,code-partition = &boot_partition;
 		nordic,pm-ext-flash = &mx25r64;
 	};
 };
