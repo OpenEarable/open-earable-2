@@ -3,6 +3,7 @@
 # Default parameters
 CLOCKSPEED=8000
 CHIP=NRF53
+BUILD_DIR=./build
 
 # Function to show usage
 show_usage() {
@@ -74,13 +75,39 @@ if [ -n "$HW_VERSION" ]; then
     HW_VALUE=$(printf "0x%02X%02X%02X00" $HW_MAJOR $HW_MINOR $HW_PATCH)
 fi
 
+NEW_NET_HEX="$BUILD_DIR/merged_openearable_v2_nrf5340_cpunet.hex"
+NEW_APP_HEX="$BUILD_DIR/merged_openearable_v2_nrf5340_cpuapp.hex"
+LEGACY_NET_HEX="$BUILD_DIR/merged_CPUNET.hex"
+LEGACY_APP_HEX="$BUILD_DIR/merged.hex"
+
+if [ -f "$NEW_NET_HEX" ] && [ -f "$NEW_APP_HEX" ]; then
+    NET_HEX="$NEW_NET_HEX"
+    APP_HEX="$NEW_APP_HEX"
+elif [ -f "$LEGACY_NET_HEX" ] && [ -f "$LEGACY_APP_HEX" ]; then
+    NET_HEX="$LEGACY_NET_HEX"
+    APP_HEX="$LEGACY_APP_HEX"
+else
+    NET_HEX="$NEW_NET_HEX"
+    APP_HEX="$NEW_APP_HEX"
+fi
+
+if [ ! -f "$NET_HEX" ] || [ ! -f "$APP_HEX" ]; then
+    echo "Error: Missing merged standard image(s)."
+    echo "Expected: $NET_HEX"
+    echo "Expected: $APP_HEX"
+    echo "Legacy fallback: $LEGACY_NET_HEX"
+    echo "Legacy fallback: $LEGACY_APP_HEX"
+    echo "Rebuild the standard configuration with SB_CONFIG_MERGED_HEX_FILES=y."
+    exit 1
+fi
+
 if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
     nrfjprog --readuicr ./tools/flash/uicr_backup.hex -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
 fi
 
-nrfjprog --program ./build/merged_CPUNET.hex --chiperase --verify -f $CHIP --coprocessor CP_NETWORK --snr $SNR --clockspeed $CLOCKSPEED
+nrfjprog --program "$NET_HEX" --chiperase --verify -f $CHIP --coprocessor CP_NETWORK --snr $SNR --clockspeed $CLOCKSPEED
 
-nrfjprog --program ./build/merged.hex --chiperase --verify -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
+nrfjprog --program "$APP_HEX" --chiperase --verify -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
 
 if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
     nrfjprog --program ./tools/flash/uicr_backup.hex -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED --verify

@@ -87,6 +87,7 @@
 
 11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
+   - Rebuild existing configurations to generate the per-core `merged_openearable_v2_nrf5340_cpuapp.hex` and `merged_openearable_v2_nrf5340_cpunet.hex` files used by the flash scripts. Both scripts also accept the previous `merged.hex` / `merged_CPUNET.hex` layout.
    - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
    ```bash
