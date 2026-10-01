@@ -519,7 +519,8 @@ int bt_mgmt_init(void)
 		}
 	}
 
-#ifdef CONFIG_MCUMGR_TRANSPORT_BT_DYNAMIC_SVC_REGISTRATION
+#if defined(CONFIG_MCUMGR_TRANSPORT_BT_DYNAMIC_SVC_REGISTRATION) && \
+	!defined(CONFIG_AUDIO_BT_MGMT_DFU)
 	/* Unregister SMP (Simple Management Protocol) service if DFU is not enabled */
 	ret = smp_bt_unregister();
 	if (ret) {
