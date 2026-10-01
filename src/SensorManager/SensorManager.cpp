@@ -60,6 +60,8 @@ struct k_thread sensor_publish;
 static k_tid_t sensor_pub_id;
 
 static struct k_work config_work;
+static struct k_work_q config_work_q;
+K_THREAD_STACK_DEFINE(config_work_q_stack, CONFIG_SENSOR_CONFIG_STACK_SIZE);
 
 struct k_work_q sensor_work_q;
 
@@ -104,6 +106,16 @@ void init_sensor_manager() {
 			K_PRIO_PREEMPT(CONFIG_SENSOR_PUB_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
 
 	k_work_init(&config_work, config_work_handler);
+	/* Driver initialization can take hundreds of milliseconds. Keep it
+	 * preemptible by audio decoding instead of using the cooperative system
+	 * queue. It must also be separate from the polling queue, which sensor
+	 * shutdown drains synchronously.
+	 */
+	k_work_queue_init(&config_work_q);
+	k_work_queue_start(&config_work_q, config_work_q_stack,
+		K_THREAD_STACK_SIZEOF(config_work_q_stack),
+		K_PRIO_PREEMPT(CONFIG_SENSOR_WORK_QUEUE_PRIO), NULL);
+	k_thread_name_set(&config_work_q.thread, "sensor_config");
 
 	k_poll_signal_init(&sensor_manager_sig);
 
@@ -279,7 +291,5 @@ void config_sensor(struct sensor_config * config) {
 		return;
 	}
 
-	//k_work_queue_drain(&sensor_work_q, true);
-	k_work_submit(&config_work);
-	//k_work_queue_unplug(&sensor_work_q);
+	k_work_submit_to_queue(&config_work_q, &config_work);
 }
