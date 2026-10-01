@@ -6,25 +6,26 @@
 #include <stdint.h>
 
 struct audio_startup {
-	uint32_t stable_blocks;
+	uint32_t stable_us;
 	uint32_t fade_frames;
 	bool open;
 };
 
-/* Called once per 1 ms output block. Require 20 consecutive valid, synchronized
- * blocks at startup. Once open, later loss of lock must not mute music again.
+/* Require 20 ms of consecutive valid, synchronized PCM at startup. Measure
+ * time rather than calls: the SDK can change the I2S block duration. Once open,
+ * later loss of lock must not mute music again.
  * A stopped Bluetooth stream resets the gate even if recording keeps I2S on.
  */
 static inline bool audio_startup_ready(struct audio_startup *startup,
-				       bool streaming, bool stable)
+				       bool streaming, bool stable, uint32_t block_us)
 {
 	if (!streaming) {
 		*startup = (struct audio_startup){0};
 		return false;
 	}
 	if (!startup->open) {
-		startup->stable_blocks = stable ? startup->stable_blocks + 1U : 0U;
-		startup->open = startup->stable_blocks >= 20U;
+		startup->stable_us = stable ? startup->stable_us + block_us : 0U;
+		startup->open = startup->stable_us >= 20000U;
 	}
 	return startup->open;
 }
