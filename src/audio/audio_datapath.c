@@ -93,6 +93,10 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 /* To get smaller corrections */
 #define DRIFT_REGULATOR_DIV_FACTOR 2
 
+/* Allow normal block rounding and locked clock phase error before re-measuring. */
+#define PRES_RELOCK_ERR_US \
+	((BLK_PERIOD_US / 2) + DRIFT_ERR_THRESH_UNLOCK * DRIFT_REGULATOR_DIV_FACTOR)
+
 /* How often to print under-run warning */
 #define LOG_INTERVAL_BLKS 5000
 
@@ -174,6 +178,7 @@ static struct {
 		uint16_t ctr; /* Count func calls. Used for collecting data points and waiting */
 		int32_t sum_err_dly_us;
 		uint32_t pres_delay_us;
+		uint32_t underruns;
 		bool enabled;
 	} pres_comp;
 } ctrl_blk;
@@ -560,16 +565,20 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
 static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, uint32_t sdu_ref_us,
 						     bool sdu_ref_not_consecutive)
 {
+	uint32_t underruns = ctrl_blk.out.total_blk_underruns;
+	bool underrun = underruns != ctrl_blk.pres_comp.underruns;
+	ctrl_blk.pres_comp.underruns = underruns;
+
 	if (ctrl_blk.drift_comp.state != DRIFT_STATE_LOCKED) {
 		/* Unconditionally reset state machine if drift compensation looses lock */
 		pres_comp_state_set(PRES_STATE_INIT);
 		return;
 	}
 
-	/* Move presentation compensation into PRES_STATE_WAIT if sdu_ref_us and
-	 * the previous sdu_ref_us originate from non-consecutive frames.
+	/* Let buffered data settle after a timestamp gap or an audible-stream
+	 * underrun. A whole-block delay does not necessarily unlock the clock.
 	 */
-	if (sdu_ref_not_consecutive) {
+	if (sdu_ref_not_consecutive || (ctrl_blk.startup.open && underrun)) {
 		ctrl_blk.pres_comp.ctr = 0;
 		pres_comp_state_set(PRES_STATE_WAIT);
 	}
@@ -598,6 +607,7 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 		ctrl_blk.pres_comp.ctr = 0;
 
 		pres_adj_us = ctrl_blk.pres_comp.sum_err_dly_us / PRES_COMP_NUM_DATA_PTS;
+		ctrl_blk.pres_comp.sum_err_dly_us = 0;
 		if ((pres_adj_us >= (BLK_PERIOD_US / 2)) || (pres_adj_us <= -(BLK_PERIOD_US / 2))) {
 			pres_comp_state_set(PRES_STATE_WAIT);
 		} else {
@@ -616,11 +626,21 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 		break;
 	}
 	case PRES_STATE_LOCKED: {
-		/*
-		 * Presentation delay compensation moves into PRES_STATE_WAIT if sdu_ref_us
-		 * and the previous sdu_ref_us originate from non-consecutive frames, or
-		 * into PRES_STATE_INIT if drift compensation unlocks.
+		/* Average a full measurement window before requesting a fresh alignment
+		 * measurement. That second window confirms the error before moving PCM.
+		 * Keep the clock locked and leave the already-open startup gate alone.
 		 */
+		ctrl_blk.pres_comp.sum_err_dly_us +=
+			wanted_pres_dly_us - ctrl_blk.current_pres_dly_us;
+		if (++ctrl_blk.pres_comp.ctr >= PRES_COMP_NUM_DATA_PTS) {
+			int32_t error_us =
+				ctrl_blk.pres_comp.sum_err_dly_us / PRES_COMP_NUM_DATA_PTS;
+			ctrl_blk.pres_comp.ctr = 0;
+			ctrl_blk.pres_comp.sum_err_dly_us = 0;
+			if (error_us > PRES_RELOCK_ERR_US || error_us < -PRES_RELOCK_ERR_US) {
+				pres_comp_state_set(PRES_STATE_INIT);
+			}
+		}
 
 		break;
 	}
@@ -654,6 +674,11 @@ static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, 
 
 		LOG_WRN("Requested presentation delay out of range: pres_adj_us=%d", pres_adj_us);
 	}
+
+	/* Preserve the DMA/queued blocks and room for the frame decoded next. */
+	int queued = filled_blocks_get();
+	pres_adj_blks = CLAMP(pres_adj_blks, -MAX(queued - 2, 0),
+			     MAX(FIFO_NUM_BLKS - queued - NUM_BLKS_IN_FRAME - 2, 0));
 
 	if (pres_adj_blks > 0) {
 		LOG_DBG("Presentation delay inserted: pres_adj_blks=%d", pres_adj_blks);
