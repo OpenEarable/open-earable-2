@@ -17,7 +17,6 @@
 
 #include "macros_common.h"
 #include "zbus_common.h"
-#include "button_manager.h"
 #include "bt_mgmt_adv_internal.h"
 #include "BootState.h"
 #include "uicr.h"
@@ -301,17 +300,11 @@ static void bt_enabled_cb(int err)
 
 static int bonding_clear_check(void)
 {
-	int ret;
-	bool pressed;
-
-	ret = button_pressed(BUTTON_EARABLE, &pressed);
-	if (ret) {
-		return ret;
-	}
-
-	if (pressed) {
-		ret = bt_mgmt_bonding_clear();
-		return ret;
+	/* The power button may still be held during an ordinary startup.
+	 * Only the PMIC timer reset should clear the stored phone bonds.
+	 */
+	if (oe_boot_state.timer_reset) {
+		return bt_mgmt_bonding_clear();
 	}
 
 	return 0;
