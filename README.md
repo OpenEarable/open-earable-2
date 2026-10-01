@@ -39,11 +39,11 @@
 5. **Install the Toolchain via nRF Connect**  
    - Open the **nRF Connect** tab in VS Code.
    - Click **"Install Toolchain"**.
-   - Select and install **version 3.0.1**.
+   - Select and install **version 3.4.1**.
 
 6. **Install the nRF Connect SDK**  
    - In the **nRF Connect** tab, select **"Manage SDK"**. 
-   - Install **SDK version 3.0.1**.
+   - Install **SDK version 3.4.1**.
 
 7. **Clone or Update the Firmware Repository and Open It in VS Code**
    - For a new checkout, clone the repository together with its submodules:
@@ -65,7 +65,9 @@
    - In the **APPLICATIONS** section of the nRF Connect extension tab:  
      - Select the `open-earable-2` application.  
      - Click **"+ Add build configuration"** to set up a new build.
-     - Select the SDK version 3.0.1, toolchain version 3.0.1, and `open-earable-2/nrf5340/cpuapp` as board target.
+     - Select the SDK version 3.4.1, toolchain version 3.4.1, and `openearable_v2/nrf5340/cpuapp` as board target.
+     - After switching SDK versions, use a new build directory or a pristine build.
+     - The firmware manifest pins nRF Connect SDK **v3.4.1** (Nordic Zephyr **4.4.2**). Use the matching **v3.4.1 Nordic toolchain**; CI uses **Zephyr SDK 1.0.1**.
      - To build **with FOTA** (firmware over-the-air update functionality):
        - Leave the `Base configuration files (Kconfig fragments)` dropdown empty.
        - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`.
@@ -73,6 +75,7 @@
      -  To build **without FOTA**:
         - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`.
         - Do not set any of the FOTA flags described above.
+   - **Migrating from SDK 3.0.1:** use a full wired sysbuild flash, including MCUboot, the network-core bootloader, and both core images. SDK 3.4.1 replaces Partition Manager with fixed devicetree partitions at the same addresses. Its FOTA configuration uses overwrite-only updates, so it does not provide automatic rollback. An OTA-only migration using the older bootloader has not been validated.
     
 9. **J-Link Setup**
    - Wire your J-Link to the debugging breakout PCB as shown below.

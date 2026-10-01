@@ -8,6 +8,13 @@ rsource "Kconfig.defaults"
 
 menu "Audio"
 
+config AUDIO_MIN_RUNTIME_HEAP_SIZE
+	int "Minimum runtime heap for audio"
+	default 0
+	help
+	  Reserve enough remaining SRAM for the seal-check waveform, LC3 allocations,
+	  and other runtime users of malloc. The linker rejects undersized heaps.
+
 choice AUDIO_FRAME_DURATION
 	prompt "Select frame duration - 7.5 ms frame duration is not tested"
 	default AUDIO_FRAME_DURATION_10_MS
@@ -148,7 +155,7 @@ config AUDIO_OUTPUT_CHANNELS
 
 choice AUDIO_SOURCE_GATEWAY
 	prompt "Audio source for gateway"
-	default AUDIO_SOURCE_I2S if WALKIE_TALKIE_DEMO
+	default AUDIO_SOURCE_I2S if AUDIO_DEV = 1 || WALKIE_TALKIE_DEMO
 	default AUDIO_SOURCE_USB
 	help
 	  Select audio source for the gateway.

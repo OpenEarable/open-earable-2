@@ -241,8 +241,11 @@ static float buffer_play_amplitude;
 static bool buffer_play_loop;
 static void (*buffer_play_callback)(void);
 
-static int auxiliary_acquire_count;
-static bool auxiliary_started_datapath;
+static int datapath_acquire_count;
+K_MUTEX_DEFINE(datapath_owner_mutex);
+/* A partial frame belongs to one encoder session only. */
+static struct net_buf *i2s_current_frame;
+static uint32_t i2s_blocks_in_current_frame;
 
 struct auxiliary_audio_state {
 	bool suspended;
@@ -890,9 +893,9 @@ static void audio_datapath_startup_apply(uint8_t *buffer, bool valid_pcm)
 #else
 		int32_t *samples = (int32_t *)buffer;
 #endif
-		for (uint32_t i = 0; i < BLK_MULTI_CHAN_NUM_SAMPS; i += CONFIG_AUDIO_MAX_NUM_CHANNELS) {
+		for (uint32_t i = 0; i < BLK_MULTI_CHAN_NUM_SAMPS; i += CONFIG_AUDIO_OUTPUT_CHANNELS) {
 			uint32_t gain = audio_startup_gain(&ctrl_blk.startup, fade_frames);
-			for (uint32_t ch = 0; ch < CONFIG_AUDIO_MAX_NUM_CHANNELS; ch++) {
+			for (uint32_t ch = 0; ch < CONFIG_AUDIO_OUTPUT_CHANNELS; ch++) {
 				samples[i + ch] = audio_startup_scale(samples[i + ch], gain, fade_frames);
 			}
 		}
@@ -914,10 +917,6 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 {
 	int ret = 0;
 	static uint32_t num_calls;
-
-	/* Frame accumulation for 10ms frames */
-	static struct net_buf *i2s_current_frame;
-	static uint32_t i2s_blocks_in_current_frame;
 
 	num_calls++;
 
@@ -1416,11 +1415,25 @@ int audio_datapath_start(struct k_msgq *audio_q_rx)
 	}
 }
 
+void audio_datapath_encoder_reset(void)
+{
+	unsigned int key = irq_lock();
+
+	if (i2s_current_frame != NULL) {
+		net_buf_unref(i2s_current_frame);
+		i2s_current_frame = NULL;
+	}
+	i2s_blocks_in_current_frame = 0;
+	atomic_clear(&drop_next_block);
+	irq_unlock(key);
+}
+
 int audio_datapath_stop(void)
 {
 	if (ctrl_blk.stream_started) {
 		ctrl_blk.stream_started = false;
 		audio_datapath_i2s_stop();
+		audio_datapath_encoder_reset();
 		ctrl_blk.prev_pres_sdu_ref_us = 0;
 		ctrl_blk.prev_drift_sdu_ref_us = 0;
 
@@ -1544,36 +1557,39 @@ int audio_datapath_auxiliary_resume(void)
 	return 0;
 }
 
-int audio_datapath_aquire(struct data_fifo *fifo_rx)
+int audio_datapath_aquire(struct k_msgq *queue_rx)
 {
-	ARG_UNUSED(fifo_rx);
-
 	int ret = 0;
-	if (auxiliary_acquire_count == 0 && !ctrl_blk.stream_started) {
-		ret = audio_datapath_start(&auxiliary_audio_q);
-		if (ret == 0) {
-			auxiliary_started_datapath = true;
-		}
+
+	k_mutex_lock(&datapath_owner_mutex, K_FOREVER);
+	if (datapath_acquire_count == 0) {
+		ret = audio_datapath_start(queue_rx != NULL ? queue_rx : &auxiliary_audio_q);
+	} else if (queue_rx != NULL) {
+		/* Microphone capture may already own I2S when the LE stream starts. */
+		unsigned int key = irq_lock();
+
+		ctrl_blk.in.audio_q = queue_rx;
+		irq_unlock(key);
 	}
-	if (ret == 0 || ret == -EALREADY) {
-		auxiliary_acquire_count++;
-		return 0;
+	if (ret == 0) {
+		datapath_acquire_count++;
 	}
+	k_mutex_unlock(&datapath_owner_mutex);
 	return ret;
 }
 
 int audio_datapath_release(void)
 {
-	if (auxiliary_acquire_count == 0) {
-		return -EALREADY;
-	}
+	int ret = 0;
 
-	auxiliary_acquire_count--;
-	if (auxiliary_acquire_count == 0 && auxiliary_started_datapath) {
-		auxiliary_started_datapath = false;
-		return audio_datapath_stop();
+	k_mutex_lock(&datapath_owner_mutex, K_FOREVER);
+	if (datapath_acquire_count == 0) {
+		ret = -EALREADY;
+	} else if (--datapath_acquire_count == 0) {
+		ret = audio_datapath_stop();
 	}
-	return 0;
+	k_mutex_unlock(&datapath_owner_mutex);
+	return ret;
 }
 
 int audio_datapath_init(void)
