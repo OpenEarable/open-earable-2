@@ -21,6 +21,7 @@
 #include "bt_mgmt.h"
 #include "bt_le_audio_tx.h"
 #include "le_audio.h"
+#include "audio_sdu_timing.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(unicast_server, CONFIG_UNICAST_SERVER_LOG_LEVEL);
@@ -164,6 +165,15 @@ static struct bt_pacs_cap caps[] = {
 
 static struct bt_cap_stream
 	cap_audio_streams[CONFIG_BT_ASCS_MAX_ASE_SNK_COUNT + CONFIG_BT_ASCS_MAX_ASE_SRC_COUNT];
+
+static struct audio_sdu_timing rx_timing[ARRAY_SIZE(cap_audio_streams)];
+
+static struct audio_sdu_timing *rx_timing_get(struct bt_bap_stream *stream)
+{
+	struct bt_cap_stream *cap = CONTAINER_OF(stream, struct bt_cap_stream, bap_stream);
+
+	return &rx_timing[cap - cap_audio_streams];
+}
 
 #if (CONFIG_BT_AUDIO_TX)
 BUILD_ASSERT(CONFIG_BT_ASCS_MAX_ASE_SRC_COUNT <= 1,
@@ -355,6 +365,13 @@ static void stream_recv_cb(struct bt_bap_stream *stream, const struct bt_iso_rec
 		return;
 	}
 
+	/* Preserve concealment without feeding absent timestamps into clock sync. */
+	if (!audio_sdu_timing_resolve(rx_timing_get(stream), info->flags & BT_ISO_FLAGS_TS,
+			info->seq_num, info->ts, k_uptime_get_32(), meta.data_len_us,
+			&meta.ref_ts_us)) {
+		return;
+	}
+
 	receive_cb(audio_frame, &meta, 0);
 }
 #endif /* (CONFIG_BT_AUDIO_RX) */
@@ -404,6 +421,8 @@ static void stream_started_cb(struct bt_bap_stream *stream)
 {
 	enum bt_audio_dir dir;
 
+	*rx_timing_get(stream) = (struct audio_sdu_timing){0};
+
 	dir = le_audio_stream_dir_get(stream);
 	if (dir <= 0) {
 		LOG_ERR("Failed to get dir of stream %p", stream);
@@ -431,6 +450,8 @@ static void stream_started_cb(struct bt_bap_stream *stream)
 static void stream_stopped_cb(struct bt_bap_stream *stream, uint8_t reason)
 {
 	enum bt_audio_dir dir;
+
+	*rx_timing_get(stream) = (struct audio_sdu_timing){0};
 
 	dir = le_audio_stream_dir_get(stream);
 	if (dir <= 0) {
