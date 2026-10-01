@@ -884,7 +884,7 @@ static void audio_datapath_startup_apply(uint8_t *buffer, bool valid_pcm)
 		(!ctrl_blk.drift_comp.enabled || ctrl_blk.drift_comp.state == DRIFT_STATE_LOCKED) &&
 		(!ctrl_blk.pres_comp.enabled || ctrl_blk.pres_comp.state == PRES_STATE_LOCKED);
 	bool ready = audio_startup_ready(&ctrl_blk.startup,
-		stream_state_get() == STATE_STREAMING, valid_pcm && synchronized);
+		stream_state_get() == STATE_STREAMING, valid_pcm && synchronized, BLK_PERIOD_US);
 
 	if (!ready) {
 		memset(buffer, 0, BLK_MULTI_CHAN_SIZE_OCTETS);
