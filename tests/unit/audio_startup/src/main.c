@@ -7,37 +7,44 @@ void setUp(void)
 {
 }
 
-void test_requires_twenty_consecutive_stable_blocks(void)
+void test_requires_twenty_ms_at_both_sdk_block_durations(void)
 {
-	struct audio_startup gate = {0};
+	const uint32_t periods_us[] = {500U, 1000U};
 
-	for (int i = 0; i < 19; ++i) {
-		TEST_ASSERT_FALSE(audio_startup_ready(&gate, true, true));
+	for (unsigned int p = 0; p < sizeof(periods_us) / sizeof(periods_us[0]); ++p) {
+		struct audio_startup gate = {0};
+		uint32_t period_us = periods_us[p];
+		uint32_t blocks = 20000U / period_us;
+
+		for (uint32_t i = 1; i < blocks; ++i) {
+			TEST_ASSERT_FALSE(audio_startup_ready(&gate, true, true, period_us));
+		}
+		/* A gap, concealed frame, or loss of lock restarts the settling period. */
+		TEST_ASSERT_FALSE(audio_startup_ready(&gate, true, false, period_us));
+		for (uint32_t i = 1; i < blocks; ++i) {
+			TEST_ASSERT_FALSE(audio_startup_ready(&gate, true, true, period_us));
+		}
+		TEST_ASSERT_TRUE(audio_startup_ready(&gate, true, true, period_us));
+		TEST_ASSERT_EQUAL_UINT32(20000U, gate.stable_us);
 	}
-	/* A gap, concealed frame, or loss of lock restarts the settling period. */
-	TEST_ASSERT_FALSE(audio_startup_ready(&gate, true, false));
-	for (int i = 0; i < 19; ++i) {
-		TEST_ASSERT_FALSE(audio_startup_ready(&gate, true, true));
-	}
-	TEST_ASSERT_TRUE(audio_startup_ready(&gate, true, true));
 }
 
 void test_open_gate_survives_later_loss_of_lock(void)
 {
 	struct audio_startup gate = {.open = true};
 
-	TEST_ASSERT_TRUE(audio_startup_ready(&gate, true, false));
+	TEST_ASSERT_TRUE(audio_startup_ready(&gate, true, false, 500U));
 }
 
 void test_stream_stop_resets_gate_and_fade_without_stopping_i2s(void)
 {
-	struct audio_startup gate = {.stable_blocks = 20, .fade_frames = 240, .open = true};
+	struct audio_startup gate = {.stable_us = 20000U, .fade_frames = 240, .open = true};
 
-	TEST_ASSERT_FALSE(audio_startup_ready(&gate, false, true));
+	TEST_ASSERT_FALSE(audio_startup_ready(&gate, false, true, 500U));
 	TEST_ASSERT_FALSE(gate.open);
-	TEST_ASSERT_EQUAL_UINT32(0, gate.stable_blocks);
+	TEST_ASSERT_EQUAL_UINT32(0, gate.stable_us);
 	TEST_ASSERT_EQUAL_UINT32(0, gate.fade_frames);
-	TEST_ASSERT_FALSE(audio_startup_ready(&gate, true, true));
+	TEST_ASSERT_FALSE(audio_startup_ready(&gate, true, true, 500U));
 }
 
 void test_fade_handles_full_scale_pcm_and_stops_at_unity_gain(void)
