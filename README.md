@@ -87,27 +87,24 @@
 
 11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
-   - Run the flash scripts from an SDK terminal with `nrfjprog` and the SDK's Python on `PATH`. The Python helper uses `intelhex` and `PyYAML`, included in the SDK environment. If using another Python environment, install them with `python -m pip install intelhex PyYAML`.
-   - The scripts read `domains.yaml` and each domain's `runners.yaml`, then merge the selected images once per core. FOTA flashes include MCUboot, the provisioned network bootloader, and both signed application images. Standard flashes include the application and radio without bootloaders. Missing images or a mismatched build configuration stop the script before it accesses the device.
    - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
    ```bash
-   # --right for the right ear device, or no flag to retain programmed device identity, --standalone for no pair
+   # --right for the right ear device, or no flag to retain left/right bonding, --standalone for no pair   
    # --hw version is optional and can only be used with --left or --right
    ./tools/flash/flash_fota.sh --snr 123456789 --left --hw 2.0.1    
    ```
    - After flashing, the script resets the complete device and starts the application automatically. A reset failure stops the script and returns an error.
-   - Use `--build-dir path` for a different sysbuild output directory, or `--clockspeed 1000` for a slower debug connection. Without `--left` or `--right`, the script backs up and restores application UICR identity; a full flash still erases application settings, including Bluetooth bonds. Failed flashes retain their temporary images and any UICR backup at the printed location.
 
    - or without FOTA
    ```bash
-   # --right for the right ear device, or no flag to retain programmed device identity, --standalone for no pair
+   # --right for the right ear device, or no flag to retain left/right bonding, --standalone for no pair
    # --hw version is optional and can only be used with --left or --right
 
    ./tools/flash/flash.sh --snr 123456789 --left    
    ```
      
-   - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`, with equivalent `-Snr`, `-Left`/`-Right`, `-Hw`, `-Standalone`, `-BuildDir`, and `-Clockspeed` options. Use `-Python path` to select the SDK Python executable; Bash uses `PYTHON=path`.
+   - The FOTA update script is also available for Windows as `./tools/flash/flash_fota.ps1`. To execute it, open PowerShell with administrative privileges.
 
 11. **Recover Board**
    - If the application or network core becomes unresponsive, or you encounter flashing issues, you can recover the board using the recovery script. The `--snr` parameter specifies the serial number of your J-Link debugger.
@@ -208,4 +205,5 @@ If you are using OpenEarable, please cite is as follows:
      publisher={ACM New York, NY, USA}
 }
 ```
+
 

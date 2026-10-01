@@ -1,3 +1,4 @@
+powershell
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)]
@@ -11,10 +12,7 @@ param(
   [string]$Hw,                 # Hardware version x.y.z (e.g. 2.0.0)
 
   [string]$Chip = 'NRF53',     # nrfjprog --family
-  [ValidateRange(1, 50000)]
-  [int]$Clockspeed = 8000,     # nrfjprog --clockspeed (kHz)
-  [string]$BuildDir = 'build_fota',
-  [string]$Python = 'python'   # Python from the SDK environment
+  [int]$Clockspeed = 8000      # nrfjprog --clockspeed (kHz)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -73,16 +71,17 @@ if ($Hw) {
   $hwValue = ("0x{0:X2}{1:X2}{2:X2}00" -f $hwMajor, $hwMinor, $hwPatch)
 }
 
-# Resolve and merge the signed sysbuild images before accessing the device.
-$flashDir = Join-Path ([System.IO.Path]::GetTempPath()) ("openearable-flash-$Snr-" + [guid]::NewGuid())
-New-Item -ItemType Directory -Path $flashDir | Out-Null
-$flashSucceeded = $false
-try {
-& $Python (Join-Path $PSScriptRoot 'prepare_images.py') --build-dir $BuildDir --output-dir $flashDir --fota
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-$netHex = Join-Path $flashDir 'merged_CPUNET.hex'
-$appHex = Join-Path $flashDir 'merged.hex'
-$uicrBackup = Join-Path $flashDir 'uicr_backup.hex'
+# --- Fixed paths relative to CURRENT WORKING DIRECTORY (repo root) ---
+$netHex = Join-Path (Get-Location) 'build_fota\merged_CPUNET.hex'
+$appHex = Join-Path (Get-Location) 'build_fota\merged.hex'
+$uicrBackup = Join-Path (Get-Location) 'tools\flash\uicr_backup.hex'
+
+# --- Require application hex; CPUNET is optional ---
+if (-not (Test-Path $appHex)) {
+  Write-Error "Missing file: $appHex  (run from the repo root where build_fota\merged.hex exists)"
+  exit 1
+}
+$haveNet = Test-Path $netHex
 
 Write-Host "nrfjprog starting..."
 Write-Host "  SNR: $Snr"
@@ -91,7 +90,7 @@ Write-Host "  CLOCKSPEED: $Clockspeed"
 Write-Host "  Left: $Left  Right: $Right  Standalone: $Standalone"
 if ($Hw) { Write-Host "  HW: $Hw (value $hwValue)" } else { Write-Host "  HW: (not set)" }
 Write-Host "  APP HEX: $appHex"
-Write-Host "  NET HEX: $netHex"
+if ($haveNet) { Write-Host "  NET HEX: $netHex" } else { Write-Host "  NET HEX: (not found, will skip)" }
 Write-Host ""
 
 # --- Backup UICR if neither side flag is set (matches Bash behavior) ---
@@ -102,14 +101,18 @@ if (-not $Left -and -not $Right) {
   if (Test-Path $uicrBackup) { Remove-Item $uicrBackup -Force -ErrorAction SilentlyContinue }
 
   Write-Host "Backing up UICR -> $uicrBackup"
-  & nrfjprog --coprocessor CP_APPLICATION --readuicr "$uicrBackup" --family $Chip --snr $Snr --clockspeed $Clockspeed
+  & nrfjprog --readuicr "$uicrBackup" --family $Chip --snr $Snr --clockspeed $Clockspeed
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-# --- Flash each complete core image with one erase per core ---
-Write-Host "Flashing CPUNET..."
-& nrfjprog --program "$netHex" --chiperase --verify --family $Chip --coprocessor CP_NETWORK --snr $Snr --clockspeed $Clockspeed
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# --- Flash CPUNET if file exists ---
+if ($haveNet) {
+  Write-Host "Flashing CPUNET..."
+  & nrfjprog --program "$netHex" --chiperase --verify --family $Chip --coprocessor CP_NETWORK --snr $Snr --clockspeed $Clockspeed
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+} else {
+  Write-Host "Skipping CPUNET (merged_CPUNET.hex not found)."
+}
 
 # --- Flash CPUAPP ---
 Write-Host "Flashing CPUAPP..."
@@ -120,10 +123,10 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if (-not $Left -and -not $Right) {
   if (Test-Path $uicrBackup) {
     Write-Host "Restoring UICR from $uicrBackup"
-    & nrfjprog --coprocessor CP_APPLICATION --program "$uicrBackup" --family $Chip --snr $Snr --clockspeed $Clockspeed --verify
+    & nrfjprog --program "$uicrBackup" --family $Chip --snr $Snr --clockspeed $Clockspeed --verify
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   } else {
-    throw "UICR backup not found; cannot restore device identity."
+    Write-Warning "UICR backup not found; skipping restore."
   }
 }
 
@@ -168,12 +171,3 @@ Start-Sleep -Seconds 5
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "`nDone. Device reset; application is starting." -ForegroundColor Green
-
-$flashSucceeded = $true
-} finally {
-  if ($flashSucceeded) {
-    Remove-Item -Recurse -Force $flashDir
-  } else {
-    Write-Warning "Flash failed; images and any UICR backup retained at: $flashDir"
-  }
-}
