@@ -29,6 +29,7 @@
 #include "sensor_service.h"
 #include "led_service.h"
 #include "audio_response_service.h"
+#include "wireless_audio_configuration_control.h"
 
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
@@ -42,9 +43,6 @@
 #include "streamctrl.h"
 
 #include "bt_mgmt.h"
-
-#include "bt_mgmt_conn_interval.h"
-#include "conn_interval/conn_intvl_linear.h"
 
 //#include "sd_card.h"
 
@@ -82,6 +80,9 @@ int main(void) {
 		}
 	}
 
+	ret = init_wireless_audio_configuration_service();
+	ERR_CHK(ret);
+
 	streamctrl_start();
 
 	uint32_t sirk = uicr_sirk_get();
@@ -114,12 +115,6 @@ int main(void) {
 
 	ret = init_audio_response_service();
 	ERR_CHK(ret);
-
-	bt_mgmt_conn_interval_init(new ConnIntvlLinear(
-	    4,                // linear increase step (8ms units)
-	    CONFIG_BLE_ACL_CONN_INTERVAL,
-	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
-	));
 
 	ret = init_time_sync();
 	ERR_CHK(ret);

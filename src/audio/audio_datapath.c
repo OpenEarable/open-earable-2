@@ -24,6 +24,7 @@
 #include "sw_codec_select.h"
 #include "audio_system.h"
 #include "streamctrl.h"
+#include "bt_mgmt_conn_interval.h"
 #include "sd_card_playback.h"
 #include "audio_clock.h"
 #include "audio_startup.h"
@@ -973,6 +974,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 				underrun_condition = false;
 				LOG_WRN("Data received, total under-runs: %d",
 					ctrl_blk.out.total_blk_underruns);
+				bt_mgmt_report_audio_underrun(ctrl_blk.out.total_blk_underruns);
 			}
 
 			tx_buf = (uint8_t *)&ctrl_blk.out
