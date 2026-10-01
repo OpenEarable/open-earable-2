@@ -29,6 +29,7 @@
 #include "../utils/StateIndicator.h"
 
 #include "bt_mgmt.h"
+#include "bt_mgmt_ctlr_cfg_internal.h"
 
 #include <zephyr/logging/log_ctrl.h>
 
@@ -568,6 +569,7 @@ void PowerManager::reboot() {
 
     stop_sensor_manager();
 
+    (void)bt_mgmt_stop_watchdog();
     dac.end();
 
     sys_reboot(SYS_REBOOT_COLD);
@@ -619,6 +621,7 @@ int PowerManager::power_down(bool fault) {
     } else {
         LOG_INF("Power off");
     }
+    (void)bt_mgmt_stop_watchdog();
     LOG_PANIC();
 
     dac.end();

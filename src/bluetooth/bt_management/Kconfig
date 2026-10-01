@@ -6,6 +6,22 @@
 
 menu "BT management"
 
+rsource "controller_config/Kconfig"
+
+config WDT_CTLR
+	bool "Enable watchdog for controller"
+	default y
+	select WATCHDOG
+	select TASK_WDT
+	help
+	  Poll the controller every two seconds to detect an IPC or controller stall.
+	  The watchdog is stopped before shutdown or entering standalone DFU mode.
+
+config CTLR_POLL_WORK_Q_PRIO
+	int "Work queue priority for controller poll"
+	default 2
+	depends on WDT_CTLR
+
 #----------------------------------------------------------------------------#
 rsource "dfu/Kconfig"
 rsource "advertising/Kconfig"
