@@ -1,0 +1,21 @@
+/* Preserve the non-FOTA settings layout used before the SDK upgrade. */
+/delete-node/ &boot_partition;
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &storage_partition;
+
+&flash0 {
+	partitions {
+		slot0_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x00000000 0x000fc000>;
+		};
+
+		storage_partition: partition@fc000 {
+			compatible = "zephyr,mapped-partition";
+			label = "storage";
+			reg = <0x000fc000 0x00002000>;
+		};
+	};
+};
