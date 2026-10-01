@@ -63,7 +63,7 @@ K_THREAD_STACK_DEFINE(le_audio_msg_sub_thread_stack, CONFIG_LE_AUDIO_MSG_SUB_STA
 
 static enum stream_state strm_state = STATE_PAUSED;
 
-#define MEDIA_DOUBLE_CLICK_MS 300
+#define MEDIA_DOUBLE_CLICK_MS 400
 
 /* Function for handling all stream state changes */
 static void stream_state_set(enum stream_state stream_state_new)
