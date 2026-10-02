@@ -324,7 +324,12 @@ int PowerManager::begin() {
 
     // check setup
     op_state state = fuel_gauge.operation_state();
-    if (state.SEC != BQ27220::SEALED) {
+    bool setup_fuel_gauge = state.SEC != BQ27220::SEALED;
+#if defined(CONFIG_BOOTLOADER_MCUBOOT) && defined(CONFIG_SETUP_FUEL_GAUGE)
+    setup_fuel_gauge |= !boot_is_img_confirmed();
+#endif
+    // Finish the unseal/configuration sequence before charge_ctrl_delayable can read the gauge.
+    if (setup_fuel_gauge) {
         //battery_controller.setup();
         fuel_gauge.setup(_battery_settings);
     }
@@ -436,9 +441,6 @@ int PowerManager::begin() {
 			sys_reboot(SYS_REBOOT_COLD);
 		}
         LOG_INF("Image confirmed");
-        #ifdef CONFIG_SETUP_FUEL_GAUGE
-        fuel_gauge.setup(_battery_settings);
-        #endif
 	}
 #endif
 
