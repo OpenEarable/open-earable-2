@@ -74,6 +74,7 @@ private:
     static constexpr uint32_t NUM_STAGES = 2;
     
     uint8_t factor_;
+    uint8_t next_frame_ = 0;
     bool initialized_;
     arm_biquad_cascade_stereo_df2T_instance_f32 biquad_;
     float32_t state_[4 * NUM_STAGES];
