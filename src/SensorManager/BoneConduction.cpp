@@ -66,6 +66,8 @@ void BoneConduction::update_sensor(struct k_work *work) {
 
     if (num_samples > 0) {
         BoneConduction::sensor._sample_count = MAX(0, BoneConduction::sensor._num_samples_buffered - num_samples);
+        sensor.sample_clock.begin(micros(), num_samples, sensor.t_sample_us,
+                                  1024 / 7, CONFIG_SENSOR_CLOCK_ACCURACY);
     }
 
     int written = 0;
@@ -75,7 +77,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
     while (written < num_samples) {
         int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
         if (to_write <= 0) break;
-        if (sensor.t_sample_us > UINT16_MAX) to_write = 1;
+        if (sensor.sample_clock.period() > UINT16_MAX) to_write = 1;
 
         msg_bc.sd = sensor._sd_logging;
         msg_bc.stream = sensor._ble_stream;
@@ -83,11 +85,10 @@ void BoneConduction::update_sensor(struct k_work *work) {
         msg_bc.data.id = ID_BONE_CONDUCTION;
         msg_bc.data.size = to_write * _size + sizeof(uint16_t);
 
-        uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)BoneConduction::sensor.t_sample_us);
-        msg_bc.data.time = _time_stamp - dt_us;
+        msg_bc.data.time = sensor.sample_clock.timestamp(written);
 
         if (to_write > 1) {
-            uint16_t t_diff = BoneConduction::sensor.t_sample_us;
+            uint16_t t_diff = sensor.sample_clock.period();
             for (int i = 0; i < to_write; i++) {
                 memcpy(&msg_bc.data.data[i * _size], &sensor.fifo_acc_data[written + i], _size);
             }
@@ -127,6 +128,7 @@ void BoneConduction::start(int sample_rate_idx) {
 	/* Drain the FIFO once per buffered block instead of once per sample. */
     k_timeout_t t = K_USEC(t_sample_us * _num_samples_buffered);
     _running = true;
+    sample_clock.reset();
     _sample_count = 0;
     _last_time_stamp = micros();
     k_timer_start(&sensor.sensor_timer, t, t);

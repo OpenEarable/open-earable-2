@@ -116,6 +116,10 @@ void PPG::update_sensor(struct k_work *work) {
                                    sizeof(sensor.data_buffer) / sizeof(sensor.data_buffer[0]));
 
         PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
+        if (num_samples <= 0) return;
+        sensor.sample_clock.begin(micros(), num_samples, sensor.t_sample_us,
+                                  sensor.fifo_sample_capacity,
+                                  CONFIG_SENSOR_CLOCK_ACCURACY);
 
         int written = 0;
         const int _size = 4 * sizeof(uint32_t); // red, ir, green, ambient
@@ -123,7 +127,7 @@ void PPG::update_sensor(struct k_work *work) {
         while (written < num_samples) {
             int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
             if (to_write <= 0) break;
-            if (sensor.t_sample_us > UINT16_MAX) to_write = 1;
+            if (sensor.sample_clock.period() > UINT16_MAX) to_write = 1;
 
             msg_ppg.sd = sensor._sd_logging;
             msg_ppg.stream = sensor._ble_stream;
@@ -131,11 +135,10 @@ void PPG::update_sensor(struct k_work *work) {
             msg_ppg.data.id = ID_PPG;
             msg_ppg.data.size = to_write * _size + sizeof(uint16_t);
 
-            const uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)PPG::sensor.t_sample_us);
-            msg_ppg.data.time = _time_stamp - dt_us;
+            msg_ppg.data.time = sensor.sample_clock.timestamp(written);
 
             if (to_write > 1) {
-                uint16_t t_diff = PPG::sensor.t_sample_us;
+                uint16_t t_diff = sensor.sample_clock.period();
                 for (int i = 0; i < to_write; i++) {
                     memcpy(&msg_ppg.data.data[i * _size], &sensor.data_buffer[written + i], _size);
                 }
@@ -212,11 +215,11 @@ void PPG::start(int sample_rate_idx) {
 
     k_timeout_t t = K_USEC(t_sample_us);
 
-    const int fifo_sample_capacity = FIFO_SIZE / timing.exposure_count - 2;
+    fifo_sample_capacity = FIFO_SIZE / timing.exposure_count;
     const int work_buffer_capacity =
         sizeof(sensor.data_buffer) / sizeof(sensor.data_buffer[0]) - 2;
     _num_samples_buffered = MIN(MAX(1, (int)(CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)),
-                                MIN(fifo_sample_capacity, work_buffer_capacity));
+                                MIN(fifo_sample_capacity - 2, work_buffer_capacity));
     
     ret = ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * timing.exposure_count);
     if (ret != 0) {
@@ -231,6 +234,7 @@ void PPG::start(int sample_rate_idx) {
     }
 
     _running = true;
+    sample_clock.reset();
     _sample_count = 0;
     _last_time_stamp = micros();
     k_timer_start(&sensor.sensor_timer, t, t);

@@ -9,6 +9,7 @@
 //#include "MAX30102/MAX30102.h"
 #include "MAXM86161/MAXM86161.h"
 #include "EdgeMLSensor.h"
+#include "FifoSampleClock.h"
 
 #include "openearable_common.h"
 #include "zbus_common.h"
@@ -39,6 +40,8 @@ private:
     ppg_sample data_buffer[64];
 
     float t_sample_us;
+    FifoSampleClock sample_clock;
+    uint16_t fifo_sample_capacity;
 
     bool _active = false;
 

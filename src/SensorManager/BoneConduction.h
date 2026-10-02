@@ -7,6 +7,7 @@
 //#include "MAX30102/MAX30102.h"
 #include "BMA580/BMA580_Sensor.h"
 #include "EdgeMLSensor.h"
+#include "FifoSampleClock.h"
 
 #include "openearable_common.h"
 #include "zbus_common.h"
@@ -42,6 +43,7 @@ private:
     bool _active = false;
 
     float t_sample_us;
+    FifoSampleClock sample_clock;
 
     int _num_samples_buffered;
     float _sample_count = 0;
