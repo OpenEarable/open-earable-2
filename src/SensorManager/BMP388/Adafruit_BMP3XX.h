@@ -68,6 +68,10 @@ public:
   /// Perform a reading in blocking mode
   bool performReading(void);
 
+  bool startContinuous(uint8_t odr);
+  bool readContinuous(void);
+  bool stopContinuous(void);
+
   /// Temperature (Celsius) assigned after calling performReading()
   double temperature;
   /// Pressure (Pascals) assigned after calling performReading()
