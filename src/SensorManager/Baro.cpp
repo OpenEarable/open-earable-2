@@ -15,8 +15,6 @@ Adafruit_BMP3XX Baro::bmp;
 
 Baro Baro::sensor;
 
-static int baro_initial_discard = 1;
-
 // Initialisierung der SampleRateSettings für Baro (BMP3)
 const SampleRateSetting<18> Baro::sample_rates = {
     { BMP3_ODR_0_001_HZ, BMP3_ODR_0_003_HZ, BMP3_ODR_0_006_HZ, BMP3_ODR_0_01_HZ, 
@@ -38,10 +36,7 @@ void Baro::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
 	int ret;
 
-	bmp.performReading();
-
-	if (baro_initial_discard > 0) {
-		baro_initial_discard--;
+	if (!sensor._running || !bmp.readContinuous()) {
 		return;
 	}
 
@@ -96,16 +91,20 @@ bool Baro::init(struct k_msgq * queue) {
 }
 
 void Baro::start(int sample_rate_idx) {
-	baro_initial_discard = 1;
+	if (!_active) return;
+	const uint8_t odr = sample_rates.reg_vals[sample_rate_idx];
+	if (!bmp.startContinuous(odr)) {
+		LOG_ERR("Failed to start pressure sampling");
+		return;
+	}
 
-    k_timeout_t t = K_USEC(1000000.0f / sample_rates.true_sample_rates[sample_rate_idx]);
-    
-    //bmp.set_interrogation_rate(setting.reg_val);
-    //bmp.start();
-
-	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
+	/* The BMP388 produces 200 / 2^odr samples per second. Poll twice per
+	 * conversion period to tolerate sensor/host clock phase differences;
+	 * readContinuous only publishes completed, unread measurements.
+	 */
+	k_timeout_t t = K_USEC(2500ULL << odr);
 	_running = true;
+	k_timer_start(&sensor.sensor_timer, K_MSEC(5), t);
 }
 
 void Baro::stop() {
@@ -115,6 +114,11 @@ void Baro::stop() {
 	_running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+	struct k_work_sync sync;
+	k_work_cancel_sync(&sensor.sensor_work, &sync);
+	if (!bmp.stopContinuous()) {
+		LOG_WRN("Failed to stop pressure sampling");
+	}
 
     pm_device_runtime_put(ls_1_8);
 }
