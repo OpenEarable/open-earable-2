@@ -20,9 +20,11 @@ Run the host checks from the repository root:
 python3 -m unittest discover -s tests/protocol_contracts -v
 ```
 
-They check BLE metadata against production sources and compile/run the existing
+They check BLE metadata against production sources and generated Zephyr definitions and compile/run the existing
 sensor transport and ParseInfo component serializers against golden vectors.
-The remaining payload vectors are source-audited examples; they do not yet run
+The audio-configuration, LED, and button migrations also test generated C and
+Dart encoders and decoders against the same bytes (including decoded field
+values and short-input rejection). The remaining payload vectors are source-audited examples; they do not yet run
 GATT callbacks, the full ParseInfo serializer, or SDLogger. Those need firmware
 integration tests during migration. Generated bindings must also be checked
 against these same vectors in C and Dart. No firmware behavior changes here.
@@ -139,3 +141,6 @@ Existing write-offset behavior differs across services; normalizing it is a
 separate behavioral change, not an automatic consequence of adopting codecs.
 Test buffer capacity, truncated inputs, signed offsets, large 64-bit timestamps,
 conditional fields, and single/multiple sensor samples during each migration.
+
+Dart checks skip when its SDK is absent. Set `PROTOCOL_DART` to a Dart executable
+when using a direct SDK binary instead of a Flutter wrapper.

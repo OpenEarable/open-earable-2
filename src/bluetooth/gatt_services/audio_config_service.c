@@ -9,6 +9,7 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_config_service, CONFIG_BLE_LOG_LEVEL);
 
+/** @brief Decode and apply a validated codec audio mode. */
 static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
@@ -20,7 +21,11 @@ static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr 
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
-    uint8_t mode = *((uint8_t*)buf);
+    audio_configuration_audio_mode_t message;
+    if (audio_configuration_audio_mode_decode(&message, buf, len, NULL) != PROTOCOL_OK) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+    uint8_t mode = message.mode;
     if (mode > AUDIO_MODE_ANC) {
         return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
     }
@@ -33,6 +38,7 @@ static ssize_t write_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr 
     return len;
 }
 
+/** @brief Decode and select the encoder microphone. */
 static ssize_t write_mic_select(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
@@ -44,9 +50,12 @@ static ssize_t write_mic_select(struct bt_conn *conn, const struct bt_gatt_attr 
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
-    LOG_INF("Mic select: %d", *((uint8_t*)buf));
-
-    uint8_t mic_select = *((uint8_t*)buf);
+    audio_configuration_microphone_selection_t message;
+    if (audio_configuration_microphone_selection_decode(&message, buf, len, NULL) != PROTOCOL_OK) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+    uint8_t mic_select = message.microphone;
+    LOG_INF("Mic select: %d", mic_select);
     if (mic_select > 1) {
         return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
     }
@@ -58,20 +67,35 @@ static ssize_t write_mic_select(struct bt_conn *conn, const struct bt_gatt_attr 
     return len;
 }
 
+/** @brief Encode the current codec audio mode for a GATT read. */
 static ssize_t read_audio_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               void *buf, uint16_t len, uint16_t offset)
 {
     uint8_t mode = hw_codec_get_audio_mode();
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &mode, sizeof(mode));
+    audio_configuration_audio_mode_t message = { .mode = mode };
+    uint8_t payload[1];
+    size_t size;
+    if (audio_configuration_audio_mode_encode(&message, payload, sizeof(payload), &size) != PROTOCOL_OK) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, payload, size);
 }
 
+/** @brief Encode the selected encoder microphone for a GATT read. */
 static ssize_t read_mic_select(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               void *buf, uint16_t len, uint16_t offset)
 {
     uint8_t mic = audio_system_get_encoder_channel() == AUDIO_CH_L ? 0 : 1;
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &mic, sizeof(mic));
+    audio_configuration_microphone_selection_t message = { .microphone = mic };
+    uint8_t payload[1];
+    size_t size;
+    if (audio_configuration_microphone_selection_encode(&message, payload, sizeof(payload), &size) != PROTOCOL_OK) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, payload, size);
 }
 
+/** @brief Encode the assigned audio channel for a GATT read. */
 static ssize_t read_audio_channel(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               void *buf, uint16_t len, uint16_t offset)
 {
@@ -81,9 +105,16 @@ static ssize_t read_audio_channel(struct bt_conn *conn, const struct bt_gatt_att
     channel_assignment_get(&channel);
     uint8_t channel_u8 = channel;
 
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &channel_u8, sizeof(channel_u8));
+    audio_configuration_audio_channel_t message = { .channel = channel_u8 };
+    uint8_t payload[1];
+    size_t size;
+    if (audio_configuration_audio_channel_encode(&message, payload, sizeof(payload), &size) != PROTOCOL_OK) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, payload, size);
 }
 
+/** @brief Decode and apply the outer and inner microphone gain registers. */
 static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                               const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
@@ -104,8 +135,12 @@ static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
-    uint8_t gain_outer = ((uint8_t*)buf)[0];
-    uint8_t gain_inner = ((uint8_t*)buf)[1];
+    audio_configuration_microphone_gain_t message;
+    if (audio_configuration_microphone_gain_decode(&message, buf, len, NULL) != PROTOCOL_OK) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+    uint8_t gain_outer = message.outer;
+    uint8_t gain_inner = message.inner;
 
     int ret = hw_codec_mic_gain_set(gain_outer, gain_inner);
     if (ret) {
@@ -118,37 +153,43 @@ static ssize_t write_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *
     return len;
 }
 
+/** @brief Encode the current microphone gain registers for a GATT read. */
 static ssize_t read_dmic_gain(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                             void *buf, uint16_t len, uint16_t offset)
 {
-    uint8_t gains[2] = {
-        hw_codec_mic_gain_get_outer(),
-        hw_codec_mic_gain_get_inner()
+    audio_configuration_microphone_gain_t message = {
+        .outer = hw_codec_mic_gain_get_outer(),
+        .inner = hw_codec_mic_gain_get_inner()
     };
-
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, gains, sizeof(gains));
+    uint8_t payload[2];
+    size_t size;
+    if (audio_configuration_microphone_gain_encode(&message, payload, sizeof(payload), &size) != PROTOCOL_OK) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, payload, size);
 }
 
 BT_GATT_SERVICE_DEFINE(audio_config_svc,
-    BT_GATT_PRIMARY_SERVICE(BT_UUID_AUDIO_CONFIG_SERVICE),
-    BT_GATT_CHARACTERISTIC(BT_UUID_AUDIO_MODE,
-                       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
-                       BT_GATT_PERM_WRITE | BT_GATT_PERM_READ,
+    BT_GATT_PRIMARY_SERVICE(AUDIO_CONFIGURATION_ZEPHYR_SERVICE_UUID),
+    BT_GATT_CHARACTERISTIC(AUDIO_CONFIGURATION_ZEPHYR_AUDIO_MODE_CHARACTERISTIC_UUID,
+                AUDIO_CONFIGURATION_ZEPHYR_AUDIO_MODE_CHARACTERISTIC_PROPERTIES,
+                AUDIO_CONFIGURATION_ZEPHYR_AUDIO_MODE_CHARACTERISTIC_PERMISSIONS,
                        read_audio_mode, write_audio_mode, NULL),
-    BT_GATT_CHARACTERISTIC(BT_UUID_MIC_SELECT,
-                       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
-                       BT_GATT_PERM_WRITE | BT_GATT_PERM_READ,
+    BT_GATT_CHARACTERISTIC(AUDIO_CONFIGURATION_ZEPHYR_MICROPHONE_SELECTION_CHARACTERISTIC_UUID,
+                AUDIO_CONFIGURATION_ZEPHYR_MICROPHONE_SELECTION_CHARACTERISTIC_PROPERTIES,
+                AUDIO_CONFIGURATION_ZEPHYR_MICROPHONE_SELECTION_CHARACTERISTIC_PERMISSIONS,
                        read_mic_select, write_mic_select, NULL),
-    BT_GATT_CHARACTERISTIC(BT_UUID_AUDIO_CHANNEL,
-                       BT_GATT_CHRC_READ,
-                       BT_GATT_PERM_READ,
+    BT_GATT_CHARACTERISTIC(AUDIO_CONFIGURATION_ZEPHYR_AUDIO_CHANNEL_CHARACTERISTIC_UUID,
+                AUDIO_CONFIGURATION_ZEPHYR_AUDIO_CHANNEL_CHARACTERISTIC_PROPERTIES,
+                AUDIO_CONFIGURATION_ZEPHYR_AUDIO_CHANNEL_CHARACTERISTIC_PERMISSIONS,
                        read_audio_channel, NULL, NULL),
-    BT_GATT_CHARACTERISTIC(BT_UUID_DMIC_GAIN,
-                       BT_GATT_CHRC_WRITE | BT_GATT_CHRC_READ,
-                       BT_GATT_PERM_WRITE | BT_GATT_PERM_READ,
+    BT_GATT_CHARACTERISTIC(AUDIO_CONFIGURATION_ZEPHYR_MICROPHONE_GAIN_CHARACTERISTIC_UUID,
+                AUDIO_CONFIGURATION_ZEPHYR_MICROPHONE_GAIN_CHARACTERISTIC_PROPERTIES,
+                AUDIO_CONFIGURATION_ZEPHYR_MICROPHONE_GAIN_CHARACTERISTIC_PERMISSIONS,
                        read_dmic_gain, write_dmic_gain, NULL),
 );
 
+/** @brief Initialize the codec to normal audio mode. */
 int init_audio_config_service(void)
 {
     // Standardmäßig Normal-Modus aktivieren
