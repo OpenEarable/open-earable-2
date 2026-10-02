@@ -81,7 +81,13 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
 	while (1) {
 		(void)k_poll(&sensor_manager_evt, 1, K_FOREVER);
 
-		k_msgq_get(&sensor_queue, &msg, K_FOREVER);
+		ret = k_msgq_get(&sensor_queue, &msg, K_FOREVER);
+		if (ret) {
+			/* Restart purges the queue and wakes a blocked receiver with
+			 * -ENOMSG. The message still contains the previous sample.
+			 */
+			continue;
+		}
 
 		ret = zbus_chan_pub(&sensor_chan, &msg, K_FOREVER); //K_NO_WAIT
 		if (ret) {
