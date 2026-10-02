@@ -14,10 +14,10 @@ MLX90632 Temp::temp;
 
 static struct sensor_msg msg_temp;
 
-const SampleRateSetting<8> Temp::sample_rates = {
-    { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 },  // reg_vals
-    { 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 },       // sample_rates
-    { 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 }        // true_sample_rates
+const SampleRateSetting<7> Temp::sample_rates = {
+    { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 },  // reg_vals
+    { 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 },       // sample_rates
+    { 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 }        // true_sample_rates
 };
 
 bool Temp::init(struct k_msgq * queue) {
