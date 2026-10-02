@@ -60,10 +60,11 @@ SensorComponentGroup imuGroups[IMU_GROUP_COUNT] = {
 // ============= BoneConductionIMU =============
 
 #define BONE_CONDUCTION_ACC_COUNT 3
+// Raw BMA580 counts at +/-2 g: divide by 16384 to convert LSB to g.
 SensorComponent boneConductionIMUComponents[BONE_CONDUCTION_ACC_COUNT] = {
-    { .name = "X", .unit = "g", .parseType = PARSE_TYPE_INT16 },
-    { .name = "Y", .unit = "g", .parseType = PARSE_TYPE_INT16 },
-    { .name = "Z", .unit = "g", .parseType = PARSE_TYPE_INT16 },
+    { .name = "X", .unit = "LSB", .parseType = PARSE_TYPE_INT16 },
+    { .name = "Y", .unit = "LSB", .parseType = PARSE_TYPE_INT16 },
+    { .name = "Z", .unit = "LSB", .parseType = PARSE_TYPE_INT16 },
 };
 
 #define BONE_CONDUCTION_IMU_GROUP_COUNT 1
@@ -107,7 +108,7 @@ SensorComponent baroTempComponents[BARO_TEMP_COUNT] = {
 
 #define BARO_PRESSURE_COUNT 1
 SensorComponent baroPressureComponents[BARO_PRESSURE_COUNT] = {
-    { .name = "Pressure", .unit = "kPa", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "Pressure", .unit = "Pa", .parseType = PARSE_TYPE_FLOAT },
 };
 
 #define BARO_GROUP_COUNT 2
