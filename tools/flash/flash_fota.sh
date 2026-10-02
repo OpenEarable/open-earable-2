@@ -6,6 +6,7 @@ set -e
 # Default parameters
 CLOCKSPEED=8000
 CHIP=NRF53
+BUILD_DIR=./build_fota
 
 # Function to show usage
 show_usage() {
@@ -83,16 +84,42 @@ if [ "$STANDALONE" == true ] && [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
     show_usage
 fi
 
+NEW_NET_HEX="$BUILD_DIR/merged_openearable_v2_nrf5340_cpunet.hex"
+NEW_APP_HEX="$BUILD_DIR/merged_openearable_v2_nrf5340_cpuapp.hex"
+LEGACY_NET_HEX="$BUILD_DIR/merged_CPUNET.hex"
+LEGACY_APP_HEX="$BUILD_DIR/merged.hex"
+
+if [ -f "$NEW_NET_HEX" ] && [ -f "$NEW_APP_HEX" ]; then
+    NET_HEX="$NEW_NET_HEX"
+    APP_HEX="$NEW_APP_HEX"
+elif [ -f "$LEGACY_NET_HEX" ] && [ -f "$LEGACY_APP_HEX" ]; then
+    NET_HEX="$LEGACY_NET_HEX"
+    APP_HEX="$LEGACY_APP_HEX"
+else
+    NET_HEX="$NEW_NET_HEX"
+    APP_HEX="$NEW_APP_HEX"
+fi
+
+if [ ! -f "$NET_HEX" ] || [ ! -f "$APP_HEX" ]; then
+    echo "Error: Missing merged FOTA image(s)."
+    echo "Expected: $NET_HEX"
+    echo "Expected: $APP_HEX"
+    echo "Legacy fallback: $LEGACY_NET_HEX"
+    echo "Legacy fallback: $LEGACY_APP_HEX"
+    echo "Rebuild the FOTA configuration with SB_CONFIG_MERGED_HEX_FILES=y."
+    exit 1
+fi
+
 # Backup UICR if neither left nor right is specified
 if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then
     nrfjprog --readuicr ./tools/flash/uicr_backup.hex -f $CHIP --snr $SNR --clockspeed $CLOCKSPEED
 fi
 
 # Flash network core (CPUNET)
-nrfjprog --program ./build_fota/merged_CPUNET.hex --chiperase --verify -f $CHIP --coprocessor CP_NETWORK --snr $SNR --clockspeed $CLOCKSPEED
+nrfjprog --program "$NET_HEX" --chiperase --verify -f $CHIP --coprocessor CP_NETWORK --snr $SNR --clockspeed $CLOCKSPEED
 
 # Flash application core (CPUAPP)
-nrfjprog --program ./build_fota/merged.hex --chiperase --verify -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
+nrfjprog --program "$APP_HEX" --chiperase --verify -f $CHIP --coprocessor CP_APPLICATION --snr $SNR --clockspeed $CLOCKSPEED
 
 # Restore UICR if neither left nor right is specified
 if [ -z "$LEFT" ] && [ -z "$RIGHT" ]; then

@@ -23,6 +23,10 @@ target_sources_ifdef(CONFIG_EQAULIZER_SOFTWARE app PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/Equalizer.cpp)
 
 # Fail the link before static buffers can consume the runtime audio budget.
-if(CONFIG_NEWLIB_LIBC AND NOT CONFIG_NEWLIB_LIBC_ALIGNED_HEAP_SIZE AND NOT CONFIG_MMU)
-    zephyr_linker_sources(SECTIONS ${CMAKE_CURRENT_SOURCE_DIR}/audio_heap.ld)
+if(CONFIG_AUDIO_MIN_RUNTIME_HEAP_SIZE GREATER 0)
+    if(CONFIG_COMMON_LIBC_MALLOC AND CONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE EQUAL -1 AND NOT CONFIG_MMU AND NOT CONFIG_USERSPACE)
+        zephyr_linker_sources(SECTIONS ${CMAKE_CURRENT_SOURCE_DIR}/audio_heap.ld)
+    else()
+        message(FATAL_ERROR "The audio heap guard requires the common libc remaining-SRAM arena")
+    endif()
 endif()

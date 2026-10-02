@@ -300,6 +300,44 @@ bool Adafruit_BMP3XX::performReading(void) {
   return true;
 }
 
+bool Adafruit_BMP3XX::startContinuous(uint8_t odr) {
+  if (!setOutputDataRate(odr))
+    return false;
+
+  the_sensor.settings.temp_en = BMP3_ENABLE;
+  the_sensor.settings.press_en = BMP3_ENABLE;
+  const uint16_t settings = BMP3_SEL_TEMP_EN | BMP3_SEL_PRESS_EN |
+      BMP3_SEL_TEMP_OS | BMP3_SEL_PRESS_OS | BMP3_SEL_IIR_FILTER | BMP3_SEL_ODR;
+  if (bmp3_set_sensor_settings(settings, &the_sensor) != BMP3_OK)
+    return false;
+
+  the_sensor.settings.op_mode = BMP3_MODE_NORMAL;
+  return bmp3_set_op_mode(&the_sensor) == BMP3_OK;
+}
+
+bool Adafruit_BMP3XX::readContinuous(void) {
+  uint8_t status;
+  if (bmp3_get_regs(BMP3_REG_SENS_STATUS, &status, 1, &the_sensor) != BMP3_OK)
+    return false;
+
+  const uint8_t ready = BMP3_STATUS_DRDY_PRESS_MSK | BMP3_STATUS_DRDY_TEMP_MSK;
+  if ((status & ready) != ready)
+    return false;
+
+  struct bmp3_data data;
+  if (bmp3_get_sensor_data(BMP3_PRESS | BMP3_TEMP, &data, &the_sensor) != BMP3_OK)
+    return false;
+
+  temperature = data.temperature;
+  pressure = data.pressure;
+  return true;
+}
+
+bool Adafruit_BMP3XX::stopContinuous(void) {
+  the_sensor.settings.op_mode = BMP3_MODE_SLEEP;
+  return bmp3_set_op_mode(&the_sensor) == BMP3_OK;
+}
+
 /**************************************************************************/
 /*!
     @brief  Setter for Temperature oversampling
@@ -431,7 +469,7 @@ int8_t i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
 
   dev_info->i2c_dev->release();
 
-  return 0;
+  return ret;
 }
 
 static void delay_usec(uint32_t us, void *intf_ptr) {

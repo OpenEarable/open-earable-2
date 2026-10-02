@@ -6,29 +6,23 @@
 
 #include "bt_mgmt.h"
 
-#include <stdio.h>
-#include "channel_assignment.h"
-
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/hci.h>
+#include <zephyr/mgmt/mcumgr/transport/smp_bt.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/sys/byteorder.h>
 #include <nrfx.h>
 
 #include "macros_common.h"
 #include "zbus_common.h"
-#include "button_assignments.h"
-#include "../../buttons/button_manager.h"
-#include "uicr.h"
-
-#include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_adv_internal.h"
-#include "bt_mgmt_dfu_internal.h"
+#include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_conn_interval.h"
-
+#include "bt_mgmt_bond_storage.h"
 #include "BootState.h"
+#include "uicr.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
@@ -68,37 +62,10 @@ static void conn_state_connected_check(struct bt_conn *conn, void *data)
 	(*num_conn)++;
 }
 
-void mtu_updated(struct bt_conn *conn, uint16_t tx, uint16_t rx)
+static void conn_params_updated(struct bt_conn *conn, uint16_t interval,
+			       uint16_t latency, uint16_t timeout)
 {
-	ARG_UNUSED(conn);
-
-	LOG_INF("Updated MTU: TX: %d RX: %d bytes", tx, rx);
-}
-
-static void le_data_length_updated(struct bt_conn *conn,
-				   struct bt_conn_le_data_len_info *info)
-{
-	ARG_UNUSED(conn);
-
-	LOG_INF("LE data len updated: TX (len: %d time: %d)"
-	       " RX (len: %d time: %d)", info->tx_max_len,
-	       info->tx_max_time, info->rx_max_len, info->rx_max_time);
-}
-
-static struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_SLAVE_LATENCY, CONFIG_BLE_ACL_SUP_TIMEOUT);
-
-//callback
-static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
-{
-	LOG_INF("Conn params updated: interval %d unit, latency %d, timeout: %d0 ms",interval, latency, timeout);
-
 	bt_mgmt_ci_on_conn_param_updated(conn, interval, latency, timeout);
-
-	/*msg.event = BT_MGMT_CONNECTED;
-	msg.conn = conn;
-
-	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
-	ERR_CHK(ret);*/
 }
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)
@@ -147,6 +114,7 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	/* ACL connection established */
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Connected: %s", addr);
+	bt_mgmt_ci_on_connected(conn);
 
 	msg.event = BT_MGMT_CONNECTED;
 	msg.conn = conn;
@@ -154,25 +122,12 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
 	ERR_CHK(ret);
 
-	err = bt_conn_le_phy_update(conn, BT_CONN_LE_PHY_PARAM_2M);
-	if (err) {
-		LOG_ERR("Phy update request failed: %d",  err);
+	ret = bt_conn_le_param_update(conn,
+		BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_CONN_INTERVAL,
+				 CONFIG_BLE_ACL_SLAVE_LATENCY, CONFIG_BLE_ACL_SUP_TIMEOUT));
+	if (ret && ret != -EALREADY) {
+		LOG_WRN("Connection parameter update request failed: %d", ret);
 	}
-
-	err = bt_conn_le_data_len_update(conn, BT_LE_DATA_LEN_PARAM_MAX);
-	if (err) {
-		LOG_ERR("LE data length update request failed: %d",  err);
-	}
-
-	err = bt_conn_le_param_update(conn, conn_param);
-	if (err) {
-		LOG_ERR("Cannot update conneciton parameter (err: %d)", err);
-		return;
-	}
-	LOG_INF("Connection parameters update requested: interval_min %d interval_max %d latency %d timeout %d",
-		conn_param->interval_min, conn_param->interval_max,
-		conn_param->latency, conn_param->timeout);
-	bt_mgmt_ci_on_connected(conn);
 
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		ret = bt_conn_set_security(conn, BT_SECURITY_L2);
@@ -180,7 +135,6 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 			LOG_ERR("Failed to set security to L2: %d", ret);
 		}
 	}
-
 }
 
 K_MUTEX_DEFINE(mtx_duplicate_scan);
@@ -195,6 +149,7 @@ static void disconnected_cb(struct bt_conn *conn, uint8_t reason)
 
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Disconnected: %s, reason 0x%02x %s", addr, reason, bt_hci_err_to_str(reason));
+	bt_mgmt_ci_on_disconnected(conn, reason);
 
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		bt_conn_unref(conn);
@@ -229,36 +184,124 @@ static void disconnected_cb(struct bt_conn *conn, uint8_t reason)
 #if defined(CONFIG_BT_SMP)
 static void security_changed_cb(struct bt_conn *conn, bt_security_t level, enum bt_security_err err)
 {
+	/* The address may not be resolved at this point */
 	int ret;
 	struct bt_mgmt_msg msg;
 
 	if (err) {
-		LOG_WRN("Security failed: level %d err %d %s", level, err,
-			bt_security_err_to_str(err));
+		if (err == BT_SECURITY_ERR_UNSPECIFIED) {
+			LOG_WRN("Security failed: level %d err %d Clear bond on peer?", level, err);
+		} else {
+			LOG_WRN("Security failed: level %d err %d %s", level, err,
+				bt_security_err_to_str(err));
+		}
 		ret = bt_conn_disconnect(conn, BT_HCI_ERR_AUTH_FAIL);
-		if (ret) {
+		if (ret == -ENOTCONN) {
+			LOG_DBG("Not connected");
+		} else if (ret) {
 			LOG_WRN("Failed to disconnect %d", ret);
 		}
+
+	} else if (level < BT_SECURITY_L2) {
+		LOG_WRN("Security changed: level %d too low, disconnecting", level);
+		ret = bt_conn_disconnect(conn, BT_HCI_ERR_AUTH_FAIL);
+		if (ret == -ENOTCONN) {
+			LOG_DBG("Not connected");
+		} else if (ret) {
+			LOG_ERR("Failed to disconnect %d", ret);
+		}
 	} else {
-		LOG_DBG("Security changed: level %d", level);
+		const bt_addr_le_t *peer_addr = bt_conn_get_dst(conn);
+		char peer_str[BT_ADDR_LE_STR_LEN];
+
+		bt_addr_le_to_str(peer_addr, peer_str, BT_ADDR_LE_STR_LEN);
+
+		LOG_INF("Security changed: level %d %s", level, peer_str);
+
 		/* Publish connected */
 		msg.event = BT_MGMT_SECURITY_CHANGED;
 		msg.conn = conn;
+		msg.addr = *peer_addr;
 
 		ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
 		ERR_CHK(ret);
 	}
 }
+
+void identity_resolved_cb(struct bt_conn *conn, const bt_addr_le_t *rpa,
+			  const bt_addr_le_t *identity)
+{
+	char rpa_str[BT_ADDR_LE_STR_LEN];
+	char identity_str[BT_ADDR_LE_STR_LEN];
+	(void)bt_addr_le_to_str(rpa, rpa_str, BT_ADDR_LE_STR_LEN);
+	(void)bt_addr_le_to_str(identity, identity_str, BT_ADDR_LE_STR_LEN);
+	LOG_INF("ID is resolved. RPA: %s, Identity: %s", rpa_str, identity_str);
+};
+
 #endif /* defined(CONFIG_BT_SMP) */
 
 static struct bt_conn_cb conn_callbacks = {
 	.connected = connected_cb,
 	.disconnected = disconnected_cb,
 	.le_param_updated = conn_params_updated,
-	.le_data_len_updated = le_data_length_updated,
 #if defined(CONFIG_BT_SMP)
+	.identity_resolved = identity_resolved_cb,
 	.security_changed = security_changed_cb,
 #endif /* defined(CONFIG_BT_SMP) */
+};
+
+void bond_deleted_cb(uint8_t id, const bt_addr_le_t *peer)
+{
+	int ret;
+	char str[BT_ADDR_LE_STR_LEN];
+	struct bt_mgmt_msg msg;
+
+	(void)bt_addr_le_to_str(peer, str, BT_ADDR_LE_STR_LEN);
+	LOG_INF("Bond deleted: id %d, peer %s", id, str);
+
+	msg.event = BT_MGMT_BOND_DELETED;
+	msg.addr = *peer;
+
+	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
+	ERR_CHK(ret);
+}
+
+void pairing_complete_cb(struct bt_conn *conn, bool bonded)
+{
+	LOG_INF("Pairing complete. Bonded: %d", bonded);
+	int ret;
+	struct bt_mgmt_msg msg;
+	const bt_addr_le_t *peer_addr = bt_conn_get_dst(conn);
+	char str[BT_ADDR_LE_STR_LEN];
+
+	(void)bt_addr_le_to_str(peer_addr, str, BT_ADDR_LE_STR_LEN);
+
+	msg.event = BT_MGMT_PAIRING_COMPLETE;
+	msg.addr = *peer_addr;
+	msg.conn = conn;
+
+	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
+	ERR_CHK(ret);
+}
+
+void pairing_failed_cb(struct bt_conn *conn, enum bt_security_err reason)
+{
+	int ret;
+
+	LOG_WRN("Pairing failed: %d %s", reason, bt_security_err_to_str(reason));
+
+	ret = bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	if (ret == -ENOTCONN) {
+		LOG_DBG("Not connected");
+	} else if (ret) {
+		LOG_ERR("Failed to disconnect %d", ret);
+	}
+}
+
+static struct bt_conn_auth_info_cb conn_auth_info_callbacks = {
+	.bond_deleted = bond_deleted_cb,
+	.pairing_complete = pairing_complete_cb,
+	.pairing_failed = pairing_failed_cb,
 };
 
 static void bt_enabled_cb(int err)
@@ -275,13 +318,11 @@ static void bt_enabled_cb(int err)
 
 static int bonding_clear_check(void)
 {
-	int ret;
-
+	/* The power button may still be held during an ordinary startup.
+	 * Only the PMIC timer reset should clear the stored phone bonds.
+	 */
 	if (oe_boot_state.timer_reset) {
-		LOG_INF("Device Count: %i", bonded_device_count);
-
-		ret = bt_mgmt_bonding_clear();
-		return ret;
+		return bt_mgmt_bonding_clear();
 	}
 
 	return 0;
@@ -323,7 +364,7 @@ static int local_identity_addr_print(void)
 
 	bt_id_get(addrs, &num_ids);
 
-	for (size_t i = 0; i < num_ids; i++) {
+	for (int i = 0; i < num_ids; i++) {
 		(void)bt_addr_le_to_str(&(addrs[i]), addr_str, BT_ADDR_LE_STR_LEN);
 		LOG_INF("Local identity addr: %s", addr_str);
 	}
@@ -331,14 +372,33 @@ static int local_identity_addr_print(void)
 	return 0;
 }
 
+
 void bt_mgmt_num_conn_get(uint8_t *num_conn)
 {
 	bt_conn_foreach(BT_CONN_TYPE_LE, conn_state_connected_check, (void *)num_conn);
 }
 
+static void bond_count_cb(const struct bt_bond_info *info, void *user_data)
+{
+	ARG_UNUSED(info);
+	uint8_t *count = user_data;
+	if (*count < UINT8_MAX) {
+		(*count)++;
+	}
+}
+
+void bt_mgmt_num_bonds_get(uint8_t *num_bonds)
+{
+	*num_bonds = 0;
+	bt_foreach_bond(BT_ID_DEFAULT, bond_count_cb, num_bonds);
+}
+
 int bt_mgmt_bonding_clear(void)
 {
 	int ret;
+
+	/* TODO: Delay. Awaiting fix in NCSDK-35186 */
+	k_sleep(K_MSEC(100));
 
 	if (IS_ENABLED(CONFIG_SETTINGS)) {
 		LOG_INF("Clearing all bonds");
@@ -389,44 +449,29 @@ int bt_mgmt_conn_disconnect(struct bt_conn *conn, uint8_t reason)
 	return 0;
 }
 
-int bonded_device_count = 0;
-
-void count_bonds(const struct bt_bond_info *info, void *user_data) {
-	ARG_UNUSED(info);
-	ARG_UNUSED(user_data);
-
-	bonded_device_count++;
-}
-
-static struct bt_gatt_cb gatt_callbacks = {
-	.att_mtu_updated = mtu_updated,
-};
-
 int bt_mgmt_init(void)
 {
 	int ret;
-	static char name[CONFIG_BT_DEVICE_NAME_MAX];
 
 	ret = bt_enable(bt_enabled_cb);
 	if (ret) {
 		return ret;
 	}
 
-	bt_gatt_cb_register(&gatt_callbacks);
-
-	uint32_t sirk = uicr_sirk_get();
-	snprintf(name, CONFIG_BT_DEVICE_NAME_MAX, "%s-%04X", CONFIG_BT_DEVICE_NAME,
-		 (unsigned int)((sirk != 0xFFFFFFFFU ? sirk : oe_boot_state.device_id) & 0xFFFF));
-
-	ret = bt_set_name(name);
-    if (ret) {
-        LOG_ERR("bt_enable timed out");
-		return ret;
-    }
-
 	ret = k_sem_take(&sem_bt_enabled, K_MSEC(BT_ENABLE_TIMEOUT_MS));
 	if (ret) {
 		LOG_ERR("bt_enable timed out");
+		return ret;
+	}
+
+	/* Keep the pair-specific name used by the phone and OpenEarable app. */
+	char name[CONFIG_BT_DEVICE_NAME_MAX];
+	uint32_t sirk = uicr_sirk_get();
+
+	snprintf(name, sizeof(name), "%s-%04X", CONFIG_BT_DEVICE_NAME,
+		 (unsigned int)((sirk != 0xFFFFFFFFU ? sirk : oe_boot_state.device_id) & 0xFFFF));
+	ret = bt_set_name(name);
+	if (ret) {
 		return ret;
 	}
 
@@ -443,10 +488,6 @@ int bt_mgmt_init(void)
 			return ret;
 		}
 
-		bonded_device_count = 0;
-
-		bt_foreach_bond(BT_ID_DEFAULT, count_bonds, NULL);
-
 		ret = bonding_clear_check();
 		if (ret) {
 			return ret;
@@ -458,27 +499,25 @@ int bt_mgmt_init(void)
 				return ret;
 			}
 		}
+
+		if (IS_ENABLED(CONFIG_BT_SETTINGS)) {
+			ret = bt_mgmt_bond_storage_compat();
+			if (ret) {
+				LOG_ERR("Failed to preserve downgrade-compatible bonds: %d", ret);
+				return ret;
+			}
+		}
 	}
 
-#if defined(CONFIG_AUDIO_BT_MGMT_DFU)
-	bool pressed;
-
-	ret = button_pressed(BUTTON_4, &pressed);
+#if defined(CONFIG_MCUMGR_TRANSPORT_BT_DYNAMIC_SVC_REGISTRATION) && \
+	!defined(CONFIG_AUDIO_BT_MGMT_DFU)
+	/* Unregister SMP (Simple Management Protocol) service if DFU is not enabled */
+	ret = smp_bt_unregister();
 	if (ret) {
+		LOG_ERR("Failed to unregister SMP service: %d", ret);
 		return ret;
 	}
-
-	if (pressed) {
-		ret = bt_mgmt_ctlr_cfg_init(false);
-		if (ret) {
-			return ret;
-		}
-		/* This call will not return */
-		bt_mgmt_dfu_start();
-	}
-
-#endif /* CONFIG_AUDIO_BT_MGMT_DFU */
-
+#endif
 	ret = bt_mgmt_ctlr_cfg_init(IS_ENABLED(CONFIG_WDT_CTLR));
 	if (ret) {
 		return ret;
@@ -490,7 +529,17 @@ int bt_mgmt_init(void)
 	}
 
 	if (IS_ENABLED(CONFIG_BT_CONN)) {
-		bt_conn_cb_register(&conn_callbacks);
+		ret = bt_conn_cb_register(&conn_callbacks);
+		if (ret) {
+			LOG_ERR("Failed to register conn callbacks: %d", ret);
+			return ret;
+		}
+
+		ret = bt_conn_auth_info_cb_register(&conn_auth_info_callbacks);
+		if (ret) {
+			LOG_ERR("Failed to register conn auth info callbacks: %d", ret);
+			return ret;
+		}
 	}
 
 	if (IS_ENABLED(CONFIG_BT_PERIPHERAL) || IS_ENABLED(CONFIG_BT_BROADCASTER)) {

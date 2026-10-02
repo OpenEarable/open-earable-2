@@ -23,7 +23,7 @@ public:
 
     void reset();
 
-    const static SampleRateSetting<10> sample_rates;
+    const static SampleRateSetting<9> sample_rates;
 
 private:
     BMA580 bma580;

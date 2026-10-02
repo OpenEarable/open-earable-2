@@ -44,7 +44,7 @@
 /*!                Macro definition                                           */
 
 /*! FIFO raw data buffer size */
-#define BMA580_FIFO_RAW_DATA_BUFFER_SIZE  UINT16_C(520)
+#define BMA580_FIFO_RAW_DATA_BUFFER_SIZE  UINT16_C(1032)
 
 /*! Number of accel frames to be extracted from FIFO
  * Calculation:

@@ -38,7 +38,10 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(streamctrl, CONFIG_MAIN_LOG_LEVEL);
 
-ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
+BUILD_ASSERT(CONFIG_BT_AUDIO_CONCURRENT_RX_STREAMS_MAX <= CONFIG_AUDIO_DECODE_CHANNELS_MAX);
+BUILD_ASSERT(CONFIG_BT_AUDIO_CONCURRENT_TX_STREAMS_MAX <= CONFIG_AUDIO_ENCODE_CHANNELS_MAX);
+
+ZBUS_MSG_SUBSCRIBER_DEFINE(button_evt_sub);
 
 ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
 
@@ -60,10 +63,22 @@ K_THREAD_STACK_DEFINE(le_audio_msg_sub_thread_stack, CONFIG_LE_AUDIO_MSG_SUB_STA
 
 static enum stream_state strm_state = STATE_PAUSED;
 
+#define MEDIA_DOUBLE_CLICK_MS 400
+
 /* Function for handling all stream state changes */
 static void stream_state_set(enum stream_state stream_state_new)
 {
 	strm_state = stream_state_new;
+}
+
+static void media_play_pause(void)
+{
+	int ret = bt_content_ctlr_media_state_playing() ? bt_content_ctrl_stop(NULL) :
+						       bt_content_ctrl_start(NULL);
+
+	if (ret) {
+		LOG_WRN("Could not toggle playback: %d", ret);
+	}
 }
 
 /**
@@ -73,15 +88,24 @@ static void button_msg_sub_thread(void)
 {
 	int ret;
 	const struct zbus_channel *chan;
+	int64_t click_deadline = 0;
 
 	while (1) {
-		ret = zbus_sub_wait(&button_evt_sub, &chan, K_FOREVER);
-		ERR_CHK(ret);
-
 		struct button_msg msg;
+		k_timeout_t timeout = click_deadline ? K_TIMEOUT_ABS_MS(click_deadline) : K_FOREVER;
 
-		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
-		ERR_CHK(ret);
+		ret = zbus_sub_wait_msg(&button_evt_sub, &chan, &msg, timeout);
+		if (ret != -ENOMSG) {
+			ERR_CHK(ret);
+		}
+
+		if (click_deadline && k_uptime_get() >= click_deadline) {
+			click_deadline = 0;
+			media_play_pause();
+		}
+		if (ret == -ENOMSG) {
+			continue;
+		}
 
 		LOG_DBG("Got btn evt from queue - id = %d, action = %d", msg.button_pin,
 			msg.button_action);
@@ -98,20 +122,15 @@ static void button_msg_sub_thread(void)
 				break;
 			}
 
-			if (bt_content_ctlr_media_state_playing()) {
-				ret = bt_content_ctrl_stop(NULL);
+			if (click_deadline) {
+				click_deadline = 0;
+				ret = bt_content_ctrl_next_track(NULL);
 				if (ret) {
-					LOG_WRN("Could not stop: %d", ret);
+					LOG_WRN("Could not skip track: %d", ret);
 				}
-
-			} else if (!bt_content_ctlr_media_state_playing()) {
-				ret = bt_content_ctrl_start(NULL);
-				if (ret) {
-					LOG_WRN("Could not start: %d", ret);
-				}
-
 			} else {
-				LOG_WRN("In invalid state: %d", strm_state);
+				/* Wait before toggling so a double click sends only next-track. */
+				click_deadline = k_uptime_get() + MEDIA_DOUBLE_CLICK_MS;
 			}
 
 			break;
@@ -390,6 +409,10 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 
 		break;
 
+	case BT_MGMT_PAIRING_COMPLETE:
+		/* Pairing state is handled by the OpenEarable application layer. */
+		break;
+
 	default:
 		LOG_WRN("Unexpected/unhandled bt_mgmt event: %d", msg->event);
 
@@ -483,6 +506,14 @@ static int ext_adv_populate(struct bt_data *ext_adv_buf, size_t ext_adv_buf_size
 		return ret;
 	}
 
+	if (ext_adv_buf_cnt >= ext_adv_buf_size) {
+		return -ENOMEM;
+	}
+	ext_adv_buf[ext_adv_buf_cnt].type = BT_DATA_NAME_COMPLETE;
+	ext_adv_buf[ext_adv_buf_cnt].data = bt_get_name();
+	ext_adv_buf[ext_adv_buf_cnt].data_len = strlen(bt_get_name());
+	ext_adv_buf_cnt++;
+
 	ret = unicast_server_adv_populate(&ext_adv_buf[ext_adv_buf_cnt],
 					  ext_adv_buf_size - ext_adv_buf_cnt);
 
@@ -509,15 +540,13 @@ uint8_t stream_state_get(void)
 	return strm_state;
 }
 
-void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
+void streamctrl_send(struct net_buf const *const audio_frame)
 {
 	int ret;
 	static int prev_ret;
 
-	struct le_audio_encoded_audio enc_audio = {.data = data, .size = size, .num_ch = num_ch};
-
 	if (strm_state == STATE_STREAMING) {
-		ret = unicast_server_send(enc_audio);
+		ret = unicast_server_send(audio_frame);
 
 		if (ret != 0 && ret != prev_ret) {
 			if (ret == -ECANCELED) {
@@ -757,7 +786,9 @@ int streamctrl_start() //streamctrl_start
 			if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
 			else LOG_ERR("UICR writing error: %i", ret);
 		} else {
-			struct bt_le_scan_param  * scan_param = BT_LE_SCAN_PARAM(NRF5340_AUDIO_GATEWAY_SCAN_TYPE, BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
+			struct bt_le_scan_param *scan_param =
+				BT_LE_SCAN_PARAM(NRF_AUDIO_GATEWAY_SCAN_TYPE,
+						 BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
 			
 			int err = bt_le_scan_start(scan_param, device_found);
 			if (err) LOG_ERR("Scanning failed to start (err %d)", err);

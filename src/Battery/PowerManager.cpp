@@ -324,7 +324,12 @@ int PowerManager::begin() {
 
     // check setup
     op_state state = fuel_gauge.operation_state();
-    if (state.SEC != BQ27220::SEALED) {
+    bool setup_fuel_gauge = state.SEC != BQ27220::SEALED;
+#if defined(CONFIG_BOOTLOADER_MCUBOOT) && defined(CONFIG_SETUP_FUEL_GAUGE)
+    setup_fuel_gauge |= !boot_is_img_confirmed();
+#endif
+    // Finish the unseal/configuration sequence before charge_ctrl_delayable can read the gauge.
+    if (setup_fuel_gauge) {
         //battery_controller.setup();
         fuel_gauge.setup(_battery_settings);
     }
@@ -436,9 +441,6 @@ int PowerManager::begin() {
 			sys_reboot(SYS_REBOOT_COLD);
 		}
         LOG_INF("Image confirmed");
-        #ifdef CONFIG_SETUP_FUEL_GAUGE
-        fuel_gauge.setup(_battery_settings);
-        #endif
 	}
 #endif
 
@@ -561,8 +563,6 @@ void bt_disconnect_handler(struct bt_conn *conn, void * data) {
 }
 
 void PowerManager::reboot() {
-    int ret;
-    
     // disconnect devices
     uint8_t data = BT_HCI_ERR_REMOTE_USER_TERM_CONN;
     bt_conn_foreach(BT_CONN_TYPE_ALL, bt_disconnect_handler, &data);
@@ -571,9 +571,7 @@ void PowerManager::reboot() {
 
     stop_sensor_manager();
 
-    ret = bt_mgmt_stop_watchdog();
-    ERR_CHK(ret);
-
+    (void)bt_mgmt_stop_watchdog();
     dac.end();
 
     sys_reboot(SYS_REBOOT_COLD);
@@ -625,10 +623,8 @@ int PowerManager::power_down(bool fault) {
     } else {
         LOG_INF("Power off");
     }
-    LOG_PANIC();
-
     (void)bt_mgmt_stop_watchdog();
-    //ERR_CHK(ret);
+    LOG_PANIC();
 
     dac.end();
 

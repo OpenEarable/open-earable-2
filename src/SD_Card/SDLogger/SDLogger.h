@@ -17,6 +17,8 @@ constexpr size_t BUFFER_SIZE = SD_BLOCK_SIZE * BUFFER_BLOCK_COUNT;
 // without requiring padding. The SensorLogger implementation assumes this relationship
 // and will not work correctly otherwise.
 static_assert(BUFFER_SIZE % SD_BLOCK_SIZE == 0, "BUFFER_SIZE must be a multiple of SD_BLOCK_SIZE");
+static_assert(BUFFER_SIZE <= RING_BUFFER_MAX_SIZE,
+              "SD logger requires CONFIG_RING_BUFFER_LARGE for its 32 KiB ring");
 
 // Forward declare the work handler
 //static void sd_work_handler(struct k_work* work);
