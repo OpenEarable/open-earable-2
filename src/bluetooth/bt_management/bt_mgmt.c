@@ -20,6 +20,7 @@
 #include "bt_mgmt_adv_internal.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_conn_interval.h"
+#include "bt_mgmt_bond_storage.h"
 #include "BootState.h"
 #include "uicr.h"
 
@@ -495,6 +496,14 @@ int bt_mgmt_init(void)
 		if (IS_ENABLED(CONFIG_TESTING_BLE_ADDRESS_RANDOM)) {
 			ret = bt_mgmt_bonding_clear();
 			if (ret) {
+				return ret;
+			}
+		}
+
+		if (IS_ENABLED(CONFIG_BT_SETTINGS)) {
+			ret = bt_mgmt_bond_storage_compat();
+			if (ret) {
+				LOG_ERR("Failed to preserve downgrade-compatible bonds: %d", ret);
 				return ret;
 			}
 		}

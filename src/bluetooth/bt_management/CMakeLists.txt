@@ -20,6 +20,11 @@ target_sources(app PRIVATE
 		   ${CMAKE_CURRENT_SOURCE_DIR}/conn_interval/conn_intvl_linear.cpp
 )
 
+if (CONFIG_BT_SETTINGS)
+	target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/bt_mgmt_bond_storage.c)
+	zephyr_ld_options(-Wl,--wrap=bt_settings_store_keys)
+endif()
+
 if (CONFIG_BT_CENTRAL)
 	target_sources(app PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/scanning/bt_mgmt_scan_for_conn.c)
