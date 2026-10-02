@@ -54,6 +54,16 @@ static struct k_poll_event logger_evt =
 
 namespace {
 
+// Keep a ring claim, its file write and its finish in one consumer transaction.
+// Producers use ring_mutex only, so card latency does not block acquisition.
+class FileLock {
+public:
+    FileLock() { k_mutex_lock(&file_mutex, K_FOREVER); }
+    ~FileLock() { k_mutex_unlock(&file_mutex); }
+    FileLock(const FileLock &) = delete;
+    FileLock &operator=(const FileLock &) = delete;
+};
+
 constexpr uint8_t OE_HEADER_SIDE_LEFT = 0x00;
 constexpr uint8_t OE_HEADER_SIDE_RIGHT = 0x01;
 constexpr uint8_t OE_HEADER_SIDE_UNKNOWN = 0xFF;
@@ -141,8 +151,8 @@ void SDLogger::sensor_sd_task() {
             continue;
         }
 
-        // If a close/flush is in progress, do not write concurrently.
-        if (atomic_get(&g_stop_writing)) {
+        FileLock lock;
+        if (atomic_get(&g_stop_writing) || !sdlogger.is_open) {
             reset_logger_signal();
             continue;
         }
@@ -190,20 +200,27 @@ void SDLogger::sensor_sd_task() {
             written = sdlogger.sd_card->write((char*)data, &write_size, false);
             k_mutex_unlock(&file_mutex);
 
-            if (written < 0) {
+            if (written <= 0) {
                 state_indicator.set_sd_state(SD_FAULT);
                 LOG_ERR("SD write failed: %d", written);
 
-                // Do not advance the ring buffer on error.
-                // Wakeups will continue; user can call end().
+                // Release the claim without consuming bytes, allowing a retry.
+                k_mutex_lock(&ring_mutex, K_FOREVER);
+                ring_buf_get_finish(&ring_buffer, 0);
+                k_mutex_unlock(&ring_mutex);
                 reset_logger_signal();
                 continue;
             }
 
             // Advance ring buffer by the number of bytes actually written.
             k_mutex_lock(&ring_mutex, K_FOREVER);
-            ring_buf_get_finish(&ring_buffer, (uint32_t)written);
+            ret = ring_buf_get_finish(&ring_buffer, (uint32_t)written);
             k_mutex_unlock(&ring_mutex);
+            if (ret < 0) {
+                atomic_set(&g_stop_writing, 1);
+                state_indicator.set_sd_state(SD_FAULT);
+                LOG_ERR("Failed to finish SD buffer read: %d", ret);
+            }
         } else {
             k_yield();
         }
@@ -263,6 +280,7 @@ int SDLogger::init() {
  * Returns -EBUSY if logger is already open or -ENODEV if SD card not initialized.
  */
 int SDLogger::begin(const std::string& filename) {
+    FileLock lock;
     int ret;
 
     if (is_open) {
@@ -403,6 +421,11 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
     if (k_mutex_lock(&ring_mutex, K_NO_WAIT) != 0) {
         return -EAGAIN;
     }
+    // Stop may have begun after the check above but before taking ring_mutex.
+    if (atomic_get(&g_stop_writing) || atomic_get(&g_sd_removed)) {
+        k_mutex_unlock(&ring_mutex);
+        return -ENODEV;
+    }
 
     // Ensure there is enough space; if not, free up room by discarding oldest bytes
     // in SD_BLOCK_SIZE chunks to keep SD writer alignment and minimize partial writes.
@@ -449,6 +472,7 @@ int SDLogger::flush() {
     // Prevent SD thread from writing concurrently
     atomic_set(&g_stop_writing, 1);
     k_poll_signal_raise(&logger_sig, 0);
+    FileLock lock;
 
     uint32_t total_written = 0;
     for (;;) {
@@ -475,15 +499,23 @@ int SDLogger::flush() {
         written = sd_card->write((char*)data, &req, false);
         k_mutex_unlock(&file_mutex);
 
-        if (written < 0) {
+        if (written <= 0) {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to flush SD buffer: %d", written);
-            break;
+            k_mutex_lock(&ring_mutex, K_FOREVER);
+            ring_buf_get_finish(&ring_buffer, 0);
+            k_mutex_unlock(&ring_mutex);
+            return written < 0 ? written : -EIO;
         }
 
         k_mutex_lock(&ring_mutex, K_FOREVER);
-        ring_buf_get_finish(&ring_buffer, (uint32_t)written);
+        int ret = ring_buf_get_finish(&ring_buffer, (uint32_t)written);
         k_mutex_unlock(&ring_mutex);
+        if (ret < 0) {
+            state_indicator.set_sd_state(SD_FAULT);
+            LOG_ERR("Failed to finish SD buffer flush: %d", ret);
+            return ret;
+        }
 
         total_written += (uint32_t)written;
 
@@ -496,6 +528,7 @@ int SDLogger::flush() {
 }
 
 int SDLogger::end() {
+    FileLock lock;
     int ret;
     
     if (!is_open) {
