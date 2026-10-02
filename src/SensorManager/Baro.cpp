@@ -16,16 +16,10 @@ Adafruit_BMP3XX Baro::bmp;
 Baro Baro::sensor;
 
 // Initialisierung der SampleRateSettings für Baro (BMP3)
-const SampleRateSetting<8> Baro::sample_rates = {
-    { BMP3_ODR_1_5_HZ, BMP3_ODR_3_1_HZ,
-      BMP3_ODR_6_25_HZ, BMP3_ODR_12_5_HZ, BMP3_ODR_25_HZ, BMP3_ODR_50_HZ, 
-      BMP3_ODR_100_HZ, BMP3_ODR_200_HZ },   // reg_vals
-
-    { 1.5, 3.1, 6.25, 12.5, 25.0, 50.0,
-      100.0, 200.0 },  // sample_rates
-
-    { 1.5, 3.1, 6.25, 12.5, 25.0, 50.0,
-      100.0, 200.0 }   // true_sample_rates
+const SampleRateSetting<4> Baro::sample_rates = {
+    { BMP3_ODR_25_HZ, BMP3_ODR_50_HZ, BMP3_ODR_100_HZ, BMP3_ODR_200_HZ }, // reg_vals
+    { 25.0, 50.0, 100.0, 200.0 }, // sample_rates
+    { 25.0, 50.0, 100.0, 200.0 }  // true_sample_rates
 };
 
 void Baro::update_sensor(struct k_work *work) {

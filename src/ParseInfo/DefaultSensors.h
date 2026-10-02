@@ -190,8 +190,8 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
                 .frequencyCount = sizeof(Baro::sample_rates.reg_vals),
-                .defaultFrequencyIndex = 2,
-                .maxBleFrequencyIndex = 7,
+                .defaultFrequencyIndex = 0,
+                .maxBleFrequencyIndex = 3,
                 .frequencies = Baro::sample_rates.sample_rates,
             },
         },
