@@ -5,6 +5,7 @@
 
 #include "openearable_common.h"
 #include "BMX160/BMX160.h"
+#include "FifoSampleClock.h"
 
 class IMU : public EdgeMlSensor {
 public:
@@ -21,6 +22,7 @@ private:
     static constexpr uint8_t MAX_BUFFERED_SAMPLES = BMX160::MAX_FIFO_SAMPLES;
     BMX160Sample sample_buffer[MAX_BUFFERED_SAMPLES] = {};
     float t_sample_us = 10000.0f;
+    FifoSampleClock sample_clock;
 
     static void sensor_timer_handler(struct k_timer *dummy);
 
