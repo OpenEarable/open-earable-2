@@ -73,8 +73,13 @@ jobs:
             fi
             out="collected/pr-$num"
             rm -rf "$out" && mkdir -p "$out"
-            if ! gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_firmware.elf" -D "$out/elf" 2>&1; then
-              echo "PR #$num: failed to download firmware.elf artifact (may be expired)"
+            if gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_firmware.zip" -D "$out/firmware" 2>&1; then
+              (cd "$out/firmware" && zip -r "../openearable_v2_firmware.zip" .)
+            elif gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_firmware.elf" -D "$out/elf" 2>&1; then
+              # Keep collecting older PR builds until they use the complete package.
+              mv "$out/elf/openearable_v2_firmware.elf" "$out/openearable_v2_firmware.elf"
+            else
+              echo "PR #$num: failed to download firmware artifact (may be expired)"
               rm -rf "$out"
               continue
             fi
@@ -84,8 +89,7 @@ jobs:
               continue
             fi
             (cd "$out/fota" && zip -r "../openearable_v2_fota.zip" .)
-            mv "$out/elf/openearable_v2_firmware.elf" "$out/openearable_v2_firmware.elf"
-            rm -rf "$out/elf" "$out/fota"
+            rm -rf "$out/elf" "$out/firmware" "$out/fota"
             
             echo "$safe_title" > "$out/title.txt"
             
