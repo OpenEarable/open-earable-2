@@ -62,6 +62,7 @@ K_THREAD_STACK_DEFINE(button_msg_sub_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_S
 K_THREAD_STACK_DEFINE(le_audio_msg_sub_thread_stack, CONFIG_LE_AUDIO_MSG_SUB_STACK_SIZE);
 
 static enum stream_state strm_state = STATE_PAUSED;
+static const char le_audio_auto_off_token[] = "LEAudio";
 
 #define MEDIA_DOUBLE_CLICK_MS 400
 
@@ -199,6 +200,7 @@ static void button_msg_sub_thread(void)
 static void le_audio_msg_sub_thread(void)
 {
 	int ret;
+	uint8_t active_audio_dirs = 0;
 	uint32_t pres_delay_us;
 	uint32_t bitrate_bps;
 	uint32_t sampling_rate_hz;
@@ -214,6 +216,8 @@ static void le_audio_msg_sub_thread(void)
 
 		switch (msg.event) {
 		case LE_AUDIO_EVT_STREAMING:
+			active_audio_dirs |= msg.dir;
+			auto_off_prohibit(le_audio_auto_off_token);
 			LOG_DBG("LE audio evt streaming");
 
 			if (strm_state == STATE_STREAMING) {
@@ -241,6 +245,11 @@ static void le_audio_msg_sub_thread(void)
 			break;
 
 		case LE_AUDIO_EVT_NOT_STREAMING:
+			/* A stopped microphone must not release the playback veto. */
+			active_audio_dirs &= ~msg.dir;
+			if (active_audio_dirs == 0) {
+				auto_off_allow(le_audio_auto_off_token);
+			}
 			LOG_DBG("LE audio evt not streaming");
 
 			if (strm_state == STATE_PAUSED) {
@@ -739,6 +748,11 @@ int streamctrl_start() //streamctrl_start
 
 	ret = auto_off_init();
 	ERR_CHK(ret);
+
+	ret = auto_off_register_participant(le_audio_auto_off_token,
+			(power_saving_level_t)CONFIG_POWER_SAVING_LEVEL_LEAUDIO);
+	ERR_CHK(ret);
+	auto_off_allow(le_audio_auto_off_token);
 
 	ret = audio_system_init();
 	ERR_CHK(ret);
