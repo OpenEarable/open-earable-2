@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Never erase or continue programming after a failed backup or flash step.
+set -e
+
 # Default parameters
 CLOCKSPEED=8000
 CHIP=NRF53
