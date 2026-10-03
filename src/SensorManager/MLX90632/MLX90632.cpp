@@ -586,7 +586,7 @@ void MLX90632::reset() {
 
 void MLX90632::setSampleRateRegVal(uint8_t val) {
   uint8_t originalMode = getMode();
-  setMode(MODE_SLEEP);
+  setMode(MODE_HALT); // Keep the device awake while changing EEPROM.
 
   writeEEPROM(EE_MEAS_1, 0x800D | (val << 8));
   writeEEPROM(EE_MEAS_2, 0x801D | (val << 8));
@@ -600,7 +600,7 @@ void MLX90632::setSampleRate(float sample_rate) {
   val = round(log2f(CLAMP(2 * sample_rate,1,128)));
 
   uint8_t originalMode = getMode();
-  setMode(MODE_SLEEP);
+  setMode(MODE_HALT); // Keep the device awake while changing EEPROM.
 
   writeEEPROM(EE_MEAS_1, 0x800D | (val << 8));
   writeEEPROM(EE_MEAS_2, 0x801D | (val << 8));
