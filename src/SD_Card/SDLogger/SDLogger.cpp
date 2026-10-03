@@ -46,6 +46,9 @@ uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
 static atomic_t g_stop_writing;   // 1 while end()/flush/close is in progress
 static atomic_t g_sd_removed;     // 1 if SD was removed while recording
 
+static constexpr int64_t LOG_SYNC_INTERVAL_MS = 5 * 1000;
+static int64_t last_sync_uptime_ms;
+
 uint32_t count_max_buffer_fill = 0;
 
 struct k_poll_signal logger_sig;
@@ -135,9 +138,16 @@ void SDLogger::sensor_sd_task() {
     int ret;
 
     while (1) {
-        ret = k_poll(&logger_evt, 1, K_FOREVER);
+        k_timeout_t timeout;
+        {
+            FileLock lock;
+            const int64_t remaining = LOG_SYNC_INTERVAL_MS -
+                (k_uptime_get() - last_sync_uptime_ms);
+            timeout = sdlogger.is_open ? K_MSEC(MAX(remaining, 1)) : K_FOREVER;
+        }
+        ret = k_poll(&logger_evt, 1, timeout);
 
-        if (ret < 0) {
+        if (ret < 0 && ret != -EAGAIN) {
             LOG_ERR("k_poll failed: %d", ret);
             continue;
         }
@@ -146,7 +156,7 @@ void SDLogger::sensor_sd_task() {
         int result;
         k_poll_signal_check(&logger_sig, &signaled, &result);
 
-        if (signaled == 0) {
+        if (signaled == 0 && ret != -EAGAIN) {
             LOG_DBG("Poll woke up without signal");
             continue;
         }
@@ -171,6 +181,22 @@ void SDLogger::sensor_sd_task() {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("SD Card not mounted!");
             return;
+        }
+
+        if (k_uptime_get() - last_sync_uptime_ms >= LOG_SYNC_INTERVAL_MS) {
+            // Drain a bounded snapshot ending at a complete record. Producers
+            // can keep filling the ring while this thread writes and syncs.
+            ret = sdlogger.drain_buffer();
+            if (ret >= 0) {
+                ret = sdlogger.sd_card->sync();
+            }
+            last_sync_uptime_ms = k_uptime_get();
+            if (ret < 0) {
+                state_indicator.set_sd_state(SD_FAULT);
+                LOG_ERR("Failed to checkpoint SD recording: %d", ret);
+            }
+            reset_logger_signal();
+            continue;
         }
 
         uint32_t fill = ring_buf_size_get(&ring_buffer);
@@ -321,9 +347,12 @@ int SDLogger::begin(const std::string& filename) {
     k_mutex_unlock(&ring_mutex);
 
     ret = write_header();
+    if (ret >= 0) {
+        ret = sd_card->sync();
+    }
     if (ret < 0) {
         state_indicator.set_sd_state(SD_FAULT);
-        LOG_ERR("Failed to write header: %d", ret);
+        LOG_ERR("Failed to persist header: %d", ret);
         k_mutex_lock(&file_mutex, K_FOREVER);
         sd_card->close_file();
         k_mutex_unlock(&file_mutex);
@@ -332,6 +361,7 @@ int SDLogger::begin(const std::string& filename) {
         return ret;
     }
 
+    last_sync_uptime_ms = k_uptime_get();
     k_poll_signal_raise(&logger_sig, 0);
 
     return 0;
@@ -474,23 +504,24 @@ int SDLogger::flush() {
     k_poll_signal_raise(&logger_sig, 0);
     FileLock lock;
 
+    return drain_buffer();
+}
+
+int SDLogger::drain_buffer() {
+    FileLock lock;
+    k_mutex_lock(&ring_mutex, K_FOREVER);
+    uint32_t remaining = ring_buf_size_get(&ring_buffer);
+    k_mutex_unlock(&ring_mutex);
+
     uint32_t total_written = 0;
-    for (;;) {
+    while (remaining > 0) {
         uint8_t *data = nullptr;
-        uint32_t fill;
-
         k_mutex_lock(&ring_mutex, K_FOREVER);
-        fill = ring_buf_size_get(&ring_buffer);
-        if (fill == 0) {
-            k_mutex_unlock(&ring_mutex);
-            break;
-        }
-
-        uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill);
+        uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, remaining);
         k_mutex_unlock(&ring_mutex);
 
         if (claimed == 0 || data == nullptr) {
-            break;
+            return -EIO;
         }
 
         size_t req = claimed;
@@ -518,6 +549,7 @@ int SDLogger::flush() {
         }
 
         total_written += (uint32_t)written;
+        remaining -= (uint32_t)written;
 
         if ((uint32_t)written < claimed) {
             k_yield();

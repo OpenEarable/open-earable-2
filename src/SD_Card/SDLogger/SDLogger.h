@@ -36,6 +36,7 @@ private:
 
         int write_header(); // Write the file header, device metadata, and embedded parse metadata.
         int flush(); // Flush any buffered data to the SD card
+        int drain_buffer(); // Drain a complete-record snapshot without stopping producers
         
         static constexpr uint16_t SENSOR_LOG_VERSION = 0x0003;
 
