@@ -1,6 +1,8 @@
 #include "sensor_transport.h"
 #include <string.h>
 
+#define MAX_BATCH_TIME_ERROR_US 32
+
 unsigned oe_sensor_sample_size(uint8_t id)
 {
     switch (id) {
@@ -31,8 +33,21 @@ bool oe_sensor_batch_append(struct oe_sensor_batch *b, uint8_t id,
     if (b->count) {
         if (b->data[0] != id || time <= b->last_time) return false;
         uint64_t delta = time - b->last_time;
-        if (delta > UINT16_MAX || (b->count > 1 && delta != b->period)) return false;
-        b->period = (uint16_t)delta;
+        if (delta > UINT16_MAX) return false;
+        if (b->count == 1) {
+            b->period = (uint16_t)delta;
+        } else {
+            /* Keep the period fixed and bound each reconstructed timestamp's
+             * error against the packet anchor, so errors cannot accumulate. */
+            uint64_t first = 0;
+            for (unsigned i = 0; i < 8; ++i)
+                first |= (uint64_t)b->data[2 + i] << (8 * i);
+            uint64_t span = (uint64_t)b->count * b->period;
+            if (first > UINT64_MAX - span) return false;
+            uint64_t expected = first + span;
+            uint64_t error = time > expected ? time - expected : expected - time;
+            if (error > MAX_BATCH_TIME_ERROR_US) return false;
+        }
     } else {
         b->data[0] = id;
         for (unsigned i = 0; i < 8; ++i) b->data[2 + i] = time >> (8 * i);
