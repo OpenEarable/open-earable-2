@@ -69,7 +69,7 @@ BMA5_INTF_RET_TYPE bma5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t l
     if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
     device_info->i2c_dev->release();
-    return 0;
+    return ret == 0 ? BMA5_INTF_RET_SUCCESS : -1;
 }
 
 /*!
@@ -86,7 +86,7 @@ BMA5_INTF_RET_TYPE bma5_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uin
 
     device_info->i2c_dev->release();
 
-    return 0;
+    return ret == 0 ? BMA5_INTF_RET_SUCCESS : -1;
 }
 
 /*!
@@ -337,10 +337,22 @@ int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
 
     fifoframe.fifo_avail_frames = 0;
 
-    /* Read all available data without relying on watermark timing. The sensor
-     * and MCU clocks can drift enough for a timer poll to precede the event. */
-    rslt = bma5_read_fifo_data(&fifoframe, &fifo_conf, &dev);
-    bma5_check_rslt("bma5_read_fifo_data", rslt);
+    // The FIFO fill level counts six-byte XYZ payloads, excluding the header
+    // generated for each frame on the bus. Read complete seven-byte frames.
+    uint8_t level[2] = {};
+    rslt = bma5_get_regs(BMA5_REG_FIFO_LEVEL_0, level, sizeof(level), &dev);
+    if (rslt != BMA5_OK) return rslt;
+    const unsigned frames = MIN(((level[0] | ((level[1] & 7) << 8)) / 6),
+                                sizeof(fifo_data) / 7);
+    if (frames == 0) return 0;
+    fifoframe.acc_byte_start_idx = 0;
+    fifoframe.fifo_avail_len = frames * 7;
+    // The generic register helper has a 128-byte temporary buffer. FIFO reads
+    // must go directly into our full-size member buffer, as in the Bosch FIFO API.
+    dev.intf_rslt = dev.bus_read(BMA5_REG_FIFO_DATA_OUT, fifo_data,
+                                 fifoframe.fifo_avail_len, dev.intf_ptr);
+    rslt = dev.intf_rslt == BMA5_INTF_RET_SUCCESS ? BMA5_OK : BMA5_E_COM_FAIL;
+    bma5_check_rslt("FIFO read", rslt);
 
     if (rslt == BMA5_OK && fifoframe.fifo_avail_len > 0)
     {

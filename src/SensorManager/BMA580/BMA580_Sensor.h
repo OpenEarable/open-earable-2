@@ -43,8 +43,8 @@
 /******************************************************************************/
 /*!                Macro definition                                           */
 
-/*! FIFO raw data buffer size */
-#define BMA580_FIFO_RAW_DATA_BUFFER_SIZE  UINT16_C(1032)
+/*! 1024 stored payload bytes hold 170 XYZ frames, each with a wire header. */
+#define BMA580_FIFO_RAW_DATA_BUFFER_SIZE  UINT16_C(1190)
 
 /*! Number of accel frames to be extracted from FIFO
  * Calculation:
