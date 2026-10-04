@@ -10,7 +10,7 @@
 
 
 constexpr size_t SD_BLOCK_SIZE = 4096;
-constexpr size_t BUFFER_BLOCK_COUNT = 8; // Number of blocks in the buffer
+constexpr size_t BUFFER_BLOCK_COUNT = 9; // Absorb brief card stalls at full sensor rates.
 constexpr size_t BUFFER_SIZE = SD_BLOCK_SIZE * BUFFER_BLOCK_COUNT;
 
 // BUFFER_SIZE must always be a multiple of SD_BLOCK_SIZE to ensure proper block alignment
@@ -18,7 +18,7 @@ constexpr size_t BUFFER_SIZE = SD_BLOCK_SIZE * BUFFER_BLOCK_COUNT;
 // and will not work correctly otherwise.
 static_assert(BUFFER_SIZE % SD_BLOCK_SIZE == 0, "BUFFER_SIZE must be a multiple of SD_BLOCK_SIZE");
 static_assert(BUFFER_SIZE <= RING_BUFFER_MAX_SIZE,
-              "SD logger requires CONFIG_RING_BUFFER_LARGE for its 32 KiB ring");
+              "SD logger requires CONFIG_RING_BUFFER_LARGE");
 
 // Forward declare the work handler
 //static void sd_work_handler(struct k_work* work);
