@@ -46,8 +46,6 @@ private:
     FifoSampleClock sample_clock;
 
     int _num_samples_buffered;
-    float _sample_count = 0;
-    uint64_t _last_time_stamp = 0;
 };
 
 #endif

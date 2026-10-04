@@ -53,21 +53,11 @@ void BoneConduction::reset() {
 void BoneConduction::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
     if (!sensor._running) return;
-    uint64_t _time_stamp = micros();
-
-    BoneConduction::sensor._sample_count += (_time_stamp - BoneConduction::sensor._last_time_stamp) / BoneConduction::sensor.t_sample_us;
-    BoneConduction::sensor._last_time_stamp = _time_stamp;
-    
-    if (BoneConduction::sensor._sample_count < BoneConduction::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
-        return;
-    }
-
     int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
 
     if (num_samples > 0) {
-        BoneConduction::sensor._sample_count = MAX(0, BoneConduction::sensor._num_samples_buffered - num_samples);
         sensor.sample_clock.begin(micros(), num_samples, sensor.t_sample_us,
-                                  1024 / 7, CONFIG_SENSOR_CLOCK_ACCURACY);
+                                  1024 / (3 * sizeof(int16_t)), CONFIG_SENSOR_CLOCK_ACCURACY);
     }
 
     int written = 0;
@@ -119,18 +109,15 @@ void BoneConduction::start(int sample_rate_idx) {
 
     t_sample_us = 1000000.0f / sample_rates.true_sample_rates[sample_rate_idx];
 
-    int word_size = 3 * sizeof(int16_t) + 1;
-    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)), 1024 / word_size - 8); // Buffer size is 1024 bytes
+    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)), 1024 / (3 * sizeof(int16_t)) / 2); // Leave half the FIFO for scheduling latency
     
-    bma580.init(sample_rates.reg_vals[sample_rate_idx], _num_samples_buffered * word_size);
+    bma580.init(sample_rates.reg_vals[sample_rate_idx], _num_samples_buffered * 3 * sizeof(int16_t));
     bma580.start();
 
 	/* Drain the FIFO once per buffered block instead of once per sample. */
     k_timeout_t t = K_USEC(t_sample_us * _num_samples_buffered);
     _running = true;
     sample_clock.reset();
-    _sample_count = 0;
-    _last_time_stamp = micros();
     k_timer_start(&sensor.sensor_timer, t, t);
 }
 
