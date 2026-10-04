@@ -72,6 +72,14 @@ void StateIndicator::set_custom_color(const RGBColor &custom_color) {
     if (_state.led_mode == CUSTOM) led_controller.setColor(custom_color);
 }
 
+void StateIndicator::get_custom_color(RGBColor &value) const {
+    memcpy(value, color, sizeof(RGBColor));
+}
+
+enum led_mode StateIndicator::get_indication_mode() const {
+    return _state.led_mode;
+}
+
 void StateIndicator::set_dfu_active(bool active) {
     if (_dfu_active == active) {
         return;
