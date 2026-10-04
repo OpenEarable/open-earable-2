@@ -41,7 +41,9 @@ EdgeMlSensor * get_sensor(enum sensor_id id);
 
 static sensor_manager_state _state;
 
-K_MSGQ_DEFINE(sensor_queue, sizeof(struct sensor_msg), 256, 4);
+// Larger records batch more FIFO samples. Keep the queue's RAM budget bounded
+// so the audio runtime heap retains its required headroom.
+K_MSGQ_DEFINE(sensor_queue, sizeof(struct sensor_msg), 128, 4);
 K_MSGQ_DEFINE(config_queue, sizeof(struct sensor_config), 16, 4);
 
 K_THREAD_STACK_DEFINE(sensor_work_q_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
