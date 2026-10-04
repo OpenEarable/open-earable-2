@@ -356,6 +356,14 @@ int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
 
     if (rslt == BMA5_OK && fifoframe.fifo_avail_len > 0)
     {
+        // The configured format is XYZ without sensor-time bytes. Reject a
+        // different frame layout before the vendor parser can overrun output.
+        for (unsigned i = 0; i < fifoframe.fifo_avail_len; i += 7) {
+            if ((fifo_data[i] & 0x0F) !=
+                (BMA5_FIFO_ACC_X_MSK | BMA5_FIFO_ACC_Y_MSK | BMA5_FIFO_ACC_Z_MSK)) {
+                return BMA5_E_COM_FAIL;
+            }
+        }
         /* Parse accelerometer data from the FIFO buffer. */
         (void)bma5_extract_acc_sens_time_16_bit(fifo_accel_data, &fifoframe, &fifo_conf, &dev);
     }
