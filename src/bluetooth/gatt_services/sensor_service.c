@@ -549,6 +549,10 @@ int set_sensor_config_status(struct sensor_config sensor_configuration) {
 		active_sensor_configs[active_sensor_configs_size - 1] = sensor_configuration;
 	}
 
+	return notify_sensor_config_status();
+}
+
+int notify_sensor_config_status(void) {
 	if (sensor_config_status_ntfy_enabled) {
 		LOG_DBG("Sensor config status notification, notifying %zu active sensor configs", active_sensor_configs_size);
 		struct bt_gatt_notify_params params = {
