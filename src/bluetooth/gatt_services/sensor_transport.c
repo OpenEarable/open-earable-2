@@ -1,8 +1,32 @@
 #include "sensor_transport.h"
 #include "ppg_protocol.h"
+#include "imu_protocol.h"
+#include <math.h>
 #include <string.h>
 
 #define MAX_BATCH_TIME_ERROR_US 32
+
+/* BLE-only: invert the BMX160's fixed scales without changing SD samples. */
+static bool compact_imu(const uint8_t *sample, uint8_t packed[24])
+{
+    const float scales[2] = {(2.0f * 9.80665f) / 32768.0f, 2000.0f / 32768.0f};
+    float values[9];
+    int16_t raw[6];
+    memcpy(values, sample, sizeof(values));
+    for (unsigned i = 0; i < 6; ++i) {
+        const float count = roundf(values[i] / scales[i / 3]);
+        if (!(count >= INT16_MIN && count <= INT16_MAX)) return false;
+        raw[i] = (int16_t)count;
+        const float restored = raw[i] * scales[i / 3];
+        if (memcmp(&restored, &values[i], sizeof(restored)) != 0) return false;
+    }
+    const imu_compact_sample_t encoded = {
+        raw[0], raw[1], raw[2], raw[3], raw[4], raw[5],
+        values[6], values[7], values[8],
+    };
+    size_t written;
+    return imu_compact_sample_encode(&encoded, packed, 24, &written) == PROTOCOL_OK;
+}
 
 /* BLE-only encoding. Acquisition records and SD/.oe samples remain 16 bytes. */
 static bool compact_ppg(const uint8_t *sample, uint8_t packed[10])
@@ -48,11 +72,15 @@ bool oe_sensor_batch_append(struct oe_sensor_batch *b, uint8_t id,
 {
     unsigned width = oe_sensor_sample_size(id);
     if (!width || !sample || limit > OE_SENSOR_PACKET_MAX) return false;
-    uint8_t packed[10];
-    if (id == 4) {
+    uint8_t packed[24];
+    if (id == 0) {
+        if (!compact_imu(sample, packed)) return false;
+        sample = packed;
+        width = 24;
+    } else if (id == 4) {
         if (!compact_ppg(sample, packed)) return false;
         sample = packed;
-        width = sizeof(packed);
+        width = 10;
     }
     unsigned len = 10 + (b->count + 1) * width + (b->count ? 2 : 0);
     if (len > limit) return false;

@@ -1,5 +1,6 @@
 #include <unity.h>
 #include <string.h>
+#include <math.h>
 #include "sensor_transport.h"
 
 void setUp(void) {}
@@ -49,7 +50,7 @@ void test_invalid_ppg_is_rejected_instead_of_losing_high_bits(void)
 
 void test_other_sensor_samples_keep_the_existing_wire_bytes(void)
 {
-    const uint8_t ids[] = {0, 1, 6, 7};
+    const uint8_t ids[] = {1, 6, 7};
     uint8_t sample[36];
     for (unsigned i = 0; i < sizeof(sample); ++i) sample[i] = i;
     for (unsigned n = 0; n < sizeof(ids); ++n) {
@@ -58,6 +59,59 @@ void test_other_sensor_samples_keep_the_existing_wire_bytes(void)
         TEST_ASSERT_TRUE(oe_sensor_batch_append(&batch, ids[n], sample, 123456, 244));
         TEST_ASSERT_EQUAL_UINT(width + 10, batch.len);
         TEST_ASSERT_EQUAL_MEMORY(sample, batch.data + 10, width);
+    }
+}
+
+void test_compact_imu_preserves_every_raw_value_and_sd_sample(void)
+{
+    for (int raw = INT16_MIN; raw <= INT16_MAX; ++raw) {
+        const float a = raw * ((2.0f * 9.80665f) / 32768.0f);
+        const float g = raw * (2000.0f / 32768.0f);
+        const float values[9] = {a,a,a,g,g,g,12.345f,-67.89f,-0.0f};
+        uint8_t sample[36];
+        memcpy(sample, values, sizeof(sample));
+        struct oe_sensor_batch batch = {0};
+        TEST_ASSERT_TRUE(oe_sensor_batch_append(&batch, 0, sample, 123, 244));
+        TEST_ASSERT_EQUAL_UINT(34, batch.len);
+        for (unsigned axis = 0; axis < 6; ++axis) {
+            const uint8_t *v = batch.data + 10 + axis * 2;
+            TEST_ASSERT_EQUAL_UINT16((uint16_t)raw, (uint16_t)(v[0] | v[1] << 8));
+        }
+        TEST_ASSERT_EQUAL_MEMORY(sample + 24, batch.data + 22, 12);
+        TEST_ASSERT_EQUAL_MEMORY(values, sample, sizeof(sample));
+    }
+    TEST_ASSERT_EQUAL_UINT(36, oe_sensor_sample_size(0));
+    TEST_ASSERT_EQUAL_UINT(1, oe_sensor_sample_count(0, 36));
+    TEST_ASSERT_EQUAL_UINT(3, oe_sensor_sample_count(0, 110));
+    TEST_ASSERT_EQUAL_UINT(0, oe_sensor_sample_count(0, 24));
+}
+
+void test_compact_imu_fits_nine_samples_and_preserves_timestamps(void)
+{
+    const float sample[9] = {0};
+    struct oe_sensor_batch batch = {0};
+    for (unsigned i = 0; i < 9; ++i)
+        TEST_ASSERT_TRUE(oe_sensor_batch_append(&batch, 0, (const uint8_t *)sample,
+                                               123456 + 10000 * i, 244));
+    TEST_ASSERT_EQUAL_UINT(9, batch.count);
+    TEST_ASSERT_EQUAL_UINT(228, batch.len);
+    TEST_ASSERT_EQUAL_UINT(218, batch.data[1]);
+    TEST_ASSERT_EQUAL_UINT(10000 & 255, batch.data[226]);
+    TEST_ASSERT_EQUAL_UINT(10000 >> 8, batch.data[227]);
+    struct oe_sensor_batch before = batch;
+    TEST_ASSERT_FALSE(oe_sensor_batch_append(&batch, 0, (const uint8_t *)sample, 213456, 244));
+    TEST_ASSERT_EQUAL_MEMORY(&before, &batch, sizeof(batch));
+}
+
+void test_compact_imu_rejects_values_that_cannot_be_encoded_losslessly(void)
+{
+    const float invalid[] = {NAN, INFINITY, -INFINITY, 100000.0f, 0.001f, -0.0f};
+    for (unsigned i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+        struct oe_sensor_batch batch = {0};
+        float sample[9] = {0};
+        sample[i % 6] = invalid[i];
+        TEST_ASSERT_FALSE(oe_sensor_batch_append(&batch, 0, (const uint8_t *)sample, 123, 244));
+        TEST_ASSERT_EQUAL_UINT(0, batch.count);
     }
 }
 
