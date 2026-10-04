@@ -12,7 +12,8 @@
 #include "openearable_common.h"
 #include "zbus_common.h"
 
-#define ACCEL_FRAME_LEN                   UINT8_C(255)
+// The 1024-byte FIFO can retain at most 170 six-byte XYZ payloads.
+#define ACCEL_FRAME_LEN                   UINT8_C(170)
 
 class BoneConduction : public EdgeMlSensor {
 public:
