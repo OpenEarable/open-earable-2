@@ -225,6 +225,20 @@ static void apply_sensor_config(const struct sensor_config &config) {
 		return;
 	}
 
+	// Prepare storage before changing a working sensor configuration.
+	if ((config.storageOptions & DATA_STORAGE) && !sdlogger.is_active()) {
+		const char *recording_name_prefix = get_sensor_recording_name();
+		LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
+		std::string filename = recording_name_prefix + std::to_string(micros());
+		int logger_ret = sdlogger.begin(filename);
+		if (logger_ret != 0) {
+			LOG_ERR("Failed to start SDLogger, ret: %d", logger_ret);
+			notify_sensor_config_status();
+			return;
+		}
+		state_indicator.set_sd_state(SD_RECORDING);
+	}
+
 	if (sensor->is_running()) {
 		sensor->stop();
 		active_sensors--;
@@ -251,16 +265,6 @@ static void apply_sensor_config(const struct sensor_config &config) {
 
 	if (config.storageOptions & DATA_STORAGE) {
 		sd_sensors.insert(config.sensorId);
-
-		if (!sdlogger.is_active()) {
-			const char *recording_name_prefix = get_sensor_recording_name();
-			LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
-			// Start SDLogger with timestamp-based filename
-			std::string filename = recording_name_prefix + std::to_string(micros());
-			int logger_ret = sdlogger.begin(filename);
-			if (logger_ret == 0) state_indicator.set_sd_state(SD_RECORDING);
-			else LOG_ERR("Failed to start SDLogger, ret: %d", logger_ret);
-		}
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);
 
