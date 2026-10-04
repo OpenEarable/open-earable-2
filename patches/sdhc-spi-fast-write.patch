@@ -17,7 +17,43 @@
  };
  
  /* Receives a block of bytes */
-@@ -541,6 +544,64 @@
+@@ -209,19 +212,24 @@
+ {
+ 	const struct sdhc_spi_config *config = dev->config;
+ 	struct sdhc_spi_data *data = dev->data;
+-	int ret;
+-	uint8_t response;
+-
+-	while (timeout_ms > 0) {
+-		ret = sdhc_spi_rx(config->spi_dev, data->spi_cfg, &response, 1);
+-		if (ret) {
+-			return ret;
+-		}
+-		if (response == 0xFF) {
++	const int64_t deadline = k_uptime_get() + timeout_ms;
++	uint8_t response[32];
++
++	while (k_uptime_get() < deadline) {
++		/* Busy releases to all ones until the next command. Clock a small
++		 * block rather than scheduling a DMA transfer for every byte.
++		 */
++		int ret = sdhc_spi_rx(config->spi_dev, data->spi_cfg,
++				   response, sizeof(response));
++		if (ret) {
++			return ret;
++		}
++		if (response[sizeof(response) - 1] == 0xFF) {
+ 			return 0;
+ 		}
+-		k_msleep(k_ticks_to_ms_floor32(interval_ticks));
+-		timeout_ms -= k_ticks_to_ms_floor32(interval_ticks);
++		if (interval_ticks > 0) {
++			k_sleep(K_TICKS(interval_ticks));
++		}
+ 	}
+ 	return -ETIMEDOUT;
+ }
+@@ -541,6 +549,64 @@
  	return ret;
  }
  
@@ -82,7 +118,7 @@
  /* Handles writing data to SD SPI device */
  static int sdhc_spi_write_data(const struct device *dev, struct sdhc_data *data)
  {
-@@ -584,7 +645,17 @@
+@@ -584,7 +650,17 @@
  		/* Build the CRC for this data block */
  		sys_put_be16(crc16_itu_t(0, write_location, data->block_size),
  			crc);
@@ -100,7 +136,7 @@
  		if (ret) {
  			return ret;
  		}
-@@ -648,6 +719,14 @@
+@@ -648,6 +724,14 @@
  	/* Request SPI bus to be active */
  	if (pm_device_runtime_get(config->spi_dev) < 0) {
  		return -EIO;
@@ -115,7 +151,7 @@
  	}
  
  	if (data == NULL) {
-@@ -687,6 +766,7 @@
+@@ -687,6 +771,7 @@
  		} while ((ret != 0) && (retries > 0));
  	}
  
@@ -123,7 +159,7 @@
  	/* Release SPI bus */
  	ret2 = spi_release(config->spi_dev, dev_data->spi_cfg);
  
-@@ -701,6 +781,10 @@
+@@ -701,6 +786,10 @@
  	const struct sdhc_spi_config *cfg = dev->config;
  	struct sdhc_spi_data *data = dev->data;
  
@@ -134,7 +170,7 @@
  	if (ios->clock != data->spi_cfg->frequency) {
  		if (ios->clock > cfg->spi_max_freq) {
  			return -ENOTSUP;
-@@ -800,7 +884,9 @@
+@@ -800,7 +889,9 @@
  {
  	struct sdhc_spi_data *data = dev->data;
  

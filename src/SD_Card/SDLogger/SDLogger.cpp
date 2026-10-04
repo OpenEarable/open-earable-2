@@ -208,7 +208,7 @@ void SDLogger::sensor_sd_task() {
 
             uint8_t *data = nullptr;
 
-            // Claim up to one SD block from the ring buffer under lock.
+            // Claim complete SD blocks from the ring buffer under lock.
             k_mutex_lock(&ring_mutex, K_FOREVER);
             uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill - (fill % SD_BLOCK_SIZE));
             k_mutex_unlock(&ring_mutex);
@@ -221,6 +221,13 @@ void SDLogger::sensor_sd_task() {
 
             // Write the claimed bytes under file lock.
             size_t write_size = claimed;
+            const off_t position = sdlogger.sd_card->tell();
+            if (position >= 0 && write_size >= 512) {
+                // The variable-size file header and checkpoints need not end on
+                // a sector boundary. Align the end of regular writes so FatFS
+                // can use full-sector transfers on the next iteration.
+                write_size -= (position + write_size) % 512;
+            }
             int written;
             k_mutex_lock(&file_mutex, K_FOREVER);
             written = sdlogger.sd_card->write((char*)data, &write_size, false);
@@ -252,6 +259,9 @@ void SDLogger::sensor_sd_task() {
         }
 
         reset_logger_signal();
+        if (ring_buf_size_get(&ring_buffer) >= SD_BLOCK_SIZE) {
+            k_poll_signal_raise(&logger_sig, 0);
+        }
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
