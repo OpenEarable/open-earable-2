@@ -464,6 +464,17 @@ int bt_mgmt_init(void)
 		return ret;
 	}
 
+#if defined(CONFIG_BT_USER_PHY_UPDATE) && defined(CONFIG_BT_AUTO_PHY_PERIPHERAL_2M)
+	/* The host skips its automatic PHY request when a connection starts on 2M.
+	 * Set the controller preference too, so Android's LE Audio 1M uplink request
+	 * does not reduce sensor bandwidth after reconnecting.
+	 */
+	ret = bt_conn_le_set_default_phy(BT_GAP_LE_PHY_2M, BT_GAP_LE_PHY_2M);
+	if (ret) {
+		LOG_WRN("Failed to set default 2M PHY preference: %d", ret);
+	}
+#endif
+
 	/* Keep the pair-specific name used by the phone and OpenEarable app. */
 	char name[CONFIG_BT_DEVICE_NAME_MAX];
 	uint32_t sirk = uicr_sirk_get();
