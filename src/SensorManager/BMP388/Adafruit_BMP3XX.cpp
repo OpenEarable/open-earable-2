@@ -311,6 +311,19 @@ bool Adafruit_BMP3XX::startContinuous(uint8_t odr) {
   if (bmp3_set_sensor_settings(settings, &the_sensor) != BMP3_OK)
     return false;
 
+  fifo = {};
+  fifo.data.buffer = fifo_buffer;
+  fifo.settings.mode = BMP3_ENABLE;
+  fifo.settings.press_en = BMP3_ENABLE;
+  fifo.settings.temp_en = BMP3_ENABLE;
+  the_sensor.fifo = &fifo;
+  const uint16_t fifo_settings = BMP3_SEL_FIFO_MODE | BMP3_SEL_FIFO_STOP_ON_FULL_EN |
+      BMP3_SEL_FIFO_TIME_EN | BMP3_SEL_FIFO_PRESS_EN | BMP3_SEL_FIFO_TEMP_EN |
+      BMP3_SEL_FIFO_DOWN_SAMPLING | BMP3_SEL_FIFO_FILTER_EN;
+  if (bmp3_set_fifo_settings(fifo_settings, &the_sensor) != BMP3_OK ||
+      bmp3_fifo_flush(&the_sensor) != BMP3_OK)
+    return false;
+
   the_sensor.settings.op_mode = BMP3_MODE_NORMAL;
   return bmp3_set_op_mode(&the_sensor) == BMP3_OK;
 }
@@ -331,6 +344,41 @@ bool Adafruit_BMP3XX::readContinuous(void) {
   temperature = data.temperature;
   pressure = data.pressure;
   return true;
+}
+
+// Read the complete FIFO snapshot into member storage. The Bosch parser assumes
+// complete frames; validate their lengths before handing it the received bytes.
+int Adafruit_BMP3XX::readFifo(struct bmp3_data *samples, uint8_t capacity) {
+  uint16_t length = 0;
+  if (samples == nullptr || capacity == 0 ||
+      bmp3_get_fifo_length(&length, &the_sensor) != BMP3_OK)
+    return -1;
+  if (length == 0) return 0;
+  if (length > sizeof(fifo_buffer)) return -1;
+  if (the_sensor.read(BMP3_REG_FIFO_DATA, fifo_buffer, length,
+                      the_sensor.intf_ptr) != BMP3_INTF_RET_SUCCESS)
+    return -1;
+
+  unsigned frames = 0;
+  for (unsigned i = 0; i < length;) {
+    const uint8_t header = fifo_buffer[i];
+    const unsigned size = header == BMP3_FIFO_TEMP_PRESS_FRAME ? 7 :
+                          header == BMP3_FIFO_CONFIG_CHANGE ? 2 : 0;
+    if (size == 0 || size > length - i) return -1;
+    if (header == BMP3_FIFO_TEMP_PRESS_FRAME) ++frames;
+    i += size;
+  }
+  if (frames > capacity) return -1;
+  fifo.data.byte_count = length;
+  fifo.data.start_idx = 0;
+  fifo.data.parsed_frames = 0;
+  fifo.data.config_change = 0;
+  fifo.data.config_err = 0;
+  fifo.data.req_frames = capacity;
+  if (bmp3_extract_fifo_data(samples, &the_sensor) != BMP3_OK ||
+      fifo.data.config_err || fifo.data.parsed_frames != frames)
+    return -1;
+  return frames;
 }
 
 bool Adafruit_BMP3XX::stopContinuous(void) {

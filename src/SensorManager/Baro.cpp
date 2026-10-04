@@ -26,28 +26,30 @@ void Baro::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
 	int ret;
 
-	if (!sensor._running || !bmp.readContinuous()) {
-		return;
-	}
-
-	msg_baro.sd = sensor._sd_logging;
-	msg_baro.stream = sensor._ble_stream;
-
-	msg_baro.data.id = ID_TEMP_BARO;
-	msg_baro.data.size = 2 * sizeof(float);
-	msg_baro.data.time = micros();
-
-	float data[2] = {
-		static_cast<float>(bmp.temperature),
-		static_cast<float>(bmp.pressure),
-	};
-
-	memcpy(msg_baro.data.data, data, 2 * sizeof(float));
-
-	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
-	if (ret) {
-		LOG_WRN("sensor msg queue full");
-	}
+    if (!sensor._running) return;
+    const uint64_t read_start = micros();
+    const int count = bmp.readFifo(sensor.samples, ARRAY_SIZE(sensor.samples));
+    if (count < 0) {
+        LOG_WRN("Pressure FIFO read failed");
+        return;
+    }
+    if (count == 0) return;
+    sensor.sample_clock.begin(read_start, count, sensor.sample_period_us,
+                              ARRAY_SIZE(sensor.samples), CONFIG_SENSOR_CLOCK_ACCURACY);
+    for (int i = 0; i < count; ++i) {
+        msg_baro.sd = sensor._sd_logging;
+        msg_baro.stream = sensor._ble_stream;
+        msg_baro.data.id = ID_TEMP_BARO;
+        msg_baro.data.size = 2 * sizeof(float);
+        msg_baro.data.time = sensor.sample_clock.timestamp(i);
+        const float data[2] = {static_cast<float>(sensor.samples[i].temperature),
+                               static_cast<float>(sensor.samples[i].pressure)};
+        memcpy(msg_baro.data.data, data, sizeof(data));
+        ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
+        if (ret) {
+            LOG_WRN("sensor msg queue full");
+        }
+    }
 }
 
 /**
@@ -88,13 +90,12 @@ void Baro::start(int sample_rate_idx) {
 		return;
 	}
 
-	/* The BMP388 produces 200 / 2^odr samples per second. Poll twice per
-	 * conversion period to tolerate sensor/host clock phase differences;
-	 * readContinuous only publishes completed, unread measurements.
-	 */
-	k_timeout_t t = K_USEC(2500ULL << odr);
-	_running = true;
-	k_timer_start(&sensor.sensor_timer, K_MSEC(5), t);
+    sample_period_us = 1000000.0 / sample_rates.true_sample_rates[sample_rate_idx];
+    sample_clock.reset();
+    // Retain individual acquisition times while amortizing the bus reads.
+    const k_timeout_t interval = K_USEC(MAX(20000, sample_period_us));
+    _running = true;
+    k_timer_start(&sensor.sensor_timer, interval, interval);
 }
 
 void Baro::stop() {

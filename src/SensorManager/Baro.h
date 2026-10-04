@@ -2,6 +2,7 @@
 #define BARO_H
 
 #include "EdgeMLSensor.h"
+#include "FifoSampleClock.h"
 
 #include "openearable_common.h"
 #include "zbus_common.h"
@@ -21,6 +22,9 @@ private:
     static Adafruit_BMP3XX bmp;
 
     bool _active = false;
+    double sample_period_us = 0;
+    FifoSampleClock sample_clock;
+    struct bmp3_data samples[512 / 7];
 
     static void update_sensor(struct k_work *work);
 
