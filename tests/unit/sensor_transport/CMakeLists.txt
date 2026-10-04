@@ -8,4 +8,5 @@ target_include_directories(app PRIVATE
 target_sources(app PRIVATE src/main.c
     ../../../src/bluetooth/gatt_services/sensor_transport.c
     ../../../protocol/generated/c/src/ppg_protocol.c
+    ../../../protocol/generated/c/src/imu_protocol.c
     ../../../protocol/generated/c/src/protocol_runtime.c)
