@@ -490,7 +490,7 @@ void sensor_queue_listener_cb(const struct zbus_channel *chan)
         struct queued_sensor discarded;
         (void)k_msgq_get(&gatt_queue, &discarded, K_NO_WAIT);
         (void)k_msgq_put(&gatt_queue, &item, K_NO_WAIT);
-        LOG_WRN("ble sensor stream queue full");
+        LOG_WRN_RATELIMIT_RATE(1000, "ble sensor stream queue full");
     }
 }
 
