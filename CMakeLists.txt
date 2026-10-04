@@ -14,6 +14,8 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(openearable_v2)
 
+include(cmake/sd_spi_fast_write.cmake)
+
 #set(OVERLAY_CONFIG 
 #    ${CMAKE_CURRENT_SOURCE_DIR}/unicast_server/overlay-unicast_server.conf
 #)

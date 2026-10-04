@@ -6,6 +6,15 @@
 
 menu "Drivers"
 
+config OPENEARABLE_SD_SPI_FAST_WRITE
+	bool "Use 32 MHz SD writes on nRF5340"
+	depends on SOC_NRF5340_CPUAPP && SPI_SDHC
+	default y
+	help
+	  Negotiate SD high-speed mode and send write blocks at 32 MHz when
+	  supported. Commands, responses and reads stay at 16 MHz or below.
+	  Cards that do not support high-speed mode keep their original speed.
+
 menuconfig NRF_AUDIO_CS47L63_DRIVER
 	bool "CS47L63 HW codec driver"
 	select HW_CODEC_CIRRUS_LOGIC

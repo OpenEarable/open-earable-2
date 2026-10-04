@@ -232,6 +232,10 @@
 	 compatible = "nordic,nrf-spim";
 	 status = "okay";
 	 cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>,<&gpio1 1 GPIO_ACTIVE_LOW>;
+	 /* Sample on the clock edge: the inherited 31.25 ns delay can sample
+	  * the next bit of a high-speed SD card's response at 16 MHz.
+	  */
+	 rx-delay = <0>;
  
 	 pinctrl-0 = <&spi4_default>;
 	 pinctrl-1 = <&spi4_sleep>;
