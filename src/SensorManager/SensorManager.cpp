@@ -66,6 +66,9 @@ static struct k_work_q config_work_q;
 K_THREAD_STACK_DEFINE(config_work_q_stack, CONFIG_SENSOR_CONFIG_STACK_SIZE);
 
 struct k_work_q sensor_work_q;
+// PPG uses I2C2; the other polled sensors share I2C3 and one worker.
+struct k_work_q sensor_ppg_work_q;
+K_THREAD_STACK_DEFINE(sensor_ppg_work_q_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
 
 K_THREAD_STACK_DEFINE(sensor_publish_thread_stack, CONFIG_SENSOR_PUB_STACK_SIZE);
 
@@ -104,6 +107,11 @@ void init_sensor_manager() {
 	active_sensors = 0;
 
 	k_work_queue_init(&sensor_work_q);
+	k_work_queue_init(&sensor_ppg_work_q);
+	k_work_queue_start(&sensor_ppg_work_q, sensor_ppg_work_q_stack,
+        K_THREAD_STACK_SIZEOF(sensor_ppg_work_q_stack),
+        K_PRIO_PREEMPT(CONFIG_SENSOR_WORK_QUEUE_PRIO), NULL);
+	k_thread_name_set(&sensor_ppg_work_q.thread, "sensor_ppg");
 
 	k_work_queue_start(&sensor_work_q, sensor_work_q_stack,
                    K_THREAD_STACK_SIZEOF(sensor_work_q_stack), K_PRIO_PREEMPT(CONFIG_SENSOR_WORK_QUEUE_PRIO),
@@ -147,6 +155,7 @@ void start_sensor_manager() {
 	//empty message queue
 	k_msgq_purge(&sensor_queue);
 	k_work_queue_unplug(&sensor_work_q);
+	k_work_queue_unplug(&sensor_ppg_work_q);
 
 	ble_sensors.clear();
 	sd_sensors.clear();
@@ -180,6 +189,7 @@ void stop_sensor_manager() {
 	auto_off_manager.allow(sensor_manager_auto_off_token);
 
 	k_work_queue_drain(&sensor_work_q, true);
+	k_work_queue_drain(&sensor_ppg_work_q, true);
 
 	//k_thread_suspend(sensor_pub_id);
 	k_poll_signal_reset(&sensor_manager_sig);
