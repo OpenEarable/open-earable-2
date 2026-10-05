@@ -386,7 +386,8 @@ size_t getParseInfoStorageSize() {
     return size;
 }
 
-ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize) {
+ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize,
+                                 const struct sensor_config* configs, size_t configCount) {
     if ((parseInfoSchemeStruct == NULL) || (parseInfoScheme == NULL) || (buffer == NULL)) {
         return -ENODATA;
     }
@@ -415,7 +416,18 @@ ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize) {
         memcpy(buffer, &encodedSchemeSize, sizeof(encodedSchemeSize));
         buffer += sizeof(encodedSchemeSize);
 
-        ssize_t writtenSize = serializeSensorScheme(scheme, buffer, bufferSize - (buffer - bufferStart));
+        // Snapshot the selected rates for this file without changing BLE parse info.
+        SensorScheme schemeForHeader = *scheme;
+        for (size_t j = 0; j < configCount; j++) {
+            if (configs[j].sensorId == scheme->id &&
+                configs[j].sampleRateIndex < scheme->configOptions.frequencyOptions.frequencyCount) {
+                schemeForHeader.configOptions.frequencyOptions.defaultFrequencyIndex =
+                    configs[j].sampleRateIndex;
+                break;
+            }
+        }
+        ssize_t writtenSize = serializeSensorScheme(&schemeForHeader, buffer,
+                                                    bufferSize - (buffer - bufferStart));
         if (writtenSize < 0) {
             return writtenSize;
         }
