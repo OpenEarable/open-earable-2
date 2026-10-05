@@ -260,6 +260,22 @@ static void apply_sensor_config(const struct sensor_config &config) {
 		state_indicator.set_sd_state(SD_RECORDING);
 	}
 
+	struct sensor_config previous;
+	if (sensor->is_running() &&
+		get_sensor_config_status(config.sensorId, &previous) == 0 &&
+		previous.sampleRateIndex == config.sampleRateIndex &&
+		(previous.storageOptions & DATA_STORAGE) == (config.storageOptions & DATA_STORAGE) &&
+		(config.storageOptions & (DATA_STORAGE | DATA_STREAMING))) {
+		// Preserve the FIFO, sample clock and in-flight SD data for BLE-only
+		// routing changes or repeated configurations. SD changes still drain
+		// the stopped producer through the normal path below.
+		sensor->ble_stream(config.storageOptions & DATA_STREAMING);
+		if (config.storageOptions & DATA_STREAMING) ble_sensors.insert(config.sensorId);
+		else ble_sensors.erase(config.sensorId);
+		set_sensor_config_status(config);
+		return;
+	}
+
 	if (sensor->is_running()) {
 		sensor->stop();
 		active_sensors--;
