@@ -1,6 +1,7 @@
 #include "SensorManager.h"
 
 #include <errno.h>
+#include <string.h>
 #include <zephyr/kernel.h>
 
 #include "macros_common.h"
@@ -51,9 +52,8 @@ K_THREAD_STACK_DEFINE(sensor_work_q_stack, CONFIG_SENSOR_WORK_QUEUE_STACK_SIZE);
 ZBUS_CHAN_DEFINE(sensor_chan, struct sensor_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
-static struct k_poll_signal sensor_manager_sig;
-static struct k_poll_event sensor_manager_evt =
-		 K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &sensor_manager_sig);
+// Internal queue marker; consumed before publication, never written to BLE/SD.
+static constexpr uint8_t SENSOR_QUEUE_BARRIER = UINT8_MAX;
 
 struct sensor_msg msg;
 
@@ -77,6 +77,20 @@ static const char sensor_manager_auto_off_token[] = "SensorManager";
 
 static void config_work_handler(struct k_work *work);
 
+static void drain_sensor_queue() {
+	if (_state == INIT) return;
+
+	struct k_sem drained;
+	k_sem_init(&drained, 0, 1);
+	struct sensor_msg barrier = {};
+	barrier.data.id = SENSOR_QUEUE_BARRIER;
+	struct k_sem *completion = &drained;
+	memcpy(barrier.data.data, &completion, sizeof(completion));
+	// Each caller waits for its own marker, including an overlapping shutdown.
+	k_msgq_put(&sensor_queue, &barrier, K_FOREVER);
+	k_sem_take(&drained, K_FOREVER);
+}
+
 void sensor_chan_update(void *p1, void *p2, void *p3) {
 	ARG_UNUSED(p1);
 	ARG_UNUSED(p2);
@@ -84,13 +98,14 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
     int ret;
 
 	while (1) {
-		(void)k_poll(&sensor_manager_evt, 1, K_FOREVER);
-
 		ret = k_msgq_get(&sensor_queue, &msg, K_FOREVER);
 		if (ret) {
-			/* Restart purges the queue and wakes a blocked receiver with
-			 * -ENOMSG. The message still contains the previous sample.
-			 */
+			continue;
+		}
+		if (msg.data.id == SENSOR_QUEUE_BARRIER) {
+			struct k_sem *completion;
+			memcpy(&completion, msg.data.data, sizeof(completion));
+			k_sem_give(completion);
 			continue;
 		}
 
@@ -133,8 +148,6 @@ void init_sensor_manager() {
 		K_PRIO_PREEMPT(CONFIG_SENSOR_WORK_QUEUE_PRIO), NULL);
 	k_thread_name_set(&config_work_q.thread, "sensor_config");
 
-	k_poll_signal_init(&sensor_manager_sig);
-
 	sdlogger.init();
 
 	int ret = auto_off_manager.register_participant(
@@ -152,8 +165,6 @@ void start_sensor_manager() {
 
 	LOG_DBG("Starting sensor manager");
 
-	//empty message queue
-	k_msgq_purge(&sensor_queue);
 	k_work_queue_unplug(&sensor_work_q);
 	k_work_queue_unplug(&sensor_ppg_work_q);
 
@@ -163,8 +174,6 @@ void start_sensor_manager() {
 	if (_state == INIT) {
 		k_thread_start(sensor_pub_id);
 	}
-
-	k_poll_signal_raise(&sensor_manager_sig, 0);
 
 	_state = RUNNING;
 }
@@ -191,8 +200,8 @@ void stop_sensor_manager() {
 	k_work_queue_drain(&sensor_work_q, true);
 	k_work_queue_drain(&sensor_ppg_work_q, true);
 
-	//k_thread_suspend(sensor_pub_id);
-	k_poll_signal_reset(&sensor_manager_sig);
+	// Producers are stopped; let every accepted message reach the SD listener.
+	drain_sensor_queue();
 
 	_state = SUSPENDED;
 
@@ -281,6 +290,8 @@ static void apply_sensor_config(const struct sensor_config &config) {
 		sd_sensors.erase(config.sensorId);
 
 		if (sd_sensors.empty()) {
+			// The stopped sensor may still have messages awaiting publication.
+			drain_sensor_queue();
 			sdlogger.end();
 			state_indicator.set_sd_state(SD_IDLE);
 		}
