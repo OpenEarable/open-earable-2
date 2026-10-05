@@ -16,6 +16,12 @@ project(openearable_v2)
 
 include(cmake/sd_spi_fast_write.cmake)
 
+# NCS 3.4.1 gates this bootutil hook on a bootloader-only Kconfig symbol.
+# SMP must use its nRF53 hook too: the radio primary slot is not readable here.
+if(CONFIG_MCUMGR_GRP_IMG_NRF5340_BOOTUTIL_HOOK)
+    target_compile_definitions(mcuboot_util PRIVATE CONFIG_NRF53_MULTI_IMAGE_UPDATE=1)
+endif()
+
 #set(OVERLAY_CONFIG 
 #    ${CMAKE_CURRENT_SOURCE_DIR}/unicast_server/overlay-unicast_server.conf
 #)
