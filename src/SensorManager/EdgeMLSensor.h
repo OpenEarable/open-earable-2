@@ -2,6 +2,7 @@
 #define EDGE_ML_SENSOR_H
 
 #include <zephyr/kernel.h>
+#include <atomic>
 
 /*
 #define _EXTRACT_SAMPLE_RATES(samplerates, i, num_samplerates) \
@@ -60,7 +61,8 @@ protected:
     static k_msgq * sensor_queue;
 
     bool _sd_logging = false;
-    bool _ble_stream = true;
+    // Routing may change while the acquisition worker is publishing samples.
+    std::atomic<bool> _ble_stream{true};
     bool _running = false;
 };
 
