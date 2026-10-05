@@ -128,6 +128,8 @@ void BoneConduction::stop() {
     _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+	struct k_work_sync sync;
+	k_work_cancel_sync(&sensor.sensor_work, &sync);
 
     bma580.stop();
 
