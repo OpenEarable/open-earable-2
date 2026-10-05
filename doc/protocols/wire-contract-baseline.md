@@ -22,10 +22,11 @@ python3 -m unittest discover -s tests/protocol_contracts -v
 
 They check BLE metadata against production sources and generated Zephyr definitions and compile/run the existing
 sensor transport and ParseInfo component serializers against golden vectors.
-The audio-configuration, LED, and button migrations also test generated C and
+The audio-configuration, LED, button, and power-saving migrations also test generated C and
 Dart encoders and decoders against the same bytes (including decoded field
 values and short-input rejection). The remaining payload vectors are source-audited examples; they do not yet run
-GATT callbacks, the full ParseInfo serializer, or SDLogger. Those need firmware
+the full ParseInfo serializer or SDLogger. Power-saving GATT callbacks are
+also exercised with host BLE and manager test doubles. Those remaining paths need firmware
 integration tests during migration. Generated bindings must also be checked
 against these same vectors in C and Dart. No firmware behavior changes here.
 

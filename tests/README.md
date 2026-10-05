@@ -116,6 +116,8 @@ Host-only BLE metadata and serializer checks are available without Zephyr:
 python3 -m unittest discover -s tests/protocol_contracts -v
 ```
 
-They require Python 3 and host C/C++ compilers. See the
+They require Python 3 and host C/C++ compilers. Power-saving callback tests
+compile the production service against host BLE/manager test doubles. Dart
+checks run when a Dart SDK is available; set `PROTOCOL_DART` to select its binary. See the
 [wire-contract baseline](../doc/protocols/wire-contract-baseline.md) for fixture
 coverage and migration requirements.
