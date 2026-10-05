@@ -315,7 +315,7 @@ int SDLogger::init() {
  * Opens a file for logging with .oe extension appended to the filename.
  * Returns -EBUSY if logger is already open or -ENODEV if SD card not initialized.
  */
-int SDLogger::begin(const std::string& filename) {
+int SDLogger::begin(const std::string& filename, const sensor_config* configs, size_t config_count) {
     FileLock lock;
     int ret;
 
@@ -356,7 +356,7 @@ int SDLogger::begin(const std::string& filename) {
     ring_buf_reset(&ring_buffer);
     k_mutex_unlock(&ring_mutex);
 
-    ret = write_header();
+    ret = write_header(configs, config_count);
     if (ret >= 0) {
         ret = sd_card->sync();
     }
@@ -377,7 +377,7 @@ int SDLogger::begin(const std::string& filename) {
     return 0;
 }
 
-int SDLogger::write_header() {
+int SDLogger::write_header(const sensor_config* configs, size_t config_count) {
     const size_t parse_info_size = getParseInfoStorageSize();
     if (parse_info_size == 0) {
         LOG_ERR("Parse info scheme is unavailable");
@@ -407,7 +407,7 @@ int SDLogger::write_header() {
 
     ssize_t serialized_size = serializeParseInfoStorage(
         reinterpret_cast<char*>(header_buffer + sizeof(FileHeader)),
-        parse_info_size
+        parse_info_size, configs, config_count
     );
     if (serialized_size < 0) {
         k_free(header_buffer);

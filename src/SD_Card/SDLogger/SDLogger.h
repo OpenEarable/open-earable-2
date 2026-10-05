@@ -34,7 +34,7 @@ private:
         //size_t buffer_pos = 0;
         std::string current_file;
 
-        int write_header(); // Write the file header, device metadata, and embedded parse metadata.
+        int write_header(const sensor_config* configs, size_t config_count);
         int flush(); // Flush any buffered data to the SD card
         int drain_buffer(); // Drain a complete-record snapshot without stopping producers
         
@@ -72,7 +72,7 @@ private:
         * @param filename Base filename without extension (.oe will be appended)
         * @return 0 on success, negative error code on failure
         */
-        int begin(const std::string& filename);
+        int begin(const std::string& filename, const sensor_config* configs, size_t config_count);
 
         /**
         * @brief Write sensor data to the log file

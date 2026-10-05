@@ -62,6 +62,15 @@ struct k_thread sensor_publish;
 static k_tid_t sensor_pub_id;
 
 static struct k_work config_work;
+static struct k_work_delayable sd_config_work;
+// Profile writes arrived at most 92 ms apart in paired phone tests with music.
+// Wait for a quiet window, leaving the old recording untouched in the meantime.
+static constexpr int SD_CONFIG_QUIET_MS = 300;
+static constexpr size_t SENSOR_CONFIG_SLOTS = 8;
+static sensor_config pending_sd_configs[SENSOR_CONFIG_SLOTS];
+static bool pending_sd_valid[SENSOR_CONFIG_SLOTS];
+static atomic_t config_stopping;
+static bool config_ready;
 static struct k_work_q config_work_q;
 K_THREAD_STACK_DEFINE(config_work_q_stack, CONFIG_SENSOR_CONFIG_STACK_SIZE);
 
@@ -76,6 +85,7 @@ int active_sensors = 0;
 static const char sensor_manager_auto_off_token[] = "SensorManager";
 
 static void config_work_handler(struct k_work *work);
+static void sd_config_work_handler(struct k_work *work);
 
 static void drain_sensor_queue() {
 	if (_state == INIT) return;
@@ -137,6 +147,7 @@ void init_sensor_manager() {
 			K_PRIO_PREEMPT(CONFIG_SENSOR_PUB_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
 
 	k_work_init(&config_work, config_work_handler);
+	k_work_init_delayable(&sd_config_work, sd_config_work_handler);
 	/* Driver initialization can take hundreds of milliseconds. Keep it
 	 * preemptible by audio decoding instead of using the cooperative system
 	 * queue. It must also be separate from the polling queue, which sensor
@@ -147,6 +158,7 @@ void init_sensor_manager() {
 		K_THREAD_STACK_SIZEOF(config_work_q_stack),
 		K_PRIO_PREEMPT(CONFIG_SENSOR_WORK_QUEUE_PRIO), NULL);
 	k_thread_name_set(&config_work_q.thread, "sensor_config");
+	config_ready = true;
 
 	sdlogger.init();
 
@@ -179,6 +191,15 @@ void start_sensor_manager() {
 }
 
 void stop_sensor_manager() {
+	if (config_ready && k_current_get() != &config_work_q.thread) {
+		// Power-down must not leave a delayed profile that restarts acquisition.
+		atomic_set(&config_stopping, 1);
+		struct k_work_sync sync;
+		k_work_cancel_delayable_sync(&sd_config_work, &sync);
+		k_work_flush(&config_work, &sync);
+		k_work_cancel_delayable_sync(&sd_config_work, &sync);
+		memset(pending_sd_valid, 0, sizeof(pending_sd_valid));
+	}
 	if (_state != RUNNING) return;
 
 	LOG_DBG("Stopping sensor manager");
@@ -232,7 +253,7 @@ EdgeMlSensor * get_sensor(enum sensor_id id) {
 
 // Apply one request; the worker below drains all requests, since k_work
 // submissions coalesce while an earlier sensor reconfiguration is running.
-static void apply_sensor_config(const struct sensor_config &config) {
+static void apply_sensor_config(const struct sensor_config &config, bool stop_idle = true) {
     float sampleRate = getSampleRateForSensorId(config.sensorId, config.sampleRateIndex);
 	if (sampleRate <= 0) {
 		LOG_ERR("Invalid sample rate %f for sensor %i", (double)sampleRate, config.sensorId);
@@ -244,20 +265,6 @@ static void apply_sensor_config(const struct sensor_config &config) {
 	if (sensor == NULL) {
 		LOG_ERR("Sensor not found for ID %i", config.sensorId);
 		return;
-	}
-
-	// Prepare storage before changing a working sensor configuration.
-	if ((config.storageOptions & DATA_STORAGE) && !sdlogger.is_active()) {
-		const char *recording_name_prefix = get_sensor_recording_name();
-		LOG_INF("Starting SDLogger with recording name prefix: %s", recording_name_prefix);
-		std::string filename = recording_name_prefix + std::to_string(micros());
-		int logger_ret = sdlogger.begin(filename);
-		if (logger_ret != 0) {
-			LOG_ERR("Failed to start SDLogger, ret: %d", logger_ret);
-			notify_sensor_config_status();
-			return;
-		}
-		state_indicator.set_sd_state(SD_RECORDING);
 	}
 
 	struct sensor_config previous;
@@ -304,13 +311,6 @@ static void apply_sensor_config(const struct sensor_config &config) {
 		sd_sensors.insert(config.sensorId);
 	} else if (sd_sensors.find(config.sensorId) != sd_sensors.end()) {
 		sd_sensors.erase(config.sensorId);
-
-		if (sd_sensors.empty()) {
-			// The stopped sensor may still have messages awaiting publication.
-			drain_sensor_queue();
-			sdlogger.end();
-			state_indicator.set_sd_state(SD_IDLE);
-		}
 	}
 
 	if (config.storageOptions & DATA_STREAMING) ble_sensors.insert(config.sensorId);
@@ -322,6 +322,82 @@ static void apply_sensor_config(const struct sensor_config &config) {
 
 	set_sensor_config_status(config);
 
+	if (stop_idle && active_sensors == 0) stop_sensor_manager();
+}
+
+static bool sd_configuration_changed(const sensor_config &before, const sensor_config &after) {
+	return ((before.storageOptions ^ after.storageOptions) & DATA_STORAGE) ||
+		((after.storageOptions & DATA_STORAGE) && before.sampleRateIndex != after.sampleRateIndex);
+}
+
+static void sd_config_work_handler(struct k_work *work) {
+	ARG_UNUSED(work);
+	if (atomic_get(&config_stopping)) return;
+	// A received write can still be queued behind this delayed work item.
+	if (k_msgq_num_used_get(&config_queue)) {
+		k_work_reschedule_for_queue(&config_work_q, &sd_config_work, K_MSEC(SD_CONFIG_QUIET_MS));
+		return;
+	}
+
+	sensor_config previous[SENSOR_CONFIG_SLOTS] = {};
+	sensor_config desired[SENSOR_CONFIG_SLOTS] = {};
+	bool apply[SENSOR_CONFIG_SLOTS] = {};
+	const ParseInfoScheme *scheme = getParseInfoScheme();
+	if (!scheme || scheme->sensorCount > SENSOR_CONFIG_SLOTS) return;
+	bool rotate = false;
+	bool record = false;
+	for (size_t i = 0; i < scheme->sensorCount; i++) {
+		const uint8_t id = scheme->sensorIds[i];
+		if (id >= SENSOR_CONFIG_SLOTS || get_sensor_config_status(id, &previous[i])) return;
+		desired[i] = pending_sd_valid[id] ? pending_sd_configs[id] : previous[i];
+		apply[i] = pending_sd_valid[id];
+		rotate |= sd_configuration_changed(previous[i], desired[i]);
+		record |= (desired[i].storageOptions & DATA_STORAGE) != 0;
+	}
+	memset(pending_sd_valid, 0, sizeof(pending_sd_valid));
+	const bool was_recording = sdlogger.is_active();
+	rotate |= record && !was_recording;
+	int ret = 0;
+	if (rotate && was_recording) {
+		// Stop all SD producers before crossing the file boundary. BLE-only
+		// producers and playback continue; accepted samples are never purged.
+		for (size_t i = 0; i < scheme->sensorCount; i++) {
+			if (!(previous[i].storageOptions & DATA_STORAGE)) continue;
+			EdgeMlSensor *sensor = get_sensor((sensor_id)previous[i].sensorId);
+			if (sensor->is_running()) {
+				sensor->stop();
+				active_sensors--;
+			}
+			apply[i] = true;
+		}
+		drain_sensor_queue();
+		ret = sdlogger.end();
+		sd_sensors.clear();
+	}
+	if (rotate && record && ret == 0) {
+		const std::string filename = get_sensor_recording_name() + std::to_string(micros());
+		ret = sdlogger.begin(filename, desired, scheme->sensorCount);
+	}
+	if (ret != 0) {
+		LOG_ERR("Failed to prepare SD configuration: %d", ret);
+		// A rejected initial start leaves the working configuration unchanged.
+		// If an existing file was closed, resume its BLE streams with SD off.
+		if (was_recording) {
+			for (size_t i = 0; i < scheme->sensorCount; i++) {
+				if (!(previous[i].storageOptions & DATA_STORAGE)) continue;
+				previous[i].storageOptions &= ~DATA_STORAGE;
+				apply_sensor_config(previous[i], false);
+			}
+			if (active_sensors == 0) stop_sensor_manager();
+		}
+		state_indicator.set_sd_state(SD_FAULT);
+		notify_sensor_config_status();
+		return;
+	}
+	for (size_t i = 0; i < scheme->sensorCount; i++) {
+		if (apply[i]) apply_sensor_config(desired[i], false);
+	}
+	if (rotate) state_indicator.set_sd_state(record ? SD_RECORDING : SD_IDLE);
 	if (active_sensors == 0) stop_sensor_manager();
 }
 
@@ -329,11 +405,27 @@ static void config_work_handler(struct k_work *work) {
     ARG_UNUSED(work);
     struct sensor_config config;
     while (k_msgq_get(&config_queue, &config, K_NO_WAIT) == 0) {
-        apply_sensor_config(config);
+        if (atomic_get(&config_stopping)) continue;
+        sensor_config previous;
+        if (config.sensorId >= SENSOR_CONFIG_SLOTS ||
+            get_sensor_config_status(config.sensorId, &previous) ||
+            getSampleRateForSensorId(config.sensorId, config.sampleRateIndex) <= 0) {
+            notify_sensor_config_status();
+            continue;
+        }
+        if (pending_sd_valid[config.sensorId] || sd_configuration_changed(previous, config) ||
+            ((config.storageOptions & DATA_STORAGE) && !sdlogger.is_active())) {
+            pending_sd_configs[config.sensorId] = config;
+            pending_sd_valid[config.sensorId] = true;
+            k_work_reschedule_for_queue(&config_work_q, &sd_config_work, K_MSEC(SD_CONFIG_QUIET_MS));
+        } else {
+            apply_sensor_config(config);
+        }
     }
 }
 
 void config_sensor(struct sensor_config * config) {
+	if (atomic_get(&config_stopping)) return;
 	int ret = k_msgq_put(&config_queue, config, K_NO_WAIT);
 	if (ret) {
 		LOG_ERR("Failed to put config in queue, ret: %d", ret);
