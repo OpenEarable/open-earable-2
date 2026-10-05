@@ -20,7 +20,7 @@ class ProtocolContractTests(unittest.TestCase):
         for name, contract in contracts.items():
             with self.subTest(service=name):
                 source = '\n'.join((ROOT / path).read_text() for path in contract['sources'])
-                if name in ('audio_config', 'led', 'button'):
+                if name in ('audio_config', 'led', 'button', 'power_saving'):
                     self.assert_generated_metadata(name, contract, source)
                     continue
                 actual = {m[0]: '-'.join(m[1:]) for m in re.findall(
@@ -37,6 +37,7 @@ class ProtocolContractTests(unittest.TestCase):
             'audio_config': ('audio_configuration', ['audio_mode', 'microphone_selection', 'audio_channel', 'microphone_gain']),
             'led': ('led', ['rgb', 'state']),
             'button': ('button', ['state']),
+            'power_saving': ('power_saving', ['mode', 'supported_modes']),
         }[name]
         header = (ROOT / f'protocol/generated/c/include/zephyr/{proto}_ble.h').read_text()
         definitions = dict(re.findall(r'^#define (\w+) (.+)$', header, re.MULTILINE))
@@ -48,8 +49,13 @@ class ProtocolContractTests(unittest.TestCase):
         for char, expected in zip(names, contract['characteristics']):
             macro = prefix + char.upper() + '_CHARACTERISTIC'
             for suffix, key in [('PROPERTIES', 'properties'), ('PERMISSIONS', 'permissions')]:
+                expected_flags = set(re.findall(r'BT_\w+', expected[key]))
+                if name == 'led':
+                    # Main adds readback and notifications to both LED values.
+                    expected_flags |= ({'BT_GATT_CHRC_READ', 'BT_GATT_CHRC_NOTIFY'}
+                                       if key == 'properties' else {'BT_GATT_PERM_READ'})
                 self.assertEqual(set(re.findall(r'BT_\w+', definitions[macro + '_' + suffix])),
-                                 set(re.findall(r'BT_\w+', expected[key])))
+                                 expected_flags)
                 self.assertIn(macro + '_' + suffix, source)
             self.assertIn('BT_GATT_CHARACTERISTIC(' + macro + '_UUID', source)
 
@@ -132,6 +138,55 @@ class ProtocolContractTests(unittest.TestCase):
             script.write_text(code)
             subprocess.run([dart, str(script)], check=True)
 
+    def test_power_saving_vectors(self):
+        """Compare the generated power-saving list with the frozen firmware bytes."""
+        vectors = {v['name']: bytes.fromhex(v['hex']) for v in json.loads((FIXTURES / 'wire_vectors.json').read_text())}
+        expected = vectors['supported_modes']
+        values = ','.join(map(str, expected))
+        code = f"""
+#include "power_saving_protocol.h"
+#include <string.h>
+int main(void) {{
+    const uint8_t expected[] = {{{values}}};
+    power_saving_mode_description_t modes[] = {{
+        {{.id=0, .name_length=3, .name=(uint8_t *)"Off"}},
+        {{.id=1, .name_length=7, .name=(uint8_t *)"Minimal"}},
+        {{.id=2, .name_length=8, .name=(uint8_t *)"Balanced"}},
+        {{.id=3, .name_length=10, .name=(uint8_t *)"Aggressive"}}
+    }};
+    power_saving_supported_modes_t message = {{.count=4, .modes=modes}};
+    uint8_t bytes[128]; size_t used;
+    if (power_saving_supported_modes_encode(&message, bytes, sizeof(bytes), &used) != PROTOCOL_OK || used != sizeof(expected) || memcmp(bytes, expected, used)) return 1;
+    power_saving_mode_t selected = {{.id=2}};
+    if (power_saving_mode_encode(&selected, bytes, 1, &used) != PROTOCOL_OK || used != 1 || bytes[0] != 2) return 2;
+    return 0;
+}}
+"""
+        generated = ROOT / 'protocol/generated/c'
+        with tempfile.TemporaryDirectory() as directory:
+            temp = Path(directory)
+            (temp / 'main.c').write_text(code)
+            subprocess.run(['cc', '-std=c99', '-Wall', '-Wextra', '-Werror', '-I' + str(generated / 'include'),
+                            str(temp / 'main.c'), str(generated / 'src/protocol_runtime.c'),
+                            str(generated / 'src/power_saving_protocol.c'), '-o', str(temp / 'check')], check=True)
+            subprocess.run([str(temp / 'check')], check=True)
+            import shutil
+            dart = os.environ.get('PROTOCOL_DART', 'dart')
+            if shutil.which(dart):
+                library = (ROOT / 'protocol/generated/dart/lib/open_earable_protocols.dart').as_uri()
+                script = f"""import 'dart:typed_data';
+import '{library}';
+void main() {{
+    final bytes = Uint8List.fromList([{values}]);
+    final value = PowerSavingSupportedModes.fromBytes(bytes);
+    if (value.count != 4 || value.modes.map((mode) => String.fromCharCodes(mode.name)).join(',') != 'Off,Minimal,Balanced,Aggressive') throw StateError('mode names');
+    for (var i=0; i<4; i++) {{ if (value.modes[i].id != i) throw StateError('mode ID'); }}
+    if (value.toBytes().join(',') != bytes.join(',')) throw StateError('mode bytes');
+}}
+"""
+                (temp / 'check.dart').write_text(script)
+                subprocess.run([dart, str(temp / 'check.dart')], check=True)
+
     def test_production_serializers(self):
         """Compare sensor framing and component serialization with literal bytes."""
         vectors = {v['name']: v for v in json.loads((FIXTURES / 'wire_vectors.json').read_text())}
@@ -157,7 +212,7 @@ int main() {
     if (!oe_sensor_batch_append(&batch, 6, second, 0x0102030405060708ULL + 1000, 244)) return 2;
     dump(batch.data, batch.len);
     auto snapshot = batch;
-    if (oe_sensor_batch_append(&batch, 6, second, batch.last_time + 999, 244)) return 3;
+    if (oe_sensor_batch_append(&batch, 6, second, batch.last_time + 900, 244)) return 3;
     if (std::memcmp(&snapshot, &batch, sizeof(batch))) return 4;
     SensorComponent component{"x", "C", PARSE_TYPE_FLOAT};
     SensorComponentGroup group{"g", 1, &component};
@@ -171,12 +226,20 @@ int main() {
         with tempfile.TemporaryDirectory() as directory:
             temp = Path(directory)
             (temp / 'main.cpp').write_text(harness)
-            subprocess.run(['cc', '-std=c99', '-c', str(ROOT / 'src/bluetooth/gatt_services/sensor_transport.c'),
-                            '-o', str(temp / 'transport.o')], check=True)
+            generated = ROOT / 'protocol/generated/c'
+            sources = [ROOT / 'src/bluetooth/gatt_services/sensor_transport.c',
+                       *[generated / 'src' / (name + '.c') for name in
+                         ('protocol_runtime', 'imu_protocol', 'ppg_protocol')]]
+            objects = []
+            for index, source in enumerate(sources):
+                obj = temp / f'source{index}.o'
+                subprocess.run(['cc', '-std=c99', '-I' + str(generated / 'include'),
+                                '-c', str(source), '-o', str(obj)], check=True)
+                objects.append(str(obj))
             subprocess.run(['c++', '-std=c++11', '-include', 'cstddef',
                             '-I' + str(ROOT / 'src/bluetooth/gatt_services'),
                             '-I' + str(ROOT / 'src/ParseInfo'), str(temp / 'main.cpp'),
-                            str(ROOT / 'src/ParseInfo/SensorComponent.cpp'), str(temp / 'transport.o'),
+                            str(ROOT / 'src/ParseInfo/SensorComponent.cpp'), *objects,
                             '-o', str(temp / 'contracts')], check=True)
             output = subprocess.check_output([str(temp / 'contracts')], text=True).splitlines()
         self.assertEqual(output, [vectors[name]['hex'] for name in

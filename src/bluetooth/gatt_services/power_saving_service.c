@@ -17,68 +17,64 @@ LOG_MODULE_REGISTER(power_saving_service, CONFIG_BLE_LOG_LEVEL);
 
 static uint8_t supported_modes_payload[POWER_SAVING_SUPPORTED_MODES_MAX_PAYLOAD_LEN];
 
-/*
- * Build the value returned by the "supported power saving modes" GATT
- * characteristic.
+/**
+ * @brief Encode the manager's supported modes using the shared protocol codec.
  *
- * The client needs more than the currently selected mode: it also needs to know
- * which numeric mode IDs are valid and which labels should be shown in the UI.
- * This function serializes the AutoOffManager mode table into a compact,
- * self-describing byte stream:
- *
- *   byte 0: number of modes
- *   repeated for each mode:
- *     byte 0: mode ID, matching power_saving_level_t
- *     byte 1: mode name length in bytes
- *     bytes:  mode name, without a terminating NUL
+ * Mode names remain owned by AutoOffManager; encoding reads them synchronously.
+ * @return Encoded byte count, or negative errno on invalid metadata or capacity.
  */
 static ssize_t encode_supported_modes(uint8_t *payload, size_t capacity)
 {
-	uint8_t mode_count = auto_off_get_supported_mode_count();
-	size_t payload_len = 0;
+	power_saving_mode_description_t modes[POWER_SAVING_LEVEL_COUNT] = {0};
+	uint8_t count = auto_off_get_supported_mode_count();
+	size_t encoded_size;
 
-	if (capacity < 1) {
-		return -ENOMEM;
+	if (count > ARRAY_SIZE(modes)) {
+		return -EOVERFLOW;
 	}
-
-	/* Prefix the payload with the number of following mode records. */
-	payload[payload_len++] = mode_count;
-
-	for (uint8_t mode_id = 0; mode_id < mode_count; mode_id++) {
-		const char *name = auto_off_get_mode_name((power_saving_level_t)mode_id);
-		size_t name_len;
-
+	for (uint8_t id = 0; id < count; id++) {
+		const char *name = auto_off_get_mode_name((power_saving_level_t)id);
 		if (name == NULL) {
 			return -EINVAL;
 		}
-
-		name_len = strlen(name);
-		if (name_len > UINT8_MAX ||
-		    payload_len + 2 + name_len > capacity) {
-			return -ENOMEM;
+		size_t name_length = strlen(name);
+		if (name_length > UINT8_MAX) {
+			return -EOVERFLOW;
 		}
-
-		/* Append one length-prefixed record so clients can parse without NULs. */
-		payload[payload_len++] = mode_id;
-		payload[payload_len++] = (uint8_t)name_len;
-		memcpy(&payload[payload_len], name, name_len);
-		payload_len += name_len;
+		modes[id].id = id;
+		modes[id].name_length = (uint8_t)name_length;
+		/* Generated storage is mutable for decoding; encoding never modifies it. */
+		modes[id].name = (uint8_t *)name;
 	}
-
-	return payload_len;
+	power_saving_supported_modes_t message = {
+		.count = count,
+		.modes = modes,
+	};
+	protocol_status_t status = power_saving_supported_modes_encode(
+		&message, payload, capacity, &encoded_size);
+	if (status != PROTOCOL_OK) {
+		return status == PROTOCOL_ERROR_BUFFER_TOO_SMALL ? -ENOMEM : -EINVAL;
+	}
+	return (ssize_t)encoded_size;
 }
 
+/** @brief Return the selected automatic power-off mode as a generated message. */
 static ssize_t read_power_saving_mode(struct bt_conn *conn,
 				      const struct bt_gatt_attr *attr,
 				      void *buf,
 				      uint16_t len,
 				      uint16_t offset)
 {
-	uint8_t mode = (uint8_t)auto_off_get_mode();
-
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, &mode, sizeof(mode));
+	power_saving_mode_t message = { .id = (uint8_t)auto_off_get_mode() };
+	uint8_t payload[1];
+	size_t size;
+	if (power_saving_mode_encode(&message, payload, sizeof(payload), &size) != PROTOCOL_OK) {
+		return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+	}
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, payload, size);
 }
 
+/** @brief Decode and validate a supported mode before applying it. */
 static ssize_t write_power_saving_mode(struct bt_conn *conn,
 				       const struct bt_gatt_attr *attr,
 				       const void *buf,
@@ -86,7 +82,7 @@ static ssize_t write_power_saving_mode(struct bt_conn *conn,
 				       uint16_t offset,
 				       uint8_t flags)
 {
-	const uint8_t *mode_buf = buf;
+	power_saving_mode_t message;
 	power_saving_level_t mode;
 
 	ARG_UNUSED(conn);
@@ -101,7 +97,10 @@ static ssize_t write_power_saving_mode(struct bt_conn *conn,
 		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
 	}
 
-	mode = (power_saving_level_t)mode_buf[0];
+	if (power_saving_mode_decode(&message, buf, len, NULL) != PROTOCOL_OK) {
+		return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+	}
+	mode = (power_saving_level_t)message.id;
 	if (!auto_off_mode_is_supported(mode)) {
 		return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
 	}
@@ -110,6 +109,7 @@ static ssize_t write_power_saving_mode(struct bt_conn *conn,
 	return len;
 }
 
+/** @brief Return the supported mode IDs and display names. */
 static ssize_t read_supported_power_saving_modes(struct bt_conn *conn,
 						 const struct bt_gatt_attr *attr,
 						 void *buf,
@@ -130,13 +130,13 @@ static ssize_t read_supported_power_saving_modes(struct bt_conn *conn,
 }
 
 BT_GATT_SERVICE_DEFINE(power_saving_svc,
-	BT_GATT_PRIMARY_SERVICE(BT_UUID_POWER_SAVING_SERVICE),
-	BT_GATT_CHARACTERISTIC(BT_UUID_POWER_SAVING_MODE,
-			       BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
-			       BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+	BT_GATT_PRIMARY_SERVICE(POWER_SAVING_ZEPHYR_SERVICE_UUID),
+	BT_GATT_CHARACTERISTIC(POWER_SAVING_ZEPHYR_MODE_CHARACTERISTIC_UUID,
+                               POWER_SAVING_ZEPHYR_MODE_CHARACTERISTIC_PROPERTIES,
+                               POWER_SAVING_ZEPHYR_MODE_CHARACTERISTIC_PERMISSIONS,
 			       read_power_saving_mode, write_power_saving_mode, NULL),
-	BT_GATT_CHARACTERISTIC(BT_UUID_POWER_SAVING_SUPPORTED_MODES,
-			       BT_GATT_CHRC_READ,
-			       BT_GATT_PERM_READ,
+	BT_GATT_CHARACTERISTIC(POWER_SAVING_ZEPHYR_SUPPORTED_MODES_CHARACTERISTIC_UUID,
+                               POWER_SAVING_ZEPHYR_SUPPORTED_MODES_CHARACTERISTIC_PROPERTIES,
+                               POWER_SAVING_ZEPHYR_SUPPORTED_MODES_CHARACTERISTIC_PERMISSIONS,
 			       read_supported_power_saving_modes, NULL, NULL),
 );

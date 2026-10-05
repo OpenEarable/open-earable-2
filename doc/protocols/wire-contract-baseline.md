@@ -22,10 +22,11 @@ python3 -m unittest discover -s tests/protocol_contracts -v
 
 They check BLE metadata against production sources and generated Zephyr definitions and compile/run the existing
 sensor transport and ParseInfo component serializers against golden vectors.
-The audio-configuration, LED, and button migrations also test generated C and
+The audio-configuration, LED, button, and power-saving migrations also test generated C and
 Dart encoders and decoders against the same bytes (including decoded field
 values and short-input rejection). The remaining payload vectors are source-audited examples; they do not yet run
-GATT callbacks, the full ParseInfo serializer, or SDLogger. Those need firmware
+the full ParseInfo serializer or SDLogger. Power-saving GATT callbacks are
+also exercised with host BLE and manager test doubles. Those remaining paths need firmware
 integration tests during migration. Generated bindings must also be checked
 against these same vectors in C and Dart. No firmware behavior changes here.
 
@@ -144,3 +145,12 @@ conditional fields, and single/multiple sensor samples during each migration.
 
 Dart checks skip when its SDK is absent. Set `PROTOCOL_DART` to a Dart executable
 when using a direct SDK binary instead of a Flutter wrapper.
+
+## Upstream additions retained after rebasing
+
+The frozen fixtures above describe the original migration baseline. Main now
+adds LED readback and notifications plus mode validation; the metadata checks
+expect those additive capabilities. Main also uses generated IMU/PPG codecs
+for compact BLE samples and allows bounded batching timestamp jitter. The host
+harness links those codecs and tests a timestamp outside the permitted jitter.
+The optical-temperature framing fixtures remain unchanged.
