@@ -117,6 +117,8 @@ struct bt_csip_set_member_register_param csip_param = {
 };
 
 #if defined(CONFIG_BT_AUDIO_RX)
+BUILD_ASSERT(CONFIG_BT_ISO_RX_MTU >= LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE_MAX, 10000),
+	     "ISO RX buffers must fit the advertised LC3 maximum");
 static struct bt_audio_codec_cap lc3_codec_sink = BT_AUDIO_CODEC_CAP_LC3(
 	BT_AUDIO_CODEC_CAPABILIY_FREQ,
 	(BT_AUDIO_CODEC_CAP_DURATION_10 | BT_AUDIO_CODEC_CAP_DURATION_PREFER_10),
@@ -126,6 +128,8 @@ static struct bt_audio_codec_cap lc3_codec_sink = BT_AUDIO_CODEC_CAP_LC3(
 #endif /* (CONFIG_BT_AUDIO_RX) */
 
 #if defined(CONFIG_BT_AUDIO_TX)
+BUILD_ASSERT(CONFIG_BT_ISO_TX_MTU >= LE_AUDIO_SDU_SIZE_OCTETS(CONFIG_LC3_BITRATE_MAX, 10000),
+	     "ISO TX buffers must fit the advertised LC3 maximum");
 static struct bt_audio_codec_cap lc3_codec_source = BT_AUDIO_CODEC_CAP_LC3(
 	BT_AUDIO_CODEC_CAPABILIY_FREQ,
 	(BT_AUDIO_CODEC_CAP_DURATION_10 | BT_AUDIO_CODEC_CAP_DURATION_PREFER_10),
