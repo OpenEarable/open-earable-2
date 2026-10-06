@@ -148,7 +148,6 @@ static void audio_headset_configure(void)
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
 {
 	int ret;
-	uint32_t audio_q_num_used;
 	static uint32_t test_tone_finite_pos;
 	int debug_trans_count = 0;
 
@@ -235,8 +234,8 @@ frame_done:
 
 		/* Print block usage - reduced overhead */
 		if (unlikely(++debug_trans_count >= DEBUG_INTERVAL_NUM)) {
-			audio_q_num_used = k_msgq_num_used_get(&audio_q_in);
-			LOG_DBG(COLOR_CYAN "IN filled: %d" COLOR_RESET, audio_q_num_used);
+			LOG_DBG(COLOR_CYAN "IN filled: %d" COLOR_RESET,
+				k_msgq_num_used_get(&audio_q_in));
 			debug_trans_count = 0;
 		}
 
@@ -742,9 +741,8 @@ int audio_system_encoder_num_ch_set(uint32_t locations)
 		return 0;
 	}
 
-	int num_ch = POPCOUNT(locations);
-
-	LOG_DBG("Setting encoder channels to %d based on locations 0x%08x", num_ch, locations);
+	LOG_DBG("Setting encoder channels to %d based on locations 0x%08x", POPCOUNT(locations),
+		locations);
 
 	sw_codec_cfg.encoder.num_ch = CONFIG_AUDIO_ENCODE_CHANNELS_MAX;
 	sw_codec_cfg.encoder.audio_loc = locations;

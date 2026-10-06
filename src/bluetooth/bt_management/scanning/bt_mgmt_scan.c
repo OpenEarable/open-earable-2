@@ -58,6 +58,8 @@ int bt_mgmt_scan_start(uint16_t scan_intvl, uint16_t scan_win, enum bt_mgmt_scan
 	struct bt_le_scan_param *scan_param =
 		BT_LE_SCAN_PARAM(NRF_AUDIO_GATEWAY_SCAN_TYPE, BT_LE_SCAN_OPT_FILTER_DUPLICATE,
 				 scan_interval, scan_window);
+	/* Peripheral-only builds have neither scanning role enabled. */
+	ARG_UNUSED(scan_param);
 
 	if (type == BT_MGMT_SCAN_TYPE_CONN && IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		ret = bt_mgmt_scan_for_conn_start(scan_param, srch_name);

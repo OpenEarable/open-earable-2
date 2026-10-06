@@ -135,8 +135,6 @@ uint32_t audio_sync_timer_frame_start_capture_get(void)
 		}
 	};
 
-	cc_get_calls = 0;
-
 	/* The HF timer is cleared on every I2S frame. Hence, this value can be
 	 * the same many times in a row.
 	 */

@@ -90,7 +90,8 @@ void Baro::start(int sample_rate_idx) {
 		return;
 	}
 
-    sample_period_us = 1000000.0 / sample_rates.true_sample_rates[sample_rate_idx];
+    sample_period_us =
+        1000000.0 / static_cast<double>(sample_rates.true_sample_rates[sample_rate_idx]);
     sample_clock.reset();
     // Retain individual acquisition times while amortizing the bus reads.
     const k_timeout_t interval = K_USEC(MAX(20000, sample_period_us));
