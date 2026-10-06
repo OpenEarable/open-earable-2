@@ -111,12 +111,13 @@ int sw_codec_encode(struct net_buf *audio_frame_in, struct net_buf *audio_frame_
 		uint8_t inter_buf[PCM_NUM_BYTES_MONO];
 		uint8_t src_buf[PCM_NUM_BYTES_MONO];
 		uint8_t chan_in_num, chan_out_num;
+		uint8_t chan_in = 0;
 		uint8_t chan_out = 0;
 		uint8_t *inter_out;
 		uint8_t *enc_in = audio_frame_in->data;
 		uint8_t *enc_out = audio_frame_out->data;
 		size_t enc_in_size = 0;
-		uint16_t bytes_written;
+		uint16_t bytes_written = 0;
 		uint32_t loc_in = 0;
 		uint32_t loc_out = 0;
 
@@ -153,14 +154,14 @@ int sw_codec_encode(struct net_buf *audio_frame_in, struct net_buf *audio_frame_
 		if (meta_out->locations == BT_AUDIO_LOCATION_MONO_AUDIO) {
 			/* Set output to be the lowest set location in meta_in->locations */
 			loc_out = 1;
-			while (loc_out && !(meta_in->locations & loc_out)) {
+			while (loc_out && !(loc_in & loc_out)) {
 				loc_out <<= 1;
 			}
 		} else {
 			loc_out = meta_out->locations;
 		}
 
-		if (unlikely(loc_out == 0 || loc_in == 0)) {
+		if (unlikely((loc_out & loc_in) == 0)) {
 			LOG_ERR("No common output location with input");
 			LOG_ERR("Input locations:  0x%08x", meta_in->locations);
 			LOG_ERR("Output locations: 0x%08x", meta_out->locations);
@@ -173,7 +174,7 @@ int sw_codec_encode(struct net_buf *audio_frame_in, struct net_buf *audio_frame_
 				if (meta_in->interleaved) {
 					ret = pscm_deinterleave(audio_frame_in->data,
 								audio_frame_in->len, chan_in_num,
-								chan_out,
+								chan_in,
 								meta_in->carried_bits_per_sample,
 								inter_buf, sizeof(inter_buf));
 					ERR_CHK_MSG(ret, "Encode: Failed de-interleaving");
@@ -181,7 +182,7 @@ int sw_codec_encode(struct net_buf *audio_frame_in, struct net_buf *audio_frame_
 					inter_out = inter_buf;
 				} else {
 					inter_out = (uint8_t *)audio_frame_in->data +
-						    (meta_in->bytes_per_location * chan_out);
+						    (meta_in->bytes_per_location * chan_in);
 				}
 
 				ret = sw_codec_sample_rate_convert(
@@ -201,6 +202,7 @@ int sw_codec_encode(struct net_buf *audio_frame_in, struct net_buf *audio_frame_
 				LOG_DBG("Completed LC3 encode of ch: %d", chan_out);
 			}
 
+			chan_in += loc_in & 0x01;
 			chan_out += loc_out & 0x01;
 
 			loc_in >>= 1;
