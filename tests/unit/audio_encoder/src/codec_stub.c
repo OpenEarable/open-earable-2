@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <string.h>
 #include <sw_codec_lc3.h>
 
