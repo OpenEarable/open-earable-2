@@ -196,14 +196,6 @@ float MLX90632::getObjectTemp(status& returnError)
   //Write new_data = 0
   clearNewData();
 
-  gatherSensorTemp(returnError);
-  if (returnError != SENSOR_SUCCESS)
-  {
-    LOG_WRN("Sensor temperature not found");
-    if(returnError == SENSOR_TIMEOUT_ERROR) LOG_WRN("Timeout");
-    return (0.0); //Error
-  }
-
   int16_t lowerRAM = 0;
   int16_t upperRAM = 0;
 
@@ -237,28 +229,22 @@ float MLX90632::getObjectTemp(status& returnError)
     readRegister16(RAM_5, (uint16_t&)upperRAM);
   }
 
-  //Object temp requires 3 iterations
-  for (uint8_t i = 0 ; i < 3 ; i++)
-  {
-    double VRta = nineRAM + Gb * (sixRAM / 12.0);
+  const double VRta = nineRAM + Gb * (sixRAM / 12.0);
+  const double AMB = (sixRAM / 12.0) / VRta * 524288.0;
+  const float S = (float)(lowerRAM + upperRAM) / 2.0f;
+  const double VRto = nineRAM + Ka * (sixRAM / 12.0);
+  const double Sto = ((double)S / 12.0) / VRto * 524288.0;
+  const double TAdut = (AMB - Eb) / Ea + 25.0;
+  const double ambientTempK = TAdut + 273.15;
+  const double ambientSquared = ambientTempK * ambientTempK;
+  const double ambientFourth = ambientSquared * ambientSquared;
 
-    double AMB = (sixRAM / 12.0) / VRta * pow(2, 19);
-
-    float S = (float)(lowerRAM + upperRAM) / 2.0f;
-    double VRto = nineRAM + Ka * (sixRAM / 12.0);
-    double Sto = ((double)S / 12.0) / VRto * pow(2, 19);
-
-    double TAdut = (AMB - Eb) / Ea + 25.0;
-
-    double ambientTempK = TAdut + 273.15;
-
-    double bigFraction = Sto / (1 * Fa * Ha * (1 + Ga * (TOdut - TO0) + Fb * (TAdut - TA0)));
-
-    double objectTemp = bigFraction + pow(ambientTempK, 4);
-    objectTemp = pow(objectTemp, 0.25); //Take 4th root
-    objectTemp = objectTemp - 273.15 - Hb;
-
-    TO0 = objectTemp;
+  // Only the object-temperature estimate changes between iterations. A fourth
+  // root of this non-negative physical quantity is two square roots.
+  for (uint8_t i = 0; i < 3; ++i) {
+    const double bigFraction = Sto / (Fa * Ha *
+        (1 + Ga * (TOdut - TO0) + Fb * (TAdut - TA0)));
+    TO0 = sqrt(sqrt(bigFraction + ambientFourth)) - 273.15 - Hb;
   }
 
   return (TO0);
@@ -586,7 +572,7 @@ void MLX90632::reset() {
 
 void MLX90632::setSampleRateRegVal(uint8_t val) {
   uint8_t originalMode = getMode();
-  setMode(MODE_SLEEP);
+  setMode(MODE_HALT); // Keep the device awake while changing EEPROM.
 
   writeEEPROM(EE_MEAS_1, 0x800D | (val << 8));
   writeEEPROM(EE_MEAS_2, 0x801D | (val << 8));
@@ -600,7 +586,7 @@ void MLX90632::setSampleRate(float sample_rate) {
   val = round(log2f(CLAMP(2 * sample_rate,1,128)));
 
   uint8_t originalMode = getMode();
-  setMode(MODE_SLEEP);
+  setMode(MODE_HALT); // Keep the device awake while changing EEPROM.
 
   writeEEPROM(EE_MEAS_1, 0x800D | (val << 8));
   writeEEPROM(EE_MEAS_2, 0x801D | (val << 8));

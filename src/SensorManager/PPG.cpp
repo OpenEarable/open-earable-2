@@ -4,11 +4,10 @@
 
 #include "math.h"
 #include "stdlib.h"
+#include <errno.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(MAXM86161);
-
-#define LATENCY_MS 40
 
 PPG PPG::sensor;
 
@@ -26,6 +25,41 @@ const SampleRateSetting<16> PPG::sample_rates = {
     { 24.995, 50.027, 84.021, 99.902, 199.805, 399.610, 8.000, 16.000,
     32.000, 64.000, 128.000, 256.000, 512.000, 1024.000, 2048.000, 4096.000},
 };
+
+namespace {
+
+struct ppg_timing {
+    int integration_time;
+    uint8_t exposure_count;
+};
+
+/* MAXM86161 data-sheet limits for four exposures per sample. */
+constexpr float max_rate_for_four_exposures[] = {
+    1024.0f, /* 14.8 us */
+    512.0f,  /* 29.4 us */
+    512.0f,  /* 58.7 us */
+    400.0f,  /* 117.3 us */
+};
+
+ppg_timing select_timing(float requested_rate)
+{
+    for (int tint = 3; tint >= 0; --tint) {
+        if (requested_rate <= max_rate_for_four_exposures[tint]) {
+            return { tint, 4 };
+        }
+    }
+
+    if (requested_rate <= 2048.0f) {
+        return { 0, 2 };
+    }
+    if (requested_rate <= 4096.0f) {
+        return { 0, 1 };
+    }
+
+    return { -ENOTSUP, 0 };
+}
+
+} // namespace
 
 bool PPG::init(struct k_msgq * queue) {
     if (!_active) {
@@ -57,64 +91,48 @@ bool PPG::init(struct k_msgq * queue) {
 
 void PPG::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
-    int int_status;
-    int status;
+    if (!sensor._running) return;
+    int num_samples = ppg.read(sensor.data_buffer,
+                               sizeof(sensor.data_buffer) / sizeof(sensor.data_buffer[0]));
+    if (num_samples <= 0) return;
+    sensor.sample_clock.begin(micros(), num_samples, sensor.t_sample_us,
+                              sensor.fifo_sample_capacity,
+                              CONFIG_SENSOR_CLOCK_ACCURACY);
 
-    uint64_t _time_stamp = micros();
+    int written = 0;
+    const int _size = 4 * sizeof(uint32_t); // red, ir, green, ambient
 
-    PPG::sensor._sample_count += (_time_stamp - PPG::sensor._last_time_stamp) / PPG::sensor.t_sample_us;
-    PPG::sensor._last_time_stamp = _time_stamp;
+    while (written < num_samples) {
+        int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
+        if (to_write <= 0) break;
+        if (sensor.sample_clock.period() > UINT16_MAX) to_write = 1;
 
-    if (PPG::sensor._sample_count < PPG::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
-        return;
-    }
-    
-    status = ppg.read_interrupt_state(int_status);
-    
-    if (status != 0) {
-        LOG_ERR("PPG read interrupt state failed: %d", status);
-        return;
-    }
-    
-    if(int_status & MAXM86161_INT_FULL) { // MAXM86161_INT_DATA_RDY
-        int num_samples = ppg.read(sensor.data_buffer);
+        msg_ppg.sd = sensor._sd_logging;
+        msg_ppg.stream = sensor._ble_stream;
 
-        PPG::sensor._sample_count = MAX(0, PPG::sensor._num_samples_buffered - num_samples);
+        msg_ppg.data.id = ID_PPG;
+        msg_ppg.data.size = to_write * _size + sizeof(uint16_t);
 
-        int written = 0;
-        const int _size = 4 * sizeof(uint32_t); // red, ir, green, ambient
+        msg_ppg.data.time = sensor.sample_clock.timestamp(written);
 
-        while (written < num_samples) {
-            int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
-            if (to_write <= 0) break;
-
-            msg_ppg.sd = sensor._sd_logging;
-            msg_ppg.stream = sensor._ble_stream;
-
-            msg_ppg.data.id = ID_PPG;
-            msg_ppg.data.size = to_write * _size + sizeof(uint16_t);
-
-            const uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)PPG::sensor.t_sample_us);
-            msg_ppg.data.time = _time_stamp - dt_us;
-
-            if (to_write > 1) {
-                uint16_t t_diff = PPG::sensor.t_sample_us;
-                for (int i = 0; i < to_write; i++) {
-                    memcpy(&msg_ppg.data.data[i * _size], &sensor.data_buffer[written + i], _size);
-                }
-                memcpy(&msg_ppg.data.data[msg_ppg.data.size - sizeof(uint16_t)], &t_diff, sizeof(uint16_t));
-            } else {
-                memcpy(&msg_ppg.data.data, &sensor.data_buffer[written], _size);
+        if (to_write > 1) {
+            uint16_t t_diff = sensor.sample_clock.period();
+            for (int i = 0; i < to_write; i++) {
+                memcpy(&msg_ppg.data.data[i * _size], &sensor.data_buffer[written + i], _size);
             }
-
-            int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
-            if (ret) {
-                LOG_WRN("sensor msg queue full");
-            }
-
-            written += to_write;
+            memcpy(&msg_ppg.data.data[msg_ppg.data.size - sizeof(uint16_t)], &t_diff, sizeof(uint16_t));
+        } else {
+            memcpy(&msg_ppg.data.data, &sensor.data_buffer[written], _size);
         }
+
+        int ret = k_msgq_put(sensor_queue, &msg_ppg, K_NO_WAIT);
+        if (ret) {
+            LOG_WRN("sensor msg queue full");
+        }
+
+        written += to_write;
     }
+
 }
 
 /**
@@ -122,27 +140,79 @@ void PPG::update_sensor(struct k_work *work) {
 */
 void PPG::sensor_timer_handler(struct k_timer *dummy) {
 	ARG_UNUSED(dummy);
-	k_work_submit_to_queue(&sensor_work_q, &sensor.sensor_work);
+	k_work_submit_to_queue(&sensor_ppg_work_q, &sensor.sensor_work);
 }
 
 void PPG::start(int sample_rate_idx) {
     if (!_active) return;
 
-    t_sample_us = 1000000.0f / sample_rates.true_sample_rates[sample_rate_idx];
+    const float requested_rate = sample_rates.true_sample_rates[sample_rate_idx];
+    const int requested_rate_register = sample_rates.reg_vals[sample_rate_idx];
+    const ppg_timing timing = select_timing(requested_rate);
 
-    k_timeout_t t = K_USEC(t_sample_us);
+    if (timing.integration_time < 0) {
+        LOG_ERR("PPG rate %.3f Hz is not supported", (double)requested_rate);
+        return;
+    }
 
-    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)), FIFO_SIZE / LED_NUM - 2);
+    int ret = ppg.set_exposure_count(timing.exposure_count);
+    if (ret != 0) {
+        LOG_ERR("Failed to set PPG exposure count to %u: %d", timing.exposure_count, ret);
+        return;
+    }
+
+    ret = ppg.set_ppg_tint(timing.integration_time);
+    if (ret != 0) {
+        LOG_ERR("Failed to set PPG integration time: %d", ret);
+        return;
+    }
+
+    int effective_integration_time = -1;
+    ret = ppg.get_ppg_tint(effective_integration_time);
+    if (ret != 0 || effective_integration_time != timing.integration_time) {
+        LOG_ERR("PPG rejected integration time %d (effective %d, ret %d)",
+                timing.integration_time, effective_integration_time, ret);
+        return;
+    }
+
+    ret = ppg.set_interrogation_rate(requested_rate_register);
+    if (ret != 0) {
+        LOG_ERR("Failed to set PPG sample rate: %d", ret);
+        return;
+    }
+
+    int effective_rate_register = -1;
+    ret = ppg.get_interrogation_rate(effective_rate_register);
+    if (ret != 0 || effective_rate_register != requested_rate_register) {
+        LOG_ERR("PPG rejected rate register 0x%02x (effective 0x%02x, ret %d)",
+                requested_rate_register, effective_rate_register, ret);
+        return;
+    }
+
+    t_sample_us = 1000000.0f / requested_rate;
+
+    fifo_sample_capacity = FIFO_SIZE / timing.exposure_count;
+    const int work_buffer_capacity =
+        sizeof(sensor.data_buffer) / sizeof(sensor.data_buffer[0]) - 2;
+    _num_samples_buffered = MIN(MAX(1, (int)(CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)),
+                                MIN(fifo_sample_capacity / 2, work_buffer_capacity));
     
-    ppg.set_interrogation_rate(sample_rates.reg_vals[sample_rate_idx]);
-    ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * LED_NUM);
-    ppg.start();
+    ret = ppg.set_watermark(FIFO_SIZE - _num_samples_buffered * timing.exposure_count);
+    if (ret != 0) {
+        LOG_ERR("Failed to set PPG FIFO watermark: %d", ret);
+        return;
+    }
 
-    k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
+    ret = ppg.start();
+    if (ret != 0) {
+        LOG_ERR("Failed to start PPG: %d", ret);
+        return;
+    }
 
     _running = true;
-    _sample_count = 0;
-    _last_time_stamp = micros();
+    sample_clock.reset();
+    const k_timeout_t t = K_USEC(t_sample_us * _num_samples_buffered);
+    k_timer_start(&sensor.sensor_timer, t, t);
 }
 
 void PPG::stop() {
@@ -152,6 +222,8 @@ void PPG::stop() {
     _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+    struct k_work_sync sync;
+    k_work_cancel_sync(&sensor.sensor_work, &sync);
 
     ppg.stop();
 

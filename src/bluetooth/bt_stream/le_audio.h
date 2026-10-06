@@ -4,14 +4,25 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+/** @file
+ * @defgroup audio_app_bt_stream LE Audio helper functions
+ * @{
+ * @brief LE Audio helper functions for Audio applications.
+ *
+ * This module provides the core LE Audio helper functions for both unicast (CIS)
+ * and broadcast (BIS) modes.
+ */
+
 #ifndef _LE_AUDIO_H_
 #define _LE_AUDIO_H_
 
 #include <zephyr/bluetooth/audio/bap.h>
+#include <zephyr/bluetooth/audio/cap.h>
+#include <zephyr/net_buf.h>
 #include <audio_defines.h>
 
 #define LE_AUDIO_ZBUS_EVENT_WAIT_TIME	  K_MSEC(5)
-#define LE_AUDIO_SDU_SIZE_OCTETS(bitrate) (bitrate / (1000000 / CONFIG_AUDIO_FRAME_DURATION_US) / 8)
+#define LE_AUDIO_SDU_SIZE_OCTETS(bitrate, dur_us) (bitrate / (USEC_PER_SEC / dur_us) / 8)
 
 #if CONFIG_SAMPLE_RATE_CONVERTER && CONFIG_AUDIO_SAMPLE_RATE_48000_HZ
 #define BT_AUDIO_CODEC_CAPABILIY_FREQ                                                              \
@@ -31,75 +42,101 @@
 #error No sample rate supported
 #endif /* CONFIG_SAMPLE_RATE_CONVERTER */
 
+/** Configure LC3 codec preset with customizable parameters for LE Audio streams
+ *  using location, stream context, and bitrate parameters.
+ */
 #define BT_BAP_LC3_PRESET_CONFIGURABLE(_loc, _stream_context, _bitrate)                            \
-	BT_BAP_LC3_PRESET(BT_AUDIO_CODEC_LC3_CONFIG(CONFIG_BT_AUDIO_PREF_SAMPLE_RATE_VALUE,        \
+	BT_BAP_LC3_PRESET(BT_AUDIO_CODEC_LC3_CONFIG(CONFIG_BT_AUDIO_PREF_SINK_SAMPLE_RATE_VALUE,   \
 						    BT_AUDIO_CODEC_CFG_DURATION_10, _loc,          \
-						    LE_AUDIO_SDU_SIZE_OCTETS(_bitrate), 1,         \
+						    LE_AUDIO_SDU_SIZE_OCTETS(_bitrate, 10000), 1,  \
 						    _stream_context),                              \
-			  BT_AUDIO_CODEC_QOS_UNFRAMED(10000u, LE_AUDIO_SDU_SIZE_OCTETS(_bitrate),  \
-						      CONFIG_BT_AUDIO_RETRANSMITS,                 \
-						      CONFIG_BT_AUDIO_MAX_TRANSPORT_LATENCY_MS,    \
-						      CONFIG_BT_AUDIO_PRESENTATION_DELAY_US))
+			  BT_BAP_QOS_CFG_UNFRAMED(10000u,                                          \
+						  LE_AUDIO_SDU_SIZE_OCTETS(_bitrate, 10000),       \
+						  CONFIG_BT_AUDIO_RETRANSMITS,                     \
+						  CONFIG_BT_AUDIO_MAX_TRANSPORT_LATENCY_MS,        \
+						  CONFIG_BT_AUDIO_PRESENTATION_DELAY_US))
 
 /**
  * @brief Callback for receiving Bluetooth LE Audio data.
  *
- * @param	data		Pointer to received data.
- * @param	size		Size of received data.
- * @param	bad_frame	Indicating if the frame is a bad frame or not.
- * @param	sdu_ref		ISO timestamp.
- * @param	channel_index	Audio channel index.
- * @param	desired_size	The expected data size.
+ * @param	audio_frame	Pointer to audio buffer.
+ * @param	meta		Pointer to audio metadata.
+ * @param	location_index	Audio location index.
  */
-typedef void (*le_audio_receive_cb)(const uint8_t *const data, size_t size, bool bad_frame,
-				    uint32_t sdu_ref, enum audio_channel channel_index,
-				    size_t desired_size);
+typedef void (*le_audio_receive_cb)(struct net_buf *audio_frame, struct audio_metadata *meta,
+				    uint8_t location_index);
 
 /**
- * @brief	Encoded audio data and information.
+ * @brief Stream index structure for identifying audio streams.
  *
- * @note	Container for SW codec (typically LC3) compressed audio data.
+ * This structure provides a hierarchical index for identifying audio streams
+ * in both unicast (CIS) and broadcast (BIS) modes.
  */
-struct le_audio_encoded_audio {
-	uint8_t const *const data;
-	size_t size;
-	uint8_t num_ch;
+struct stream_index {
+	/** Level 1: BIG (Broadcast Isochronous Group) or CIG (Connected Isochronous Group) */
+	uint8_t lvl1;
+	/** Level 2: Subgroups (only applicable to Broadcast) */
+	uint8_t lvl2;
+	/** Level 3: BIS (Broadcast Isochronous Stream) or CIS (Connected Isochronous Stream) */
+	uint8_t lvl3;
 };
 
-struct stream_index {
-	uint8_t lvl1; /* BIG / CIG */
-	uint8_t lvl2; /* Subgroups (only applicable to Broadcast) */
-	uint8_t lvl3; /* BIS / CIS */
-};
+/**
+ * @brief	Get the number of active streams.
+ *
+ * @note	This function returns the number of streams and locations that are currently active.
+ *		An active stream is one that has been set up and is ready to receive data.
+ *		This function is used by broadcast_sink, unicast_server and unicast_client.
+ *
+ * @param[out]	num_streams	Pointer to the number of active streams.
+ * @param[out]	locations	Pointer to the bitmask of active locations.
+ *
+ * @return	0 for success, error otherwise.
+ */
+int le_audio_concurrent_sync_num_get(uint8_t *num_streams, enum bt_audio_location *locations);
+
+/**
+ * @brief Function to populate the audio metadata.
+ *
+ * @param[in] meta		Pointer to the audio metadata.
+ * @param[in] stream		Pointer to the stream.
+ * @param[in] info		Pointer to the ISO information.
+ * @param[in] audio_frame	Pointer to the buffer.
+ *
+ * @return 0 if successful, error otherwise.
+ */
+int le_audio_metadata_populate(struct audio_metadata *meta, const struct bt_bap_stream *stream,
+			       const struct bt_iso_recv_info *info,
+			       const struct net_buf *audio_frame);
 
 /**
  * @brief	Get the current state of an endpoint.
  *
- * @param[in]	ep       The endpoint to check.
- * @param[out]	state    The state of the endpoint.
+ * @param[in]	ep	The endpoint to check.
+ * @param[out]	state	The state of the endpoint.
  *
  * @return	0 for success, error otherwise.
  */
-int le_audio_ep_state_get(struct bt_bap_ep *ep, uint8_t *state);
+int le_audio_ep_state_get(struct bt_bap_ep const *const ep, uint8_t *state);
 
 /**
  * @brief	Check if an endpoint is in the given state.
  *		If the endpoint is NULL, it is not in the
  *		given state, and this function returns false.
  *
- * @param[in]	ep       The endpoint to check.
- * @param[in]	state    The state to check for.
+ * @param[in]	ep	The endpoint to check.
+ * @param[in]	state	The state to check for.
  *
  * @retval	true	The endpoint is in the given state.
  * @retval	false	Otherwise.
  */
-bool le_audio_ep_state_check(struct bt_bap_ep *ep, enum bt_bap_ep_state state);
+bool le_audio_ep_state_check(struct bt_bap_ep const *const ep, enum bt_bap_ep_state state);
 
 /**
  * @brief	Check if an endpoint has had the QoS configured.
  *		If the endpoint is NULL, it is not in the state, and this function returns false.
  *
- * @param[in]	ep       The endpoint to check.
+ * @param[in]	ep	The endpoint to check.
  *
  * @retval	true	The endpoint QoS is configured.
  * @retval	false	Otherwise.
@@ -197,5 +234,27 @@ bool le_audio_freq_check(const struct bt_audio_codec_cfg *codec);
  * @param[in]	dir	Direction to print the codec configuration for.
  */
 void le_audio_print_codec(const struct bt_audio_codec_cfg *codec, enum bt_audio_dir dir);
+
+/**
+ * @brief	Print the QoS configuration for a stream.
+ *
+ * @param[in]	stream	Pointer to the BAP stream to print QoS information from.
+ *
+ * @return	0 for success, error otherwise.
+ */
+int le_audio_print_qos_from_stream(struct bt_bap_stream const *const stream);
+
+/**
+ * @brief	Print the unicast group information.
+ *
+ * @param[in]	unicast_group	Pointer to the CAP unicast group to print information from.
+ *
+ * @return	0 for success, error otherwise.
+ */
+int le_audio_print_unicast_group(struct bt_cap_unicast_group const *const unicast_group);
+
+/**
+ * @}
+ */
 
 #endif /* _LE_AUDIO_H_ */

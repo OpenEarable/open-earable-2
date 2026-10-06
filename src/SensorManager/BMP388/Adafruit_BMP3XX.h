@@ -68,6 +68,11 @@ public:
   /// Perform a reading in blocking mode
   bool performReading(void);
 
+  bool startContinuous(uint8_t odr);
+  bool readContinuous(void);
+  int readFifo(struct bmp3_data *samples, uint8_t capacity);
+  bool stopContinuous(void);
+
   /// Temperature (Celsius) assigned after calling performReading()
   double temperature;
   /// Pressure (Pascals) assigned after calling performReading()
@@ -87,6 +92,8 @@ private:
   //uint8_t spixfer(uint8_t x);
 
   struct bmp3_dev the_sensor;
+  struct bmp3_fifo fifo{};
+  uint8_t fifo_buffer[512]{};
 
   bool detect(int address);
 

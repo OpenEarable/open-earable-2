@@ -10,13 +10,15 @@
 
 
 constexpr size_t SD_BLOCK_SIZE = 4096;
-constexpr size_t BUFFER_BLOCK_COUNT = 8; // Number of blocks in the buffer
+constexpr size_t BUFFER_BLOCK_COUNT = 9; // Absorb brief card stalls at full sensor rates.
 constexpr size_t BUFFER_SIZE = SD_BLOCK_SIZE * BUFFER_BLOCK_COUNT;
 
 // BUFFER_SIZE must always be a multiple of SD_BLOCK_SIZE to ensure proper block alignment
 // without requiring padding. The SensorLogger implementation assumes this relationship
 // and will not work correctly otherwise.
 static_assert(BUFFER_SIZE % SD_BLOCK_SIZE == 0, "BUFFER_SIZE must be a multiple of SD_BLOCK_SIZE");
+static_assert(BUFFER_SIZE <= RING_BUFFER_MAX_SIZE,
+              "SD logger requires CONFIG_RING_BUFFER_LARGE");
 
 // Forward declare the work handler
 //static void sd_work_handler(struct k_work* work);
@@ -32,8 +34,9 @@ private:
         //size_t buffer_pos = 0;
         std::string current_file;
 
-        int write_header(); // Write the file header, device metadata, and embedded parse metadata.
+        int write_header(const sensor_config* configs, size_t config_count);
         int flush(); // Flush any buffered data to the SD card
+        int drain_buffer(); // Drain a complete-record snapshot without stopping producers
         
         static constexpr uint16_t SENSOR_LOG_VERSION = 0x0003;
 
@@ -69,7 +72,7 @@ private:
         * @param filename Base filename without extension (.oe will be appended)
         * @return 0 on success, negative error code on failure
         */
-        int begin(const std::string& filename);
+        int begin(const std::string& filename, const sensor_config* configs, size_t config_count);
 
         /**
         * @brief Write sensor data to the log file

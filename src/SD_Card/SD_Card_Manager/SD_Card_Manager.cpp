@@ -494,6 +494,13 @@ int SDCardManager::close_file() {
 	return 0;
 }
 
+off_t SDCardManager::tell() {
+    k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
+    const off_t position = tracked_file.is_open ? fs_tell(&tracked_file.filep) : -EBADF;
+    k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+    return position;
+}
+
 ssize_t SDCardManager::write(char *buf, size_t *buf_size, bool sync) {
 	if (!this->tracked_file.is_open) {
 		LOG_ERR("File is not open");

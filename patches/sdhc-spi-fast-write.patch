@@ -1,0 +1,183 @@
+--- a/drivers/sdhc/sdhc_spi.c
++++ b/drivers/sdhc/sdhc_spi.c
+@@ -15,6 +15,7 @@
+ #include <zephyr/drivers/spi.h>
+ #include <zephyr/sys/crc.h>
+ #include <zephyr/pm/device_runtime.h>
++#include <hal/nrf_clock.h>
+ 
+ LOG_MODULE_REGISTER(sdhc_spi, CONFIG_SDHC_LOG_LEVEL);
+ 
+@@ -103,6 +104,8 @@
+ 	struct spi_config cfg_a;
+ 	struct spi_config cfg_b;
+ 	uint8_t scratch[MAX_CMD_READ];
++	uint32_t write_frequency;
++	bool speed_checked;
+ };
+ 
+ /* Receives a block of bytes */
+@@ -209,19 +212,24 @@
+ {
+ 	const struct sdhc_spi_config *config = dev->config;
+ 	struct sdhc_spi_data *data = dev->data;
+-	int ret;
+-	uint8_t response;
+-
+-	while (timeout_ms > 0) {
+-		ret = sdhc_spi_rx(config->spi_dev, data->spi_cfg, &response, 1);
+-		if (ret) {
+-			return ret;
+-		}
+-		if (response == 0xFF) {
++	const int64_t deadline = k_uptime_get() + timeout_ms;
++	uint8_t response[32];
++
++	while (k_uptime_get() < deadline) {
++		/* Busy releases to all ones until the next command. Clock a small
++		 * block rather than scheduling a DMA transfer for every byte.
++		 */
++		int ret = sdhc_spi_rx(config->spi_dev, data->spi_cfg,
++				   response, sizeof(response));
++		if (ret) {
++			return ret;
++		}
++		if (response[sizeof(response) - 1] == 0xFF) {
+ 			return 0;
+ 		}
+-		k_msleep(k_ticks_to_ms_floor32(interval_ticks));
+-		timeout_ms -= k_ticks_to_ms_floor32(interval_ticks);
++		if (interval_ticks > 0) {
++			k_sleep(K_TICKS(interval_ticks));
++		}
+ 	}
+ 	return -ETIMEDOUT;
+ }
+@@ -541,6 +549,64 @@
+ 	return ret;
+ }
+ 
++/* CMD6 changes card timing without changing its SPI protocol or file format.
++ * Only write blocks use the higher clock: nRF5340 receive remains <= 16 MHz.
++ */
++static int sdhc_spi_enable_fast_write(const struct device *dev)
++{
++	const struct sdhc_spi_config *config = dev->config;
++	struct sdhc_spi_data *dev_data = dev->data;
++	uint8_t status[64];
++	struct sdhc_command cmd = {
++		.opcode = SD_SWITCH,
++		.arg = 0x00fffff1U,
++		.response_type = SD_SPI_RSP_TYPE_R1,
++		.timeout_ms = CONFIG_SD_CMD_TIMEOUT,
++	};
++	struct sdhc_data data = {
++		.block_size = sizeof(status),
++		.blocks = 1,
++		.data = status,
++		.timeout_ms = CONFIG_SD_DATA_TIMEOUT,
++	};
++	int ret;
++
++	if (dev_data->speed_checked || config->spi_max_freq < 32000000U ||
++	    dev_data->spi_cfg->frequency <= 16000000U ||
++	    nrf_clock_hfclk_div_get(NRF_CLOCK) != NRF_CLOCK_HFCLK_DIV_1) {
++		return 0;
++	}
++
++	/* Check support, then request high-speed timing, both at the old clock. */
++	for (int mode = 0; mode < 2; mode++) {
++		cmd.arg = 0x00fffff1U | ((uint32_t)mode << 31);
++		ret = sdhc_spi_send_cmd(dev, &cmd, true);
++		if (ret == -EINVAL && (cmd.response[0] & SD_SPI_R1ILLEGAL_CMD_ERR)) {
++			dev_data->speed_checked = true;
++			return 0;
++		}
++		if (ret) {
++			return ret;
++		}
++		ret = sdhc_spi_read_data(dev, &data);
++		if (ret) {
++			return ret;
++		}
++		if (!(status[13] & BIT(1)) ||
++		    (status[17] == 1 && (status[29] & BIT(1)))) {
++			dev_data->speed_checked = true;
++			return 0;
++		}
++	}
++
++	dev_data->speed_checked = true;
++	if ((status[16] & 0x0f) == 1) {
++		dev_data->write_frequency = 32000000U;
++		LOG_INF("SD high-speed writes enabled: 32 MHz TX, 16 MHz RX");
++	}
++	return 0;
++}
++
+ /* Handles writing data to SD SPI device */
+ static int sdhc_spi_write_data(const struct device *dev, struct sdhc_data *data)
+ {
+@@ -584,7 +650,17 @@
+ 		/* Build the CRC for this data block */
+ 		sys_put_be16(crc16_itu_t(0, write_location, data->block_size),
+ 			crc);
++		/* Keep the same SPI_LOCK_ON owner and CS asserted. The NCS 3.4.1
++		 * nrfx driver compares configuration values, so it applies each
++		 * frequency change even though the config pointer is unchanged.
++		 */
++		uint32_t read_frequency = dev_data->spi_cfg->frequency;
++
++		if (dev_data->write_frequency != 0) {
++			dev_data->spi_cfg->frequency = dev_data->write_frequency;
++		}
+ 		ret = spi_write(config->spi_dev, dev_data->spi_cfg, &tx);
++		dev_data->spi_cfg->frequency = read_frequency;
+ 		if (ret) {
+ 			return ret;
+ 		}
+@@ -648,6 +724,14 @@
+ 	/* Request SPI bus to be active */
+ 	if (pm_device_runtime_get(config->spi_dev) < 0) {
+ 		return -EIO;
++	}
++
++	if (data != NULL && (cmd->opcode == SD_WRITE_SINGLE_BLOCK ||
++			     cmd->opcode == SD_WRITE_MULTIPLE_BLOCK)) {
++		ret = sdhc_spi_enable_fast_write(dev);
++		if (ret) {
++			goto release;
++		}
+ 	}
+ 
+ 	if (data == NULL) {
+@@ -687,6 +771,7 @@
+ 		} while ((ret != 0) && (retries > 0));
+ 	}
+ 
++release:
+ 	/* Release SPI bus */
+ 	ret2 = spi_release(config->spi_dev, dev_data->spi_cfg);
+ 
+@@ -701,6 +786,10 @@
+ 	const struct sdhc_spi_config *cfg = dev->config;
+ 	struct sdhc_spi_data *data = dev->data;
+ 
++	if (ios->clock <= SDMMC_CLOCK_400KHZ || ios->power_mode == SDHC_POWER_OFF) {
++		data->write_frequency = 0;
++		data->speed_checked = false;
++	}
+ 	if (ios->clock != data->spi_cfg->frequency) {
+ 		if (ios->clock > cfg->spi_max_freq) {
+ 			return -ENOTSUP;
+@@ -800,7 +889,9 @@
+ {
+ 	struct sdhc_spi_data *data = dev->data;
+ 
+-	/* Reset host I/O */
++	/* Reset host I/O and renegotiate after a card reset. */
++	data->write_frequency = 0;
++	data->speed_checked = false;
+ 	data->spi_cfg->frequency = SDMMC_CLOCK_400KHZ;
+ 	return 0;
+ }

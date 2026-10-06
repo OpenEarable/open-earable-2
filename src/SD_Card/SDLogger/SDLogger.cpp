@@ -46,6 +46,9 @@ uint8_t buffer[BUFFER_SIZE];  // Ring Buffer Speicher
 static atomic_t g_stop_writing;   // 1 while end()/flush/close is in progress
 static atomic_t g_sd_removed;     // 1 if SD was removed while recording
 
+static constexpr int64_t LOG_SYNC_INTERVAL_MS = 5 * 1000;
+static int64_t last_sync_uptime_ms;
+
 uint32_t count_max_buffer_fill = 0;
 
 struct k_poll_signal logger_sig;
@@ -53,6 +56,16 @@ static struct k_poll_event logger_evt =
 		 K_POLL_EVENT_INITIALIZER(K_POLL_TYPE_SIGNAL, K_POLL_MODE_NOTIFY_ONLY, &logger_sig);
 
 namespace {
+
+// Keep a ring claim, its file write and its finish in one consumer transaction.
+// Producers use ring_mutex only, so card latency does not block acquisition.
+class FileLock {
+public:
+    FileLock() { k_mutex_lock(&file_mutex, K_FOREVER); }
+    ~FileLock() { k_mutex_unlock(&file_mutex); }
+    FileLock(const FileLock &) = delete;
+    FileLock &operator=(const FileLock &) = delete;
+};
 
 constexpr uint8_t OE_HEADER_SIDE_LEFT = 0x00;
 constexpr uint8_t OE_HEADER_SIDE_RIGHT = 0x01;
@@ -125,9 +138,16 @@ void SDLogger::sensor_sd_task() {
     int ret;
 
     while (1) {
-        ret = k_poll(&logger_evt, 1, K_FOREVER);
+        k_timeout_t timeout;
+        {
+            FileLock lock;
+            const int64_t remaining = LOG_SYNC_INTERVAL_MS -
+                (k_uptime_get() - last_sync_uptime_ms);
+            timeout = sdlogger.is_open ? K_MSEC(MAX(remaining, 1)) : K_FOREVER;
+        }
+        ret = k_poll(&logger_evt, 1, timeout);
 
-        if (ret < 0) {
+        if (ret < 0 && ret != -EAGAIN) {
             LOG_ERR("k_poll failed: %d", ret);
             continue;
         }
@@ -136,13 +156,13 @@ void SDLogger::sensor_sd_task() {
         int result;
         k_poll_signal_check(&logger_sig, &signaled, &result);
 
-        if (signaled == 0) {
+        if (signaled == 0 && ret != -EAGAIN) {
             LOG_DBG("Poll woke up without signal");
             continue;
         }
 
-        // If a close/flush is in progress, do not write concurrently.
-        if (atomic_get(&g_stop_writing)) {
+        FileLock lock;
+        if (atomic_get(&g_stop_writing) || !sdlogger.is_open) {
             reset_logger_signal();
             continue;
         }
@@ -163,6 +183,22 @@ void SDLogger::sensor_sd_task() {
             return;
         }
 
+        if (k_uptime_get() - last_sync_uptime_ms >= LOG_SYNC_INTERVAL_MS) {
+            // Drain a bounded snapshot ending at a complete record. Producers
+            // can keep filling the ring while this thread writes and syncs.
+            ret = sdlogger.drain_buffer();
+            if (ret >= 0) {
+                ret = sdlogger.sd_card->sync();
+            }
+            last_sync_uptime_ms = k_uptime_get();
+            if (ret < 0) {
+                state_indicator.set_sd_state(SD_FAULT);
+                LOG_ERR("Failed to checkpoint SD recording: %d", ret);
+            }
+            reset_logger_signal();
+            continue;
+        }
+
         uint32_t fill = ring_buf_size_get(&ring_buffer);
 
         if (fill >= SD_BLOCK_SIZE) {
@@ -172,7 +208,7 @@ void SDLogger::sensor_sd_task() {
 
             uint8_t *data = nullptr;
 
-            // Claim up to one SD block from the ring buffer under lock.
+            // Claim complete SD blocks from the ring buffer under lock.
             k_mutex_lock(&ring_mutex, K_FOREVER);
             uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill - (fill % SD_BLOCK_SIZE));
             k_mutex_unlock(&ring_mutex);
@@ -185,30 +221,47 @@ void SDLogger::sensor_sd_task() {
 
             // Write the claimed bytes under file lock.
             size_t write_size = claimed;
+            const off_t position = sdlogger.sd_card->tell();
+            if (position >= 0 && write_size >= 512) {
+                // The variable-size file header and checkpoints need not end on
+                // a sector boundary. Align the end of regular writes so FatFS
+                // can use full-sector transfers on the next iteration.
+                write_size -= (position + write_size) % 512;
+            }
             int written;
             k_mutex_lock(&file_mutex, K_FOREVER);
             written = sdlogger.sd_card->write((char*)data, &write_size, false);
             k_mutex_unlock(&file_mutex);
 
-            if (written < 0) {
+            if (written <= 0) {
                 state_indicator.set_sd_state(SD_FAULT);
                 LOG_ERR("SD write failed: %d", written);
 
-                // Do not advance the ring buffer on error.
-                // Wakeups will continue; user can call end().
+                // Release the claim without consuming bytes, allowing a retry.
+                k_mutex_lock(&ring_mutex, K_FOREVER);
+                ring_buf_get_finish(&ring_buffer, 0);
+                k_mutex_unlock(&ring_mutex);
                 reset_logger_signal();
                 continue;
             }
 
             // Advance ring buffer by the number of bytes actually written.
             k_mutex_lock(&ring_mutex, K_FOREVER);
-            ring_buf_get_finish(&ring_buffer, (uint32_t)written);
+            ret = ring_buf_get_finish(&ring_buffer, (uint32_t)written);
             k_mutex_unlock(&ring_mutex);
+            if (ret < 0) {
+                atomic_set(&g_stop_writing, 1);
+                state_indicator.set_sd_state(SD_FAULT);
+                LOG_ERR("Failed to finish SD buffer read: %d", ret);
+            }
         } else {
             k_yield();
         }
 
         reset_logger_signal();
+        if (ring_buf_size_get(&ring_buffer) >= SD_BLOCK_SIZE) {
+            k_poll_signal_raise(&logger_sig, 0);
+        }
 
         STACK_USAGE_PRINT("sensor_msg_thread", &sdlogger.thread_data);
     }
@@ -262,7 +315,8 @@ int SDLogger::init() {
  * Opens a file for logging with .oe extension appended to the filename.
  * Returns -EBUSY if logger is already open or -ENODEV if SD card not initialized.
  */
-int SDLogger::begin(const std::string& filename) {
+int SDLogger::begin(const std::string& filename, const sensor_config* configs, size_t config_count) {
+    FileLock lock;
     int ret;
 
     if (is_open) {
@@ -302,10 +356,13 @@ int SDLogger::begin(const std::string& filename) {
     ring_buf_reset(&ring_buffer);
     k_mutex_unlock(&ring_mutex);
 
-    ret = write_header();
+    ret = write_header(configs, config_count);
+    if (ret >= 0) {
+        ret = sd_card->sync();
+    }
     if (ret < 0) {
         state_indicator.set_sd_state(SD_FAULT);
-        LOG_ERR("Failed to write header: %d", ret);
+        LOG_ERR("Failed to persist header: %d", ret);
         k_mutex_lock(&file_mutex, K_FOREVER);
         sd_card->close_file();
         k_mutex_unlock(&file_mutex);
@@ -314,12 +371,13 @@ int SDLogger::begin(const std::string& filename) {
         return ret;
     }
 
+    last_sync_uptime_ms = k_uptime_get();
     k_poll_signal_raise(&logger_sig, 0);
 
     return 0;
 }
 
-int SDLogger::write_header() {
+int SDLogger::write_header(const sensor_config* configs, size_t config_count) {
     const size_t parse_info_size = getParseInfoStorageSize();
     if (parse_info_size == 0) {
         LOG_ERR("Parse info scheme is unavailable");
@@ -349,7 +407,7 @@ int SDLogger::write_header() {
 
     ssize_t serialized_size = serializeParseInfoStorage(
         reinterpret_cast<char*>(header_buffer + sizeof(FileHeader)),
-        parse_info_size
+        parse_info_size, configs, config_count
     );
     if (serialized_size < 0) {
         k_free(header_buffer);
@@ -403,6 +461,11 @@ int SDLogger::write_sensor_data(const void* const* data_blocks, const size_t* le
     if (k_mutex_lock(&ring_mutex, K_NO_WAIT) != 0) {
         return -EAGAIN;
     }
+    // Stop may have begun after the check above but before taking ring_mutex.
+    if (atomic_get(&g_stop_writing) || atomic_get(&g_sd_removed)) {
+        k_mutex_unlock(&ring_mutex);
+        return -ENODEV;
+    }
 
     // Ensure there is enough space; if not, free up room by discarding oldest bytes
     // in SD_BLOCK_SIZE chunks to keep SD writer alignment and minimize partial writes.
@@ -449,24 +512,26 @@ int SDLogger::flush() {
     // Prevent SD thread from writing concurrently
     atomic_set(&g_stop_writing, 1);
     k_poll_signal_raise(&logger_sig, 0);
+    FileLock lock;
+
+    return drain_buffer();
+}
+
+int SDLogger::drain_buffer() {
+    FileLock lock;
+    k_mutex_lock(&ring_mutex, K_FOREVER);
+    uint32_t remaining = ring_buf_size_get(&ring_buffer);
+    k_mutex_unlock(&ring_mutex);
 
     uint32_t total_written = 0;
-    for (;;) {
+    while (remaining > 0) {
         uint8_t *data = nullptr;
-        uint32_t fill;
-
         k_mutex_lock(&ring_mutex, K_FOREVER);
-        fill = ring_buf_size_get(&ring_buffer);
-        if (fill == 0) {
-            k_mutex_unlock(&ring_mutex);
-            break;
-        }
-
-        uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, fill);
+        uint32_t claimed = ring_buf_get_claim(&ring_buffer, &data, remaining);
         k_mutex_unlock(&ring_mutex);
 
         if (claimed == 0 || data == nullptr) {
-            break;
+            return -EIO;
         }
 
         size_t req = claimed;
@@ -475,17 +540,26 @@ int SDLogger::flush() {
         written = sd_card->write((char*)data, &req, false);
         k_mutex_unlock(&file_mutex);
 
-        if (written < 0) {
+        if (written <= 0) {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to flush SD buffer: %d", written);
-            break;
+            k_mutex_lock(&ring_mutex, K_FOREVER);
+            ring_buf_get_finish(&ring_buffer, 0);
+            k_mutex_unlock(&ring_mutex);
+            return written < 0 ? written : -EIO;
         }
 
         k_mutex_lock(&ring_mutex, K_FOREVER);
-        ring_buf_get_finish(&ring_buffer, (uint32_t)written);
+        int ret = ring_buf_get_finish(&ring_buffer, (uint32_t)written);
         k_mutex_unlock(&ring_mutex);
+        if (ret < 0) {
+            state_indicator.set_sd_state(SD_FAULT);
+            LOG_ERR("Failed to finish SD buffer flush: %d", ret);
+            return ret;
+        }
 
         total_written += (uint32_t)written;
+        remaining -= (uint32_t)written;
 
         if ((uint32_t)written < claimed) {
             k_yield();
@@ -496,6 +570,7 @@ int SDLogger::flush() {
 }
 
 int SDLogger::end() {
+    FileLock lock;
     int ret;
     
     if (!is_open) {

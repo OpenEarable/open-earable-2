@@ -62,6 +62,9 @@ int bt_content_ctrl_media_play(struct bt_conn *conn);
  */
 int bt_content_ctrl_media_pause(struct bt_conn *conn);
 
+/** Send next-track; NULL targets all discovered media-control peers. */
+int bt_content_ctrl_media_next_track(struct bt_conn *conn);
+
 /**
  * @brief	Reset the media control peer's discovered state
  *

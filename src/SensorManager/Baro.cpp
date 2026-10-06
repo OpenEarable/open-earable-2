@@ -15,54 +15,41 @@ Adafruit_BMP3XX Baro::bmp;
 
 Baro Baro::sensor;
 
-static int baro_initial_discard = 1;
-
 // Initialisierung der SampleRateSettings für Baro (BMP3)
-const SampleRateSetting<18> Baro::sample_rates = {
-    { BMP3_ODR_0_001_HZ, BMP3_ODR_0_003_HZ, BMP3_ODR_0_006_HZ, BMP3_ODR_0_01_HZ, 
-      BMP3_ODR_0_02_HZ, BMP3_ODR_0_05_HZ, BMP3_ODR_0_1_HZ, BMP3_ODR_0_2_HZ, 
-      BMP3_ODR_0_39_HZ, BMP3_ODR_0_78_HZ, BMP3_ODR_1_5_HZ, BMP3_ODR_3_1_HZ, 
-      BMP3_ODR_6_25_HZ, BMP3_ODR_12_5_HZ, BMP3_ODR_25_HZ, BMP3_ODR_50_HZ, 
-      BMP3_ODR_100_HZ, BMP3_ODR_200_HZ },   // reg_vals
-
-    { 0.001, 0.003, 0.006, 0.01, 0.02, 0.05, 0.1, 0.2, 
-      0.39, 0.78, 1.5, 3.1, 6.25, 12.5, 25.0, 50.0, 
-      100.0, 200.0 },  // sample_rates
-
-    { 0.001, 0.003, 0.006, 0.01, 0.02, 0.05, 0.1, 0.2, 
-      0.39, 0.78, 1.5, 3.1, 6.25, 12.5, 25.0, 50.0, 
-      100.0, 200.0 }   // true_sample_rates
+const SampleRateSetting<4> Baro::sample_rates = {
+    { BMP3_ODR_25_HZ, BMP3_ODR_50_HZ, BMP3_ODR_100_HZ, BMP3_ODR_200_HZ }, // reg_vals
+    { 25.0, 50.0, 100.0, 200.0 }, // sample_rates
+    { 25.0, 50.0, 100.0, 200.0 }  // true_sample_rates
 };
 
 void Baro::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
 	int ret;
 
-	bmp.performReading();
-
-	if (baro_initial_discard > 0) {
-		baro_initial_discard--;
-		return;
-	}
-
-	msg_baro.sd = sensor._sd_logging;
-	msg_baro.stream = sensor._ble_stream;
-
-	msg_baro.data.id = ID_TEMP_BARO;
-	msg_baro.data.size = 2 * sizeof(float);
-	msg_baro.data.time = micros();
-
-	float data[2] = {
-		static_cast<float>(bmp.temperature),
-		static_cast<float>(bmp.pressure),
-	};
-
-	memcpy(msg_baro.data.data, data, 2 * sizeof(float));
-
-	ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
-	if (ret) {
-		LOG_WRN("sensor msg queue full");
-	}
+    if (!sensor._running) return;
+    const uint64_t read_start = micros();
+    const int count = bmp.readFifo(sensor.samples, ARRAY_SIZE(sensor.samples));
+    if (count < 0) {
+        LOG_WRN("Pressure FIFO read failed");
+        return;
+    }
+    if (count == 0) return;
+    sensor.sample_clock.begin(read_start, count, sensor.sample_period_us,
+                              ARRAY_SIZE(sensor.samples), CONFIG_SENSOR_CLOCK_ACCURACY);
+    for (int i = 0; i < count; ++i) {
+        msg_baro.sd = sensor._sd_logging;
+        msg_baro.stream = sensor._ble_stream;
+        msg_baro.data.id = ID_TEMP_BARO;
+        msg_baro.data.size = 2 * sizeof(float);
+        msg_baro.data.time = sensor.sample_clock.timestamp(i);
+        const float data[2] = {static_cast<float>(sensor.samples[i].temperature),
+                               static_cast<float>(sensor.samples[i].pressure)};
+        memcpy(msg_baro.data.data, data, sizeof(data));
+        ret = k_msgq_put(sensor_queue, &msg_baro, K_NO_WAIT);
+        if (ret) {
+            LOG_WRN("sensor msg queue full");
+        }
+    }
 }
 
 /**
@@ -96,16 +83,20 @@ bool Baro::init(struct k_msgq * queue) {
 }
 
 void Baro::start(int sample_rate_idx) {
-	baro_initial_discard = 1;
+	if (!_active) return;
+	const uint8_t odr = sample_rates.reg_vals[sample_rate_idx];
+	if (!bmp.startContinuous(odr)) {
+		LOG_ERR("Failed to start pressure sampling");
+		return;
+	}
 
-    k_timeout_t t = K_USEC(1000000.0f / sample_rates.true_sample_rates[sample_rate_idx]);
-    
-    //bmp.set_interrogation_rate(setting.reg_val);
-    //bmp.start();
-
-	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
-	_running = true;
+    sample_period_us =
+        1000000.0 / static_cast<double>(sample_rates.true_sample_rates[sample_rate_idx]);
+    sample_clock.reset();
+    // Retain individual acquisition times while amortizing the bus reads.
+    const k_timeout_t interval = K_USEC(MAX(20000, sample_period_us));
+    _running = true;
+    k_timer_start(&sensor.sensor_timer, interval, interval);
 }
 
 void Baro::stop() {
@@ -115,6 +106,11 @@ void Baro::stop() {
 	_running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+	struct k_work_sync sync;
+	k_work_cancel_sync(&sensor.sensor_work, &sync);
+	if (!bmp.stopContinuous()) {
+		LOG_WRN("Failed to stop pressure sampling");
+	}
 
     pm_device_runtime_put(ls_1_8);
 }

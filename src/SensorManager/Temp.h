@@ -18,7 +18,7 @@ public:
     void start(int sample_rate_idx) override;
     void stop() override;
 
-    const static SampleRateSetting<8> sample_rates;
+    const static SampleRateSetting<7> sample_rates;
 private:
     static MLX90632 temp;
 

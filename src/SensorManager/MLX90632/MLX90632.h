@@ -84,6 +84,7 @@
 #define RAM_9 0x4008
 
 //Three measurement modes available
+#define MODE_HALT 0b00
 #define MODE_SLEEP 0b01
 #define MODE_STEP 0b10
 #define MODE_CONTINUOUS 0b11

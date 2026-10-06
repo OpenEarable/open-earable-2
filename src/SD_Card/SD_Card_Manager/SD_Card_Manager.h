@@ -107,6 +107,7 @@ public:
      * @return 0 on success, < 0 on error
      */
     int sync();
+    off_t tell();
     /**
      * @brief Remove a file or directory.
      * 

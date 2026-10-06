@@ -24,3 +24,6 @@
 &nfct {
 	status = "disabled";
 };
+
+/* Include the Zephyr 4.x devicetree-based flash and SRAM layout. */
+#include <nordic/nrf5340_cpuapp_partition.dtsi>
