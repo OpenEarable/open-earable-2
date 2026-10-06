@@ -122,11 +122,6 @@ void le_audio_rx_data_handler(struct net_buf *audio_frame_rx, struct audio_metad
 
 	uint64_t total_frames = rx_stats[location_index].good_frame_cnt +
 				rx_stats[location_index].bad_or_empty_frame_cnt;
-	double bad_frame_percentage =
-		(total_frames > 0) ? (((double)rx_stats[location_index].bad_or_empty_frame_cnt /
-				       total_frames) *
-				      100)
-				   : 0.0;
 
 	if ((total_frames % 100) == 0 && (total_frames != 0)) {
 		/* NOTE: The string below is used by the Nordic CI system */
@@ -137,7 +132,9 @@ void le_audio_rx_data_handler(struct net_buf *audio_frame_rx, struct audio_metad
 	LOG_DBG_RATELIMIT_RATE(
 		10000, "Bad or 0 SDU: Loc: %u Total: %llu Empty/bad: %llu (%2.3f %%)",
 		location_index, total_frames, rx_stats[location_index].bad_or_empty_frame_cnt,
-		bad_frame_percentage);
+		total_frames > 0
+			? 100.0 * rx_stats[location_index].bad_or_empty_frame_cnt / total_frames
+			: 0.0);
 
 	if (stream_state_get() != STATE_STREAMING) {
 		/* Throw away data */
@@ -158,10 +155,8 @@ void le_audio_rx_data_handler(struct net_buf *audio_frame_rx, struct audio_metad
 		struct net_buf *stale_buf = NULL;
 		/* FIFO buffer is full, swap out oldest frame for a new one */
 		ret = k_msgq_get(&ble_q_rx, (void *)&stale_buf, K_NO_WAIT);
-		/* Checking return value of k_msgq_get() is not necessary here,
-		 * as we are already checking for free space above.
-		 */
-		if (stale_buf != NULL) {
+		/* The consumer can drain the queue after the free-space check. */
+		if (ret == 0 && stale_buf != NULL) {
 			num_overruns++;
 
 			if ((num_overruns % 100) == 1) {

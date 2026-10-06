@@ -997,7 +997,10 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 			 * use alternative buffers
 			 */
 			ret = alt_buffer_get((void **)&tx_buf);
-			ERR_CHK(ret);
+			if (ret) {
+				ERR_CHK(ret);
+				return;
+			}
 
 			memset(tx_buf, 0, BLK_MULTI_CHAN_SIZE_OCTETS);
 		}
