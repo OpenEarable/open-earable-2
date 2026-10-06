@@ -58,7 +58,7 @@ jobs:
             num=$(echo "$pr" | jq -r .number)
             sha=$(echo "$pr" | jq -r .headRefOid)
             title=$(echo "$pr" | jq -r .title)
-            safe_title=$(echo "$title" | sed 's/[^a-zA-Z0-9_-]/_/g' | cut -c1-50)
+            safe_title=$(echo "$title" | sed 's/[^a-zA-Z0-9_.-]/_/g' | cut -c1-50)
             run_id=$(gh run list \
               --repo "${{ github.repository }}" \
               --workflow "$BUILD_WORKFLOW_NAME" \
@@ -76,7 +76,7 @@ jobs:
             if gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_firmware.zip" -D "$out/firmware" 2>&1; then
               (cd "$out/firmware" && zip -r "../openearable_v2_firmware.zip" .)
             elif gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_firmware.elf" -D "$out/elf" 2>&1; then
-              # Keep collecting older PR builds until they use the complete package.
+              # Older PRs still publish a single ELF rather than the flash bundle.
               mv "$out/elf/openearable_v2_firmware.elf" "$out/openearable_v2_firmware.elf"
             else
               echo "PR #$num: failed to download firmware artifact (may be expired)"
@@ -89,7 +89,7 @@ jobs:
               continue
             fi
             (cd "$out/fota" && zip -r "../openearable_v2_fota.zip" .)
-            rm -rf "$out/elf" "$out/firmware" "$out/fota"
+            rm -rf "$out/firmware" "$out/elf" "$out/fota"
             
             echo "$safe_title" > "$out/title.txt"
             
