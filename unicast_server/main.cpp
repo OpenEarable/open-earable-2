@@ -8,6 +8,7 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/usb/usb_device.h>
+#include "usb_recovery.h"
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
 
@@ -61,6 +62,18 @@ int main(void) {
 	int ret;
 
 	LOG_DBG("nRF5340 APP core started");
+
+#if defined(CONFIG_USB_BATTERY_RECOVERY)
+	ret = usb_recovery_prepare();
+	if (ret < 0) {
+		LOG_ERR("Cannot establish safe USB battery state: %d", ret);
+		return 0;
+	}
+	if (ret > 0) {
+		usb_recovery_run();
+		return 0;
+	}
+#endif
 
 	ret = power_manager.begin();
 	ERR_CHK(ret);

@@ -6,6 +6,7 @@
 
 #include "bt_mgmt_dfu_auto_off.h"
 #include "bt_mgmt_dfu_indicator.h"
+#include "usb_recovery.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt_dfu_activity, CONFIG_BT_MGMT_DFU_LOG_LEVEL);
@@ -16,6 +17,12 @@ static struct mgmt_callback dfu_activity_mgmt_cb;
 
 void bt_mgmt_dfu_activity_chunk_received(void)
 {
+#if defined(CONFIG_USB_BATTERY_RECOVERY)
+	/* USB recovery has not initialized the normal indicator/power manager. */
+	if (usb_recovery_active()) {
+		return;
+	}
+#endif
 	bt_mgmt_dfu_auto_off_hold();
 	bt_mgmt_dfu_indicator_update_chunk_led();
 }
