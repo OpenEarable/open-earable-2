@@ -1,5 +1,19 @@
 menu "Battery Configuration"
 
+config USB_BATTERY_RECOVERY
+	bool "USB management boot without charging an unsafe battery"
+	depends on USB_DEVICE_STACK && MCUMGR_TRANSPORT_UART && BOOTLOADER_MCUBOOT
+	depends on BT_BAP_UNICAST_SERVER
+	depends on BOARD_OPENEARABLE_V2
+	default y
+	help
+	  Before the normal power manager, check battery safety on USB power.
+	  If the gauge cannot be read, is not ready, or reports an unsafe charging
+	  condition, keep the charger CD pin high and expose USB mcumgr only.
+	  Do not start Bluetooth, sensors, audio, or battery configuration workers.
+	  Recovery remains active until reboot; removing USB powers the device off.
+	  A healthy battery follows the existing boot and charging behavior.
+
 config POWER_SAVING_DEFAULT_MODE
 	int "Default auto-off power saving mode"
 	default 2
