@@ -4,11 +4,9 @@
 # SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
 #
 
-menuconfig NRF5340_AUDIO
-	 bool "nRF5340 Audio [EXPERIMENTAL]"
+menuconfig APP_NRF_AUDIO
+	bool "nRF Audio [EXPERIMENTAL]"
 	 select EXPERIMENTAL
-	
-if NRF5340_AUDIO
 
 config CUSTOM_BROADCASTER
 	bool "Allow custom broadcasters"
@@ -25,7 +23,7 @@ config AUDIO_DEV
 	  as a HEADSET device.
 	  Setting to 2 will compile as a GATEWAY.
 
-choice NRF5340_AUDIO_TRANSPORT_MODE
+choice NRF_AUDIO_TRANSPORT_MODE
 	prompt "Choose BIS or CIS for ISO transport"
 	default TRANSPORT_CIS if WALKIE_TALKIE_DEMO
 	default TRANSPORT_CIS
@@ -79,6 +77,4 @@ config PRINT_STACK_USAGE_MS
 endmenu # Log levels
 
 #----------------------------------------------------------------------------#
-endif # NRF5340_AUDIO
-
 source "Kconfig.zephyr"

@@ -12,19 +12,21 @@ BoneConduction BoneConduction::sensor;
 
 static struct sensor_msg msg_bc;
 
-const SampleRateSetting<10> BoneConduction::sample_rates = {
-    { BMA5_ACC_ODR_HZ_12P5, BMA5_ACC_ODR_HZ_25, BMA5_ACC_ODR_HZ_50, BMA5_ACC_ODR_HZ_100, 
+const SampleRateSetting<9> BoneConduction::sample_rates = {
+    { BMA5_ACC_ODR_HZ_25, BMA5_ACC_ODR_HZ_50, BMA5_ACC_ODR_HZ_100,
       BMA5_ACC_ODR_HZ_200, BMA5_ACC_ODR_HZ_400, BMA5_ACC_ODR_HZ_800, BMA5_ACC_ODR_HZ_1K6, 
       BMA5_ACC_ODR_HZ_3K2, BMA5_ACC_ODR_HZ_6K4 },   // reg_vals
 
-    { 12.5, 25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0 },  // sample_rates
+    { 25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0 },  // sample_rates
 
-    { 12.5, 25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0 }   // true_sample_rates
+    { 25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0 }   // true_sample_rates
 };
 
 bool BoneConduction::init(struct k_msgq * queue) {
     if (!_active) {
         pm_device_runtime_get(ls_1_8);
+		pm_device_runtime_get(ls_3_3);
+		k_msleep(50);
     	_active = true;
 	}
     
@@ -32,6 +34,7 @@ bool BoneConduction::init(struct k_msgq * queue) {
 		LOG_WRN("Could not find a valid bone conduction sensor, check wiring!");
         _active = false;
         pm_device_runtime_put(ls_1_8);
+		pm_device_runtime_put(ls_3_3);
 		return false;
     }
 
@@ -49,19 +52,12 @@ void BoneConduction::reset() {
 
 void BoneConduction::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
-    uint64_t _time_stamp = micros();
-
-    BoneConduction::sensor._sample_count += (_time_stamp - BoneConduction::sensor._last_time_stamp) / BoneConduction::sensor.t_sample_us;
-    BoneConduction::sensor._last_time_stamp = _time_stamp;
-    
-    if (BoneConduction::sensor._sample_count < BoneConduction::sensor._num_samples_buffered * (1.f - CONFIG_SENSOR_CLOCK_ACCURACY / 100.f)) {
-        return;
-    }
-
+    if (!sensor._running) return;
     int num_samples = sensor.bma580.read(sensor.fifo_acc_data);
 
     if (num_samples > 0) {
-        BoneConduction::sensor._sample_count = MAX(0, BoneConduction::sensor._num_samples_buffered - num_samples);
+        sensor.sample_clock.begin(micros(), num_samples, sensor.t_sample_us,
+                                  1024 / (3 * sizeof(int16_t)), CONFIG_SENSOR_CLOCK_ACCURACY);
     }
 
     int written = 0;
@@ -71,6 +67,7 @@ void BoneConduction::update_sensor(struct k_work *work) {
     while (written < num_samples) {
         int to_write = MIN((SENSOR_DATA_FIXED_LENGTH - sizeof(uint16_t)) / _size, num_samples - written);
         if (to_write <= 0) break;
+        if (sensor.sample_clock.period() > UINT16_MAX) to_write = 1;
 
         msg_bc.sd = sensor._sd_logging;
         msg_bc.stream = sensor._ble_stream;
@@ -78,11 +75,10 @@ void BoneConduction::update_sensor(struct k_work *work) {
         msg_bc.data.id = ID_BONE_CONDUCTION;
         msg_bc.data.size = to_write * _size + sizeof(uint16_t);
 
-        uint64_t dt_us = (uint64_t)((double)(num_samples - written) * (double)BoneConduction::sensor.t_sample_us);
-        msg_bc.data.time = _time_stamp - dt_us;
+        msg_bc.data.time = sensor.sample_clock.timestamp(written);
 
         if (to_write > 1) {
-            uint16_t t_diff = BoneConduction::sensor.t_sample_us;
+            uint16_t t_diff = sensor.sample_clock.period();
             for (int i = 0; i < to_write; i++) {
                 memcpy(&msg_bc.data.data[i * _size], &sensor.fifo_acc_data[written + i], _size);
             }
@@ -113,19 +109,16 @@ void BoneConduction::start(int sample_rate_idx) {
 
     t_sample_us = 1000000.0f / sample_rates.true_sample_rates[sample_rate_idx];
 
-    k_timeout_t t = K_USEC(t_sample_us);
-
-    int word_size = 3 * sizeof(int16_t) + 1;
-    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)), 512 / word_size - 8); // Buffer size is 512 bytes
+    _num_samples_buffered = MIN(MAX(1, (int) (CONFIG_SENSOR_LATENCY_MS * 1000.0f / t_sample_us)), 1024 / (3 * sizeof(int16_t)) / 2); // Leave half the FIFO for scheduling latency
     
-    bma580.init(sample_rates.reg_vals[sample_rate_idx], _num_samples_buffered * word_size);
+    bma580.init(sample_rates.reg_vals[sample_rate_idx], _num_samples_buffered * 3 * sizeof(int16_t));
     bma580.start();
 
-	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
+	/* Drain the FIFO once per buffered block instead of once per sample. */
+    k_timeout_t t = K_USEC(t_sample_us * _num_samples_buffered);
     _running = true;
-    _sample_count = 0;
-    _last_time_stamp = micros();
+    sample_clock.reset();
+    k_timer_start(&sensor.sensor_timer, t, t);
 }
 
 void BoneConduction::stop() {
@@ -135,8 +128,11 @@ void BoneConduction::stop() {
     _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+	struct k_work_sync sync;
+	k_work_cancel_sync(&sensor.sensor_work, &sync);
 
     bma580.stop();
 
     pm_device_runtime_put(ls_1_8);
+	pm_device_runtime_put(ls_3_3);
 }

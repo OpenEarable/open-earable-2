@@ -1,0 +1,5 @@
+tests:
+  openearable.unit.sensor_transport:
+    tags: [unit, bluetooth]
+    integration_platforms: [native_sim/native/64]
+    platform_allow: [native_sim/native/64]

@@ -14,10 +14,10 @@ MLX90632 Temp::temp;
 
 static struct sensor_msg msg_temp;
 
-const SampleRateSetting<8> Temp::sample_rates = {
-    { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 },  // reg_vals
-    { 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 },       // sample_rates
-    { 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 }        // true_sample_rates
+const SampleRateSetting<7> Temp::sample_rates = {
+    { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 },  // reg_vals
+    { 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 },       // sample_rates
+    { 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0 }        // true_sample_rates
 };
 
 bool Temp::init(struct k_msgq * queue) {
@@ -50,7 +50,7 @@ bool Temp::init(struct k_msgq * queue) {
 
 void Temp::update_sensor(struct k_work *work) {
 	ARG_UNUSED(work);
-    if (!temp.dataAvailable()) return;
+    if (!sensor._running || !temp.dataAvailable()) return;
 
     MLX90632::status returnError;
     float temperature = temp.getObjectTemp(returnError);
@@ -86,14 +86,15 @@ void Temp::sensor_timer_handler(struct k_timer *dummy) {
 void Temp::start(int sample_rate_idx) {
     if (!_active) return;
 
-    k_timeout_t t = K_USEC(1000000.0f / sample_rates.true_sample_rates[sample_rate_idx]);
+    // Poll twice per conversion period so host/sensor clock phase cannot make
+    // every other completed measurement get overwritten before it is read.
+    k_timeout_t t = K_USEC(500000.0f / sample_rates.true_sample_rates[sample_rate_idx]);
 
     temp.setSampleRateRegVal(sample_rates.reg_vals[sample_rate_idx]);
     temp.continuousMode();
 
-	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
-
     _running = true;
+	k_timer_start(&sensor.sensor_timer, K_NO_WAIT, t);
 }
 
 void Temp::stop() {
@@ -103,6 +104,8 @@ void Temp::stop() {
     _running = false;
 
 	k_timer_stop(&sensor.sensor_timer);
+    struct k_work_sync sync;
+    k_work_cancel_sync(&sensor.sensor_work, &sync);
 
     temp.sleepMode();
 

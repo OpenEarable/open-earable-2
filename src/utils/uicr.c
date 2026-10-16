@@ -22,6 +22,32 @@ LOG_MODULE_REGISTER(uicr, CONFIG_LOG_DEFAULT_LEVEL);
 #define MEM_ADDR_UICR_STAL (MEM_ADDR_UICR_SIRK + sizeof(uint32_t))
 #define MEM_ADDR_UICR_HW (MEM_ADDR_UICR_STAL + sizeof(uint32_t))
 
+uint32_t uicr_location_get(void)
+{
+	uint8_t channel = uicr_channel_get();
+
+	if (channel == 0U) {
+		return BT_AUDIO_LOCATION_FRONT_LEFT;
+	}
+	if (channel == 1U) {
+		return BT_AUDIO_LOCATION_FRONT_RIGHT;
+	}
+
+	return UINT32_MAX;
+}
+
+int uicr_location_set(uint32_t location)
+{
+	if (location == BT_AUDIO_LOCATION_FRONT_LEFT) {
+		return uicr_channel_set(0U);
+	}
+	if (location == BT_AUDIO_LOCATION_FRONT_RIGHT) {
+		return uicr_channel_set(1U);
+	}
+
+	return -EINVAL;
+}
+
 uint8_t uicr_channel_get(void)
 {
 	return *(uint8_t *)MEM_ADDR_UICR_CH;

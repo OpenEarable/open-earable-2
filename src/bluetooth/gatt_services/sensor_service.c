@@ -1,4 +1,7 @@
 #include "sensor_service.h"
+#include "sensor_transport.h"
+#include <zephyr/sys/byteorder.h>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/kernel.h>
 #include "../SensorManager/SensorManager.h"
@@ -11,6 +14,11 @@ LOG_MODULE_REGISTER(sensor_manager, CONFIG_MODULE_BUTTON_HANDLER_LOG_LEVEL);
 
 #define MAX_SENSOR_REC_NAME_LENGTH 64
 #define MAX_NOTIFIES_IN_FLIGHT 4
+#define BATCH_LATENCY_MS 20
+BUILD_ASSERT(MAX_NOTIFIES_IN_FLIGHT <= CONFIG_BT_ATT_TX_COUNT);
+static atomic_t stream_epoch;
+static struct bt_conn *sensor_conn;
+struct queued_sensor { struct sensor_data data; uint32_t epoch; };
 
 static struct k_thread thread_data_notify;
 
@@ -23,7 +31,7 @@ ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 
 static K_THREAD_STACK_DEFINE(thread_stack_notify, CONFIG_SENSOR_GATT_NOTIFY_STACK_SIZE);
 
-K_MSGQ_DEFINE(gatt_queue, sizeof(struct sensor_data), CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE, 4);
+K_MSGQ_DEFINE(gatt_queue, sizeof(struct queued_sensor), CONFIG_SENSOR_GATT_SUB_QUEUE_SIZE, 4);
 
 static struct sensor_data sensor_data_value;
 static struct sensor_config config;
@@ -61,7 +69,7 @@ enum sensor_notify_context_state {
 
 struct sensor_notify_context {
 	struct bt_gatt_notify_params params;
-	struct sensor_data payload;
+	struct oe_sensor_batch payload;
 	enum sensor_notify_context_state state;
 	uint32_t generation;
 };
@@ -83,8 +91,12 @@ static void reset_sensor_notification_state(void)
 	notify_enabled = false;
 	sensor_config_status_ntfy_enabled = false;
 	connection_complete = false;
+	struct bt_conn *old = sensor_conn;
+	sensor_conn = NULL;
+	atomic_inc(&stream_epoch);
 	k_spin_unlock(&notify_state_lock, key);
 
+	if (old) bt_conn_unref(old);
 	k_msgq_purge(&gatt_queue);
 }
 
@@ -95,8 +107,8 @@ static void reset_sensor_notification_state(void)
  * @retval Pointer to a free notification context.
  * @retval NULL No context is currently available.
  */
-static struct sensor_notify_context *acquire_notify_context(const struct sensor_data *data,
-							    uint32_t *generation);
+static struct sensor_notify_context *acquire_notify_context(const struct oe_sensor_batch *data,
+							    uint32_t *generation, uint32_t epoch);
 
 /**
  * @brief Mark a reserved context as queued in the Bluetooth stack.
@@ -162,6 +174,7 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 	case BT_MGMT_CONNECTED:
 	{
 		k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
+		sensor_conn = bt_conn_ref(msg->conn);
 		connection_complete = true;
 		k_spin_unlock(&notify_state_lock, key);
 		break;
@@ -184,6 +197,7 @@ static void sensor_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 	k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
 
 	notify_enabled = (value == BT_GATT_CCC_NOTIFY);
+	atomic_inc(&stream_epoch);
 	k_spin_unlock(&notify_state_lock, key);
 
 	LOG_INF("Sensor data notifications %s", notify_enabled ? "enabled" : "disabled");
@@ -314,12 +328,12 @@ BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_RECORDING_NAME,
 			read_sensor_rec_name, write_sensor_rec_name, NULL),
 );
 
-static struct sensor_notify_context *acquire_notify_context(const struct sensor_data *data,
-							    uint32_t *generation)
+static struct sensor_notify_context *acquire_notify_context(const struct oe_sensor_batch *data,
+							    uint32_t *generation, uint32_t epoch)
 {
 	k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
 
-	if (!connection_complete || !notify_enabled || notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
+	if (!connection_complete || !notify_enabled || epoch != (uint32_t)atomic_get(&stream_epoch) || notify_count >= MAX_NOTIFIES_IN_FLIGHT) {
 		k_spin_unlock(&notify_state_lock, key);
 		return NULL;
 	}
@@ -330,7 +344,7 @@ static struct sensor_notify_context *acquire_notify_context(const struct sensor_
 			notify_contexts[i].generation++;
 			notify_contexts[i].payload = *data;
 			notify_contexts[i].params.attr = &sensor_service.attrs[4];
-			notify_contexts[i].params.data = &notify_contexts[i].payload;
+			notify_contexts[i].params.data = notify_contexts[i].payload.data;
 			notify_contexts[i].params.func = notify_complete;
 			notify_contexts[i].params.user_data = &notify_contexts[i];
 			notify_count++;
@@ -362,71 +376,122 @@ static void notify_complete(struct bt_conn *conn, void *user_data)
 	release_notify_context(context, generation);
 }
 
-static void notification_task(void) {
-	int ret;
-	struct sensor_data sensor_data;
-
-	while (1) {
-		ret = k_msgq_get(&gatt_queue, &sensor_data, K_FOREVER);
-
-		if (ret != 0) {
-			LOG_WRN("No data to process");
-			continue;
-		}
-
-		while (1) {
-			const uint16_t size = sizeof(sensor_data.id) + sizeof(sensor_data.size) +
-					       sizeof(sensor_data.time) + sensor_data.size;
-			struct sensor_notify_context *context;
-			uint32_t generation;
-
-			context = acquire_notify_context(&sensor_data, &generation);
-			if (context == NULL) {
-				k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
-				bool can_retry = connection_complete && notify_enabled;
-				bool saturated = notify_count >= MAX_NOTIFIES_IN_FLIGHT;
-				k_spin_unlock(&notify_state_lock, key);
-
-				if (!can_retry) {
-					break;
-				}
-
-				if (saturated) {
-					k_sleep(K_MSEC(1));
-					continue;
-				}
-
-				LOG_WRN("No free GATT notify context available");
-				break;
-			}
-
-			context->params.len = size;
-			ret = bt_gatt_notify_cb(NULL, &context->params);
-			if (ret != 0) {
-				LOG_WRN("Failed to send data: %d.\n", ret);
-				release_notify_context(context, generation);
-			} else {
-				mark_notify_context_in_flight(context, generation);
-			}
-			break;
-		}
-	}
+/* A connection reference and epoch keep queued data out of a later session. */
+static struct bt_conn *stream_connection(uint32_t epoch)
+{
+    k_spinlock_key_t key = k_spin_lock(&notify_state_lock);
+    struct bt_conn *conn = NULL;
+    if (connection_complete && notify_enabled && sensor_conn &&
+        epoch == (uint32_t)atomic_get(&stream_epoch)) {
+        conn = bt_conn_ref(sensor_conn);
+    }
+    k_spin_unlock(&notify_state_lock, key);
+    return conn;
 }
 
-void sensor_queue_listener_cb(const struct zbus_channel *chan) {
-	ARG_UNUSED(chan);
-	int ret;
-	const struct sensor_msg * msg;
-    
-    msg = (struct sensor_msg *)zbus_chan_const_msg(&sensor_chan);
+static void send_batch(struct oe_sensor_batch *batch, uint32_t epoch)
+{
+    if (!batch->count) return;
+    while (1) {
+        struct bt_conn *conn = stream_connection(epoch);
+        if (!conn) break;
+        uint32_t generation;
+        struct sensor_notify_context *context = acquire_notify_context(batch, &generation, epoch);
+        if (!context) {
+            bt_conn_unref(conn);
+            k_sleep(K_MSEC(1));
+            continue;
+        }
+        context->params.len = batch->len;
+        int ret = bt_gatt_notify_cb(conn, &context->params);
+        bt_conn_unref(conn);
+        if (ret) {
+            LOG_WRN("Failed to send data: %d.\n", ret);
+            release_notify_context(context, generation);
+        } else {
+            mark_notify_context_in_flight(context, generation);
+        }
+        break;
+    }
+    batch->count = 0;
+    batch->len = 0;
+}
 
-	if (msg->stream) {
-		ret = k_msgq_put(&gatt_queue, &msg->data, K_NO_WAIT);
+static void notification_task(void)
+{
+    static struct oe_sensor_batch batches[8];
+    int64_t started[8] = {0};
+    uint32_t epoch = atomic_get(&stream_epoch);
+    unsigned next = 0;
+    while (1) {
+        if (epoch != (uint32_t)atomic_get(&stream_epoch)) {
+            for (unsigned i = 0; i < 8; ++i) send_batch(&batches[i], epoch);
+            epoch = atomic_get(&stream_epoch);
+        }
+        int64_t now = k_uptime_get();
+        int64_t wait_ms = BATCH_LATENCY_MS;
+        /* Rotate the first sensor serviced so a busy FIFO cannot monopolize TX. */
+        for (unsigned n = 0; n < 8; ++n) {
+            unsigned i = (next + n) % 8;
+            if (!batches[i].count) continue;
+            if (now - started[i] >= BATCH_LATENCY_MS) send_batch(&batches[i], epoch);
+            else wait_ms = MIN(wait_ms, BATCH_LATENCY_MS - (now - started[i]));
+        }
+        next = (next + 1) % 8;
+        struct queued_sensor item;
+        if (k_msgq_get(&gatt_queue, &item, K_MSEC(wait_ms))) continue;
+        const struct sensor_data *data = &item.data;
+        unsigned id = data->id;
+        if (id >= 8) continue;
+        unsigned count = oe_sensor_sample_count(id, data->size);
+        if (data->size > sizeof(data->data) || !count) {
 
-		if (ret) {
-			LOG_WRN("ble sensor stream queue full");
-		}
-	}
+            continue;
+        }
+        struct bt_conn *conn = stream_connection(item.epoch);
+        if (!conn) {
+
+            continue;
+        }
+        if (item.epoch != epoch) {
+            for (unsigned n = 0; n < 8; ++n) send_batch(&batches[n], epoch);
+            epoch = item.epoch;
+        }
+        unsigned limit = MIN(OE_SENSOR_PACKET_MAX, bt_gatt_get_mtu(conn) - 3);
+        bt_conn_unref(conn);
+        unsigned width = oe_sensor_sample_size(id);
+        unsigned period = count > 1 ? sys_get_le16(data->data + data->size - 2) : 0;
+        for (unsigned i = 0; i < count; ++i) {
+            const uint8_t *sample = data->data + i * width;
+            uint64_t time = data->time + (uint64_t)i * period;
+            struct oe_sensor_batch *batch = &batches[id];
+            if (!oe_sensor_batch_append(batch, id, sample, time, limit)) {
+                send_batch(batch, epoch);
+                if (!oe_sensor_batch_append(batch, id, sample, time, limit)) {
+
+                    continue;
+                }
+            }
+            if (batch->count == 1) started[id] = k_uptime_get();
+        }
+    }
+}
+
+void sensor_queue_listener_cb(const struct zbus_channel *chan)
+{
+    const struct sensor_msg *msg = zbus_chan_const_msg(chan);
+    if (!msg->stream || msg->data.id >= 8) return;
+    struct queued_sensor item = { .data = msg->data, .epoch = atomic_get(&stream_epoch) };
+    struct bt_conn *conn = stream_connection(item.epoch);
+    if (!conn) return;
+    bt_conn_unref(conn);
+    if (k_msgq_put(&gatt_queue, &item, K_NO_WAIT)) {
+        /* Keep live sensor data fresh when the link cannot drain the queue. */
+        struct queued_sensor discarded;
+        (void)k_msgq_get(&gatt_queue, &discarded, K_NO_WAIT);
+        (void)k_msgq_put(&gatt_queue, &item, K_NO_WAIT);
+        LOG_WRN_RATELIMIT_RATE(1000, "ble sensor stream queue full");
+    }
 }
 
 int init_sensor_config_status() {
@@ -457,6 +522,17 @@ int init_sensor_config_status() {
 	return 0;
 }
 
+int get_sensor_config_status(uint8_t sensor_id, struct sensor_config *config) {
+	if (!active_sensor_configs || !config) return -EINVAL;
+	for (size_t i = 0; i < active_sensor_configs_size; i++) {
+		if (active_sensor_configs[i].sensorId == sensor_id) {
+			*config = active_sensor_configs[i];
+			return 0;
+		}
+	}
+	return -ENOENT;
+}
+
 int set_sensor_config_status(struct sensor_config sensor_configuration) {
 	LOG_DBG("Setting sensor config status for sensorId: %i", sensor_configuration.sensorId);
 
@@ -484,6 +560,10 @@ int set_sensor_config_status(struct sensor_config sensor_configuration) {
 		active_sensor_configs[active_sensor_configs_size - 1] = sensor_configuration;
 	}
 
+	return notify_sensor_config_status();
+}
+
+int notify_sensor_config_status(void) {
 	if (sensor_config_status_ntfy_enabled) {
 		LOG_DBG("Sensor config status notification, notifying %zu active sensor configs", active_sensor_configs_size);
 		struct bt_gatt_notify_params params = {

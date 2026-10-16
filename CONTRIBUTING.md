@@ -33,11 +33,11 @@ Use the same toolchain versions the repository expects.
 1. Install Visual Studio Code and the nRF Connect for VS Code extension.
 2. Install the J-Link Software and Documentation Package.
 3. Install `nrfutil` and ensure it is available on your `PATH`.
-4. Install nRF Connect SDK `v3.0.1`.
-5. Install toolchain `v3.0.1`.
+4. Install nRF Connect SDK `v3.4.1`.
+5. Install toolchain `v3.4.1`.
 6. Open this repository as an application in the nRF Connect extension.
 
-The manifest in [west.yml](west.yml) pins the workspace to `sdk-nrf` `v3.0.1`. Keep documentation and local validation aligned with that version unless the repository is explicitly upgraded.
+The manifest in [west.yml](west.yml) pins the workspace to `sdk-nrf` `v3.4.1`. Keep documentation and local validation aligned with that version unless the repository is explicitly upgraded.
 
 ## Build And Flash
 
@@ -156,7 +156,7 @@ without sysbuild using Clang Static Analyzer and Cppcheck. Style findings,
 Clang-Tidy, formatting, and automatic fixes are not enabled. The analyzer
 configuration is in [.codechecker.json](.codechecker.json).
 
-Local execution is optional. In an nRF Connect SDK `v3.0.1` Linux or WSL
+Local execution is optional. In an nRF Connect SDK `v3.4.1` Linux or WSL
 workspace, install CodeChecker `6.28.2`, Clang, and Cppcheck, then run:
 
 ```bash
@@ -171,8 +171,7 @@ west build --no-sysbuild --board openearable_v2/nrf5340/cpuapp \
 ```
 
 Reports are written to `<build-directory>/sca/codechecker/`. See Nordic's
-[CodeChecker documentation for nRF Connect SDK 3.0.1](https://nrfconnectdocs.nordicsemi.com/ncs/3.0.1/zephyr/develop/sca/codechecker.html)
-or the corresponding [upstream Zephyr 4.0 documentation](https://docs.zephyrproject.org/4.0.0/develop/sca/codechecker.html)
+[CodeChecker documentation for nRF Connect SDK 3.4.1](https://nrfconnectdocs.nordicsemi.com/ncs/3.4.1/zephyr/develop/sca/codechecker.html)
 for the available options.
 
 ## Validation Before Opening A Pull Request

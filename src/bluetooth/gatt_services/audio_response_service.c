@@ -98,7 +98,6 @@ static struct k_work_delayable transfer_timeout_work;
 static bool transfer_owner_disconnected;
 K_MUTEX_DEFINE(service_mutex);
 
-extern struct data_fifo fifo_rx;
 extern const struct bt_gatt_service_static audio_response_svc;
 
 static int notify_transfer_status(enum audio_response_transfer_status status, uint16_t credits);
@@ -815,16 +814,6 @@ static void measurement_work_handler(struct k_work *work)
 		goto fail;
 	}
 
-	if (!fifo_rx.initialized) {
-		LOG_DBG("Initializing RX FIFO for audio response measurement");
-		ret = data_fifo_init(&fifo_rx);
-		if (ret != 0) {
-			LOG_ERR("Failed to initialize RX FIFO: %d", ret);
-			goto fail;
-		}
-	}
-	LOG_DBG("RX FIFO ready for audio response measurement: id=%u", pending_config.id);
-
 	ret = audio_datapath_decimator_init(CONFIG_AUDIO_SAMPLE_RATE_HZ /
 					    AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE);
 	if (ret != 0) {
@@ -833,7 +822,7 @@ static void measurement_work_handler(struct k_work *work)
 	}
 	LOG_DBG("Audio response decimator initialized: input_rate=%u output_rate=%u",
 		CONFIG_AUDIO_SAMPLE_RATE_HZ, AUDIO_RESPONSE_CAPTURE_SAMPLE_RATE);
-	ret = audio_datapath_aquire(&fifo_rx);
+	ret = audio_datapath_aquire(NULL);
 	if (ret != 0) {
 		LOG_ERR("Failed to acquire audio datapath: %d", ret);
 		goto fail;

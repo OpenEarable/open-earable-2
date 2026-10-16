@@ -12,13 +12,21 @@ add_compile_definitions(GATEWAY=2)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
-project(openearable_v2_1)
+project(openearable_v2)
+
+include(cmake/sd_spi_fast_write.cmake)
+
+# NCS 3.4.1 gates this bootutil hook on a bootloader-only Kconfig symbol.
+# SMP must use its nRF53 hook too: the radio primary slot is not readable here.
+if(CONFIG_MCUMGR_GRP_IMG_NRF5340_BOOTUTIL_HOOK)
+    target_compile_definitions(mcuboot_util PRIVATE CONFIG_NRF53_MULTI_IMAGE_UPDATE=1)
+endif()
 
 #set(OVERLAY_CONFIG 
 #    ${CMAKE_CURRENT_SOURCE_DIR}/unicast_server/overlay-unicast_server.conf
 #)
 
-string(TIMESTAMP NRF5340_AUDIO_CORE_APP_COMP_DATE "%a %b %d %H:%M:%S %Y")
+string(TIMESTAMP NRF_AUDIO_CORE_APP_COMP_DATE "%a %b %d %H:%M:%S %Y")
 
 # Generate fw_info_app.c
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
@@ -45,6 +53,7 @@ zephyr_library_include_directories(
     include
     src/audio
     src/Battery
+    src/buttons
     src/Wire
     src/bluetooth
     src/drivers
@@ -59,7 +68,7 @@ zephyr_library_include_directories(
 )
 
 zephyr_library_include_directories(app PRIVATE
-    ${ZEPHYR_NRF_MODULE_DIR}/boards/teco/openearable_v2_nrf5340)
+    ${CMAKE_CURRENT_SOURCE_DIR}/boards/teco/openearable_v2)
 
 # Application sources
 add_subdirectory(src/audio)

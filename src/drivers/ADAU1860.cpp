@@ -377,12 +377,30 @@ int ADAU1860::end() {
 }
 
 int ADAU1860::setup() {
+        // UG-2257 STATUS2: power-up complete, SPT0 lock, ASRC input lock,
+        // and frequency-multiplier ready. PLL_LOCK is not used in FM mode.
+        constexpr uint8_t required = (1 << 7) | (1 << 4) | (1 << 2) | (1 << 1);
+        const int64_t deadline = k_uptime_get() + 1000;
+        int64_t stable_since = -1;
 
-#if !CONFIG_FDSP
-        // Unmute DAC (no need to wait for the ASCRs to lock)
-        uint8_t dac_ctrl2 = 0x0;
-        dac.writeReg(registers::DAC_CTRL2, &dac_ctrl2, sizeof(dac_ctrl2));
-#endif
+        while (true) {
+                uint8_t status = 0;
+                if (!readReg(registers::STATUS2, &status, sizeof(status))) {
+                        return -EIO;
+                }
+                const int64_t now = k_uptime_get();
+                if ((status & required) == required) {
+                        if (stable_since < 0) stable_since = now;
+                        if (now - stable_since >= 100) break;
+                } else {
+                        stable_since = -1;
+                }
+                if (now >= deadline) {
+                        LOG_ERR("Codec clocks did not settle (STATUS2: 0x%02x)", status);
+                        return -ETIMEDOUT;
+                }
+                k_msleep(5);
+        }
 
         return 0;
 }

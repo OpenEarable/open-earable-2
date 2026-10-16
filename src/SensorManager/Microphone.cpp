@@ -11,24 +11,8 @@
 
 #include "ADAU1860.h"
 
-//#include <data_fifo.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <data_fifo.h>
-extern void init_fifo();
-extern void empty_fifo();
-
-#ifdef __cplusplus
-}
-#endif
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(microphone, CONFIG_LOG_DEFAULT_LEVEL);
-
-extern struct data_fifo fifo_rx;
 
 Microphone Microphone::sensor;
 
@@ -48,8 +32,6 @@ bool Microphone::init(struct k_msgq * queue) {
 
 	set_sensor_queue(queue);
 
-	init_fifo();
-
 	return true;
 }
 
@@ -59,13 +41,14 @@ void Microphone::start(int sample_rate_idx) {
 	if (!_active) return;
 
 	LOG_INF("Starting Microphone at %f Hz", (double)sample_rates.sample_rates[sample_rate_idx]);
-	record_to_sd(_sd_logging);
+	// Do not put samples from the previous rate into the newly opened file.
+	record_to_sd(false);
 
-	audio_datapath_aquire(&fifo_rx);
+	audio_datapath_aquire(NULL);
 
 	audio_datapath_decimator_init(sample_rates.reg_vals[sample_rate_idx]);
 
-	record_to_sd(true);
+	record_to_sd(_sd_logging);
 
 	_running = true;
 }

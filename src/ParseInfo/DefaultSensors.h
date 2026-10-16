@@ -60,10 +60,11 @@ SensorComponentGroup imuGroups[IMU_GROUP_COUNT] = {
 // ============= BoneConductionIMU =============
 
 #define BONE_CONDUCTION_ACC_COUNT 3
+// Raw BMA580 counts at +/-2 g: divide by 16384 to convert LSB to g.
 SensorComponent boneConductionIMUComponents[BONE_CONDUCTION_ACC_COUNT] = {
-    { .name = "X", .unit = "g", .parseType = PARSE_TYPE_INT16 },
-    { .name = "Y", .unit = "g", .parseType = PARSE_TYPE_INT16 },
-    { .name = "Z", .unit = "g", .parseType = PARSE_TYPE_INT16 },
+    { .name = "X", .unit = "LSB", .parseType = PARSE_TYPE_INT16 },
+    { .name = "Y", .unit = "LSB", .parseType = PARSE_TYPE_INT16 },
+    { .name = "Z", .unit = "LSB", .parseType = PARSE_TYPE_INT16 },
 };
 
 #define BONE_CONDUCTION_IMU_GROUP_COUNT 1
@@ -107,7 +108,7 @@ SensorComponent baroTempComponents[BARO_TEMP_COUNT] = {
 
 #define BARO_PRESSURE_COUNT 1
 SensorComponent baroPressureComponents[BARO_PRESSURE_COUNT] = {
-    { .name = "Pressure", .unit = "kPa", .parseType = PARSE_TYPE_FLOAT },
+    { .name = "Pressure", .unit = "Pa", .parseType = PARSE_TYPE_FLOAT },
 };
 
 #define BARO_GROUP_COUNT 2
@@ -174,8 +175,8 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
                 .frequencyCount = sizeof(Temp::sample_rates.reg_vals),
-                .defaultFrequencyIndex = 4,
-                .maxBleFrequencyIndex = 7,
+                .defaultFrequencyIndex = 3,
+                .maxBleFrequencyIndex = 6,
                 .frequencies = Temp::sample_rates.sample_rates,
             },
         },
@@ -189,8 +190,8 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
                 .frequencyCount = sizeof(Baro::sample_rates.reg_vals),
-                .defaultFrequencyIndex = 12,
-                .maxBleFrequencyIndex = 17,
+                .defaultFrequencyIndex = 0,
+                .maxBleFrequencyIndex = 3,
                 .frequencies = Baro::sample_rates.sample_rates,
             },
         },
@@ -204,8 +205,8 @@ SensorScheme defaultSensors[SENSOR_COUNT] = {
             .availableOptions = DATA_STREAMING | DATA_STORAGE | FREQUENCIES_DEFINED,
             .frequencyOptions = {
                 .frequencyCount = sizeof(BoneConduction::sample_rates.reg_vals),
-                .defaultFrequencyIndex = 2,
-                .maxBleFrequencyIndex = 6,
+                .defaultFrequencyIndex = 1,
+                .maxBleFrequencyIndex = 5,
                 .frequencies = BoneConduction::sample_rates.sample_rates,
             },
         }, 

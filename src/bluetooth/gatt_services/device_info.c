@@ -45,7 +45,7 @@ static ssize_t read_firmware(struct bt_conn *conn,
 			  uint16_t offset)
 {
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, firmware,
-					 sizeof(firmware));
+					 strlen(firmware));
 }
 
 BT_GATT_SERVICE_DEFINE(device_svc,

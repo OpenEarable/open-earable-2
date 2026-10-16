@@ -9,6 +9,10 @@
 
 #include <stddef.h>
 #include <zephyr/fs/fs.h>
+#include <zephyr/sys/util.h>
+
+#define SD_ROOT_PATH     "/SD:/"
+#define SD_PATH_MAX_LEN  ROUND_DOWN(CONFIG_FS_FATFS_MAX_LFN, 4)
 
 #ifdef __cplusplus
 extern "C" {

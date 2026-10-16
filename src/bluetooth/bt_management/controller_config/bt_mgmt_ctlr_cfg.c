@@ -11,6 +11,7 @@
 #include <zephyr/drivers/watchdog.h>
 #include <zephyr/task_wdt/task_wdt.h>
 #include <zephyr/logging/log_ctrl.h>
+#include <zephyr/sys/atomic.h>
 
 #include "macros_common.h"
 
@@ -18,6 +19,8 @@
 LOG_MODULE_REGISTER(bt_mgmt_ctlr_cfg, CONFIG_BT_MGMT_CTLR_CFG_LOG_LEVEL);
 
 #define COMPANY_ID_NORDIC 0x0059
+
+#if defined(CONFIG_WDT_CTLR)
 
 #define WDT_TIMEOUT_MS	      3000
 #define CTLR_POLL_INTERVAL_MS (WDT_TIMEOUT_MS - 1000)
@@ -36,7 +39,8 @@ struct k_work_queue_config ctrl_poll_work_q_config = {
 };
 
 static void ctlr_poll_timer_handler(struct k_timer *timer_id);
-static int wdt_ch_id;
+static int wdt_ch_id = -1;
+static atomic_t watchdog_active;
 
 K_TIMER_DEFINE(ctlr_poll_timer, ctlr_poll_timer_handler, NULL);
 
@@ -46,7 +50,14 @@ static void work_ctlr_poll_handler(struct k_work *work)
 	int ret;
 	uint16_t manufacturer = 0;
 
+	if (!atomic_get(&watchdog_active)) {
+		return;
+	}
+
 	ret = bt_mgmt_ctlr_cfg_manufacturer_get(false, &manufacturer);
+	if (!atomic_get(&watchdog_active)) {
+		return;
+	}
 	ERR_CHK_MSG(ret, "Failed to contact net core");
 
 	ret = task_wdt_feed(wdt_ch_id);
@@ -58,6 +69,10 @@ static void ctlr_poll_timer_handler(struct k_timer *timer_id)
 	ARG_UNUSED(timer_id);
 	int ret;
 
+	if (!atomic_get(&watchdog_active)) {
+		return;
+	}
+
 	ret = k_work_submit_to_queue(&ctrl_poll_work_q, &work_ctlr_poll);
 	if (ret < 0) {
 		LOG_ERR("Work q submit failed: %d", ret);
@@ -68,8 +83,12 @@ static void wdt_timeout_cb(int channel_id, void *user_data)
 {
 	ARG_UNUSED(channel_id);
 	ARG_UNUSED(user_data);
-	ERR_CHK_MSG(-ETIMEDOUT, "No response from IPC or controller");
+	if (atomic_get(&watchdog_active)) {
+		ERR_CHK_MSG(-ETIMEDOUT, "No response from IPC or controller");
+	}
 }
+
+#endif /* CONFIG_WDT_CTLR */
 
 int bt_mgmt_ctlr_cfg_manufacturer_get(bool print_version, uint16_t *manufacturer)
 {
@@ -84,13 +103,14 @@ int bt_mgmt_ctlr_cfg_manufacturer_get(bool print_version, uint16_t *manufacturer
 	struct bt_hci_rp_read_local_version_info *rp = (void *)rsp->data;
 
 	if (print_version) {
-		if (rp->manufacturer == COMPANY_ID_NORDIC) {
+		if (sys_le16_to_cpu(rp->manufacturer) == COMPANY_ID_NORDIC) {
 			/* NOTE: The string below is used by the Nordic CI system */
 			LOG_INF("Controller: SoftDevice: Version %s (0x%02x), Revision %d",
 				bt_hci_get_ver_str(rp->hci_version), rp->hci_version,
 				rp->hci_revision);
 		} else {
 			LOG_ERR("Unsupported controller");
+			net_buf_unref(rsp);
 			return -EPERM;
 		}
 	}
@@ -112,6 +132,8 @@ int bt_mgmt_ctlr_cfg_init(bool watchdog_enable)
 		return ret;
 	}
 
+
+#if defined(CONFIG_WDT_CTLR)
 	if (watchdog_enable) {
 		ret = task_wdt_init(NULL);
 		if (ret != 0) {
@@ -131,16 +153,33 @@ int bt_mgmt_ctlr_cfg_init(bool watchdog_enable)
 				   &ctrl_poll_work_q_config);
 
 		k_work_init(&work_ctlr_poll, work_ctlr_poll_handler);
+		atomic_set(&watchdog_active, 1);
 		k_timer_start(&ctlr_poll_timer, K_MSEC(CTLR_POLL_INTERVAL_MS),
 			      K_MSEC(CTLR_POLL_INTERVAL_MS));
 	}
+#else
+	ARG_UNUSED(watchdog_enable);
+#endif
 
 	return 0;
 }
 
 int bt_mgmt_stop_watchdog(void)
 {
+#if defined(CONFIG_WDT_CTLR)
+	struct k_work_sync sync;
+
+	if (!atomic_cas(&watchdog_active, 1, 0)) {
+		return 0;
+	}
+
 	k_timer_stop(&ctlr_poll_timer);
+	/* Drain a pending poll before deleting its watchdog channel. */
+	k_work_cancel_sync(&work_ctlr_poll, &sync);
 	int ret = task_wdt_delete(wdt_ch_id);
+	wdt_ch_id = -1;
 	return ret;
+#else
+	return 0;
+#endif
 }

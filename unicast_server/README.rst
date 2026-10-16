@@ -1,13 +1,13 @@
-.. _nrf53_audio_unicast_server_app:
+.. _nrf_audio_unicast_server_app:
 
-nRF5340 Audio: Unicast server
+nRF Audio: Unicast server
 #############################
 
 .. contents::
    :local:
    :depth: 2
 
-The nRF5340 Audio unicast server application implements the :ref:`CIS headset mode <nrf53_audio_app_overview>`.
+The nRF Audio unicast server application implements the :ref:`CIS headset mode <nrf_audio_app_overview>`.
 
 In this mode, one Connected Isochronous Group (CIG) can be used with two Connected Isochronous Streams (CIS).
 Receiving unidirectional or transceiving bidirectional audio happens using CIG and CIS.
@@ -15,32 +15,33 @@ In addition, Coordinated Set Identification Service (CSIS) is implemented on the
 
 The following limitations apply to this application:
 
-* One CIG, one of the two CIS streams (selectable).
+* One CIG, one of the two CIS streams or a mixed stereo comprising of the two (selectable).
+  See :file:`overlay-unicast_server.conf` for more information.
 * Audio output: I2S/Analog headset output.
 * Audio input: PDM microphone over I2S.
-* Configuration: 16 bit, several bit rates ranging from 32 kbps to 124 kbps.
+* Configuration: 16-bit, several bit rates ranging from 32 kbps to 124 kbps.
 
-.. _nrf53_audio_unicast_server_app_requirements:
+.. _nrf_audio_unicast_server_app_requirements:
 
 Requirements
 ************
 
-The application shares the :ref:`requirements common to all nRF5340 Audio application <nrf53_audio_app_requirements>`.
+The application shares the :ref:`requirements common to all nRF Audio application <nrf_audio_app_requirements>`.
 
-.. _nrf53_audio_unicast_server_app_ui:
+.. _nrf_audio_unicast_server_app_ui:
 
 User interface
 **************
 
-Most of the user interface mappings are common across all nRF5340 Audio applications.
-See the :ref:`nrf53_audio_app_ui` page for detailed overview.
+Most of the user interface mappings are common across all nRF Audio applications.
+See the :ref:`nrf_audio_app_ui` page for detailed overview.
 
 This application uses specific mapping for the following user interface elements:
 
 * Long-pressed on the unicast server device during startup:
 
-  * **VOL-** - Changes the headset to the left channel one.
-  * **VOL+** - Changes the headset to the right channel one.
+  * **VOL-** - Changes the headset location to left.
+  * **VOL+** - Changes the headset location to right.
   * **BTN5** - Clears the previously stored bonding information.
 
 * Pressed on the unicast server device during playback:
@@ -57,40 +58,52 @@ This application uses specific mapping for the following user interface elements
   * Solid blue - The device is programmed as the left headset.
   * Solid magenta - The device is programmed as the right headset.
 
-.. _nrf53_audio_unicast_server_app_configuration:
+.. _nrf_audio_unicast_server_app_configuration:
 
 Configuration
 *************
 
-By default, if you have not made any changes to :file:`.conf` files at :file:`applications/nrf5340_audio/`, the nRF5340 build script tries to build the CIS applications in the CIS unidirectional mode.
-To switch to the bidirectional mode, see :ref:`nrf53_audio_app_configuration_select_bidirectional`.
+By default, if you have not made any changes to :file:`.conf` files at :file:`applications/nrf_audio/`, the nRF5340 build script tries to build the CIS applications in the CIS unidirectional mode.
+To switch to the bidirectional mode, see :ref:`nrf_audio_app_configuration_select_bidirectional`.
 
-For other configuration options, see :ref:`nrf53_audio_app_configuration` and :ref:`nrf53_audio_app_fota`.
+For other configuration options, see :ref:`nrf_audio_app_configuration`.
 
 For information about how to configure applications in the |NCS|, see :ref:`configure_application`.
 
-.. _nrf53_audio_unicast_server_app_building:
+.. _nrf_audio_unicast_server_app_configuration_stereo:
+
+Stereo configuration
+====================
+
+The unicast server can receive audio from two CISes and play it on the left and right channels of the audio output.
+In this mode, the I2S output is stereo, but :zephyr:board:`nrf5340_audio_dk` still only has one audio output channel, since it has a mono codec (CS47L63).
+
+To configure stereo, program the :ref:`correct headset location <nrf_audio_app_configuration_headset_location>` for each headset.
+
+See also :file:`overlay-unicast_server.conf` for more information.
+
+.. _nrf_audio_unicast_server_app_building:
 
 Building and running
 ********************
 
-This application can be found under :file:`applications/nrf5340_audio/unicast_server` in the nRF Connect SDK folder structure, but it uses :file:`.conf` files at :file:`applications/nrf5340_audio/`.
+This application can be found under :file:`applications/nrf_audio/unicast_server` in the nRF Connect SDK folder structure, but it uses :file:`.conf` files at :file:`applications/nrf_audio/`.
 
 The nRF5340 Audio DK comes preprogrammed with basic firmware that indicates if the kit is functional.
-See :ref:`nrf53_audio_app_dk_testing_out_of_the_box` for more information.
+See :ref:`nrf_audio_app_dk_testing_out_of_the_box` for more information.
 
-To build the application, see :ref:`nrf53_audio_app_building`.
+To build the application, see :ref:`nrf_audio_app_building`.
 
-.. _nrf53_audio_unicast_server_app_testing:
+.. _nrf_audio_unicast_server_app_testing:
 
 Testing
 *******
 
-After building and programming the application, you can test the default CIS headset mode using one :ref:`unicast client application <nrf53_audio_unicast_client_app>` and one or two unicast server devices (this application).
-The recommended approach is to use two other nRF5340 Audio DKs programmed with the :ref:`unicast client application <nrf53_audio_unicast_client_app>` for the CIS gateway and the unicast server application (this application) for the CIS headset, respectively, but you can also use an external device that supports the role of unicast server.
+After building and programming the application, you can test the default CIS headset mode using one :ref:`unicast client application <nrf_audio_unicast_client_app>` and one or two unicast server devices (this application).
+The recommended approach is to use two other nRF5340 Audio DKs programmed with the :ref:`unicast client application <nrf_audio_unicast_client_app>` for the CIS gateway and the unicast server application (this application) for the CIS headset, respectively, but you can also use an external device that supports the role of unicast server.
 
 .. note::
-    |nrf5340_audio_external_devices_note|
+    |nrf_audio_external_devices_note|
 
 The following testing scenario assumes you are using USB as the audio source on the gateway.
 This is the default setting.
@@ -125,7 +138,7 @@ Complete the following steps to test the unidirectional CIS mode for one gateway
    After startup, this headset will be configured as the left channel headset.
    You can also just press the **RESET** button to restore the original programmed settings.
 
-For other testing options, refer to :ref:`nrf53_audio_unicast_server_app_ui`.
+For other testing options, refer to :ref:`nrf_audio_unicast_server_app_ui`.
 
 After the kits have paired for the first time, they are now bonded.
 This means the Long-Term Key (LTK) is stored on each side, and that the kits will only connect to each other unless the bonding information is cleared.
@@ -133,14 +146,14 @@ To clear the bonding information, press and hold **BTN 5** during boot or reprog
 
 When you finish testing, power off the nRF5340 Audio development kits by switching the power switch from On to Off.
 
-.. _nrf53_audio_unicast_server_app_testing_steps_cis_walkie_talkie:
+.. _nrf_audio_unicast_server_app_testing_steps_cis_walkie_talkie:
 
 Testing the walkie-talkie demo
 ==============================
 
 Testing the walkie-talkie demo is identical to the default testing procedure, except for the following differences:
 
-* You must enable the Kconfig option mentioned in :ref:`nrf53_audio_app_configuration_enable_walkie_talkie` before building the application.
+* You must enable the Kconfig option mentioned in :ref:`nrf_audio_app_configuration_enable_walkie_talkie` before building the application.
 * Instead of controlling the playback, you can speak through the PDM microphones.
   The line is open all the time, no need to press any buttons to talk, but the volume control works as in the default testing procedure.
 

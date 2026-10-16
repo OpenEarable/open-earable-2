@@ -25,7 +25,11 @@ jobs:
       - name: Download Firmware Artifact (Firmware)
         uses: actions/download-artifact@v4
         with:
-          name: openearable_v2_firmware.elf
+          name: openearable_v2_firmware.zip
+          path: ./openearable_v2_firmware
+
+      - name: Zip complete firmware package
+        run: (cd openearable_v2_firmware && zip -r ../openearable_v2_firmware.zip .)
 
       - name: Create Directory for FOTA
         run: mkdir -p openearable_v2_fota
@@ -52,10 +56,10 @@ jobs:
 
           # v2.2.8 -> 2.2.8
           version="${RELEASE_TAG#v}"
-          firmware_name="openearable_v2_firmware_${version}.elf"
+          firmware_name="openearable_v2_firmware_${version}.zip"
           fota_name="openearable_v2_fota_${version}.zip"
 
-          mv openearable_v2_firmware.elf "$firmware_name"
+          mv openearable_v2_firmware.zip "$firmware_name"
           mv openearable_v2_fota.zip "$fota_name"
 
           echo "firmware=$firmware_name" >> "$GITHUB_OUTPUT"

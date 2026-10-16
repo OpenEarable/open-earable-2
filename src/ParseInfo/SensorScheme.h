@@ -81,7 +81,9 @@ size_t getParseInfoStorageSize();
  * @param bufferSize Available bytes in @p buffer.
  * @return Number of bytes written on success, or a negative errno value.
  */
-ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize);
+struct sensor_config;
+ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize,
+                                 const struct sensor_config* configs, size_t configCount);
 
 float getSampleRateForSensorId(uint8_t id, uint8_t frequencyIndex);
 float getSampleRateForSensor(struct SensorScheme* sensorScheme, uint8_t frequencyIndex);

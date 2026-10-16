@@ -1,4 +1,3 @@
-powershell
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)]
@@ -71,17 +70,37 @@ if ($Hw) {
   $hwValue = ("0x{0:X2}{1:X2}{2:X2}00" -f $hwMajor, $hwMinor, $hwPatch)
 }
 
-# --- Fixed paths relative to CURRENT WORKING DIRECTORY (repo root) ---
-$netHex = Join-Path (Get-Location) 'build_fota\merged_CPUNET.hex'
-$appHex = Join-Path (Get-Location) 'build_fota\merged.hex'
+# --- Paths relative to CURRENT WORKING DIRECTORY (repo root) ---
+$buildRoot = Join-Path (Get-Location) 'build_fota'
+$newNetHex = Join-Path $buildRoot 'merged_openearable_v2_nrf5340_cpunet.hex'
+$newAppHex = Join-Path $buildRoot 'merged_openearable_v2_nrf5340_cpuapp.hex'
+$legacyNetHex = Join-Path $buildRoot 'merged_CPUNET.hex'
+$legacyAppHex = Join-Path $buildRoot 'merged.hex'
+
+if ((Test-Path $newNetHex) -and (Test-Path $newAppHex)) {
+  $netHex = $newNetHex
+  $appHex = $newAppHex
+}
+elseif ((Test-Path $legacyNetHex) -and (Test-Path $legacyAppHex)) {
+  $netHex = $legacyNetHex
+  $appHex = $legacyAppHex
+}
+else {
+  $netHex = $newNetHex
+  $appHex = $newAppHex
+}
 $uicrBackup = Join-Path (Get-Location) 'tools\flash\uicr_backup.hex'
 
-# --- Require application hex; CPUNET is optional ---
+# --- Require both merged sysbuild images ---
 if (-not (Test-Path $appHex)) {
-  Write-Error "Missing file: $appHex  (run from the repo root where build_fota\merged.hex exists)"
+  Write-Error "Missing file: $appHex (rebuild FOTA with SB_CONFIG_MERGED_HEX_FILES=y)"
   exit 1
 }
-$haveNet = Test-Path $netHex
+if (-not (Test-Path $netHex)) {
+  Write-Error "Missing file: $netHex (rebuild FOTA with SB_CONFIG_MERGED_HEX_FILES=y)"
+  exit 1
+}
+$haveNet = $true
 
 Write-Host "nrfjprog starting..."
 Write-Host "  SNR: $Snr"

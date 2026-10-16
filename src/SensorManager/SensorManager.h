@@ -18,6 +18,7 @@ enum sensor_manager_state {
 };
 
 extern struct k_work_q sensor_work_q;
+extern struct k_work_q sensor_ppg_work_q;
 
 enum sensor_manager_state get_state();
 

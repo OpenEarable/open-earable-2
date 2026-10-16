@@ -8,26 +8,21 @@ menu "BT management"
 
 rsource "controller_config/Kconfig"
 
-#----------------------------------------------------------------------------#
 config WDT_CTLR
 	bool "Enable watchdog for controller"
 	default y
+	select WATCHDOG
+	select TASK_WDT
 	help
-	  When true, the controller will be polled at regular intervals to check that it is alive.
-	  Turn off to reduce overhead, or HCI traffic.
-	  The watchdog will be deactivated automatically for DFU procedures.
-
-menu "Thread priorities"
+	  Poll the controller every two seconds to detect an IPC or controller stall.
+	  The watchdog is stopped before shutdown or entering standalone DFU mode.
 
 config CTLR_POLL_WORK_Q_PRIO
 	int "Work queue priority for controller poll"
 	default 2
-	help
-	  This is a preemptible work queue.
-	  This work queue will poll the controller to check it is alive.
+	depends on WDT_CTLR
 
-endmenu # Thread priorities
-
+#----------------------------------------------------------------------------#
 rsource "dfu/Kconfig"
 rsource "advertising/Kconfig"
 rsource "scanning/Kconfig"

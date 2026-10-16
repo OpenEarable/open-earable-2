@@ -24,6 +24,8 @@ public:
     void set_pairing_state(enum pairing_state state);
     void set_indication_mode(enum led_mode state);
     void set_custom_color(const RGBColor &color);
+    void get_custom_color(RGBColor &value) const;
+    enum led_mode get_indication_mode() const;
     void set_dfu_active(bool active);
 
 private:

@@ -1,0 +1,28 @@
+/* Match the network-core image to the b0n-secured slot. */
+
+/delete-node/ &boot_partition;
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &storage_partition;
+
+&flash1 {
+	partitions {
+		b0n_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "b0n";
+			reg = <0x00000000 0x00008580>;
+		};
+
+		bl_storage: provision_partition: partition@8580 {
+			compatible = "zephyr,mapped-partition";
+			label = "b0-provision-data";
+			reg = <0x00008580 0x00000280>;
+		};
+
+		s0_partition: partition@8800 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x00008800 0x00037800>;
+		};
+	};
+};

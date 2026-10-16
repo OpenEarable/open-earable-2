@@ -33,6 +33,7 @@ Decimator::Decimator()
 
 void Decimator::configure(uint8_t factor) {
     factor_ = factor;
+    next_frame_ = 0;
     initialized_ = false;
     memset(&biquad_, 0, sizeof(biquad_));
     memset(state_, 0, sizeof(state_));
@@ -54,6 +55,7 @@ int Decimator::init() {
     memset(state_, 0, sizeof(state_));
     
     initialized_ = true;
+    next_frame_ = 0;
     LOG_DBG("Decimator initialized with factor %d", factor_);
     
     return 0;
@@ -81,18 +83,21 @@ int Decimator::process(const int16_t* input, int16_t* output, uint32_t num_frame
     arm_clip_f32(processing_buffer, processing_buffer, -32768.0f, 32767.0f, num_samples);
     
     // Decimate and convert back to int16
-    uint32_t out_frames = num_frames / factor_;
-    uint32_t step = factor_ * 2;
-    
-    for (uint32_t i = 0; i < out_frames; i++) {
-        output[i * 2] = static_cast<int16_t>(processing_buffer[i * step]);
-        output[i * 2 + 1] = static_cast<int16_t>(processing_buffer[i * step + 1]);
+    uint32_t out_frames = 0;
+    uint32_t frame = next_frame_;
+    for (; frame < num_frames; frame += factor_) {
+        output[out_frames * 2] = static_cast<int16_t>(processing_buffer[frame * 2]);
+        output[out_frames * 2 + 1] = static_cast<int16_t>(processing_buffer[frame * 2 + 1]);
+        out_frames++;
     }
+    // Continue the same sample grid when the next block is not factor-aligned.
+    next_frame_ = frame - num_frames;
     
     return out_frames;
 }
 
 void Decimator::reset() {
+    next_frame_ = 0;
     if (initialized_) {
         memset(state_, 0, sizeof(state_));
     }
@@ -236,6 +241,9 @@ int CascadedDecimator::process(const int16_t* input, int16_t* output, uint32_t n
         if (frames < 0) {
             LOG_ERR("Stage %d processing failed: %d", i, frames);
             return frames;
+        }
+        if (frames == 0) {
+            return 0;
         }
         
         // Next stage input is this stage's output

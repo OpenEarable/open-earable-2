@@ -14,11 +14,16 @@ zephyr_library_include_directories(
 
 target_sources(app PRIVATE
 	       ${CMAKE_CURRENT_SOURCE_DIR}/bt_mgmt.c
-	       ${CMAKE_CURRENT_SOURCE_DIR}/bt_mgmt_conn_interval.cpp
 	       ${CMAKE_CURRENT_SOURCE_DIR}/controller_config/bt_mgmt_ctlr_cfg.c
+	       ${CMAKE_CURRENT_SOURCE_DIR}/bt_mgmt_conn_interval.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/conn_interval/conn_intvl_exp_backoff_lin_inc.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/conn_interval/conn_intvl_linear.cpp
 )
+
+if (CONFIG_BT_SETTINGS)
+	target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/bt_mgmt_bond_storage.c)
+	zephyr_ld_options(-Wl,--wrap=bt_settings_store_keys)
+endif()
 
 if (CONFIG_BT_CENTRAL)
 	target_sources(app PRIVATE

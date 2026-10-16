@@ -411,6 +411,12 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         // sleep current
         (void)write_RAM(0x9217, 1);
 
+        // Reduce SLEEP-mode sampling from the 20 s defaults to save off-state power.
+        // Sleep Voltage Time (0x921E, also temperature) and Sleep Current Time
+        // (0x921F) are adjacent one-byte intervals in seconds.
+        uint8_t sleep_intervals[] = {60, 60};
+        (void)write_RAM(0x921E, sleep_intervals, sizeof(sleep_intervals));
+
         // dischage current trd
         (void)write_RAM(0x9228, 2);
         // charge current trd

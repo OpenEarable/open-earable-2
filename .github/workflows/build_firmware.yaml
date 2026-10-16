@@ -51,9 +51,9 @@ jobs:
 
       - name: Install Zephyr SDK
         run: |
-          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64_minimal.tar.xz
-          tar xf zephyr-sdk-0.17.0_linux-x86_64_minimal.tar.xz -C ~/
-          ~/zephyr-sdk-0.17.0/setup.sh -c -t arm-zephyr-eabi
+          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v1.0.1/zephyr-sdk-1.0.1_linux-x86_64_minimal.tar.xz
+          tar xf zephyr-sdk-1.0.1_linux-x86_64_minimal.tar.xz -C ~/
+          ~/zephyr-sdk-1.0.1/setup.sh -c -t arm-zephyr-eabi
 
       - name: Initialize Zephyr Workspace
         # Set up the Zephyr workspace and install the Python dependencies
@@ -102,7 +102,16 @@ jobs:
       - name: Check And Prepare Build Output
         run: |
           mkdir -p $(pwd)/workflow-board-temp/build-output
-          cp $(pwd)/zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf $(pwd)/workflow-board-temp/build-output/openearable_v2_firmware.elf
+          firmware_dir="$(pwd)/workflow-board-temp/build-output/openearable_v2_firmware"
+          mkdir -p "$firmware_dir/build_fota" "$firmware_dir/tools/flash"
+          cp zephyr-workspace/build/merged_openearable_v2_nrf5340_cpuapp.hex "$firmware_dir/build_fota/"
+          cp zephyr-workspace/build/merged_openearable_v2_nrf5340_cpunet.hex "$firmware_dir/build_fota/"
+          cp zephyr-workspace/build/open-earable-v2/zephyr/zephyr.elf "$firmware_dir/openearable_v2_cpuapp.elf"
+          cp zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf "$firmware_dir/openearable_v2_cpunet.elf"
+          cp zephyr-workspace/open-earable-v2/tools/flash/flash_fota.sh "$firmware_dir/tools/flash/"
+          printf '%s\n' 'From this directory, run: bash tools/flash/flash_fota.sh --snr <J-Link serial>' \
+            'The build_fota images include both cores and their bootloaders. The ELFs are for debugging.' \
+            > "$firmware_dir/FLASH.txt"
           cp $(pwd)/zephyr-workspace/build/dfu_application.zip $(pwd)/workflow-board-temp/build-output/openearable_v2_fota.zip
           (cd $(pwd)/workflow-board-temp/build-output && unzip openearable_v2_fota.zip -d openearable_v2_fota && rm openearable_v2_fota.zip)
 
@@ -110,8 +119,8 @@ jobs:
         uses: actions/upload-artifact@v4
         id: artifact-upload-step-1
         with:
-          name: openearable_v2_firmware.elf
-          path: workflow-board-temp/build-output/openearable_v2_firmware.elf
+          name: openearable_v2_firmware.zip
+          path: workflow-board-temp/build-output/openearable_v2_firmware/
 
       - name: Upload Build Artifact (FOTA build)
         uses: actions/upload-artifact@v4
@@ -126,5 +135,5 @@ jobs:
         with:
           message: |
             Build output available:
-            [openearable_v2_firmware.elf.zip](${{ steps.artifact-upload-step-1.outputs.artifact-url }})
+            [openearable_v2_firmware.zip](${{ steps.artifact-upload-step-1.outputs.artifact-url }})
             [openearable_v2_fota.zip](${{ steps.artifact-upload-step-2.outputs.artifact-url }})

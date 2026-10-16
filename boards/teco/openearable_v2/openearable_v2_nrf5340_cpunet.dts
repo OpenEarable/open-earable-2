@@ -37,23 +37,27 @@
 
 &flash1 {
 	partitions {
-		compatible = "fixed-partitions";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		ranges;
 
 		boot_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
 			label = "mcuboot";
 			reg = <0x00000000 0xc000>;
 		};
 		slot0_partition: partition@c000 {
+			compatible = "zephyr,mapped-partition";
 			label = "image-0";
 			reg = <0x0000C000 0x12000>;
 		};
 		slot1_partition: partition@1e000 {
+			compatible = "zephyr,mapped-partition";
 			label = "image-1";
 			reg = <0x0001E000 0x12000>;
 		};
 		storage_partition: partition@3a000 {
+			compatible = "zephyr,mapped-partition";
 			label = "storage";
 			reg = <0x0003a000 0x6000>;
 		};
@@ -61,5 +65,5 @@
 };
 
 /* Include default shared RAM configuration file */
-#include <common/nordic/nrf5340_shared_sram_partition.dtsi>
+#include <nordic/nrf5340_shared_sram_partition.dtsi>
 #include "openearable_v2_nrf5340_shared.dtsi"
