@@ -22,18 +22,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download Firmware Artifact (Firmware)
-        uses: actions/download-artifact@v4
-        with:
-          name: openearable_v2_firmware.zip
-          path: ./openearable_v2_firmware
-
-      - name: Zip complete firmware package
-        run: (cd openearable_v2_firmware && zip -r ../openearable_v2_firmware.zip .)
-
-      - name: Create Directory for FOTA
-        run: mkdir -p openearable_v2_fota
-
       - name: Download Firmware Artifact (FOTA)
         uses: actions/download-artifact@v4
         with:
@@ -42,10 +30,11 @@ jobs:
 
       - name: Zip FOTA files again
         run: |
-          # Pack the FOTA files into a zip file
-          # Downloading it unpacked the zip
-          ls openearable_v2_fota
-          (cd "openearable_v2_fota" && ls && zip -r ../openearable_v2_fota.zip *)
+          set -euo pipefail
+          # The app expects manifest.json at the ZIP root. Full flashing
+          # bundles are build artifacts only and must not enter the release feed.
+          test -s openearable_v2_fota/manifest.json
+          (cd openearable_v2_fota && zip -r ../openearable_v2_fota.zip .)
 
       - name: Add version to release asset names
         id: release-assets
@@ -56,25 +45,20 @@ jobs:
 
           # v2.2.8 -> 2.2.8
           version="${RELEASE_TAG#v}"
-          firmware_name="openearable_v2_firmware_${version}.zip"
           fota_name="openearable_v2_fota_${version}.zip"
 
-          mv openearable_v2_firmware.zip "$firmware_name"
           mv openearable_v2_fota.zip "$fota_name"
 
-          echo "firmware=$firmware_name" >> "$GITHUB_OUTPUT"
           echo "fota=$fota_name" >> "$GITHUB_OUTPUT"
 
-      - name: Create Github Release & Upload Firmware + FOTA
-        if: startsWith(github.ref, 'refs/tags/${{ inputs.release_tag }}')
+      - name: Create GitHub Release and upload FOTA
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag }}
           name: ${{ inputs.release_name || inputs.release_tag }}
           draft: false
           prerelease: false
-          files: |
-            ${{ steps.release-assets.outputs.firmware }}
-            ${{ steps.release-assets.outputs.fota }}
+          fail_on_unmatched_files: true
+          files: ${{ steps.release-assets.outputs.fota }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

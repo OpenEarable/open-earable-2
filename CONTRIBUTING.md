@@ -67,6 +67,19 @@ If you are building from a workspace where this repository is checked out as an 
 
 Update this guide when the build directory names, flashing scripts, board targets, or required tool versions change.
 
+### Release Assets
+
+Stable GitHub releases publish only `openearable_v2_fota_<version>.zip`.
+The rolling `pr-builds` prerelease likewise publishes only FOTA ZIPs, prefixed
+with the PR number and title. Each package must contain `manifest.json` at its
+root along with the referenced firmware images.
+
+The app discovers updates from these release assets. Do not attach full
+flashing bundles or raw debug images to releases: they are not FOTA packages,
+and the app can mistake a flashing ZIP for an installable update. Complete
+flashing bundles and debug images remain available as GitHub Actions build
+artifacts for development and recovery.
+
 ## Branching And Commit Workflow
 
 - Create a dedicated branch from the latest `main`.
