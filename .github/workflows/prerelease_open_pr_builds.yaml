@@ -73,23 +73,18 @@ jobs:
             fi
             out="collected/pr-$num"
             rm -rf "$out" && mkdir -p "$out"
-            if gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_firmware.zip" -D "$out/firmware" 2>&1; then
-              (cd "$out/firmware" && zip -r "../openearable_v2_firmware.zip" .)
-            elif gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_firmware.elf" -D "$out/elf" 2>&1; then
-              # Older PRs still publish a single ELF rather than the flash bundle.
-              mv "$out/elf/openearable_v2_firmware.elf" "$out/openearable_v2_firmware.elf"
-            else
-              echo "PR #$num: failed to download firmware artifact (may be expired)"
-              rm -rf "$out"
-              continue
-            fi
             if ! gh run download "$run_id" --repo "${{ github.repository }}" -n "openearable_v2_fota.zip" -D "$out/fota" 2>&1; then
               echo "PR #$num: failed to download fota.zip artifact (may be expired)"
               rm -rf "$out"
               continue
             fi
+            if [ ! -s "$out/fota/manifest.json" ]; then
+              echo "PR #$num: FOTA artifact is missing manifest.json"
+              rm -rf "$out"
+              continue
+            fi
             (cd "$out/fota" && zip -r "../openearable_v2_fota.zip" .)
-            rm -rf "$out/firmware" "$out/elf" "$out/fota"
+            rm -rf "$out/fota"
             
             echo "$safe_title" > "$out/title.txt"
             
@@ -131,7 +126,7 @@ jobs:
               safe_title=""
             fi
 
-            find "$out" -maxdepth 1 -type f \( -name "*.elf" -o -name "*.zip" \) -print0 | \
+            find "$out" -maxdepth 1 -type f -name "openearable_v2_fota.zip" -print0 | \
               sort -z | while IFS= read -r -d '' f; do
               base=$(basename "$f")
               if [ -n "$safe_title" ]; then
