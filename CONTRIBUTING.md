@@ -67,6 +67,28 @@ If you are building from a workspace where this repository is checked out as an 
 
 Update this guide when the build directory names, flashing scripts, board targets, or required tool versions change.
 
+### Pair Identity Compatibility
+
+FOTA must preserve the LE Audio set identity stored in UICR. Firmware 2.2.9
+and earlier encode that 32-bit pair ID as eight uppercase ASCII hexadecimal
+digits followed by eight zero bytes. When UICR is erased (`0xFFFFFFFF`), the
+low 32 bits of the factory chip ID supply the temporary identity. Standalone
+devices keep their stored chip-derived identity. Do not replace these bytes
+with a demo key, raw integer bytes, or a newly generated key during an upgrade.
+
+Version 2.3.1 restores this behavior after the 2.3.0 SDK migration. It reads
+existing UICR without rewriting the pair ID, side, hardware revision, or phone
+bonds. A device that passed through 2.3.0 can reuse its original pair ID as long
+as it was not erased or reprovisioned. Phone-side state after pairing while on
+2.3.0 still needs hardware validation; restoring the SIRK does not recreate
+deleted bonds.
+
+The `csip_identity` unit suite locks down the legacy wire format. For hardware
+validation, record each device's UICR and verify the set identity and stereo
+reconnection after FOTA from an already-paired 2.2.9 (or older) installation,
+and after the same pair passes through 2.3.0. Do not use chip-erase flashing
+for this preservation test.
+
 ### Release Assets
 
 Stable GitHub releases publish only `openearable_v2_fota_<version>.zip`.

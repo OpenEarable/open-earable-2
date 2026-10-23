@@ -5,6 +5,9 @@
  */
 
 #include "unicast_server.h"
+#include "csip_identity.h"
+#include "uicr.h"
+#include "BootState.h"
 
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/sys/byteorder.h>
@@ -747,8 +750,7 @@ int unicast_server_enable(le_audio_receive_cb recv_cb, enum bt_audio_location lo
 		IF_ENABLED(CONFIG_BT_AUDIO_TX, (.src_loc = true,))};
 	/* clang-format on */
 
-	__ASSERT(strlen(CONFIG_BT_SET_IDENTITY_RESOLVING_KEY) == BT_CSIP_SIRK_SIZE,
-		 "SIRK incorrect size, must be 16 bytes");
+	BUILD_ASSERT(OPENEARABLE_CSIP_SIRK_SIZE == BT_CSIP_SIRK_SIZE);
 
 	if (initialized) {
 		LOG_WRN("Already initialized");
@@ -796,13 +798,8 @@ int unicast_server_enable(le_audio_receive_cb recv_cb, enum bt_audio_location lo
 		LOG_WRN("CSIP test sample data is used, must be changed "
 			"before production");
 	} else {
-		if (strcmp(CONFIG_BT_SET_IDENTITY_RESOLVING_KEY_DEFAULT,
-			   CONFIG_BT_SET_IDENTITY_RESOLVING_KEY) == 0) {
-			LOG_WRN("CSIP using the default SIRK, must be changed "
-				"before production");
-		}
-
-		memcpy(csip_param.sirk, CONFIG_BT_SET_IDENTITY_RESOLVING_KEY, BT_CSIP_SIRK_SIZE);
+		openearable_csip_identity_encode(uicr_sirk_get(), oe_boot_state.device_id,
+						csip_param.sirk);
 	}
 
 	ret = bt_pacs_register(&pacs_param);
