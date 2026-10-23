@@ -107,3 +107,6 @@ python3 zephyr/scripts/twister \
 ```
 
 Open `twister-out/coverage/index.html` after the run.
+
+The `csip_identity` suite verifies byte-for-byte compatibility with the pre-2.3.0
+LE Audio set identity, including stored pairs, erased UICR, and standalone devices.
