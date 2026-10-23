@@ -70,6 +70,13 @@ static void conn_params_updated(struct bt_conn *conn, uint16_t interval,
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)
 {
+#if defined(CONFIG_BT_PERIPHERAL)
+	if (!err && bt_mgmt_adv_is_quiesced()) {
+		(void)bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+		return;
+	}
+#endif
+
 	int ret;
 	char addr[BT_ADDR_LE_STR_LEN] = {0};
 	struct bt_mgmt_msg msg;
