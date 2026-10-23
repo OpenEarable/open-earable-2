@@ -7,6 +7,7 @@
 #include "bt_mgmt.h"
 
 #include <zephyr/zbus/zbus.h>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
 
@@ -28,8 +29,35 @@ ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 #endif
 
 static struct k_work adv_work;
+static atomic_t advertising_quiesced;
+
 static bool dir_adv_timed_out;
 static struct bt_le_ext_adv *ext_adv[CONFIG_BT_EXT_ADV_MAX_ADV_SET];
+
+bool bt_mgmt_adv_is_quiesced(void)
+{
+	return atomic_get(&advertising_quiesced) != 0;
+}
+
+int bt_mgmt_adv_quiesce(void)
+{
+	struct k_work_sync sync;
+	int first_error = 0;
+
+	atomic_set(&advertising_quiesced, 1);
+	/* Drain an in-flight start before stopping the controller advertising sets. */
+	k_work_cancel_sync(&adv_work, &sync);
+	for (size_t i = 0; i < ARRAY_SIZE(ext_adv); i++) {
+		if (ext_adv[i] == NULL) {
+			continue;
+		}
+		int err = bt_le_ext_adv_stop(ext_adv[i]);
+		if (err && err != -EALREADY && !first_error) {
+			first_error = err;
+		}
+	}
+	return first_error;
+}
 
 static const struct bt_data *adv_local[CONFIG_BT_EXT_ADV_MAX_ADV_SET];
 static size_t adv_local_size[CONFIG_BT_EXT_ADV_MAX_ADV_SET];
@@ -232,6 +260,9 @@ static int extended_adv_create(uint8_t ext_adv_index)
 
 static void advertising_process(struct k_work *work)
 {
+	if (bt_mgmt_adv_is_quiesced()) {
+		return;
+	}
 	int ret;
 	struct bt_mgmt_msg msg;
 	uint8_t ext_adv_index;
@@ -308,6 +339,9 @@ static void advertising_process(struct k_work *work)
 
 void bt_mgmt_dir_adv_timed_out(uint8_t ext_adv_index)
 {
+	if (bt_mgmt_adv_is_quiesced()) {
+		return;
+	}
 	int ret;
 
 	dir_adv_timed_out = true;
@@ -406,6 +440,10 @@ int bt_mgmt_ext_adv_stop(uint8_t ext_adv_index)
 int bt_mgmt_adv_start(uint8_t ext_adv_index, const struct bt_data *adv, size_t adv_size,
 		      const struct bt_data *per_adv, size_t per_adv_size, bool connectable)
 {
+	/* A no-op keeps disconnection observers from restarting the radio. */
+	if (bt_mgmt_adv_is_quiesced()) {
+		return 0;
+	}
 	int ret;
 
 	/* Special case for restarting advertising */
