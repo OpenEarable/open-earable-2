@@ -110,10 +110,3 @@ Open `twister-out/coverage/index.html` after the run.
 
 The `csip_identity` suite verifies byte-for-byte compatibility with the pre-2.3.0
 LE Audio set identity, including stored pairs, erased UICR, and standalone devices.
-
-## Device-control transport regression
-
-`sh tests/host/device_control/run.sh` runs the production GATT command callbacks
-with transport/workqueue doubles using a host C++17 compiler, including on macOS.
-CI runs it before the Unity suites. See [device control](../doc/device-control.md)
-for the protocol and hardware validation requirements.
