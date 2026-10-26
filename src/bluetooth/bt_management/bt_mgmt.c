@@ -410,7 +410,8 @@ int bt_mgmt_bonding_clear(void)
 	if (IS_ENABLED(CONFIG_SETTINGS)) {
 		LOG_INF("Clearing all bonds");
 
-		ret = bt_unpair(BT_ID_DEFAULT, NULL);
+		ret = IS_ENABLED(CONFIG_BT_SETTINGS) ? bt_mgmt_bond_storage_clear() :
+						      bt_unpair(BT_ID_DEFAULT, NULL);
 		if (ret) {
 			LOG_ERR("Failed to clear bonding: %d", ret);
 			return ret;

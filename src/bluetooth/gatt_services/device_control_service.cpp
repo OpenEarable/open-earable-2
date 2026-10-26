@@ -6,6 +6,7 @@
 #include <zephyr/logging/log.h>
 
 #include "PowerManager.h"
+#include "device_control_service.h"
 
 LOG_MODULE_REGISTER(device_control, CONFIG_BLE_LOG_LEVEL);
 
@@ -78,7 +79,7 @@ static ssize_t write_control(struct bt_conn *conn, const struct bt_gatt_attr *,
 	return len;
 }
 
-BT_GATT_SERVICE_DEFINE(device_control_svc,
+static struct bt_gatt_attr control_attrs[] = {
 	BT_GATT_PRIMARY_SERVICE(CONTROL_UUID(0)),
 	BT_GATT_CHARACTERISTIC(CONTROL_UUID(1), BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
 		BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT,
@@ -86,7 +87,13 @@ BT_GATT_SERVICE_DEFINE(device_control_svc,
 	BT_GATT_CHARACTERISTIC(CONTROL_UUID(2), BT_GATT_CHRC_INDICATE,
 		BT_GATT_PERM_NONE, nullptr, nullptr, nullptr),
 	BT_GATT_CCC(nullptr, BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT)
-);
+};
+static struct bt_gatt_service control_svc = BT_GATT_SERVICE(control_attrs);
+
+int device_control_service_register(void)
+{
+	return bt_gatt_service_register(&control_svc);
+}
 
 static void control_worker(struct k_work *)
 {
