@@ -26,6 +26,7 @@
 #include "bt_rendering_and_capture.h"
 #include "audio_datapath.h"
 #include "bt_content_ctrl.h"
+#include "device_control_service.h"
 #include "le_audio.h"
 #include "le_audio_rx.h"
 #include "fw_info_app.h"
@@ -782,6 +783,12 @@ int streamctrl_start() //streamctrl_start
 
 	ret = bt_content_ctrl_init();
 	ERR_CHK(ret);
+
+	/* Append after every existing static and dynamic service, including VCS.
+	 * Do not move this into the alphabetically sorted static service table.
+	 */
+	ret = device_control_service_register();
+	ERR_CHK_MSG(ret, "Failed to register device control service");
 
 	ret = ext_adv_populate(ext_adv_buf, ARRAY_SIZE(ext_adv_buf), &ext_adv_buf_cnt);
 	ERR_CHK(ret);

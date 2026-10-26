@@ -10,4 +10,12 @@
  */
 int bt_mgmt_bond_storage_compat(void);
 
+/**
+ * Delete default-identity bond keys with checked storage writes, unpair, and
+ * verify that no bonds remain in RAM or persistent storage. Returns zero on
+ * success or an error; callers must not shut down after a failed cleanup.
+ * Call with advertising stopped and pairing prevented.
+ */
+int bt_mgmt_bond_storage_clear(void);
+
 #endif

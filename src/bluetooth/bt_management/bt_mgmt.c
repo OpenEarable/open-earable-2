@@ -70,6 +70,13 @@ static void conn_params_updated(struct bt_conn *conn, uint16_t interval,
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)
 {
+#if defined(CONFIG_BT_PERIPHERAL)
+	if (!err && bt_mgmt_adv_is_quiesced()) {
+		(void)bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+		return;
+	}
+#endif
+
 	int ret;
 	char addr[BT_ADDR_LE_STR_LEN] = {0};
 	struct bt_mgmt_msg msg;
@@ -403,7 +410,8 @@ int bt_mgmt_bonding_clear(void)
 	if (IS_ENABLED(CONFIG_SETTINGS)) {
 		LOG_INF("Clearing all bonds");
 
-		ret = bt_unpair(BT_ID_DEFAULT, NULL);
+		ret = IS_ENABLED(CONFIG_BT_SETTINGS) ? bt_mgmt_bond_storage_clear() :
+						      bt_unpair(BT_ID_DEFAULT, NULL);
 		if (ret) {
 			LOG_ERR("Failed to clear bonding: %d", ret);
 			return ret;

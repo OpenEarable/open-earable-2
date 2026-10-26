@@ -17,7 +17,13 @@ class PowerManager {
 public:
     int begin();
 
-    int power_down(bool fault = false);
+    int power_down(bool fault = false, bool stay_off_while_charging = false);
+
+    /** Erase Bluetooth bonds and shut down, retaining hardware/set identity.
+     * Call from a worker outside the Bluetooth RX/advertising threads. On failure, returns errno and leaves
+     * advertising suppressed until restart; never reports an erase as success.
+     */
+    int clear_bonds_and_power_down();
     //bool check_boot_condition();
 
     //static LoadSwitch v1_8_switch;
