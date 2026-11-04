@@ -72,6 +72,7 @@ private:
     const battery_profile *_battery_profile = battery_profile_for_imu(0);
     battery_settings _battery_settings = _battery_profile->settings;
     uint8_t _imu_address = 0;
+    bool _fuel_gauge_ready = false;
 
     const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
 

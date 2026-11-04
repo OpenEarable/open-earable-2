@@ -399,6 +399,10 @@ void BQ25120a::enable_charge() {
         if (power_connected()) gpio_pin_set_dt(&cd_pin, 0);
 }
 
+bool BQ25120a::charge_inhibited() {
+        return power_connected() && gpio_pin_get_dt(&cd_pin) > 0;
+}
+
 
 button_state BQ25120a::read_button_state() {
         struct button_state btn;

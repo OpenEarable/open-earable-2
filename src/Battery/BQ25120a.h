@@ -61,6 +61,8 @@ public:
     void exit_high_impedance();
     void disable_charge();
     void enable_charge();
+    /** True when external power is present and the CD pin inhibits charging. */
+    bool charge_inhibited();
     
     uint8_t read_charging_state();
     uint8_t read_fault();

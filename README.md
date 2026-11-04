@@ -179,6 +179,10 @@ hardware support.
 Use `battery info` on the serial shell to inspect the detected profile, charger
 voltage readback and gauge target. The selected profile remains fixed until
 reboot, so a later sensor initialization cannot raise the fallback voltage.
+If the gauge cannot be read or configured, charging remains inhibited until
+restart and `battery info` reports the fault. Gauge configuration waits are
+bounded to five seconds per state transition rather than blocking startup
+indefinitely on an unresponsive device.
 
 ## Battery States
 Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.

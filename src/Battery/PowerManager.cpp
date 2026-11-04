@@ -124,6 +124,10 @@ void PowerManager::battery_controller_work_handler(struct k_work * work) {
 
 void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 	ARG_UNUSED(work);
+    if (!power_manager._fuel_gauge_ready) {
+        battery_controller.disable_charge();
+        return;
+    }
     int ret;
     battery_level_status status;
 
@@ -358,8 +362,9 @@ int PowerManager::begin() {
     battery_controller.set_int_callback(battery_controller_callback);
 
     // check setup
-    op_state state = fuel_gauge.operation_state();
-    bool setup_fuel_gauge = state.SEC != BQ27220::SEALED;
+    _fuel_gauge_ready = fuel_gauge.available();
+    op_state state = _fuel_gauge_ready ? fuel_gauge.operation_state() : op_state{};
+    bool setup_fuel_gauge = _fuel_gauge_ready && state.SEC != BQ27220::SEALED;
     // Check design settings before scheduling readers, including charging-only
     // boots. FCC is learned capacity and must not be reset merely for ageing.
     setup_fuel_gauge |= std::fabs(fuel_gauge.design_cap() - _battery_settings.capacity) > 0.5f;
@@ -369,9 +374,17 @@ int PowerManager::begin() {
     setup_fuel_gauge |= !boot_is_img_confirmed();
 #endif
     // Finish the unseal/configuration sequence before charge_ctrl_delayable can read the gauge.
-    if (setup_fuel_gauge) {
+    if (_fuel_gauge_ready && setup_fuel_gauge) {
         //battery_controller.setup();
-        fuel_gauge.setup(_battery_settings);
+        const int gauge_result = fuel_gauge.setup(_battery_settings);
+        if (gauge_result) {
+            _fuel_gauge_ready = false;
+            LOG_ERR("Fuel-gauge setup failed: %d", gauge_result);
+        }
+    }
+    if (!_fuel_gauge_ready) {
+        battery_controller.disable_charge();
+        LOG_ERR("Fuel gauge unavailable; charging inhibited until restart");
     }
 
     //k_timer_init(&charge_timer, charge_timer_handler, NULL);
@@ -403,7 +416,7 @@ int PowerManager::begin() {
         //battery_level_status bat_status;
         //get_battery_status(&bat_status);
 
-        oe_state.charging_state = POWER_CONNECTED;
+        oe_state.charging_state = _fuel_gauge_ready ? POWER_CONNECTED : FAULT;
 
         state_indicator.init(oe_state);
 
@@ -485,6 +498,10 @@ void PowerManager::set_error_led(int val) {
 }
 
 bool PowerManager::check_battery() {
+    if (!_fuel_gauge_ready) {
+        battery_controller.disable_charge();
+        return false;
+    }
     bool charging = battery_controller.power_connected();
 
     if (charging) {
@@ -697,6 +714,10 @@ int PowerManager::power_down(bool fault, bool stay_off_while_charging) {
 
 
 void PowerManager::charge_task() {
+    if (!_fuel_gauge_ready) {
+        battery_controller.disable_charge();
+        return;
+    }
     uint16_t charging_state = battery_controller.read_charging_state() >> 6;
 
     //LOG_INF("Charger Watchdog ...................");
@@ -715,11 +736,19 @@ void PowerManager::charge_task() {
 }
 
 int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **argv) {
-	ARG_UNUSED(shell);
     ARG_UNUSED(argc);
     ARG_UNUSED(argv);
 
-    fuel_gauge.setup(power_manager._battery_settings);
+    // Stop periodic readers/charging before the manual unseal/configure sequence.
+    power_manager._fuel_gauge_ready = false;
+    battery_controller.disable_charge();
+    const int err = fuel_gauge.setup(power_manager._battery_settings);
+    if (err) {
+        power_manager._fuel_gauge_ready = false;
+        battery_controller.disable_charge();
+        shell_error(shell, "Fuel-gauge setup failed: %d; charging inhibited", err);
+        return err;
+    }
 
     power_manager.reboot();
 
@@ -736,6 +765,13 @@ int cmd_battery_info(const struct shell *shell, size_t argc, const char **argv) 
     shell_print(shell, "Profile charge ceiling: %.3f V; current: %.1f mA",
                 (double)power_manager._battery_settings.u_term,
                 (double)power_manager._battery_settings.i_charge);
+    shell_print(shell, "CD charging inhibit: %u", battery_controller.charge_inhibited());
+    if (!power_manager._fuel_gauge_ready) {
+        shell_error(shell, "Fuel gauge unavailable; charging inhibited until restart");
+        shell_print(shell, "Charger voltage setting: %.3f V",
+                    (double)battery_controller.read_battery_voltage_control());
+        return -ENODEV;
+    }
     // Battery fuel gauge status
     bat_status status = fuel_gauge.battery_status();
     shell_print(shell, "Battery Status:");
