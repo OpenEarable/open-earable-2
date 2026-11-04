@@ -81,20 +81,22 @@ bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 }
 
 void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
-        int ret;
         _i2c->aquire();
-        uint64_t now = micros();
-        int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
+        // TI requires individual one-byte write packets above 100 kHz.
+        // Keep the complete command serialized and space every packet.
+        for (uint16_t i = 0; i < len; ++i) {
+                uint64_t now = micros();
+                int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
+                if (delay > 0) k_usleep(delay);
 
-        if (delay > 0) k_usleep(delay);
-
-        ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
-        if (ret) {
-                _setup_io_error = true;
-                LOG_WRN("I2C write failed: %d", ret);
+                int ret = i2c_burst_write(_i2c->master, address, reg + i, buffer + i, 1);
+                last_i2c = micros();
+                if (ret) {
+                        _setup_io_error = true;
+                        LOG_WRN("I2C write failed: %d", ret);
+                        break;
+                }
         }
-
-        last_i2c = micros();
         _i2c->release();
 }
 
