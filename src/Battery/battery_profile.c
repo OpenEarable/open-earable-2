@@ -2,9 +2,11 @@
 #include "battery_profile.h"
 #include <math.h>
 
-/* 100 mA is representable by the BQ25120A and below the nominal 105 mA
- * VARTA fast-charge / 111 mA Grepow maximum settings. Retain the existing
- * 10 mA termination threshold; no Grepow-specific taper calibration is claimed.
+/* VARTA requests 100 mA (105 mA with the charger's +5% tolerance).
+ * Grepow/fallback request 80 mA for additional margin below the 111 mA limit
+ * while the new board's current calibration is unverified. Both full and half
+ * currents are representable by the charger. Retain the existing 10 mA
+ * termination threshold; no Grepow-specific taper calibration is claimed.
  */
 static const struct battery_profile varta = {
     .name = "VARTA CP1454 A4X",
@@ -29,7 +31,7 @@ static const struct battery_profile grepow = {
     .settings = {
         .u_nominal = 3.7f, .u_term = 4.2f, .u_vlo = 3.0f,
         .u_charge_prevent = 3.0f,
-        .i_term = 10.0f, .i_charge = 100.0f, .i_max = 200.0f,
+        .i_term = 10.0f, .i_charge = 80.0f, .i_max = 200.0f,
         .capacity = 111.0f,
         .temp_min = 0.0f, .temp_fast_min = 15.0f,
         .temp_fast_max = 40.0f, .temp_max = 45.0f,
@@ -42,7 +44,7 @@ static const struct battery_profile unidentified = {
     .settings = {
         .u_nominal = 3.7f, .u_term = 4.2f, .u_vlo = 3.0f,
         .u_charge_prevent = 3.0f,
-        .i_term = 10.0f, .i_charge = 100.0f, .i_max = 200.0f,
+        .i_term = 10.0f, .i_charge = 80.0f, .i_max = 200.0f,
         .capacity = 108.0f,
         .temp_min = 0.0f, .temp_fast_min = 15.0f,
         .temp_fast_max = 40.0f, .temp_max = 45.0f,

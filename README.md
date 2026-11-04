@@ -161,7 +161,8 @@ address selects a 4.2 V fallback; the stored UICR revision cannot enable 4.3 V.
 | Standalone BMI160, `0x69` | 4.20 V | 111 mAh |
 | Identification failed | 4.20 V | 108 mAh |
 
-All profiles request 100 mA charging, stop charging outside 0–45 °C, and
+The VARTA profile requests 100 mA charging; Grepow and fallback request 80 mA
+for additional current margin. All profiles stop charging outside 0–45 °C and
 reduce current near the temperature limits. Recovery uses the same checks as
 startup. The existing 10 mA charge-termination setting is retained. The Grepow
 and fallback profiles do not automatically charge a cell below 3.0 V because

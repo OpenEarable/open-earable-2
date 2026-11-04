@@ -32,7 +32,8 @@ int BQ25120a::begin() {
                 return ret;
         }
 
-        ret = gpio_pin_configure_dt(&cd_pin, GPIO_OUTPUT_INACTIVE);
+        // Keep the input buffer enabled so diagnostics can read the actual CD gate.
+        ret = gpio_pin_configure_dt(&cd_pin, GPIO_OUTPUT_INACTIVE | GPIO_INPUT);
 	if (ret != 0) {
                 LOG_ERR("Failed to set GPOUT as input.\n");
                 return ret;
