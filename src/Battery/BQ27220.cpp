@@ -60,12 +60,13 @@ int BQ27220::set_wakeup_int() {
 
 bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
         int ret;
+        // Keep the gauge's required 66 us bus-free interval inside the lock:
+        // another reader must not consume that interval while we wait for I2C.
+        _i2c->aquire();
         uint64_t now = micros();
         int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
-
-        _i2c->aquire();
 
         ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
         if (ret) {
@@ -73,21 +74,19 @@ bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
                 LOG_WRN("I2C read failed: %d\n", ret);
         }
 
-        _i2c->release();
-
         last_i2c = micros();
+        _i2c->release();
 
         return (ret == 0);
 }
 
 void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         int ret;
+        _i2c->aquire();
         uint64_t now = micros();
         int delay = MIN(BQ27220_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ27220_I2C_TIMEOUT_US);
 
         if (delay > 0) k_usleep(delay);
-
-        _i2c->aquire();
 
         ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
         if (ret) {
@@ -95,9 +94,8 @@ void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
                 LOG_WRN("I2C write failed: %d", ret);
         }
 
-        _i2c->release();
-
         last_i2c = micros();
+        _i2c->release();
 }
 
 bat_status BQ27220::battery_status() {
