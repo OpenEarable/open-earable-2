@@ -35,7 +35,7 @@ void test_failed_and_unexpected_probes_cannot_select_4_3_volts(void)
 void test_charge_current_matches_each_cell_and_fallback(void)
 {
     const uint8_t addresses[] = {0, 0x68, 0x69};
-    const float expected[] = {80.0f, 100.0f, 80.0f};
+    const float expected[] = {80.0f, 100.0f, 90.0f};
     for (unsigned int i = 0; i < sizeof(addresses); i++) {
         const struct battery_settings *s = &battery_profile_for_imu(addresses[i])->settings;
         TEST_ASSERT_EQUAL_FLOAT(expected[i], battery_profile_charge_current(s, 3.7f, 25.0f));
@@ -76,7 +76,7 @@ void test_temperature_derating_is_reapplied_after_recovery(void)
     const struct battery_settings *s = &battery_profile_for_imu(0x69)->settings;
     TEST_ASSERT_EQUAL_FLOAT(40.0f, battery_profile_charge_current(s, 3.7f, 10.0f));
     TEST_ASSERT_EQUAL_FLOAT(40.0f, battery_profile_charge_current(s, 3.7f, 42.0f));
-    TEST_ASSERT_EQUAL_FLOAT(80.0f, battery_profile_charge_current(s, 3.7f, 25.0f));
+    TEST_ASSERT_EQUAL_FLOAT(90.0f, battery_profile_charge_current(s, 3.7f, 25.0f));
 }
 
 void test_invalid_measurements_prohibit_charging(void)

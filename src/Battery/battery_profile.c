@@ -3,9 +3,9 @@
 #include <math.h>
 
 /* VARTA requests 100 mA (105 mA with the charger's +5% tolerance).
- * Grepow/fallback request 80 mA for additional margin below the 111 mA limit
- * while the new board's current calibration is unverified. Both full and half
- * currents are representable by the charger. Retain the existing 10 mA
+ * Grepow requests 90 mA, the supported step below the requested 95 mA.
+ * The unidentified fallback retains 80 mA. Temperature derating rounds down
+ * to a supported charger step. Retain the existing 10 mA
  * termination threshold; no Grepow-specific taper calibration is claimed.
  */
 static const struct battery_profile varta = {
@@ -31,7 +31,7 @@ static const struct battery_profile grepow = {
     .settings = {
         .u_nominal = 3.7f, .u_term = 4.2f, .u_vlo = 3.0f,
         .u_charge_prevent = 3.0f,
-        .i_term = 10.0f, .i_charge = 80.0f, .i_max = 200.0f,
+        .i_term = 10.0f, .i_charge = 90.0f, .i_max = 200.0f,
         .capacity = 111.0f,
         .temp_min = 0.0f, .temp_fast_min = 15.0f,
         .temp_fast_max = 40.0f, .temp_max = 45.0f,
@@ -68,7 +68,9 @@ float battery_profile_charge_current(const struct battery_settings *settings,
         return 0.0f;
     }
     if (temperature < settings->temp_fast_min || temperature > settings->temp_fast_max) {
-        return settings->i_charge / 2.0f;
+        float current = settings->i_charge / 2.0f;
+        /* BQ25120A uses 10 mA steps in the >=40 mA range. */
+        return current >= 40.0f ? floorf(current / 10.0f) * 10.0f : current;
     }
     return settings->i_charge;
 }
