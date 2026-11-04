@@ -210,6 +210,12 @@ float BQ27220::charge_current() {
         return mA;
 }
 
+float BQ27220::charge_voltage() {
+        uint16_t mV = 0;
+        (void)readReg(0x30, (uint8_t *) &mV, sizeof(mV));
+        return mV / 1000.0f;
+}
+
 int BQ27220::cycle_count() {
         uint16_t n_cycles = 0;
         (void)readReg(registers::CYCT, (uint8_t *) &n_cycles, sizeof(n_cycles));
@@ -481,13 +487,13 @@ void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         (void)write_RAM(0x9281, &flags_b, sizeof(flags_b));
 
         // Overload current
-        (void)write_RAM(0x9264, _battery_settings.i_max);
+        (void)write_RAM(0x9264, _battery_settings.i_gauge_overload);
 
         // CEDV Smoothing Config
         uint8_t cedv_conf = 0x0D; //Default: 0x08, Enable SMEXT, SMEN 0x0D
         (void)write_RAM(0x9271, &cedv_conf, sizeof(cedv_conf));
 
-        (void)write_RAM(0x9272, 3700);
+        (void)write_RAM(0x9272, _battery_settings.u_nominal * 1000);
 
         exit_config_update(init);
 

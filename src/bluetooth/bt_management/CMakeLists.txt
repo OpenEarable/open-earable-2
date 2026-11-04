@@ -21,7 +21,9 @@ target_sources(app PRIVATE
 )
 
 if (CONFIG_BT_SETTINGS)
-	target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/bt_mgmt_bond_storage.c)
+	target_sources(app PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/bt_mgmt_bond_storage.c
+		${CMAKE_CURRENT_SOURCE_DIR}/bt_mgmt_bond_cleanup.c)
 	zephyr_ld_options(-Wl,--wrap=bt_settings_store_keys)
 endif()
 

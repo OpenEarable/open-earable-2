@@ -1,0 +1,9 @@
+tests:
+  openearable.unit.bond_cleanup:
+    tags:
+      - unit
+      - bluetooth
+    integration_platforms:
+      - native_sim/native/64
+    platform_allow:
+      - native_sim/native/64

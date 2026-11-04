@@ -141,6 +141,8 @@ void BQ25120a::setup(const battery_settings &_battery_settings) {
         exit_high_impedance();
 
         //reset();
+        // Profile changes must not enable charging before voltage/temperature checks.
+        disable_charge();
         setup_ts_control();
         write_battery_voltage_control(_battery_settings.u_term);
         write_charging_control(_battery_settings.i_charge);

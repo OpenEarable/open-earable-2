@@ -22,6 +22,11 @@ extern struct k_work_q sensor_ppg_work_q;
 
 enum sensor_manager_state get_state();
 
+/** Return the validated IMU I2C address, or zero if identification fails.
+ * Initialize runtime PM for the sensor rail before calling.
+ */
+uint8_t detect_sensor_hardware_revision();
+
 void init_sensor_manager();
 
 void start_sensor_manager();
