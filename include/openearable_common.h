@@ -3,6 +3,7 @@
 
 //#include <zephyr/bluetooth/audio/audio.h>
 #include <zephyr/drivers/gpio.h>
+#include "battery_settings.h"
 
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
@@ -114,24 +115,6 @@ struct sensor_config {
     uint8_t sampleRateIndex;
 	uint8_t storageOptions;
 } __attribute__((packed));
-
-struct battery_settings {
-    float u_nominal;
-    float u_term;
-    float u_vlo;
-    float u_charge_prevent;
-
-    float i_term;
-    float i_charge;
-    float i_max;
-
-    float capacity;
-
-    float temp_min;
-    float temp_fast_min;
-    float temp_fast_max;
-    float temp_max;
-};
 
 struct sd_msg {
 	bool removed;

@@ -67,6 +67,18 @@ If you are building from a workspace where this repository is checked out as an 
 
 Update this guide when the build directory names, flashing scripts, board targets, or required tool versions change.
 
+### Hardware-dependent battery configuration
+
+Battery profiles live in `src/Battery/battery_profile.c`. Select them only from
+the validated IMU probe before charger/gauge configuration; an unrecognized
+board must retain the 4.2 V fallback. Keep startup, periodic charging and recovery
+on the same voltage/temperature policy. `tests/unit/battery_profile` covers the
+address mapping, fallback and charging boundaries. Hardware validation should
+include `battery info` readback on both the 0x68 and 0x69 configurations, including
+a charging-only boot. Do not substitute fuel-gauge design capacity for learned
+full-charge capacity or claim a new cell's state-of-charge calibration from its
+nominal capacity alone.
+
 ### Release Assets
 
 Stable GitHub releases publish only `openearable_v2_fota_<version>.zip`.

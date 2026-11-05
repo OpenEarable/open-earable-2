@@ -17,7 +17,8 @@ usage() {
 Usage: flash_pair.sh --left-snr SERIAL --right-snr SERIAL [options]
   --left-snr SERIAL  J-Link attached to the left earable (required)
   --right-snr SERIAL J-Link attached to the right earable (required)
-  --hw x.y.z        Hardware revision for both devices (default: 2.0.1)
+  --hw x.y.z|auto   Revision for both devices, or retain each device's UICR
+                    revision (blank UICR: 2.0.1). Default: 2.0.1
   --build-dir DIR   Merged FOTA images (default: repository's build_fota)
   --dry-run         Validate inputs and show the plan without accessing hardware
   -h, --help        Show this help
@@ -61,11 +62,15 @@ normalize_serial() {
 LEFT_SNR=$(normalize_serial "$LEFT_SNR")
 RIGHT_SNR=$(normalize_serial "$RIGHT_SNR")
 [[ "$LEFT_SNR" != "$RIGHT_SNR" ]] || die "Left and right must use different J-Links"
-[[ "$HW_VERSION" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || die "Hardware version must be x.y.z (components 0..255)"
-IFS=. read -r HW_MAJOR HW_MINOR HW_PATCH <<< "$HW_VERSION"
-HW_MAJOR=$((10#$HW_MAJOR)); HW_MINOR=$((10#$HW_MINOR)); HW_PATCH=$((10#$HW_PATCH))
-(( HW_MAJOR <= 255 && HW_MINOR <= 255 && HW_PATCH <= 255 )) || die "Hardware version components must be 0..255"
-printf -v HW_WORD '%02X%02X%02X00' "$HW_MAJOR" "$HW_MINOR" "$HW_PATCH"
+if [[ "$HW_VERSION" == auto ]]; then
+    HW_WORD=auto
+else
+    [[ "$HW_VERSION" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || die "Hardware version must be x.y.z (components 0..255) or auto"
+    IFS=. read -r HW_MAJOR HW_MINOR HW_PATCH <<< "$HW_VERSION"
+    HW_MAJOR=$((10#$HW_MAJOR)); HW_MINOR=$((10#$HW_MINOR)); HW_PATCH=$((10#$HW_PATCH))
+    (( HW_MAJOR <= 255 && HW_MINOR <= 255 && HW_PATCH <= 255 )) || die "Hardware version components must be 0..255"
+    printf -v HW_WORD '%02X%02X%02X00' "$HW_MAJOR" "$HW_MINOR" "$HW_PATCH"
+fi
 
 [[ -d "$BUILD_DIR" ]] || die "Build directory does not exist: $BUILD_DIR"
 BUILD_DIR=$(cd -- "$BUILD_DIR" && pwd -P)
@@ -176,11 +181,20 @@ parallel() {
 }
 
 identify() {
-    local side=$1 snr=$2
+    local side=$1 snr=$2 hw_word=$HW_WORD
     run "$side" "$snr" --memrd 0x00FF0204 --n 8 --coprocessor CP_APPLICATION
     read_words "$side" 0x00FF0204 2 > "$RUN_DIR/$side.chip-id"
     run "$side" "$snr" --readuicr "$RUN_DIR/$side-original-uicr.hex" --coprocessor CP_APPLICATION
     [[ -s "$RUN_DIR/$side-original-uicr.hex" ]] || die "$side: UICR backup is missing or empty"
+    if [[ "$HW_VERSION" == auto ]]; then
+        run "$side" "$snr" --memrd 0x00FF8100 --n 4 --coprocessor CP_APPLICATION
+        hw_word=$(read_words "$side" 0x00FF8100 1)
+        # Preserve existing mixed-revision pairs. Fresh factory boards retain
+        # the station's established 2.0.1 provisioning default.
+        if [[ "$hw_word" == FFFFFFFF ]]; then hw_word=02000100; fi
+        [[ "$hw_word" =~ ^[0-9A-F]{6}00$ && "$hw_word" != 00000000 ]] || die "$side: invalid UICR hardware revision $hw_word; specify --hw explicitly"
+    fi
+    printf '%s\n' "$hw_word" > "$RUN_DIR/$side.hardware-word"
 }
 parallel identify
 read -r LEFT_LOW LEFT_HIGH < "$RUN_DIR/left.chip-id"
@@ -190,18 +204,20 @@ PAIR_ID=$((16#$LEFT_LOW ^ 16#$RIGHT_LOW))
 (( PAIR_ID != 0 && PAIR_ID != 0xFFFFFFFF )) || die "Derived pair identity is reserved"
 printf -v PAIR_WORD '%08X' "$PAIR_ID"
 printf 'LEFT_SNR=%s\nRIGHT_SNR=%s\nPAIR_ID=%s\nHARDWARE_WORD=%s\n' "$LEFT_SNR" "$RIGHT_SNR" "$PAIR_WORD" "$HW_WORD" > "$RUN_DIR/pair.conf"
+printf 'LEFT_HARDWARE_WORD=%s\nRIGHT_HARDWARE_WORD=%s\n' "$(cat "$RUN_DIR/left.hardware-word")" "$(cat "$RUN_DIR/right.hardware-word")" >> "$RUN_DIR/pair.conf"
 printf 'Pair identity: %s. Programming both devices...\n' "$PAIR_WORD"
 
 program() {
-    local side=$1 snr=$2 channel=$3 actual expected
+    local side=$1 snr=$2 channel=$3 actual expected hw_word
+    hw_word=$(cat "$RUN_DIR/$side.hardware-word")
     run "$side" "$snr" --program "$NET_HEX" --chiperase --verify --coprocessor CP_NETWORK
     run "$side" "$snr" --program "$APP_HEX" --chiperase --verify --coprocessor CP_APPLICATION
     run "$side" "$snr" --memwr 0x00FF80F4 --val "$channel" --coprocessor CP_APPLICATION
     run "$side" "$snr" --memwr 0x00FF80F8 --val "0x$PAIR_WORD" --coprocessor CP_APPLICATION
-    run "$side" "$snr" --memwr 0x00FF8100 --val "0x$HW_WORD" --coprocessor CP_APPLICATION
+    run "$side" "$snr" --memwr 0x00FF8100 --val "0x$hw_word" --coprocessor CP_APPLICATION
     run "$side" "$snr" --memrd 0x00FF80F4 --n 16 --coprocessor CP_APPLICATION
     actual=$(read_words "$side" 0x00FF80F4 4)
-    printf -v expected '%08X %s FFFFFFFF %s' "$channel" "$PAIR_WORD" "$HW_WORD"
+    printf -v expected '%08X %s FFFFFFFF %s' "$channel" "$PAIR_WORD" "$hw_word"
     [[ "$actual" == "$expected" ]] || die "$side: configuration mismatch ($actual != $expected)"
     printf '%s: both images and pair configuration verified.\n' "$side"
 }

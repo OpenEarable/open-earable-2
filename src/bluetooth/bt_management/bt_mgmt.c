@@ -70,6 +70,13 @@ static void conn_params_updated(struct bt_conn *conn, uint16_t interval,
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)
 {
+#if defined(CONFIG_BT_PERIPHERAL)
+	if (!err && bt_mgmt_adv_is_quiesced()) {
+		(void)bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+		return;
+	}
+#endif
+
 	int ret;
 	char addr[BT_ADDR_LE_STR_LEN] = {0};
 	struct bt_mgmt_msg msg;
@@ -351,20 +358,18 @@ static int random_static_addr_set(void)
 
 static int local_identity_addr_print(void)
 {
-	size_t num_ids = 0;
 	bt_addr_le_t addrs[CONFIG_BT_ID_MAX];
+	size_t num_ids = ARRAY_SIZE(addrs);
 	char addr_str[BT_ADDR_LE_STR_LEN];
 
-	bt_id_get(NULL, &num_ids);
-	if (num_ids != CONFIG_BT_ID_MAX) {
-		LOG_ERR("The default config supports %d ids, but %d was found", CONFIG_BT_ID_MAX,
+	bt_id_get(addrs, &num_ids);
+	if (num_ids != ARRAY_SIZE(addrs)) {
+		LOG_ERR("The default config supports %zu ids, but %zu was found", ARRAY_SIZE(addrs),
 			num_ids);
 		return -ENOMEM;
 	}
 
-	bt_id_get(addrs, &num_ids);
-
-	for (int i = 0; i < num_ids; i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(addrs); i++) {
 		(void)bt_addr_le_to_str(&(addrs[i]), addr_str, BT_ADDR_LE_STR_LEN);
 		LOG_INF("Local identity addr: %s", addr_str);
 	}
@@ -403,7 +408,8 @@ int bt_mgmt_bonding_clear(void)
 	if (IS_ENABLED(CONFIG_SETTINGS)) {
 		LOG_INF("Clearing all bonds");
 
-		ret = bt_unpair(BT_ID_DEFAULT, NULL);
+		ret = IS_ENABLED(CONFIG_BT_SETTINGS) ? bt_mgmt_bond_storage_clear() :
+						      bt_unpair(BT_ID_DEFAULT, NULL);
 		if (ret) {
 			LOG_ERR("Failed to clear bonding: %d", ret);
 			return ret;

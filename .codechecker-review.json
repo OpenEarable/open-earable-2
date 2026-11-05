@@ -1,0 +1,159 @@
+{
+  "$version": 1,
+  "rules": [
+    {
+      "filters": {
+        "filepath": "*/hal/nordic/nrfx/hal/nrf_clock.h",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "cfa253609494742f2bd30791d09751b4"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "Pinned nrfx HAL intentionally accesses the nRF5340 clock peripheral register bank (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/Battery/PowerManager.cpp",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "d7fcb3f2d8c1528c463dd99ba8e2d47e"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 RESETREAS and GPREGRET are memory-mapped registers; reset-cause and charging-only reboot state require these fixed-address accesses (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/Battery/PowerManager.cpp",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "21af5e4307d243756c4be43122b66042"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 RESETREAS and GPREGRET are memory-mapped registers; reset-cause and charging-only reboot state require these fixed-address accesses (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/utils/uicr.c",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "1505faaa9bd803f820f59a401504f52e"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 application UICR customer words at 0x00FF80F0..0x00FF8100 are intentionally read for provisioning and hardware identity (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/utils/uicr.c",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "ab26cd9eac92caa1324b4790cc832d84"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 application UICR customer words at 0x00FF80F0..0x00FF8100 are intentionally read for provisioning and hardware identity (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/utils/uicr.c",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "d8ac8afdad7009bfb6a9729ff633bc2a"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 application UICR customer words at 0x00FF80F0..0x00FF8100 are intentionally read for provisioning and hardware identity (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/utils/uicr.c",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "0e0ad5bf99c9b822a7013d3fae7a3442"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 application UICR customer words at 0x00FF80F0..0x00FF8100 are intentionally read for provisioning and hardware identity (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/utils/uicr.c",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "1e1e73da82bc861dc0eb344937a02126"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 application UICR customer words at 0x00FF80F0..0x00FF8100 are intentionally read for provisioning and hardware identity (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/utils/uicr.c",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "9faec092ed9460752b4a9e3cfb41aab7"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 application UICR customer words at 0x00FF80F0..0x00FF8100 are intentionally read for provisioning and hardware identity (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/utils/uicr.c",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "2684566c3cb8d6f94b31d63eacf0bee9"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 application UICR customer words at 0x00FF80F0..0x00FF8100 are intentionally read for provisioning and hardware identity (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/src/utils/uicr.c",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "f3e768360cb71396acecfa7f6721016f"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "nRF5340 application UICR customer words at 0x00FF80F0..0x00FF8100 are intentionally read for provisioning and hardware identity (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/hal/nordic/nrfx/hal/nrf_ipc.h",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "de69730046e318cc3ba6e2b7d79c7c82"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "Pinned nrfx HAL intentionally accesses the nRF5340 ipc peripheral register bank (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/hal/nordic/nrfx/hal/nrf_timer.h",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "25dcc8012d416ab56d71a6b04c3c5acb"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "Pinned nrfx HAL intentionally accesses the nRF5340 timer peripheral register bank (NCS 3.4.1)."
+      }
+    },
+    {
+      "filters": {
+        "filepath": "*/hal/nordic/nrfx/hal/nrf_egu.h",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "89a8a99e41c4de08d0992ce6b1a60c54"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "Pinned nrfx HAL intentionally accesses the nRF5340 egu peripheral register bank (NCS 3.4.1)."
+      }
+    }
+  ]
+}

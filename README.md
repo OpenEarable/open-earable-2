@@ -147,6 +147,52 @@ Contributor workflow, validation steps, code documentation expectations, and rep
 
 If you change build behavior, flashing scripts, repository structure, or public firmware APIs, update that guide in the same change so the contributor documentation stays aligned with the repository.
 
+## Hardware detection and battery profiles
+
+Firmware 2.3.3 probes the IMU before configuring the charger or fuel gauge,
+including boots that remain in charging mode. A valid legacy IMU at `0x68`
+selects the VARTA CP1454 A4X profile. The standalone BMI160 at `0x69` selects
+the Grepow GRP1454M1 profile for hardware 2.1.0. A failed probe or unexpected
+address selects a 4.2 V fallback; the stored UICR revision cannot enable 4.3 V.
+
+| Detected setup | Charge voltage | Gauge design capacity |
+| --- | --- | --- |
+| Legacy IMU, `0x68` | 4.30 V | 108 mAh |
+| Standalone BMI160, `0x69` | 4.20 V | 111 mAh |
+| Identification failed | 4.20 V | 108 mAh |
+
+The VARTA profile requests 100 mA charging; Grepow requests 90 mA and the
+unidentified fallback requests 80 mA. Grepow uses a supported 10 mA charger
+step below the requested 95 mA; its temperature-derated current is 40 mA.
+All profiles stop charging outside 0–45 °C and
+reduce current near the temperature limits. Recovery uses the same checks as
+startup. The existing 10 mA charge-termination setting is retained. The Grepow
+and fallback profiles do not automatically charge a cell below 3.0 V because
+the supplied pack specification does not define recovery below that voltage.
+
+The Grepow limits come from the manufacturer's GRP1454M1 1C pack design
+guideline dated 2026-07-16. Its 111 mA discharge limit is separate from the
+charger's 200 mA USB input limit; the gauge overload setting is not a physical
+battery current limiter. The shared fuel-gauge CEDV coefficients have not been
+characterized for the Grepow cell, so percentage/runtime accuracy still needs
+discharge measurements. Existing Bosch IMU/magnetometer compensation and axis
+mapping are retained; no new sensor calibration is required to enable this
+hardware support.
+
+Use `battery info` on the serial shell to inspect the detected profile, charger
+voltage readback and gauge target. The selected profile remains fixed until
+reboot, so a later sensor initialization cannot raise the fallback voltage.
+If the gauge cannot be read or configured, charging remains inhibited until
+restart and `battery info` reports the fault. Gauge configuration waits are
+bounded to five seconds per state transition rather than blocking startup
+indefinitely on an unresponsive device.
+The charger keeps its CD inhibit asserted until voltage, current, termination
+and supporting settings have been read back successfully. Charger I2C errors
+or a setpoint mismatch latch charging off until restart. Manual gauge setup
+serializes the complete configuration against battery workers and diagnostic
+reads; it cannot overlap a charging decision. IMU detection waits 10 ms for
+sensor power-on reset after the rail has settled.
+
 ## Battery States
 Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
 
@@ -208,3 +254,7 @@ If you are using OpenEarable, please cite is as follows:
 ```
 
 
+
+The BLE device-information firmware characteristic reports the release number
+from `VERSION` (for example `2.3.3`). Development and Git suffixes remain in
+internal build diagnostics.

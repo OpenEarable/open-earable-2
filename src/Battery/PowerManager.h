@@ -5,6 +5,7 @@
 
 #include "BQ27220.h"
 #include "BQ25120a.h"
+#include "battery_profile.h"
 
 #include "../bluetooth/gatt_services/battery_service.h"
 
@@ -17,7 +18,13 @@ class PowerManager {
 public:
     int begin();
 
-    int power_down(bool fault = false);
+    int power_down(bool fault = false, bool stay_off_while_charging = false);
+
+    /** Erase Bluetooth bonds and shut down, retaining hardware/set identity.
+     * Call from a worker outside the Bluetooth RX/advertising threads. On failure, returns errno and leaves
+     * advertising suppressed until restart; never reports an erase as success.
+     */
+    int clear_bonds_and_power_down();
     //bool check_boot_condition();
 
     //static LoadSwitch v1_8_switch;
@@ -61,16 +68,16 @@ private:
     static void fuel_gauge_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     static void battery_controller_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
-    const battery_settings _battery_settings = {
-        3.7, 4.3, 3.0, 2.5,  // Spannungen
-        10, 110, 200,        // Ströme
-        108,                 // Kapazität
-        0, 15, 45, 50        // Temperaturen
-    };
+    // Default is conservative until the powered IMU probe positively identifies a board.
+    const battery_profile *_battery_profile = battery_profile_for_imu(0);
+    battery_settings _battery_settings = _battery_profile->settings;
+    uint8_t _imu_address = 0;
+    bool _fuel_gauge_ready = false;
 
     const struct gpio_dt_spec error_led = GPIO_DT_SPEC_GET(DT_NODELABEL(led_error), gpios);
 
     friend int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **argv);
+    friend int cmd_battery_info(const struct shell *shell, size_t argc, const char **argv);
 };
 
 extern PowerManager power_manager;

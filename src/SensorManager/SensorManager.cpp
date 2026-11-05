@@ -126,6 +126,10 @@ void sensor_chan_update(void *p1, void *p2, void *p3) {
 	}
 }
 
+uint8_t detect_sensor_hardware_revision() {
+	return IMU::detectHardwareRevision();
+}
+
 void init_sensor_manager() {
 	_state = INIT;
 

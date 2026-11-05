@@ -130,16 +130,21 @@ public:
     float design_cap();
     float remaining_cap();
     float charge_current();
+    /** Gauge charging-voltage recommendation in volts; zero on a read failure. */
+    float charge_voltage();
     int cycle_count();
     float standby_current();
     op_state operation_state();
     gauge_status gauging_state();
     void write_command(commands command);
-    void enter_config_update();
-    void exit_config_update(bool init = true);
+    int enter_config_update();
+    int exit_config_update(bool init = true);
 
     void full_access();
-    void setup(const battery_settings &_battery_settings, bool init = true);
+    /** True if a standard operation-status read succeeds. */
+    bool available();
+    /** Configure the profile, returning errno on I2C failure or a bounded timeout. */
+    int setup(const battery_settings &_battery_settings, bool init = true);
 
     int set_wakeup_int();
 
@@ -148,6 +153,8 @@ public:
 
     int set_int_callback(gpio_callback_handler_t handler);
 private:
+    int wait_config_update(bool enabled);
+    bool _setup_io_error = false;
     bool readReg(uint8_t reg, uint8_t * buffer, uint16_t len);
     void writeReg(uint8_t reg, uint8_t * buffer, uint16_t len);
 

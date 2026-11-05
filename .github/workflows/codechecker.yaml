@@ -56,6 +56,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "codechecker==${CODECHECKER_VERSION}" west
 
+      - name: Test reviewed hardware-access rules
+        run: python zephyr-workspace/open-earable-v2/tests/host/codechecker_reviews/run.py
+
       - name: Install Zephyr SDK
         working-directory: zephyr-workspace
         run: |
@@ -103,6 +106,7 @@ jobs:
             -DFILE_SUFFIX=fota \
             -DZEPHYR_SCA_VARIANT=codechecker \
             -DCODECHECKER_ANALYZE_JOBS=4 \
+            "-DCODECHECKER_ANALYZE_OPTS=--review-status-config;${PWD}/open-earable-v2/.codechecker-review.json" \
             -DCODECHECKER_CONFIG_FILE="${PWD}/open-earable-v2/.codechecker.json" \
             -DCODECHECKER_EXPORT=html,json \
             2>&1 | tee codechecker-output/analysis.log
@@ -122,6 +126,10 @@ jobs:
             echo "::error::CodeChecker completed without analyzing any compilation commands"
             exit 1
           fi
+          CodeChecker parse build/sca/codechecker/codechecker.plist \
+            --export json --output codechecker-output/reviewed-hardware-accesses.json \
+            --review-status intentional
+          cp open-earable-v2/.codechecker-review.json codechecker-output/reviewed-hardware-rules.json
 
       - name: Prepare PR annotations
         if: always()
@@ -136,6 +144,7 @@ jobs:
           python scripts/ci/codechecker_pr_report.py \
             --report "${CODECHECKER_REPORT}" \
             --analysis-dir ../build/sca/codechecker/codechecker.plist \
+            --reviewed-report ../codechecker-output/reviewed-hardware-accesses.json \
             --comment-output "${COMMENT_OUTPUT}" \
             --base "${PR_BASE_SHA}" \
             --head "${PR_HEAD_SHA}"

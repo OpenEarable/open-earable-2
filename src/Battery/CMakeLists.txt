@@ -1,5 +1,6 @@
 
 target_sources(app PRIVATE
+	       ${CMAKE_CURRENT_SOURCE_DIR}/battery_profile.c
 	       ${CMAKE_CURRENT_SOURCE_DIR}/BQ27220.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/BQ25120a.cpp
 		   ${CMAKE_CURRENT_SOURCE_DIR}/AutoOffManager.cpp

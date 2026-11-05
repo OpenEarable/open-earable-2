@@ -185,6 +185,15 @@ void bt_mgmt_num_bonds_get(uint8_t *num_bonds);
  */
 int bt_mgmt_bonding_clear(void);
 
+/** Stop all advertising and suppress restarts until reboot. Call from a worker,
+ * never the Bluetooth RX thread or advertising work queue. Returns 0 or errno.
+ */
+int bt_mgmt_adv_quiesce(void);
+
+/** True after terminal device cleanup has disabled advertising. */
+bool bt_mgmt_adv_is_quiesced(void);
+
+
 /**
  * @brief	Scan delegator feature initialization.
  */

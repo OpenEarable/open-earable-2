@@ -46,3 +46,18 @@ class TWIM
 extern TWIM I2C1;
 extern TWIM I2C2;
 extern TWIM I2C3;
+
+/** Serialize a complete transaction, including state checks around I/O.
+ * Zephyr mutexes are recursive, so driver register helpers may use this too.
+ */
+class TWIMLock {
+ public:
+    explicit TWIMLock(TWIM &bus) : _bus(bus) { _bus.aquire(); }
+    ~TWIMLock() { unlock(); }
+    TWIMLock(const TWIMLock &) = delete;
+    TWIMLock &operator=(const TWIMLock &) = delete;
+    void unlock() { if (_locked) { _locked = false; _bus.release(); } }
+ private:
+    TWIM &_bus;
+    bool _locked = true;
+};

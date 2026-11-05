@@ -14,6 +14,8 @@ public:
     bool init(struct k_msgq * queue) override;
     void start(int sample_rate_idx) override;
     void stop() override;
+    /** Probe with the sensor rail powered; return 0x68/0x69, or zero on failure. */
+    static uint8_t detectHardwareRevision();
 
     const static SampleRateSetting<6> sample_rates;
 private:

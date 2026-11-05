@@ -54,13 +54,18 @@ public:
 
     void setup_ts_control();
 
-    void setup(const battery_settings &_battery_settings);
+    /** Program/read back the profile with CD inhibited; failure latches off. */
+    int setup(const battery_settings &_battery_settings);
+    bool configured() const { return _configured && !_io_error; }
+    int set_charge_current_verified(float mA);
 
     bool power_connected();
     void enter_high_impedance();
     void exit_high_impedance();
     void disable_charge();
     void enable_charge();
+    /** True when external power is present and the CD pin inhibits charging. */
+    bool charge_inhibited();
     
     uint8_t read_charging_state();
     uint8_t read_fault();
@@ -83,6 +88,10 @@ public:
     int set_power_connect_callback(gpio_callback_handler_t handler);
     int set_int_callback(gpio_callback_handler_t handler);
 private:
+    void io_fault();
+    bool _configured = false;
+    bool _io_error = false;
+    bool _pins_ready = false;
     bool readReg(uint8_t reg, uint8_t * buffer, uint16_t len);
     void writeReg(uint8_t reg, uint8_t * buffer, uint16_t len);
 

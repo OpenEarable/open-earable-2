@@ -11,7 +11,8 @@
 
 static char device_identifier[sizeof(uint64_t) * 2 + 3];
 char device_generation[16];
-static char firmware[] = FIRMWARE_VERSION;
+/* BLE exposes the release number; build diagnostics retain the Git identity. */
+static char firmware[] = FIRMWARE_RELEASE_VERSION;
 
 static ssize_t read_device_identifier(struct bt_conn *conn,
 			  const struct bt_gatt_attr *attr,

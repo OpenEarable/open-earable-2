@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--analysis-dir", type=Path)
+    parser.add_argument("--reviewed-report", type=Path)
     parser.add_argument("--comment-output", type=Path, required=True)
     parser.add_argument("--base", default="")
     parser.add_argument("--head", default="HEAD")
@@ -361,6 +362,11 @@ def main() -> int:
         for report in load_reports(args.report)
         if str(report.get("severity", "")).upper() != "STYLE"
     ]
+    reviewed_reports = (
+        load_reports(args.reviewed_report) if args.reviewed_report else []
+    )
+    if any(report.get("review_status") != "intentional" for report in reviewed_reports):
+        raise ValueError("Reviewed report contains a finding that is not intentional")
     completed_runs, failed_runs = analyzer_results(args.analysis_dir)
     failures = analyzer_failures(args.analysis_dir, repo_root)
     analyzer_errors = sum(failed_runs.values())
@@ -442,6 +448,7 @@ def main() -> int:
         "| --- | ---: |",
         f"| Findings on lines changed by this PR | **{len(findings)}** |",
         f"| Findings in the complete codebase | **{len(normalized_reports)}** |",
+        f"| Reviewed intentional hardware accesses | **{len(reviewed_reports)}** |",
         f"| Analyzer invocations completed | **{sum(completed_runs.values())}** |",
         f"| Analyzer invocations failed | **{analyzer_errors}** |",
         "",
@@ -560,6 +567,17 @@ def main() -> int:
             "",
             "✅ No non-style issues found.",
         ]
+
+    if reviewed_reports:
+        lines.extend([
+            "",
+            f"{len(reviewed_reports)} known nRF5340 hardware-register accesses are "
+            "reviewed as intentional using exact checker/path/hash rules in "
+            "`.codechecker-review.json`. Other fixed-address and array-bound "
+            "findings remain enabled. The artifact includes "
+            "`reviewed-hardware-accesses.json` with the findings and "
+            "`reviewed-hardware-rules.json` with the matching rules and reasons.",
+        ])
 
     args.comment_output.parent.mkdir(parents=True, exist_ok=True)
     args.comment_output.write_text("\n".join(lines), encoding="utf-8")

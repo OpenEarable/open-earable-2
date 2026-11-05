@@ -1,4 +1,5 @@
 #include "BQ25120a.h"
+#include <errno.h>
 
 #include "openearable_common.h"
 
@@ -32,7 +33,8 @@ int BQ25120a::begin() {
                 return ret;
         }
 
-        ret = gpio_pin_configure_dt(&cd_pin, GPIO_OUTPUT_INACTIVE);
+        // Keep the input buffer enabled so diagnostics can read the actual CD gate.
+        ret = gpio_pin_configure_dt(&cd_pin, GPIO_OUTPUT_ACTIVE | GPIO_INPUT);
 	if (ret != 0) {
                 LOG_ERR("Failed to set GPOUT as input.\n");
                 return ret;
@@ -54,6 +56,7 @@ int BQ25120a::begin() {
 
         uint64_t now = micros();
         last_i2c = last_high_z = now;
+        _pins_ready = true;
 
         return 0;
 }
@@ -92,6 +95,7 @@ int BQ25120a::set_wakeup_int() {
 }
 
 bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
+        TWIMLock lock(*_i2c);
         int ret;
         uint64_t now = micros();
         int delay = MIN(BQ25120a_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ25120a_I2C_TIMEOUT_US);
@@ -101,12 +105,8 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
-        _i2c->aquire();
-
         ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
-        if (ret) LOG_WRN("I2C read failed: %d\n", ret);
-
-        _i2c->release();
+        if (ret) { io_fault(); LOG_WRN("I2C read failed: %d\n", ret); }
 
         last_i2c = micros();
 
@@ -114,6 +114,7 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 }
 
 void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
+        TWIMLock lock(*_i2c);
         int ret;
         uint64_t now = micros();
         int delay = MIN(BQ25120a_I2C_TIMEOUT_US - (int)(now - last_i2c), BQ25120a_I2C_TIMEOUT_US);
@@ -123,17 +124,24 @@ void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);  //TODO: assert no message ?
 
-        _i2c->aquire();
-
         ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
-        if (ret) LOG_WRN("I2C write failed: %d", ret);
-
-        _i2c->release();
+        if (ret) { io_fault(); LOG_WRN("I2C write failed: %d", ret); }
 
         last_i2c = micros();
 }
 
-void BQ25120a::setup(const battery_settings &_battery_settings) {
+void BQ25120a::io_fault() {
+        _io_error = true;
+        _configured = false;
+        disable_charge();
+}
+
+int BQ25120a::setup(const battery_settings &_battery_settings) {
+        TWIMLock lock(*_i2c);
+        _configured = false;
+        disable_charge();
+        if (!_pins_ready) return -ENODEV;
+        if (_io_error) return -EIO;
         ilim_uvlo params;
         params.lim_mA = _battery_settings.i_max;
         params.uvlo_v = _battery_settings.u_vlo;
@@ -141,14 +149,53 @@ void BQ25120a::setup(const battery_settings &_battery_settings) {
         exit_high_impedance();
 
         //reset();
+        // Profile changes must not enable charging before voltage/temperature checks.
+        disable_charge();
         setup_ts_control();
         write_battery_voltage_control(_battery_settings.u_term);
         write_charging_control(_battery_settings.i_charge);
         write_termination_control(_battery_settings.i_term);
+        // LSCTRL keeps this board's rail enabled. Per BQ25120A table 20,
+        // its voltage field cannot change until the output is disabled.
+        // Retain the existing request, but do not gate charging on this rail.
         write_LDO_voltage_control(3.3);
         write_uvlo_ilim(params);
 
+        // ACK alone does not prove that a retained, possibly higher-voltage
+        // profile was replaced. Check the actual register values before CD.
+        const float voltage = read_battery_voltage_control();
+        const chrg_state charge = read_charging_control();
+        const chrg_state term = read_termination_control();
+        const ilim_uvlo input = read_uvlo_ilim();
+        const uint8_t ts = read_ts_fault();
+        if (_io_error || !charge.enabled || !term.enabled || (ts & 0x80) ||
+            fabsf(voltage - _battery_settings.u_term) > 0.005f ||
+            fabsf(charge.mAh - _battery_settings.i_charge) > 0.1f ||
+            fabsf(term.mAh - _battery_settings.i_term) > 0.1f ||
+            fabsf(input.lim_mA - params.lim_mA) > 0.1f ||
+            fabsf(input.uvlo_v - params.uvlo_v) > 0.01f) {
+                LOG_ERR("Charger verification: io=%d CE=%d TE=%d TS=0x%02x CV=%d CC=%d TERM=%d ILIM=%d UVLO=%d",
+                        _io_error, charge.enabled, term.enabled, ts,
+                        (int)(voltage * 1000), (int)charge.mAh, (int)term.mAh,
+                        (int)input.lim_mA, (int)(input.uvlo_v * 1000));
+                io_fault();
+                return -EIO;
+        }
+        _configured = true;
         enter_high_impedance();
+        return 0;
+}
+
+int BQ25120a::set_charge_current_verified(float mA) {
+        TWIMLock lock(*_i2c);
+        if (!configured()) { disable_charge(); return -EIO; }
+        write_charging_control(mA);
+        const chrg_state actual = read_charging_control();
+        if (_io_error || !actual.enabled || fabsf(actual.mAh - mA) > 0.1f) {
+                io_fault();
+                return -EIO;
+        }
+        return 0;
 }
 
 uint8_t BQ25120a::read_charging_state() {
@@ -394,7 +441,13 @@ void BQ25120a::disable_charge() {
 }
 
 void BQ25120a::enable_charge() {
+        TWIMLock lock(*_i2c);
+        if (!configured()) { disable_charge(); return; }
         if (power_connected()) gpio_pin_set_dt(&cd_pin, 0);
+}
+
+bool BQ25120a::charge_inhibited() {
+        return power_connected() && gpio_pin_get_dt(&cd_pin) > 0;
 }
 
 
