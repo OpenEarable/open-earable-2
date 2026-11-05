@@ -52,6 +52,7 @@ jobs:
         run: |
           python3 zephyr-workspace/open-earable-v2/tests/host/battery_control/run.py
           python3 zephyr-workspace/open-earable-v2/tests/host/flash_pair/run.py
+          python3 zephyr-workspace/open-earable-v2/tests/host/array_bounds/run.py
 
       - name: Initialize nRF Connect SDK workspace
         run: |

@@ -139,7 +139,9 @@ int MAXM86161::stop(void)
 }
 
 int MAXM86161::read(ppg_sample *buffer, size_t buffer_capacity) {
-    if (buffer == nullptr || buffer_capacity == 0) {
+    const uint8_t exposure_count = _exposure_count;
+    if (buffer == nullptr || buffer_capacity == 0 ||
+        exposure_count == 0 || exposure_count > LED_NUM) {
         return 0;
     }
 
@@ -149,13 +151,18 @@ int MAXM86161::read(ppg_sample *buffer, size_t buffer_capacity) {
     size_t output_count = 0;
 
     status = _read_from_reg(REG_FIFO_DATA_COUNTER, fifo_items);
-    if (status == 0){
-        int item_capacity = (int)(buffer_capacity * _exposure_count);
+    if (status == 0 && fifo_items > 0){
+        // Bound the multiplication and the DMA read by the physical FIFO.
+        int item_capacity = (int)MIN(buffer_capacity, (size_t)FIFO_SIZE) * exposure_count;
         if (_pending_exposure_mask != 0) {
             const int pending_items = __builtin_popcount((unsigned int)_pending_exposure_mask);
             item_capacity -= pending_items;
         }
-        int items_to_read = MIN(fifo_items, item_capacity);
+        if (item_capacity <= 0) {
+            return 0;
+        }
+        int items_to_read = MIN(MIN(fifo_items, item_capacity),
+                                (int)(sizeof(databuffer) / BYTES_PER_CH));
         number_of_bytes = items_to_read * BYTES_PER_CH;
         
         status = _read_block(REG_FIFO_DATA, number_of_bytes, (uint8_t *) databuffer);
@@ -180,15 +187,20 @@ int MAXM86161::read(ppg_sample *buffer, size_t buffer_capacity) {
                 memset(_pending_sample, 0, sizeof(_pending_sample));
                 _pending_exposure_mask = 0;
             }
-            if (tag == 0 || tag > _exposure_count ||
+            if (tag == 0 || tag > exposure_count || tag > LED_NUM ||
                 (_pending_exposure_mask == 0 && tag != 1)) {
                 continue;
             }
 
-            _pending_sample[_exposure_output_indices[tag - 1]] = val;
+            const uint8_t output_index = _exposure_output_indices[tag - 1];
+            if (output_index >= sizeof(_pending_sample) / sizeof(_pending_sample[0])) {
+                _pending_exposure_mask = 0;
+                continue;
+            }
+            _pending_sample[output_index] = val;
             _pending_exposure_mask |= (uint8_t)(1U << (tag - 1));
 
-            const uint8_t complete_mask = (uint8_t)((1U << _exposure_count) - 1U);
+            const uint8_t complete_mask = (uint8_t)((1U << exposure_count) - 1U);
             if (_pending_exposure_mask == complete_mask) {
                 if (output_count >= buffer_capacity) {
                     break;
