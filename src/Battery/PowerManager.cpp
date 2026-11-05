@@ -124,7 +124,8 @@ void PowerManager::battery_controller_work_handler(struct k_work * work) {
 
 void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 	ARG_UNUSED(work);
-    if (!power_manager._fuel_gauge_ready) {
+    TWIMLock battery_lock(I2C1);
+    if (!power_manager._fuel_gauge_ready || !battery_controller.configured()) {
         battery_controller.disable_charge();
         return;
     }
@@ -278,7 +279,9 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
     }
 
 	//ret = k_msgq_put(&battery_queue, &msg, K_NO_WAIT);
-    ret = zbus_chan_pub(&battery_chan, &msg, K_FOREVER);
+    // Observers may read battery status; never publish while holding I2C.
+    battery_lock.unlock();
+	ret = zbus_chan_pub(&battery_chan, &msg, K_FOREVER);
 	if (ret) {
 		LOG_WRN("power manager msg queue full");
 	}
@@ -358,33 +361,37 @@ int PowerManager::begin() {
             _battery_profile->name, _imu_address,
             (unsigned)(_battery_settings.u_term * 1000.0f));
 
-    battery_controller.setup(_battery_settings);
-    battery_controller.set_int_callback(battery_controller_callback);
+    {
+        TWIMLock battery_lock(I2C1);
+        const int charger_result = battery_controller.setup(_battery_settings);
+        if (charger_result) LOG_ERR("Charger setup failed: %d; charging inhibited", charger_result);
+        battery_controller.set_int_callback(battery_controller_callback);
 
-    // check setup
-    _fuel_gauge_ready = fuel_gauge.available();
-    op_state state = _fuel_gauge_ready ? fuel_gauge.operation_state() : op_state{};
-    bool setup_fuel_gauge = _fuel_gauge_ready && state.SEC != BQ27220::SEALED;
-    // Check design settings before scheduling readers, including charging-only
-    // boots. FCC is learned capacity and must not be reset merely for ageing.
-    setup_fuel_gauge |= std::fabs(fuel_gauge.design_cap() - _battery_settings.capacity) > 0.5f;
-    setup_fuel_gauge |= std::fabs(fuel_gauge.charge_voltage() - _battery_settings.u_term) > 0.011f;
-    setup_fuel_gauge |= std::fabs(fuel_gauge.charge_current() - _battery_settings.i_charge) > 0.5f;
-#if defined(CONFIG_BOOTLOADER_MCUBOOT) && defined(CONFIG_SETUP_FUEL_GAUGE)
-    setup_fuel_gauge |= !boot_is_img_confirmed();
-#endif
-    // Finish the unseal/configuration sequence before charge_ctrl_delayable can read the gauge.
-    if (_fuel_gauge_ready && setup_fuel_gauge) {
-        //battery_controller.setup();
-        const int gauge_result = fuel_gauge.setup(_battery_settings);
-        if (gauge_result) {
-            _fuel_gauge_ready = false;
-            LOG_ERR("Fuel-gauge setup failed: %d", gauge_result);
+        // check setup
+        _fuel_gauge_ready = fuel_gauge.available();
+        op_state state = _fuel_gauge_ready ? fuel_gauge.operation_state() : op_state{};
+        bool setup_fuel_gauge = _fuel_gauge_ready && state.SEC != BQ27220::SEALED;
+        // Check design settings before scheduling readers, including charging-only
+        // boots. FCC is learned capacity and must not be reset merely for ageing.
+        setup_fuel_gauge |= std::fabs(fuel_gauge.design_cap() - _battery_settings.capacity) > 0.5f;
+        setup_fuel_gauge |= std::fabs(fuel_gauge.charge_voltage() - _battery_settings.u_term) > 0.011f;
+        setup_fuel_gauge |= std::fabs(fuel_gauge.charge_current() - _battery_settings.i_charge) > 0.5f;
+    #if defined(CONFIG_BOOTLOADER_MCUBOOT) && defined(CONFIG_SETUP_FUEL_GAUGE)
+        setup_fuel_gauge |= !boot_is_img_confirmed();
+    #endif
+        // Finish the unseal/configuration sequence before charge_ctrl_delayable can read the gauge.
+        if (_fuel_gauge_ready && setup_fuel_gauge) {
+            //battery_controller.setup();
+            const int gauge_result = fuel_gauge.setup(_battery_settings);
+            if (gauge_result) {
+                _fuel_gauge_ready = false;
+                LOG_ERR("Fuel-gauge setup failed: %d", gauge_result);
+            }
         }
-    }
-    if (!_fuel_gauge_ready) {
-        battery_controller.disable_charge();
-        LOG_ERR("Fuel gauge unavailable; charging inhibited until restart");
+        if (!_fuel_gauge_ready) {
+            battery_controller.disable_charge();
+            LOG_ERR("Fuel gauge unavailable; charging inhibited until restart");
+        }
     }
 
     //k_timer_init(&charge_timer, charge_timer_handler, NULL);
@@ -416,7 +423,10 @@ int PowerManager::begin() {
         //battery_level_status bat_status;
         //get_battery_status(&bat_status);
 
-        oe_state.charging_state = _fuel_gauge_ready ? POWER_CONNECTED : FAULT;
+        {
+            TWIMLock battery_lock(I2C1);
+            oe_state.charging_state = _fuel_gauge_ready && battery_controller.configured() ? POWER_CONNECTED : FAULT;
+        }
 
         state_indicator.init(oe_state);
 
@@ -498,7 +508,8 @@ void PowerManager::set_error_led(int val) {
 }
 
 bool PowerManager::check_battery() {
-    if (!_fuel_gauge_ready) {
+    TWIMLock battery_lock(I2C1);
+    if (!_fuel_gauge_ready || !battery_controller.configured()) {
         battery_controller.disable_charge();
         return false;
     }
@@ -514,7 +525,7 @@ bool PowerManager::check_battery() {
             battery_controller.disable_charge();
             return false;
         }
-        battery_controller.write_charging_control(current);
+        if (battery_controller.set_charge_current_verified(current)) return false;
         battery_controller.enable_charge();
     }
 
@@ -528,6 +539,7 @@ bool PowerManager::check_battery() {
 }
 
 void PowerManager::get_battery_status(battery_level_status &status) {
+    TWIMLock battery_lock(I2C1);
     battery_controller.exit_high_impedance();
     uint8_t charging_state = battery_controller.read_charging_state() >> 6;
 
@@ -558,6 +570,7 @@ void PowerManager::get_battery_status(battery_level_status &status) {
 }
 
 void PowerManager::get_energy_status(battery_energy_status &status) {
+    TWIMLock battery_lock(I2C1);
     float voltage = fuel_gauge.voltage();
     float current_mA = fuel_gauge.current();
     float capacity = fuel_gauge.capacity(); 
@@ -569,6 +582,7 @@ void PowerManager::get_energy_status(battery_energy_status &status) {
 }
 
 void PowerManager::get_health_status(battery_health_status &status) {
+    TWIMLock battery_lock(I2C1);
     float state_of_health = fuel_gauge.state_of_health();
     int cycle_count = fuel_gauge.cycle_count();
     float temp = fuel_gauge.temperature(); 
@@ -714,7 +728,8 @@ int PowerManager::power_down(bool fault, bool stay_off_while_charging) {
 
 
 void PowerManager::charge_task() {
-    if (!_fuel_gauge_ready) {
+    TWIMLock battery_lock(I2C1);
+    if (!_fuel_gauge_ready || !battery_controller.configured()) {
         battery_controller.disable_charge();
         return;
     }
@@ -724,7 +739,7 @@ void PowerManager::charge_task() {
 
     if (last_charging_state == 0) {
         LOG_INF("Setting up charge controller ........");
-        battery_controller.setup(_battery_settings);
+        if (battery_controller.setup(_battery_settings)) return;
     }
 
     // Recovery/configuration must use the same policy as initial startup.
@@ -739,7 +754,9 @@ int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **ar
     ARG_UNUSED(argc);
     ARG_UNUSED(argv);
 
-    // Stop periodic readers/charging before the manual unseal/configure sequence.
+    // Wait for in-flight battery transactions, then gate future readers under
+    // the same recursive bus mutex. Release before reboot drains other workers.
+    TWIMLock battery_lock(I2C1);
     power_manager._fuel_gauge_ready = false;
     battery_controller.disable_charge();
     const int err = fuel_gauge.setup(power_manager._battery_settings);
@@ -750,12 +767,14 @@ int cmd_setup_fuel_gauge(const struct shell *shell, size_t argc, const char **ar
         return err;
     }
 
+    battery_lock.unlock();
     power_manager.reboot();
 
     return 0;
 }
 
 int cmd_battery_info(const struct shell *shell, size_t argc, const char **argv) {
+    TWIMLock battery_lock(I2C1);
     ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
@@ -766,10 +785,13 @@ int cmd_battery_info(const struct shell *shell, size_t argc, const char **argv) 
                 (double)power_manager._battery_settings.u_term,
                 (double)power_manager._battery_settings.i_charge);
     shell_print(shell, "CD charging inhibit: %u", battery_controller.charge_inhibited());
+    shell_print(shell, "Charger configuration verified: %u", battery_controller.configured());
     if (!power_manager._fuel_gauge_ready) {
         shell_error(shell, "Fuel gauge unavailable; charging inhibited until restart");
+        battery_controller.exit_high_impedance();
         shell_print(shell, "Charger voltage setting: %.3f V",
                     (double)battery_controller.read_battery_voltage_control());
+        battery_controller.enter_high_impedance();
         return -ENODEV;
     }
     // Battery fuel gauge status

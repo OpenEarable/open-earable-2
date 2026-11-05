@@ -92,6 +92,10 @@ bool BMX160::detect()
 {
     _i2c->begin();
 
+    // The rail switch settles in 300 us, but sensor POR can take 10 ms.
+    // Cover both early hardware identification and later sensor initialization.
+    k_msleep(10);
+
     uint8_t chip_id = 0;
     // Hardware 2.1 selects the alternate address by pulling BMI160 SDO high.
     if (probeAddress(BMI160_I2C_ADDR_SDO_HIGH, &chip_id) && chip_id == BMI160_CHIP_ID) {

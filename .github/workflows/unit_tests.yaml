@@ -48,6 +48,9 @@ jobs:
           restore-keys: |
             unit-tests-${{ runner.os }}-pip-
 
+      - name: Run battery hardware-fault and concurrency regressions
+        run: python3 zephyr-workspace/open-earable-v2/tests/host/battery_control/run.py
+
       - name: Initialize nRF Connect SDK workspace
         run: |
           python3 -m pip install west

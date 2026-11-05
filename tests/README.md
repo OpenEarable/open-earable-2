@@ -114,3 +114,15 @@ LE Audio set identity, including stored pairs, erased UICR, and standalone devic
 The `battery_profile` suite verifies legacy/Grepow profile selection, the 4.2 V
 fallback for every other probe result, voltage/temperature charging boundaries,
 temperature derating and invalid-reading handling.
+
+Host hardware-fault regressions run in CI before Twister and can also run with:
+
+```sh
+python3 tests/host/battery_control/run.py
+```
+
+They compile the production BQ25120A and TWIM drivers with simulated RTOS/I2C
+boundaries, and execute the production charging-decision, manual-configuration
+and IMU-probe function bodies. Cases cover failed/ignored writes, readback
+mismatches, a latched runtime I2C failure, concurrent charging/configuration,
+bus release before reboot drains workers, and a sensor needing 10 ms POR.
