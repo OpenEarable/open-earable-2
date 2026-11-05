@@ -155,6 +155,9 @@ int BQ25120a::setup(const battery_settings &_battery_settings) {
         write_battery_voltage_control(_battery_settings.u_term);
         write_charging_control(_battery_settings.i_charge);
         write_termination_control(_battery_settings.i_term);
+        // LSCTRL keeps this board's rail enabled. Per BQ25120A table 20,
+        // its voltage field cannot change until the output is disabled.
+        // Retain the existing request, but do not gate charging on this rail.
         write_LDO_voltage_control(3.3);
         write_uvlo_ilim(params);
 
@@ -164,15 +167,17 @@ int BQ25120a::setup(const battery_settings &_battery_settings) {
         const chrg_state charge = read_charging_control();
         const chrg_state term = read_termination_control();
         const ilim_uvlo input = read_uvlo_ilim();
-        const float ldo = read_ldo_voltage();
         const uint8_t ts = read_ts_fault();
         if (_io_error || !charge.enabled || !term.enabled || (ts & 0x80) ||
             fabsf(voltage - _battery_settings.u_term) > 0.005f ||
             fabsf(charge.mAh - _battery_settings.i_charge) > 0.1f ||
             fabsf(term.mAh - _battery_settings.i_term) > 0.1f ||
             fabsf(input.lim_mA - params.lim_mA) > 0.1f ||
-            fabsf(input.uvlo_v - params.uvlo_v) > 0.01f ||
-            fabsf(ldo - 3.3f) > 0.01f) {
+            fabsf(input.uvlo_v - params.uvlo_v) > 0.01f) {
+                LOG_ERR("Charger verification: io=%d CE=%d TE=%d TS=0x%02x CV=%d CC=%d TERM=%d ILIM=%d UVLO=%d",
+                        _io_error, charge.enabled, term.enabled, ts,
+                        (int)(voltage * 1000), (int)charge.mAh, (int)term.mAh,
+                        (int)input.lim_mA, (int)(input.uvlo_v * 1000));
                 io_fault();
                 return -EIO;
         }

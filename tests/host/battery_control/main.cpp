@@ -106,6 +106,10 @@ int main() {
         assert(battery_controller.read_charging_control().mAh==power_manager._battery_settings.i_charge);
     }
     std::puts("PASS: VARTA, Grepow and fallback profiles program/read back correctly");
+    reset();regs[7]=0x7c;drop_write=7; // LSCTRL holds the LDO output enabled.
+    configured();assert(power_manager.check_battery() && !cd_high);
+    assert(regs[7]==0x7c);
+    std::puts("PASS: an enabled LDO with a locked voltage field does not block verified charging");
     reset();configured();assert(power_manager.check_battery() && !cd_high);
     drop_write=3;assert(battery_controller.set_charge_current_verified(40)==-EIO && cd_high);
     reset();configured();assert(power_manager.check_battery());fail_read=0;
