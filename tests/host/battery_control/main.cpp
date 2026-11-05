@@ -3,6 +3,7 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <new>
 #include "BQ25120a.h"
 #include "battery_profile.h"

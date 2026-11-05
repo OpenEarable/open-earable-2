@@ -1,5 +1,6 @@
 #pragma once
 #include <zephyr/kernel.h>
+#include <exception>
 struct device {};
 extern const device fake_device;
 #define DT_NODELABEL(x) x
