@@ -48,8 +48,10 @@ jobs:
           restore-keys: |
             unit-tests-${{ runner.os }}-pip-
 
-      - name: Run battery hardware-fault and concurrency regressions
-        run: python3 zephyr-workspace/open-earable-v2/tests/host/battery_control/run.py
+      - name: Run battery and pair-flasher host regressions
+        run: |
+          python3 zephyr-workspace/open-earable-v2/tests/host/battery_control/run.py
+          python3 zephyr-workspace/open-earable-v2/tests/host/flash_pair/run.py
 
       - name: Initialize nRF Connect SDK workspace
         run: |

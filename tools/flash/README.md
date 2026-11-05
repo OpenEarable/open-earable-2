@@ -73,6 +73,7 @@ bash tools/flash/flash_pair.sh --left-snr 123456789 --right-snr 987654321 --hw 2
 | `--left-snr SERIAL` | Required J-Link serial for the left device |
 | `--right-snr SERIAL` | Required, different J-Link serial for the right device |
 | `--hw x.y.z` | Hardware revision for both devices; default `2.0.1`, each component 0–255 |
+| `--hw auto` | Preserve each device's hardware revision from UICR; blank boards use `2.0.1`. Invalid metadata stops the operation before erasing either device. |
 | `--build-dir DIR` | Directory containing the merged images; default is the repository's `build_fota/` |
 | `--dry-run` | Validate arguments/image paths and print the plan; no hardware access |
 | `-h`, `--help` | Print usage |

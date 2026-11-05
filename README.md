@@ -254,3 +254,7 @@ If you are using OpenEarable, please cite is as follows:
 ```
 
 
+
+The BLE device-information firmware characteristic reports the release number
+from `VERSION` (for example `2.3.3`). Development and Git suffixes remain in
+internal build diagnostics.
