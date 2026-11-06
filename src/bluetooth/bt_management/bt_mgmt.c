@@ -21,6 +21,7 @@
 #include "bt_mgmt_ctlr_cfg_internal.h"
 #include "bt_mgmt_conn_interval.h"
 #include "bt_mgmt_bond_storage.h"
+#include "wireless_audio_configuration_service.h"
 #include "BootState.h"
 #include "uicr.h"
 
@@ -62,10 +63,41 @@ static void conn_state_connected_check(struct bt_conn *conn, void *data)
 	(*num_conn)++;
 }
 
-static void conn_params_updated(struct bt_conn *conn, uint16_t interval,
-			       uint16_t latency, uint16_t timeout)
+void mtu_updated(struct bt_conn *conn, uint16_t tx, uint16_t rx)
 {
+	ARG_UNUSED(conn);
+
+	LOG_INF("Updated MTU: TX: %d RX: %d bytes", tx, rx);
+}
+
+static void le_data_length_updated(struct bt_conn *conn,
+				   struct bt_conn_le_data_len_info *info)
+{
+	LOG_INF("LE data len updated: TX (len: %d time: %d)"
+	       " RX (len: %d time: %d)", info->tx_max_len,
+	       info->tx_max_time, info->rx_max_len, info->rx_max_time);
+	wireless_audio_configuration_data_length_updated(conn, info);
+}
+
+static void le_phy_updated(struct bt_conn *conn, struct bt_conn_le_phy_info *info)
+{
+	LOG_INF("LE PHY updated: TX 0x%02x RX 0x%02x", info->tx_phy, info->rx_phy);
+	wireless_audio_configuration_phy_updated(conn, info);
+}
+
+//callback
+static void conn_params_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
+{
+	LOG_INF("Conn params updated: interval %d unit, latency %d, timeout: %d0 ms",interval, latency, timeout);
+
 	bt_mgmt_ci_on_conn_param_updated(conn, interval, latency, timeout);
+	wireless_audio_configuration_conn_params_updated(conn, interval, latency, timeout);
+
+	/*msg.event = BT_MGMT_CONNECTED;
+	msg.conn = conn;
+
+	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
+	ERR_CHK(ret);*/
 }
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)
@@ -128,6 +160,7 @@ static void connected_cb(struct bt_conn *conn, uint8_t err)
 
 	ret = zbus_chan_pub(&bt_mgmt_chan, &msg, K_NO_WAIT);
 	ERR_CHK(ret);
+	wireless_audio_configuration_audio_connection_set(conn);
 
 	ret = bt_conn_le_param_update(conn,
 		BT_LE_CONN_PARAM(CONFIG_BLE_ACL_CONN_INTERVAL, CONFIG_BLE_ACL_CONN_INTERVAL,
@@ -157,6 +190,7 @@ static void disconnected_cb(struct bt_conn *conn, uint8_t reason)
 	/* NOTE: The string below is used by the Nordic CI system */
 	LOG_INF("Disconnected: %s, reason 0x%02x %s", addr, reason, bt_hci_err_to_str(reason));
 	bt_mgmt_ci_on_disconnected(conn, reason);
+	wireless_audio_configuration_disconnected(conn);
 
 	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 		bt_conn_unref(conn);
@@ -251,6 +285,8 @@ static struct bt_conn_cb conn_callbacks = {
 	.connected = connected_cb,
 	.disconnected = disconnected_cb,
 	.le_param_updated = conn_params_updated,
+	.le_phy_updated = le_phy_updated,
+	.le_data_len_updated = le_data_length_updated,
 #if defined(CONFIG_BT_SMP)
 	.identity_resolved = identity_resolved_cb,
 	.security_changed = security_changed_cb,
