@@ -150,3 +150,17 @@ python3 tests/host/codechecker_reviews/run.py
 
 Review rules use CodeChecker's documented review-status configuration format:
 https://github.com/Ericsson/codechecker/blob/v6.28.2/docs/analyzer/user_guide.md#review-status-handling
+
+## Protocol compatibility baseline
+
+Host-only BLE metadata and serializer checks are available without Zephyr:
+
+```sh
+python3 -m unittest discover -s tests/protocol_contracts -v
+```
+
+They require Python 3 and host C/C++ compilers. Power-saving callback tests
+compile the production service against host BLE/manager test doubles. Dart
+checks run when a Dart SDK is available; set `PROTOCOL_DART` to select its binary. See the
+[wire-contract baseline](../doc/protocols/wire-contract-baseline.md) for fixture
+coverage and migration requirements.
