@@ -9,15 +9,17 @@
 
 1. [Setup](#setup)
 
-2. [Contributing](#contributing)
+2. [Main-board communication test](#main-board-communication-test)
 
-3. [Battery States](#battery-states)
+3. [Contributing](#contributing)
 
-4. [Connection States](#connection-states)  
+4. [Battery States](#battery-states)
+
+5. [Connection States](#connection-states)
    
-5. [SD Card](#sd-card)
+6. [SD Card](#sd-card)
 
-6. [Citing](#citing)
+7. [Citing](#citing)
 
 
 ## Setup
@@ -141,6 +143,36 @@
    - After successful recovery, you can attempt to flash the firmware again (you will have to restore left/right bonding and hardware version).
 
 
+
+## Main-board communication test
+
+The [test script](tools/test/test_earable.sh) runs on an unprogrammed OpenEarable 2 main board. Power the board through USB, connect the J-Link to its SWD pads, including GND and VTref, and insert a known-good microSD card. SWD access to the nRF5340 application core must be available.
+
+Install Python 3.9 or later and the SEGGER J-Link Software and Documentation Pack. Set up the Python environment once from the repository root.
+
+```sh
+python3 -m venv tools/test/.venv
+tools/test/.venv/bin/python -m pip install -r tools/test/requirements.txt
+```
+
+Run the test from the repository root. The script selects the probe automatically when exactly one is attached.
+
+```sh
+./tools/test/test_earable.sh --list-probes
+./tools/test/test_earable.sh --snr 123456789
+```
+
+| Component | Communication check |
+| --- | --- |
+| ADAU1860 DAC | Read the vendor and device ID over I²C. |
+| MX25R6435F flash | Read the JEDEC ID and verify two SPI reads match. |
+| BMX160 IMU | Read the chip ID over I²C. |
+| BQ25120A charger | Read control registers over I²C and report USB power-good. |
+| microSD | Read the card ID and capacity, then read block 0 with CRC verification over SPI. |
+| KTD2026 LED driver | Read the three LED current registers over I²C. |
+| Main-board microphone | Capture PCM via the ADAU1860 and check for varying samples. The speaker output stays muted. |
+
+The script reports `✅ PASS` or `❌ FAIL` for each check and exits with a nonzero status if any check or target restoration fails. It drives the buses through SWD with the application core halted, temporarily enables the peripheral power rails, restores the charger and codec settings, and resets the target. The test requires no bootloader or firmware and performs no programming or erase operations on internal flash, external flash, or the SD card.
 
 ## Contributing
 Contributor workflow, validation steps, code documentation expectations, and repository-specific Git guidance are defined in [CONTRIBUTING.md](CONTRIBUTING.md).

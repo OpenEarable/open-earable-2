@@ -22,6 +22,7 @@ GitHub Actions workflow, optional local execution, and suite structure.
 - `src/drivers`, `src/Wire`, `src/utils`, `src/buttons`, `src/ParseInfo`: reusable device support and shared utilities.
 - `boards/`, `dts/`: board overlays and devicetree bindings for the OpenEarable hardware.
 - `tools/flash`, `tools/buildprog`, `tools/uart_terminal`: local developer tooling for flashing and diagnostics.
+- `tools/test`: [main-board communication test](README.md#main-board-communication-test) over J-Link SWD.
 - `.github/workflows/`: CI builds and release automation.
 
 Before introducing a new directory or abstraction, verify that an existing subsystem is not already the correct extension point.
