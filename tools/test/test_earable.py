@@ -71,6 +71,7 @@ def run_tests(serial, check_cancel):
     power_bus = I2CBus(target, TWIM1, 21, 24)
     codec_bus = I2CBus(target, TWIM2, 47, 32)
     imu_bus = I2CBus(target, TWIM3, 35, 34)
+    imu = IMU(imu_bus)
     spi_bus = SPIBus(target)
     original_ldo = None
     passed = 0
@@ -118,7 +119,8 @@ def run_tests(serial, check_cancel):
     checks = (
         ("Charger (BQ25120A)", lambda: check_charger(target, power_bus)),
         ("DAC (ADAU1860)", lambda: check_dac(target, codec_bus)),
-        ("IMU (BMX160)", lambda: f"ID 0x{IMU(imu_bus).identify()['chip_id']}"),
+        ("IMU (BMX160)", imu.check_data),
+        ("Magnetometer (BMM150)", imu.check_magnetometer),
         ("Flash (MX25R6435F)", flash_test),
         ("microSD", sd_test),
         ("LED driver (KTD2026)", led_test),

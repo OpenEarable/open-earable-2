@@ -166,13 +166,14 @@ Run the test from the repository root. The script selects the probe automaticall
 | --- | --- |
 | ADAU1860 DAC | Read the vendor and device ID over I²C. |
 | MX25R6435F flash | Read the JEDEC ID and verify two SPI reads match. |
-| BMX160 IMU | Read the chip ID over I²C. |
+| BMX160 IMU | Read the chip ID and eight fresh accelerometer and gyroscope XYZ samples over I²C. Both sensors must produce varying, nonzero data. |
+| BMM150 magnetometer | Read the chip ID and trigger eight magnetic field measurements through the BMX160. Check for varying, nonzero XYZ data and reject overflow. |
 | BQ25120A charger | Read control registers over I²C and report USB power-good. |
 | microSD | Read the card ID and capacity, then read block 0 with CRC verification over SPI. |
 | KTD2026 LED driver | Read the three LED current registers over I²C. |
 | Main-board microphone | Capture PCM via the ADAU1860 and check for varying samples. The speaker output stays muted. |
 
-The script reports `✅ PASS` or `❌ FAIL` for each check and exits with a nonzero status if any check or target restoration fails. It drives the buses through SWD with the application core halted, temporarily enables the peripheral power rails, restores the charger and codec settings, and resets the target. The test requires no bootloader or firmware and performs no programming or erase operations on internal flash, external flash, or the SD card.
+The script reports `✅ PASS` or `❌ FAIL` for each check and exits with a nonzero status if any check or target restoration fails. It drives the buses through SWD with the application core halted, temporarily enables the peripheral power rails, restores the charger, codec, and IMU settings, and resets the target. The test requires no bootloader or firmware and performs no programming or erase operations on internal flash, external flash, or the SD card.
 
 ## Contributing
 Contributor workflow, validation steps, code documentation expectations, and repository-specific Git guidance are defined in [CONTRIBUTING.md](CONTRIBUTING.md).
