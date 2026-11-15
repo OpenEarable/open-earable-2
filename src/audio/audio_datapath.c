@@ -194,6 +194,7 @@ static struct {
 #endif
 		uint16_t prod_blk_idx; /* Output producer audio block index */
 		uint16_t cons_blk_idx; /* Output consumer audio block index */
+		uint32_t cons_blk_cnt; /* Blocks taken from the FIFO, free running */
 		/* SDU reference of each block: when its source audio is due minus
 		 * the presentation delay.
 		 */
@@ -233,6 +234,10 @@ static struct {
 		int32_t sum_err_dly_us;
 		uint32_t pres_delay_us;
 		uint32_t underruns;
+		/* Value of out.cons_blk_cnt once every block queued before the
+		 * latest adjustment has been rendered.
+		 */
+		uint32_t settled_blk_cnt;
 		uint8_t outliers; /* Consecutive implausible samples ignored */
 		bool enabled;
 	} pres_comp;
@@ -536,6 +541,10 @@ static inline void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 				/* The center frequency compensates the crystals of
 				 * this earphone and the source. It outlives a
 				 * stream, so only the block phase is left to find.
+				 * A headset starts from the nominal frequency: the
+				 * phase regulator covers the crystal tolerance, and
+				 * calibration counts SDU references that arrive up to
+				 * a frame late, so it mostly had to be repeated.
 				 */
 				ret = drift_clock_set(0);
 				if (ret) {
@@ -685,6 +694,19 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
 }
 
 /**
+ * @brief	Wait until the blocks now queued have been rendered.
+ *
+ * @param	queued_blks	Blocks in the FIFO that precede the change waited for.
+ */
+static void pres_comp_wait_start(int queued_blks)
+{
+	/* Two more blocks are already with I2S. */
+	ctrl_blk.pres_comp.settled_blk_cnt = ctrl_blk.out.cons_blk_cnt + queued_blks + 2;
+	ctrl_blk.pres_comp.ctr = 0;
+	pres_comp_state_set(PRES_STATE_WAIT);
+}
+
+/**
  * @brief	Move audio blocks back and forth in FIFO to get audio in sync.
  *
  * @note	The audio sync is based on sdu_ref_us. The delay is measured on the
@@ -714,8 +736,7 @@ static void audio_datapath_presentation_compensation(uint32_t sdu_ref_us,
 	 * underrun. A whole-block delay does not necessarily unlock the clock.
 	 */
 	if (sdu_ref_not_consecutive || (ctrl_blk.startup.open && underrun)) {
-		ctrl_blk.pres_comp.ctr = 0;
-		pres_comp_state_set(PRES_STATE_WAIT);
+		pres_comp_wait_start(filled_blocks_get());
 	}
 
 	/* Read the interrupt's measurement as one consistent pair. */
@@ -747,12 +768,42 @@ static void audio_datapath_presentation_compensation(uint32_t sdu_ref_us,
 	}
 
 	switch (ctrl_blk.pres_comp.state) {
+	case PRES_STATE_WAIT: {
+		/* Wait until everything queued before the adjustment has been
+		 * rendered: at most the whole FIFO. A muted new stream holds no
+		 * more than its presentation delay.
+		 */
+		uint32_t wait_frames = FIFO_SMPL_PERIOD_US / CONFIG_AUDIO_FRAME_DURATION_US;
+		bool settled = false;
+
+		if (fast) {
+			wait_frames = MIN(wait_frames,
+					  (ctrl_blk.pres_comp.pres_delay_us /
+					   CONFIG_AUDIO_FRAME_DURATION_US) +
+						  PRES_COMP_FAST_WAIT_MARGIN);
+
+			/* Each block carries its own reference, so the first one
+			 * queued after the adjustment can be measured as soon as
+			 * it is rendered. Frames arrive in bursts; counting them
+			 * only bounds the wait if the FIFO stalls.
+			 */
+			settled = (int32_t)(ctrl_blk.out.cons_blk_cnt -
+					    ctrl_blk.pres_comp.settled_blk_cnt) >= 0;
+		}
+
+		if (!settled && (ctrl_blk.pres_comp.ctr++ <= wait_frames)) {
+			break;
+		}
+
+		__fallthrough;
+	}
 	case PRES_STATE_INIT: {
 		ctrl_blk.pres_comp.ctr = 0;
 		ctrl_blk.pres_comp.sum_err_dly_us = 0;
 		pres_comp_state_set(PRES_STATE_MEAS);
 
-		break;
+		/* The block being rendered is as good a sample as the next. */
+		__fallthrough;
 	}
 	case PRES_STATE_MEAS: {
 		if (!measured) {
@@ -770,30 +821,11 @@ static void audio_datapath_presentation_compensation(uint32_t sdu_ref_us,
 		ctrl_blk.pres_comp.ctr = 0;
 		ctrl_blk.pres_comp.sum_err_dly_us = 0;
 		if ((pres_adj_us >= (BLK_PERIOD_US / 2)) || (pres_adj_us <= -(BLK_PERIOD_US / 2))) {
-			pres_comp_state_set(PRES_STATE_WAIT);
+			/* Blocks queued so far keep the delay just measured. */
+			pres_comp_wait_start(filled_blocks_get());
 		} else {
 			/* Drift compensation will always be in DRIFT_STATE_LOCKED here */
 			pres_comp_state_set(PRES_STATE_LOCKED);
-		}
-
-		break;
-	}
-	case PRES_STATE_WAIT: {
-		/* Wait until everything queued before the adjustment has been
-		 * rendered: at most the whole FIFO. A muted new stream holds no
-		 * more than its presentation delay.
-		 */
-		uint32_t wait_frames = FIFO_SMPL_PERIOD_US / CONFIG_AUDIO_FRAME_DURATION_US;
-
-		if (fast) {
-			wait_frames = MIN(wait_frames,
-					  (ctrl_blk.pres_comp.pres_delay_us /
-					   CONFIG_AUDIO_FRAME_DURATION_US) +
-						  PRES_COMP_FAST_WAIT_MARGIN);
-		}
-
-		if (ctrl_blk.pres_comp.ctr++ > wait_frames) {
-			pres_comp_state_set(PRES_STATE_INIT);
 		}
 
 		break;
@@ -883,6 +915,9 @@ static void audio_datapath_presentation_compensation(uint32_t sdu_ref_us,
 		for (int i = 0; i > pres_adj_blks; i--) {
 			ctrl_blk.out.prod_blk_idx = PREV_IDX(ctrl_blk.out.prod_blk_idx);
 		}
+
+		/* The removed blocks are no longer waited for. */
+		ctrl_blk.pres_comp.settled_blk_cnt += pres_adj_blks;
 
 		irq_unlock(key);
 
@@ -1201,11 +1236,19 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 		if (next_out_blk_idx != ctrl_blk.out.prod_blk_idx) {
 			/* Only increment if not in under-run condition */
 			ctrl_blk.out.cons_blk_idx = next_out_blk_idx;
+			ctrl_blk.out.cons_blk_cnt++;
 			if (underrun_condition) {
 				underrun_condition = false;
 				LOG_WRN("Data received, total under-runs: %d",
 					ctrl_blk.out.total_blk_underruns);
-				bt_mgmt_report_audio_underrun(ctrl_blk.out.total_blk_underruns);
+				/* The FIFO of a new stream is empty until its first
+				 * frames are decoded and aligned. Only an underrun of
+				 * audible audio tells anything about the link.
+				 */
+				if ((CONFIG_AUDIO_DEV != HEADSET) || ctrl_blk.startup.open) {
+					bt_mgmt_report_audio_underrun(
+						ctrl_blk.out.total_blk_underruns);
+				}
 			}
 
 			tx_buf = (uint8_t *)&ctrl_blk.out
@@ -1858,6 +1901,11 @@ int audio_datapath_init(void)
 	audio_tap_thread_start();
 	ctrl_blk.drift_comp.enabled = true;
 	ctrl_blk.pres_comp.enabled = true;
+
+	if (CONFIG_AUDIO_DEV == HEADSET) {
+		ctrl_blk.drift_comp.center_freq = APLL_FREQ_CENTER;
+		ctrl_blk.drift_comp.center_valid = true;
+	}
 
 	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) && (CONFIG_AUDIO_DEV == GATEWAY)) {
 		/* Disable presentation compensation feature for microphone return on
