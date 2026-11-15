@@ -84,12 +84,9 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 #define CONSECUTIVE_TS_LIMIT_US                                                                    \
 	(CONFIG_AUDIO_FRAME_DURATION_US + (CONFIG_AUDIO_FRAME_DURATION_US / 2))
 
-/* Use nanoseconds to reduce rounding errors */
-/* clang-format off */
-#define APLL_FREQ_ADJ(t) (-((t)*1000) / 331)
-/* clang-format on */
-
 #define DRIFT_MEAS_PERIOD_US	   150000
+/* Frequency correction for a phase error measured over one regular period */
+#define APLL_FREQ_ADJ(t) audio_sync_freq_adj((t), DRIFT_MEAS_PERIOD_US)
 #define DRIFT_ERR_THRESH_LOCK	   16
 #define DRIFT_ERR_THRESH_UNLOCK	   32
 /* To get smaller corrections */
@@ -104,8 +101,31 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
  */
 #define DRIFT_UNLOCK_CONFIRM_CNT 2
 
+/* While the startup gate still mutes a new stream, nobody hears the clock
+ * being pulled. The block phase is then regulated in short periods: the same
+ * loop gain per period removes the initial error of up to half a block within
+ * a few tens of milliseconds instead of several regular periods.
+ */
+#define DRIFT_FAST_PERIOD_US	 20000
+#define DRIFT_FAST_WAITING_CNT (DRIFT_FAST_PERIOD_US / BLK_PERIOD_US)
+/* Blocks spent regulating the phase before a remembered center frequency is
+ * distrusted and calibrated again.
+ */
+#define DRIFT_OFFSET_TIMEOUT_CNT (3000000 / BLK_PERIOD_US)
+
 BUILD_ASSERT(DRIFT_ERR_NUM_SAMPLES <= AUDIO_SYNC_MEDIAN_MAX);
-BUILD_ASSERT(DRIFT_ERR_NUM_SAMPLES < DRIFT_COMP_WAITING_CNT);
+BUILD_ASSERT(DRIFT_ERR_NUM_SAMPLES < DRIFT_FAST_WAITING_CNT);
+BUILD_ASSERT(DRIFT_FAST_WAITING_CNT <= DRIFT_COMP_WAITING_CNT);
+
+/* Data points of a presentation measurement while the startup gate mutes the
+ * stream. The delay of a rendered block is exact, so a few frames replace
+ * the regular averaging window.
+ */
+#define PRES_COMP_FAST_NUM_DATA_PTS 3
+/* Frames beyond the presentation delay to wait after a muted adjustment
+ * until the moved blocks are being rendered.
+ */
+#define PRES_COMP_FAST_WAIT_MARGIN  2
 
 /* Allow normal block rounding and locked clock phase error before re-measuring. */
 #define PRES_RELOCK_ERR_US \
@@ -200,7 +220,10 @@ static struct {
 		uint32_t meas_start_time_us;
 		uint32_t center_freq;
 		int32_t err_samples_us[DRIFT_ERR_NUM_SAMPLES];
+		uint16_t offset_ctr; /* Blocks spent in DRIFT_STATE_OFFSET */
 		uint8_t unlock_ctr; /* Consecutive measurements beyond the unlock limit */
+		bool center_valid;  /* center_freq has locked a stream before */
+		bool streaming;	    /* Stream state seen by the previous I2S block */
 		bool enabled;
 	} drift_comp;
 
@@ -401,16 +424,18 @@ static uint32_t consec_invalid_ts_deltas;
  * @note	Call once per I2S block in the regulating states.
  *
  * @param	frame_start_ts_us	I2S frame start timestamp.
+ * @param	period_blks		Length of the measurement period in I2S blocks.
  * @param	err_us			Median phase error once the period has elapsed.
  *
  * @return	True if the period has elapsed and err_us is valid.
  */
-static bool drift_phase_err_measure(uint32_t frame_start_ts_us, int32_t *err_us)
+static bool drift_phase_err_measure(uint32_t frame_start_ts_us, uint16_t period_blks,
+				    int32_t *err_us)
 {
 	uint16_t ctr = ++ctrl_blk.drift_comp.ctr;
 
-	if (ctr + DRIFT_ERR_NUM_SAMPLES > DRIFT_COMP_WAITING_CNT) {
-		uint16_t idx = ctr + DRIFT_ERR_NUM_SAMPLES - DRIFT_COMP_WAITING_CNT - 1;
+	if (ctr + DRIFT_ERR_NUM_SAMPLES > period_blks) {
+		uint16_t idx = ctr + DRIFT_ERR_NUM_SAMPLES - period_blks - 1;
 
 		if (idx < DRIFT_ERR_NUM_SAMPLES) {
 			ctrl_blk.drift_comp.err_samples_us[idx] = audio_sync_phase_err_us(
@@ -418,7 +443,7 @@ static bool drift_phase_err_measure(uint32_t frame_start_ts_us, int32_t *err_us)
 		}
 	}
 
-	if (ctr < DRIFT_COMP_WAITING_CNT) {
+	if (ctr < period_blks) {
 		/* Waiting */
 		return false;
 	}
@@ -437,8 +462,34 @@ static void drift_comp_state_set(enum drift_comp_state new_state)
 	}
 
 	ctrl_blk.drift_comp.state = new_state;
+	ctrl_blk.drift_comp.ctr = 0;
+	ctrl_blk.drift_comp.offset_ctr = 0;
 	ctrl_blk.drift_comp.unlock_ctr = 0;
 	LOG_INF("Drft comp state: %s", drift_comp_state_names[new_state]);
+}
+
+/**
+ * @brief	Set the audio clock to an offset from the center frequency.
+ *
+ * @param	freq_adj	Offset from the center frequency.
+ *
+ * @return	0 on success, error otherwise.
+ */
+static int drift_clock_set(int32_t freq_adj)
+{
+	int32_t freq = (int32_t)ctrl_blk.drift_comp.center_freq + freq_adj;
+
+	return audio_clock_set(CLAMP(freq, APLL_FREQ_MIN, APLL_FREQ_MAX));
+}
+
+/**
+ * @brief	True while a headset consumes a new stream silently.
+ *
+ * @note	Synchronization may then favour speed over inaudible corrections.
+ */
+static bool audio_datapath_startup_muted(void)
+{
+	return (CONFIG_AUDIO_DEV == HEADSET) && !ctrl_blk.startup.open;
 }
 
 /**
@@ -457,12 +508,45 @@ static inline void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 		 * adjust for drift. Use the validated reference: a rejected timestamp
 		 * that only seeds the next comparison must not steer the clock.
 		 */
+		bool streaming = stream_state_get() == STATE_STREAMING;
+
+		if (streaming != ctrl_blk.drift_comp.streaming) {
+			/* Each stream has its own SDU reference grid, unrelated to
+			 * the previous one. Start over at once instead of
+			 * regulating towards it until the lock is found lost.
+			 */
+			ctrl_blk.drift_comp.streaming = streaming;
+			ctrl_blk.resolved_sdu_ref_us = 0;
+			if (ctrl_blk.drift_comp.state != DRIFT_STATE_INIT) {
+				drift_comp_state_set(DRIFT_STATE_INIT);
+			}
+		}
+
 		ctrl_blk.prev_drift_sdu_ref_us = ctrl_blk.resolved_sdu_ref_us;
 	}
 	switch (ctrl_blk.drift_comp.state) {
 	case DRIFT_STATE_INIT: {
-		/* Check if audio data has been received */
-		if (ctrl_blk.prev_drift_sdu_ref_us) {
+		/* Check if audio data has been received. A headset has a reference
+		 * to follow only while it is streaming; frames still queued from a
+		 * stopped stream must not pull the clock under a local recording.
+		 */
+		if (ctrl_blk.prev_drift_sdu_ref_us &&
+		    ((CONFIG_AUDIO_DEV != HEADSET) || ctrl_blk.drift_comp.streaming)) {
+			if (ctrl_blk.drift_comp.center_valid) {
+				/* The center frequency compensates the crystals of
+				 * this earphone and the source. It outlives a
+				 * stream, so only the block phase is left to find.
+				 */
+				ret = drift_clock_set(0);
+				if (ret) {
+					LOG_ERR("Failed to set audio clock frequency");
+					return;
+				}
+
+				drift_comp_state_set(DRIFT_STATE_OFFSET);
+				break;
+			}
+
 			ctrl_blk.drift_comp.meas_start_time_us = ctrl_blk.prev_drift_sdu_ref_us;
 
 			drift_comp_state_set(DRIFT_STATE_CALIB);
@@ -504,21 +588,39 @@ static inline void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 	}
 	case DRIFT_STATE_OFFSET: {
 		int32_t err_us;
+		bool fast = audio_datapath_startup_muted();
 
-		if (!drift_phase_err_measure(frame_start_ts_us, &err_us)) {
+		if (++ctrl_blk.drift_comp.offset_ctr > DRIFT_OFFSET_TIMEOUT_CNT) {
+			LOG_WRN("Clock phase not found, calibrating center frequency");
+			ctrl_blk.drift_comp.center_valid = false;
+			drift_comp_state_set(DRIFT_STATE_INIT);
+			return;
+		}
+
+		if (!drift_phase_err_measure(frame_start_ts_us,
+					     fast ? DRIFT_FAST_WAITING_CNT : DRIFT_COMP_WAITING_CNT,
+					     &err_us)) {
 			return;
 		}
 
 		err_us /= DRIFT_REGULATOR_DIV_FACTOR;
-		int32_t freq_adj = APLL_FREQ_ADJ(err_us);
 
-		ret = audio_clock_set(ctrl_blk.drift_comp.center_freq + freq_adj);
+		bool lock = (err_us < DRIFT_ERR_THRESH_LOCK) && (err_us > -DRIFT_ERR_THRESH_LOCK);
+
+		/* The locked state measures again after a regular period, so the
+		 * correction that hands over to it must be sized for that period.
+		 */
+		int32_t freq_adj = audio_sync_freq_adj(
+			err_us, (fast && !lock) ? DRIFT_FAST_PERIOD_US : DRIFT_MEAS_PERIOD_US);
+
+		ret = drift_clock_set(freq_adj);
 		if (ret) {
 			LOG_ERR("Failed to set audio clock frequency");
 			return;
 		}
 
-		if ((err_us < DRIFT_ERR_THRESH_LOCK) && (err_us > -DRIFT_ERR_THRESH_LOCK)) {
+		if (lock) {
+			ctrl_blk.drift_comp.center_valid = true;
 			drift_comp_state_set(DRIFT_STATE_LOCKED);
 		}
 
@@ -527,7 +629,7 @@ static inline void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 	case DRIFT_STATE_LOCKED: {
 		int32_t err_us;
 
-		if (!drift_phase_err_measure(frame_start_ts_us, &err_us)) {
+		if (!drift_phase_err_measure(frame_start_ts_us, DRIFT_COMP_WAITING_CNT, &err_us)) {
 			return;
 		}
 
@@ -547,9 +649,7 @@ static inline void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 
 		ctrl_blk.drift_comp.unlock_ctr = 0;
 
-		int32_t freq_adj = APLL_FREQ_ADJ(err_us);
-
-		ret = audio_clock_set(ctrl_blk.drift_comp.center_freq + freq_adj);
+		ret = drift_clock_set(APLL_FREQ_ADJ(err_us));
 		if (ret) {
 			LOG_ERR("Failed to set audio clock frequency");
 			return;
@@ -628,6 +728,11 @@ static void audio_datapath_presentation_compensation(uint32_t sdu_ref_us,
 	int32_t err_dly_us =
 		audio_sync_pres_err_us(ctrl_blk.pres_comp.pres_delay_us, rendered_dly_us);
 	int32_t pres_adj_us = 0;
+	/* Both stay as they are within one window: the gate opens only once
+	 * this state machine is locked.
+	 */
+	bool fast = audio_datapath_startup_muted();
+	int32_t num_data_pts = fast ? PRES_COMP_FAST_NUM_DATA_PTS : PRES_COMP_NUM_DATA_PTS;
 
 	if (measured) {
 		bool outlier = (err_dly_us > PRES_ERR_OUTLIER_US) ||
@@ -656,14 +761,13 @@ static void audio_datapath_presentation_compensation(uint32_t sdu_ref_us,
 		}
 
 		ctrl_blk.pres_comp.sum_err_dly_us += err_dly_us;
-		if (++ctrl_blk.pres_comp.ctr < PRES_COMP_NUM_DATA_PTS) {
+		if (++ctrl_blk.pres_comp.ctr < num_data_pts) {
 			/* Same state - Collect more data */
 			break;
 		}
 
+		pres_adj_us = ctrl_blk.pres_comp.sum_err_dly_us / (int32_t)ctrl_blk.pres_comp.ctr;
 		ctrl_blk.pres_comp.ctr = 0;
-
-		pres_adj_us = ctrl_blk.pres_comp.sum_err_dly_us / PRES_COMP_NUM_DATA_PTS;
 		ctrl_blk.pres_comp.sum_err_dly_us = 0;
 		if ((pres_adj_us >= (BLK_PERIOD_US / 2)) || (pres_adj_us <= -(BLK_PERIOD_US / 2))) {
 			pres_comp_state_set(PRES_STATE_WAIT);
@@ -675,8 +779,20 @@ static void audio_datapath_presentation_compensation(uint32_t sdu_ref_us,
 		break;
 	}
 	case PRES_STATE_WAIT: {
-		if (ctrl_blk.pres_comp.ctr++ >
-		    (FIFO_SMPL_PERIOD_US / CONFIG_AUDIO_FRAME_DURATION_US)) {
+		/* Wait until everything queued before the adjustment has been
+		 * rendered: at most the whole FIFO. A muted new stream holds no
+		 * more than its presentation delay.
+		 */
+		uint32_t wait_frames = FIFO_SMPL_PERIOD_US / CONFIG_AUDIO_FRAME_DURATION_US;
+
+		if (fast) {
+			wait_frames = MIN(wait_frames,
+					  (ctrl_blk.pres_comp.pres_delay_us /
+					   CONFIG_AUDIO_FRAME_DURATION_US) +
+						  PRES_COMP_FAST_WAIT_MARGIN);
+		}
+
+		if (ctrl_blk.pres_comp.ctr++ > wait_frames) {
 			pres_comp_state_set(PRES_STATE_INIT);
 		}
 
@@ -1575,6 +1691,8 @@ int audio_datapath_stop(void)
 		ctrl_blk.prev_drift_sdu_ref_us = 0;
 		ctrl_blk.resolved_sdu_ref_us = 0;
 		ctrl_blk.current_pres_valid = false;
+		/* I2S is stopped: the next block starts drift compensation over. */
+		ctrl_blk.drift_comp.streaming = false;
 
 		consec_invalid_ts_deltas = 0;
 		pres_comp_state_set(PRES_STATE_INIT);

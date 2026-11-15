@@ -61,6 +61,16 @@ static inline int32_t audio_sync_median(const int32_t *values, size_t count)
 	return sorted[count / 2U];
 }
 
+/* Audio PLL frequency word offset that shifts the block phase by 1.5 times
+ * err_us within period_us. Callers pass half the measured error, giving a
+ * loop gain of 0.75 per period. One word step is 3.31 ppm, hence the 331. A
+ * shorter period needs a proportionally larger offset for the same gain.
+ */
+static inline int32_t audio_sync_freq_adj(int32_t err_us, uint32_t period_us)
+{
+	return (int32_t)(-((int64_t)err_us * 150000000LL) / (331LL * (int64_t)period_us));
+}
+
 /* Delay still to be added (positive) or removed (negative) so that a block
  * rendered rendered_dly_us after its own SDU reference meets the target.
  */

@@ -120,6 +120,64 @@ void test_adjustment_rounds_to_the_nearest_block(void)
 	TEST_ASSERT_EQUAL_INT32(3, audio_sync_pres_adj_blks(2600, 1000));
 }
 
+void test_frequency_correction_matches_the_regular_period_formula(void)
+{
+	/* The synchronizer has always used -(err * 1000) / 331 per 150 ms. */
+	for (int32_t err_us = -125; err_us <= 125; err_us++) {
+		TEST_ASSERT_EQUAL_INT32(-(err_us * 1000) / 331,
+					audio_sync_freq_adj(err_us, 150000U));
+	}
+
+	/* The largest phase error stays inside the PLL range of +-3030 words
+	 * even in the short muted period.
+	 */
+	TEST_ASSERT_EQUAL_INT32(-2832, audio_sync_freq_adj(125, 20000U));
+	TEST_ASSERT_EQUAL_INT32(2832, audio_sync_freq_adj(-125, 20000U));
+}
+
+/* Phase after the clock ran freq_adj words off center for period_us. */
+static int32_t phase_after(int32_t err_us, int32_t freq_adj, uint32_t period_us)
+{
+	return err_us + (int32_t)(((int64_t)freq_adj * 331LL * (int64_t)period_us) / 100000000LL);
+}
+
+void test_muted_startup_finds_the_block_phase_within_three_short_periods(void)
+{
+	const uint32_t fast_us = 20000U;
+	const uint32_t regular_us = 150000U;
+	const int32_t lock_us = 16;
+	const int32_t unlock_us = 32;
+
+	for (int32_t start_us = -250; start_us <= 250; start_us++) {
+		int32_t err_us = start_us;
+		int periods = 0;
+
+		while (err_us / 2 >= lock_us || err_us / 2 <= -lock_us) {
+			err_us = phase_after(err_us, audio_sync_freq_adj(err_us / 2, fast_us),
+					     fast_us);
+			periods++;
+			TEST_ASSERT_TRUE(periods <= 2);
+		}
+
+		/* The correction that hands over to the locked state lasts a
+		 * regular period and must be sized for it.
+		 */
+		int32_t handed_over_us = phase_after(
+			err_us, audio_sync_freq_adj(err_us / 2, regular_us), regular_us);
+
+		TEST_ASSERT_TRUE(handed_over_us / 2 < lock_us && handed_over_us / 2 > -lock_us);
+
+		/* Sized for the short period it would throw the lock away. */
+		if (err_us >= 24 || err_us <= -24) {
+			int32_t overshoot_us = phase_after(
+				err_us, audio_sync_freq_adj(err_us / 2, fast_us), regular_us);
+
+			TEST_ASSERT_TRUE(overshoot_us / 2 > unlock_us ||
+					 overshoot_us / 2 < -unlock_us);
+		}
+	}
+}
+
 extern int unity_main(void);
 
 int main(void)
