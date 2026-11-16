@@ -32,6 +32,21 @@ void ConnIntvlLinear::on_audio_underrun(uint32_t count) {
     this->request_interval(new_interval_units, new_interval_units);
 }
 
+bool ConnIntvlLinear::on_stream_started() {
+    /* A central may set its own interval for the stream (20 ms on Pixel
+     * phones, where every second 10 ms frame was then lost). Ask for the
+     * minimum now: left to the next tick, the loss was audible for up to a
+     * second after the stream had faded in.
+     */
+    if (this->current_interval_units() <= min_interval_units_) {
+        return true;
+    }
+
+    this->request_interval(min_interval_units_, min_interval_units_);
+
+    return false;
+}
+
 void ConnIntvlLinear::on_timer_tick(k_timeout_t elapsed) {
     ARG_UNUSED(elapsed);
     bool is_streaming = stream_state_get() == STATE_STREAMING;
