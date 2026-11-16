@@ -11,7 +11,7 @@
 
 const device fake_device{};
 std::atomic<uint64_t> clock_us{0};
-bool cd_high=true,usb_power=true;
+bool cd_high=true,usb_power=true,lsctrl_high=true;
 static uint8_t regs[256];
 static int fail_read=-1,fail_write=-1,drop_write=-1;
 int i2c_burst_read(const device *,uint16_t addr,uint8_t reg,uint8_t *data,uint32_t len) {
@@ -24,7 +24,12 @@ int i2c_burst_read(const device *,uint16_t addr,uint8_t reg,uint8_t *data,uint32
 }
 int i2c_burst_write(const device *,uint16_t,uint8_t reg,const uint8_t *data,uint32_t len) {
     if(reg==fail_write)return -EIO;
-    if(reg!=drop_write)std::memcpy(regs+reg,data,len);
+    if(reg!=drop_write) {
+        if(reg==7 && len==1 && (lsctrl_high || (regs[7]&0x80))) {
+            // Voltage bits are locked while either enable path is active.
+            regs[7]=(data[0]&~0x7c)|(regs[7]&0x7c);
+        } else std::memcpy(regs+reg,data,len);
+    }
     return 0;
 }
 
@@ -76,7 +81,7 @@ static void reset() {
     battery_controller.~BQ25120a();new(&battery_controller)BQ25120a(&I2C1);
     fail_read=fail_write=drop_write=-1;std::memset(regs,0,sizeof(regs));
     regs[5]=0x8c; // Simulate a retained 4.30 V charger configuration.
-    usb_power=true;cd_high=false;
+    usb_power=true;cd_high=false;lsctrl_high=true;
     assert(battery_controller.begin()==0 && cd_high);
     power_manager._fuel_gauge_ready=true;
     power_manager._battery_settings=battery_profile_for_imu(0x69)->settings;
@@ -106,10 +111,24 @@ int main() {
         assert(battery_controller.read_charging_control().mAh==power_manager._battery_settings.i_charge);
     }
     std::puts("PASS: VARTA, Grepow and fallback profiles program/read back correctly");
-    reset();regs[7]=0x7c;drop_write=7; // LSCTRL holds the LDO output enabled.
-    configured();assert(power_manager.check_battery() && !cd_high);
-    assert(regs[7]==0x7c);
-    std::puts("PASS: an enabled LDO with a locked voltage field does not block verified charging");
+    for (uint8_t initial : {uint8_t(0x7c),uint8_t(0xfd),uint8_t(0x64)}) {
+        reset();regs[7]=initial;
+        assert(battery_controller.configure_3v3_at_boot()==0);
+        assert(!lsctrl_high && regs[7]==(0x64 | (initial & 1)));
+        lsctrl_high=true;configured();
+        assert(lsctrl_high && regs[7]==(0x64 | (initial & 1)));
+    }
+    std::puts("PASS: startup disables both enable paths, programs 3.3 V and retains it during charging setup");
+    for (int mode=0;mode<3;mode++) {
+        reset();regs[7]=0x7c;
+        if(mode==0)fail_write=7;
+        if(mode==1)drop_write=7;
+        if(mode==2)fail_read=7;
+        assert(battery_controller.configure_3v3_at_boot()==-EIO && !lsctrl_high);
+    }
+    reset();regs[7]=0xfc;drop_write=7;
+    assert(battery_controller.configure_3v3_at_boot()==-EIO && !lsctrl_high);
+    std::puts("PASS: failed, ignored and unreadable 3.3 V writes stop startup with LSCTRL low");
     reset();configured();assert(power_manager.check_battery() && !cd_high);
     drop_write=3;assert(battery_controller.set_charge_current_verified(40)==-EIO && cd_high);
     reset();configured();assert(power_manager.check_battery());fail_read=0;

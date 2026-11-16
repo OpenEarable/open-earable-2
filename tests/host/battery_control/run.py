@@ -33,3 +33,11 @@ with tempfile.TemporaryDirectory(prefix='oe-battery-control-') as temp:
         '-x','c++',str(ROOT/'src/Battery/battery_profile.c'),str(HERE/'main.cpp'),
         '-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True,timeout=15)
+    (temp/'bootloader_functions.inc').write_text('\n'.join([
+        function('boards/teco/openearable_v2/mcuboot_hook.c', 'static void charger_watchdog_handler('),
+        function('boards/teco/openearable_v2/mcuboot_hook.c', 'static int init_3v3_regulator('),
+    ]))
+    bootloader_binary=temp/'bootloader_3v3'
+    subprocess.run([os.environ.get('CXX','c++'),'-std=c++17','-Wall','-Wextra',
+        '-I'+str(temp),str(HERE/'bootloader.cpp'),'-o',str(bootloader_binary)],check=True)
+    subprocess.run([str(bootloader_binary)],check=True,timeout=15)

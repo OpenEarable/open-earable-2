@@ -52,6 +52,9 @@ public:
 
     int reset();
 
+    /** Configure the 3.3 V rail before any consumers are started. */
+    int configure_3v3_at_boot();
+
     void setup_ts_control();
 
     /** Program/read back the profile with CD inhibited; failure latches off. */
@@ -108,6 +111,7 @@ private:
     const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
     const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), cd_gpios);
     const struct gpio_dt_spec int_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), int_gpios);
+    const struct gpio_dt_spec lsctrl_pin = GPIO_DT_SPEC_GET(DT_CHILD(DT_NODELABEL(bq25120a), load_switch), enable_gpios);
 
     /*const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), pg_gpios, {0});
     const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), cd_gpios, {0});

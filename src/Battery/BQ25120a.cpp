@@ -136,6 +136,39 @@ void BQ25120a::io_fault() {
         disable_charge();
 }
 
+int BQ25120a::configure_3v3_at_boot() {
+        TWIMLock lock(*_i2c);
+        if (!_pins_ready || _io_error) return -EIO;
+
+        // This is called only at startup, before any 3.3 V consumers run.
+        // Both enable paths must be low before the voltage field can change.
+        int ret = gpio_pin_set_dt(&lsctrl_pin, 0);
+        if (ret) return ret;
+
+        uint8_t status = 0;
+        if (!readReg(registers::LS_LDO_CTRL, &status, sizeof(status))) return -EIO;
+        if (status & 0x80) {
+                uint8_t disabled = status & ~0x80;
+                writeReg(registers::LS_LDO_CTRL, &disabled, sizeof(disabled));
+                if (_io_error || !readReg(registers::LS_LDO_CTRL, &status, sizeof(status)) ||
+                    (status & 0x80)) return -EIO;
+        }
+
+        constexpr uint8_t voltage_mask = 0x7c;
+        constexpr uint8_t voltage_3v3 = 25 << 2;
+        if ((status & voltage_mask) != voltage_3v3) {
+                // Preserve MRRESET_VIN while leaving the software enable clear.
+                uint8_t requested = (status & 0x01) | voltage_3v3;
+                writeReg(registers::LS_LDO_CTRL, &requested, sizeof(requested));
+                if (_io_error || !readReg(registers::LS_LDO_CTRL, &status, sizeof(status))) return -EIO;
+        }
+        if ((status & (0x80 | voltage_mask)) != voltage_3v3) {
+                LOG_ERR("3.3 V regulator readback failed: 0x%02x", status);
+                return -EIO;
+        }
+        return 0;
+}
+
 int BQ25120a::setup(const battery_settings &_battery_settings) {
         TWIMLock lock(*_i2c);
         _configured = false;
@@ -155,10 +188,6 @@ int BQ25120a::setup(const battery_settings &_battery_settings) {
         write_battery_voltage_control(_battery_settings.u_term);
         write_charging_control(_battery_settings.i_charge);
         write_termination_control(_battery_settings.i_term);
-        // LSCTRL keeps this board's rail enabled. Per BQ25120A table 20,
-        // its voltage field cannot change until the output is disabled.
-        // Retain the existing request, but do not gate charging on this rail.
-        write_LDO_voltage_control(3.3);
         write_uvlo_ilim(params);
 
         // ACK alone does not prove that a retained, possibly higher-voltage

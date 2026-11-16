@@ -75,7 +75,7 @@ static struct load_switch_data load_switch_1_8 = {
 
 static struct load_switch_data load_switch_3_3 = {
     .ctrl_pin = GPIO_DT_SPEC_GET(load_switch_3_3_id, enable_gpios),
-    .default_on = DT_NODE_HAS_PROP(load_switch_3_3_id, default_on),
+    .default_on = DT_PROP(load_switch_3_3_id, default_on),
     .delay_us = DT_PROP(load_switch_3_3_id, power_delay_us),
 };
 
