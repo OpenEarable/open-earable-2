@@ -116,7 +116,7 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
         } else {
                 ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
         }
-        if (ret) { io_fault(); LOG_WRN("I2C read failed: %d\n", ret); }
+        if (ret) { _io_error = true; LOG_WRN("I2C read failed: %d\n", ret); }
 
         last_i2c = micros();
 
@@ -135,20 +135,15 @@ void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         if (delay > 0) k_usleep(delay);  //TODO: assert no message ?
 
         ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
-        if (ret) { io_fault(); LOG_WRN("I2C write failed: %d", ret); }
+        if (ret) { _io_error = true; LOG_WRN("I2C write failed: %d", ret); }
 
         last_i2c = micros();
 }
 
-void BQ25120a::io_fault() {
-        _io_error = true;
-        _configured = false;
-        disable_charge();
-}
-
 int BQ25120a::configure_3v3_at_boot() {
         TWIMLock lock(*_i2c);
-        if (!_pins_ready || _io_error) return -EIO;
+        if (!_pins_ready) return -EIO;
+        _io_error = false;
 
         // This is called only at startup, before any 3.3 V consumers run.
         // Both enable paths must be low before the voltage field can change.
@@ -184,7 +179,7 @@ int BQ25120a::setup(const battery_settings &_battery_settings) {
         _configured = false;
         disable_charge();
         if (!_pins_ready) return -ENODEV;
-        if (_io_error) return -EIO;
+        _io_error = false;
         ilim_uvlo params;
         params.lim_mA = _battery_settings.i_max;
         params.uvlo_v = _battery_settings.u_vlo;
@@ -217,7 +212,6 @@ int BQ25120a::setup(const battery_settings &_battery_settings) {
                         _io_error, charge.enabled, term.enabled, ts,
                         (int)(voltage * 1000), (int)charge.mAh, (int)term.mAh,
                         (int)input.lim_mA, (int)(input.uvlo_v * 1000));
-                io_fault();
                 return -EIO;
         }
         _configured = true;
@@ -228,10 +222,12 @@ int BQ25120a::setup(const battery_settings &_battery_settings) {
 int BQ25120a::set_charge_current_verified(float mA) {
         TWIMLock lock(*_i2c);
         if (!configured()) { disable_charge(); return -EIO; }
+        _io_error = false;
         write_charging_control(mA);
         const chrg_state actual = read_charging_control();
         if (_io_error || !actual.enabled || fabsf(actual.mAh - mA) > 0.1f) {
-                io_fault();
+                _configured = false;
+                disable_charge();
                 return -EIO;
         }
         return 0;

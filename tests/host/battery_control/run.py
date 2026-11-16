@@ -21,6 +21,10 @@ with tempfile.TemporaryDirectory(prefix='oe-battery-control-') as temp:
     temp=Path(temp)
     (temp/'production_functions.inc').write_text('\n'.join([
         function('src/Battery/PowerManager.cpp','bool PowerManager::check_battery()'),
+        function('src/Battery/PowerManager.cpp','void PowerManager::power_good_callback('),
+        function('src/Battery/PowerManager.cpp','void PowerManager::fuel_gauge_work_handler('),
+        function('src/Battery/PowerManager.cpp','void PowerManager::charge_task()'),
+        function('src/Battery/PowerManager.cpp','void PowerManager::get_battery_status('),
         function('src/Battery/PowerManager.cpp','int cmd_setup_fuel_gauge('),
         function('src/SensorManager/BMX160/BMX160.cpp','bool BMX160::probeAddress('),
         function('src/SensorManager/BMX160/BMX160.cpp','bool BMX160::detect()'),

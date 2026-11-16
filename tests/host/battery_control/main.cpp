@@ -43,24 +43,66 @@ static std::condition_variable cv;
 static bool pause_worker=false,worker_at_voltage=false,release_worker=false;
 static bool configuration_entered=false,release_configuration=false,block_configuration=false;
 static int configuration_result=-EIO,reboots=0;
-struct bat_status {bool SYSDWN=false;};
+struct k_work {};
+struct k_work_delayable {};
+#define K_SECONDS(x) (x)
+#define K_NO_WAIT 0
+#define CONFIG_BATTERY_CHARGE_CONTROLLER_FAST_INTERVAL_SECONDS 1
+#define CONFIG_BATTERY_CHARGE_CONTROLLER_NORMAL_INTERVAL_SECONDS 10
+static bool battery_update_pending=false;
+static int shutdown_requests=0,charge_cancellations=0;
+static int k_work_submit(k_work *) {battery_update_pending=true;return 0;}
+static int k_work_schedule(k_work_delayable *,int) {return 0;}
+static int k_work_reschedule(k_work_delayable *,int) {shutdown_requests++;return 0;}
+static int k_work_cancel_delayable(k_work_delayable *) {charge_cancellations++;return 0;}
+enum charging_state {DISCHARGING,BATTERY_LOW,BATTERY_CRITICAL,POWER_CONNECTED,
+                     CHARGING,PRECHARGING,TRICKLE_CHARGING,FULLY_CHARGED,FAULT};
+struct battery_data {uint8_t battery_level;enum charging_state charging_state;};
+static battery_data msg{},published_msg{};
+static int battery_chan,published=0;
+static int zbus_chan_pub(int *,battery_data *value,int) {
+    // Battery observers may acquire I2C; publication must release the bus first.
+    std::thread reader([]{TWIMLock lock(I2C1);});reader.join();
+    published_msg=*value;published++;return 0;
+}
+struct battery_level_status {uint32_t flags=0,power_state=0;};
+struct bat_status {bool SYSDWN=false,CHGINH=false,BATTPRES=true,FC=false,FD=false;};
+struct gauge_status {bool edv1=false,edv2=false;};
 struct PowerManager {
-    bool _fuel_gauge_ready=true;
+    bool _fuel_gauge_ready=true,power_on=true,charging_disabled=false;
     battery_settings _battery_settings=battery_profile_for_imu(0x69)->settings;
+    uint16_t last_charging_state=1;
+    charging_state last_charging_msg_state=DISCHARGING;
+    int chrg_interval=10;
+    static k_work fuel_gauge_work;
+    static k_work_delayable charge_ctrl_delayable,power_down_work;
+    static void power_good_callback(const device *,gpio_callback *,uint32_t);
+    static void fuel_gauge_work_handler(k_work *);
+    void charge_task();
+    void get_battery_status(battery_level_status &);
     bool check_battery();
     void reboot() {
         // Joining a different bus user detects a lock held across reboot/drain.
         std::thread reader([]{TWIMLock lock(I2C1);});reader.join();reboots++;
     }
 } power_manager;
+k_work PowerManager::fuel_gauge_work;
+k_work_delayable PowerManager::charge_ctrl_delayable,PowerManager::power_down_work;
 struct Gauge {
+    uint8_t level=70;
+    bat_status status;
+    gauge_status gauge;
+    float state_of_charge(){return level;}
+    float current(){return 100.0f;}
+    float charge_current(){return 100.0f;}
+    gauge_status gauging_state(){return gauge;}
     float voltage() {
         std::unique_lock<std::mutex> lock(signals);
         if(pause_worker){worker_at_voltage=true;cv.notify_all();cv.wait(lock,[]{return release_worker;});}
         return 3.8f;
     }
     float temperature(){return 25.0f;}
-    bat_status battery_status(){return {};}
+    bat_status battery_status(){return status;}
     int setup(const battery_settings &) {
         assert(cd_high && !power_manager._fuel_gauge_ready);
         std::unique_lock<std::mutex> lock(signals);
@@ -89,7 +131,12 @@ static void reset() {
     usb_power=true;cd_high=false;lsctrl_high=true;
     assert(battery_controller.begin()==0 && cd_high);
     power_manager._fuel_gauge_ready=true;
+    power_manager.power_on=true;power_manager.charging_disabled=false;
+    power_manager.last_charging_state=1;
     power_manager._battery_settings=battery_profile_for_imu(0x69)->settings;
+    fuel_gauge.level=70;fuel_gauge.status={};fuel_gauge.gauge={};
+    msg={};published_msg={};published=shutdown_requests=charge_cancellations=0;
+    battery_update_pending=false;
 }
 static void configured() {
     assert(battery_controller.setup(power_manager._battery_settings)==0);
@@ -104,11 +151,12 @@ int main() {
         if(mode==2)fail_read=5;
         assert(battery_controller.setup(power_manager._battery_settings)==-EIO);
         assert(!power_manager.check_battery() && cd_high);
-        fail_read=fail_write=drop_write=-1;
-        assert(battery_controller.setup(power_manager._battery_settings)==-EIO);
         battery_controller.enable_charge();assert(cd_high);
+        assert(battery_controller.setup(power_manager._battery_settings)==-EIO);
+        fail_read=fail_write=drop_write=-1;
+        configured();assert(power_manager.check_battery() && !cd_high);
     }
-    std::puts("PASS: failed, ignored and unreadable voltage writes latch charging off");
+    std::puts("PASS: failed, ignored and unreadable voltage writes inhibit charging until a successful retry");
     for(uint8_t address : {0x68,0x69,0x00}) {
         reset();power_manager._battery_settings=battery_profile_for_imu(address)->settings;
         configured();assert(power_manager.check_battery() && !cd_high);
@@ -151,9 +199,48 @@ int main() {
     std::puts("PASS: failed, ignored and unreadable 3.3 V writes stop startup with LSCTRL low");
     reset();configured();assert(power_manager.check_battery() && !cd_high);
     drop_write=3;assert(battery_controller.set_charge_current_verified(40)==-EIO && cd_high);
+    drop_write=-1;power_manager.charge_task();
+    assert(battery_controller.configured() && !cd_high && battery_update_pending);
     reset();configured();assert(power_manager.check_battery());fail_read=0;
-    battery_controller.read_charging_state();battery_controller.enable_charge();assert(cd_high);
-    std::puts("PASS: current readback mismatch and runtime I/O failure inhibit charging");
+    battery_controller.read_charging_state();
+    assert(battery_controller.configured() && !cd_high);
+    fail_read=-1;assert(power_manager.check_battery() && !cd_high);
+    std::puts("PASS: current verification retries after mismatch; ordinary read errors do not latch charging off");
+
+    reset();configured();regs[0]=0x40;
+    PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(published_msg.charging_state==CHARGING && published_msg.battery_level==70);
+    fail_read=0;power_manager.charge_task();
+    assert(battery_update_pending);
+    fail_read=-1;usb_power=false; // Leave the old hardware status at charging.
+    PowerManager::power_good_callback(nullptr,nullptr,0);
+    PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(charge_cancellations==1 && published_msg.charging_state==DISCHARGING);
+    usb_power=true;regs[0]=0x40;
+    PowerManager::power_good_callback(nullptr,nullptr,0);
+    power_manager.charge_task();PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(battery_controller.configured() && !cd_high && published_msg.charging_state==CHARGING);
+    std::puts("PASS: unplug publishes discharging despite a stale charger register; reconnect resumes after a transient error");
+
+    // A configuration failure must not suppress independent gauge monitoring.
+    reset();configured();regs[0]=0x40;
+    PowerManager::fuel_gauge_work_handler(nullptr);
+    drop_write=3;assert(battery_controller.set_charge_current_verified(40)==-EIO);
+    // Make the periodic retry fail too, and verify that it still queues a report.
+    regs[5]=0x8c;drop_write=5;battery_update_pending=false;
+    power_manager.charge_task();assert(battery_update_pending && cd_high);
+    PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(published_msg.charging_state==FAULT && published==2);
+    usb_power=false;fuel_gauge.level=5;fuel_gauge.status.SYSDWN=true;fuel_gauge.gauge.edv1=true;
+    PowerManager::power_good_callback(nullptr,nullptr,0);
+    PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(published_msg.battery_level==5 && published_msg.charging_state==BATTERY_CRITICAL);
+    assert(shutdown_requests==1 && published==3);
+    drop_write=-1;usb_power=true;fuel_gauge.status.SYSDWN=false;fuel_gauge.gauge.edv1=false;
+    PowerManager::power_good_callback(nullptr,nullptr,0);
+    power_manager.charge_task();PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(battery_controller.configured() && !cd_high && published_msg.charging_state==CHARGING);
+    std::puts("PASS: failed charger retries still publish battery state and request low-battery shutdown; recovery needs no reboot");
     reset();configured();pause_worker=true;block_configuration=true;
     std::thread old_worker([]{assert(power_manager.check_battery());});
     {std::unique_lock<std::mutex> lock(signals);assert(cv.wait_for(lock,std::chrono::seconds(2),[]{return worker_at_voltage;}));}

@@ -57,9 +57,9 @@ public:
 
     void setup_ts_control();
 
-    /** Program/read back the profile with CD inhibited; failure latches off. */
+    /** Program/read back the profile with CD inhibited; failed attempts can be retried. */
     int setup(const battery_settings &_battery_settings);
-    bool configured() const { return _configured && !_io_error; }
+    bool configured() const { return _configured; }
     int set_charge_current_verified(float mA);
 
     bool power_connected();
@@ -91,9 +91,9 @@ public:
     int set_power_connect_callback(gpio_callback_handler_t handler);
     int set_int_callback(gpio_callback_handler_t handler);
 private:
-    void io_fault();
     uint8_t _pending_button_wake = 0;
     bool _configured = false;
+    // Collect I/O errors within each verified operation, not across retries.
     bool _io_error = false;
     bool _pins_ready = false;
     bool readReg(uint8_t reg, uint8_t * buffer, uint16_t len);
