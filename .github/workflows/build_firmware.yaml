@@ -30,12 +30,10 @@ jobs:
           path: zephyr-workspace/open-earable-v2
           submodules: recursive
 
-      - name: Cache/Install APT Packages
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: ccache git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
-          version: 1.0
-          execute_install_scripts: true
+      - name: Install APT packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ccache git cmake ninja-build gperf dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
 
       - name: Cache PIP Packages
         uses: actions/cache@v3

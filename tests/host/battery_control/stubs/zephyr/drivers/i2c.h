@@ -4,6 +4,7 @@
 struct device {};
 extern const device fake_device;
 #define DT_NODELABEL(x) x
+#define DT_CHILD(n, c) c
 #define DT_REG_ADDR(x) 0x6a
 #define DEVICE_DT_GET(x) (&fake_device)
 #define I2C_SPEED_FAST 2

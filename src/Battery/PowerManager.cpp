@@ -295,11 +295,19 @@ int PowerManager::begin() {
     oe_state.sd_state = SD_IDLE;
     oe_state.led_mode = STATE_INDICATION;
 
-    battery_controller.begin();
+    int ret = battery_controller.begin();
+    if (ret) return ret;
     fuel_gauge.begin();
     earable_btn.begin();
 
     battery_controller.exit_high_impedance();
+
+    // Configure the rail before the LED, SD card or sensors can acquire it.
+    ret = battery_controller.configure_3v3_at_boot();
+    if (ret) {
+        LOG_ERR("Failed to configure 3.3 V rail: %d", ret);
+        return ret;
+    }
 
     uint8_t bat_state = battery_controller.read_charging_state();
 
@@ -454,7 +462,7 @@ int PowerManager::begin() {
 
     battery_controller.enter_high_impedance();
 
-    int ret = pm_device_runtime_enable(ls_3_3);
+    ret = pm_device_runtime_enable(ls_3_3);
     if (ret != 0) {
         LOG_WRN("Error setting up load switch 3.3V.");
     }
