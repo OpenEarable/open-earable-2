@@ -92,6 +92,7 @@ public:
     int set_int_callback(gpio_callback_handler_t handler);
 private:
     void io_fault();
+    uint8_t _pending_button_wake = 0;
     bool _configured = false;
     bool _io_error = false;
     bool _pins_ready = false;

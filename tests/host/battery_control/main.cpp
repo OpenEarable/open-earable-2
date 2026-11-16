@@ -20,7 +20,12 @@ int i2c_burst_read(const device *,uint16_t addr,uint8_t reg,uint8_t *data,uint32
         data[0]=0xd1;return 0;
     }
     if(reg==fail_read)return -EIO;
-    std::memcpy(data,regs+reg,len);return 0;
+    std::memcpy(data,regs+reg,len);
+    // Hardware observation: a read of 0x07 consumes the adjacent wake flags,
+    // even if the master receives only one byte. A two-byte read captures them.
+    if (reg <= 8 && reg + len >= 8) { regs[8] &= ~3; regs[0] &= ~0x10; }
+    if (reg == 0) regs[0] &= ~0x10;
+    return 0;
 }
 int i2c_burst_write(const device *,uint16_t,uint8_t reg,const uint8_t *data,uint32_t len) {
     if(reg==fail_write)return -EIO;
@@ -119,6 +124,21 @@ int main() {
         assert(lsctrl_high && regs[7]==(0x64 | (initial & 1)));
     }
     std::puts("PASS: startup disables both enable paths, programs 3.3 V and retains it during charging setup");
+    for (uint8_t flags : {1, 2, 3}) {
+        reset(); regs[7] = 0x7c; regs[8] = 0x68 | flags;
+        assert(battery_controller.configure_3v3_at_boot() == 0);
+        assert((regs[8] & 3) == 0);
+        const button_state wake = battery_controller.read_button_state();
+        assert(wake.wake_2 == bool(flags & 1) && wake.wake_1 == bool(flags & 2));
+        const button_state consumed = battery_controller.read_button_state();
+        assert(!consumed.wake_1 && !consumed.wake_2);
+    }
+    reset(); regs[7] = 0x64; regs[8] = 0x69;
+    (void)battery_controller.read_ldo_voltage();
+    regs[8] = 0x6a;
+    const button_state combined = battery_controller.read_button_state();
+    assert(combined.wake_1 && combined.wake_2);
+    std::puts("PASS: LDO reads preserve button events once, including later live flags");
     for (int mode=0;mode<3;mode++) {
         reset();regs[7]=0x7c;
         if(mode==0)fail_write=7;
