@@ -322,6 +322,15 @@ int PowerManager::begin() {
     // get reset reason
     uint32_t reset_reas = NRF_RESET->RESETREAS;
 
+    // A button press can wake the MCU from system-off before the charger's
+    // long-press flag is set. Wait for that flag while the button stays down.
+    if ((reset_reas & RESET_RESETREAS_OFF_Msk) && !power_on) {
+        for (int i = 0; i < 25 && !power_on && earable_btn.getState() == BUTTON_PRESS; ++i) {
+            k_msleep(100);
+            power_on = battery_controller.read_button_state().wake_2;
+        }
+    }
+
     const bool cleanup_charging_boot =
         (reset_reas & RESET_RESETREAS_SREQ_Msk) &&
         NRF_POWER->GPREGRET[1] == CLEANUP_CHARGING_OFF_MARKER;
