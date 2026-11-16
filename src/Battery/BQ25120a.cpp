@@ -105,7 +105,17 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
-        ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
+        if (reg == registers::LS_LDO_CTRL && len == 1) {
+                // Capture the adjacent read-to-clear button flags as well.
+                uint8_t status[2];
+                ret = i2c_burst_read(_i2c->master, address, reg, status, sizeof(status));
+                if (!ret) {
+                        *buffer = status[0];
+                        _pending_button_wake |= status[1] & 0x03;
+                }
+        } else {
+                ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
+        }
         if (ret) { io_fault(); LOG_WRN("I2C read failed: %d\n", ret); }
 
         last_i2c = micros();
@@ -481,10 +491,14 @@ bool BQ25120a::charge_inhibited() {
 
 
 button_state BQ25120a::read_button_state() {
+        TWIMLock lock(*_i2c);
         struct button_state btn;
 
         uint8_t status = 0;
         (void)readReg(registers::BTN_CTRL, (uint8_t *) &status, sizeof(status));
+
+        status |= _pending_button_wake;
+        _pending_button_wake = 0;
 
         btn.wake_1 = status & 0x2;
         btn.wake_2 = status & 0x1;

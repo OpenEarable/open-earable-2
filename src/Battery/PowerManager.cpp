@@ -28,6 +28,7 @@
 
 #include "../utils/StateIndicator.h"
 
+#include "boot_charger_status.h"
 #include "bt_mgmt.h"
 #include "bt_mgmt_ctlr_cfg_internal.h"
 
@@ -35,10 +36,6 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(power_manager, LOG_LEVEL_DBG);
-
-// GPREGRET[1] is application-owned in this nRF5340 build. The bootloaders do
-// not use it. Consume the marker once, only for a software reset into charging.
-static constexpr uint32_t CLEANUP_CHARGING_OFF_MARKER = 0xA6;
 
 //K_TIMER_DEFINE(PowerManager::charge_timer, PowerManager::charge_timer_handler, NULL);
 
@@ -302,6 +299,11 @@ int PowerManager::begin() {
 
     battery_controller.exit_high_impedance();
 
+    // Save reset status before any LDO read can consume the button register.
+    uint8_t bat_state = battery_controller.read_charging_state();
+    const uint8_t boot_events = boot_charger_take(&NRF_POWER->GPREGRET[1]);
+    if (boot_events & BOOT_CHARGER_RESET) bat_state |= 1 << 4;
+
     // Configure the rail before the LED, SD card or sensors can acquire it.
     ret = battery_controller.configure_3v3_at_boot();
     if (ret) {
@@ -309,15 +311,13 @@ int PowerManager::begin() {
         return ret;
     }
 
-    uint8_t bat_state = battery_controller.read_charging_state();
-
     // Never retain a previous 4.3 V profile while probing an unidentified board.
     battery_controller.disable_charge();
     battery_controller.write_battery_voltage_control(4.2f);
 
     button_state btn = battery_controller.read_button_state();
 
-    power_on = btn.wake_2;
+    power_on = btn.wake_2 || (boot_events & BOOT_CHARGER_WAKE2);
 
     // get reset reason
     uint32_t reset_reas = NRF_RESET->RESETREAS;

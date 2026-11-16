@@ -8,6 +8,8 @@
 
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/i2c.h>
+#include <hal/nrf_power.h>
+#include "boot_charger_status.h"
 
 #define LED_NODE DT_ALIAS(mcuboot_led0)
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED_NODE, gpios);
@@ -27,12 +29,30 @@ static const struct gpio_dt_spec charger_cd_pin = {
 #define CHARGER_LDO_MASK 0x7c
 #define CHARGER_LDO_3V3 (25U << 2)
 
+/* Reading 0x07 also consumes the adjacent button flags on this charger.
+ * Receive both bytes, and retain the wake reason for the application. */
+static int read_charger_ldo(uint8_t *status)
+{
+    uint8_t control;
+    uint8_t registers[2];
+    int ret = i2c_reg_read_byte(charger_i2c, CHARGER_ADDR, 0x00, &control);
+    if (ret) return ret;
+    k_busy_wait(100);
+    ret = i2c_burst_read(charger_i2c, CHARGER_ADDR, CHARGER_LDO_CTRL,
+                         registers, sizeof(registers));
+    if (ret) return ret;
+    boot_charger_save(&NRF_POWER->GPREGRET[1],
+                      (registers[1] & 0x03) | ((control & 0x10) >> 2));
+    *status = registers[0];
+    return 0;
+}
+
 static void charger_watchdog_handler(struct k_work *work)
 {
     uint8_t status;
     ARG_UNUSED(work);
     /* Any transaction feeds the charger watchdog during long image swaps. */
-    int ret = i2c_reg_read_byte(charger_i2c, CHARGER_ADDR, CHARGER_LDO_CTRL, &status);
+    int ret = read_charger_ldo(&status);
     if (ret || (status & CHARGER_LDO_MASK) != CHARGER_LDO_3V3) {
         gpio_pin_set_dt(&ls_3_3_pin, 0);
         if (!ret && (status & 0x80)) {
@@ -140,16 +160,18 @@ static int init_3v3_regulator(void)
     uint8_t status;
     int ret;
 
+    /* Never replay a snapshot left by an interrupted previous boot. */
+    (void)boot_charger_take(&NRF_POWER->GPREGRET[1]);
     if (!device_is_ready(charger_i2c)) return -ENODEV;
     k_busy_wait(1000); /* CD needs up to 1 ms to wake the I2C interface. */
-    ret = i2c_reg_read_byte(charger_i2c, CHARGER_ADDR, CHARGER_LDO_CTRL, &status);
+    ret = read_charger_ldo(&status);
     if (ret) return ret;
     k_busy_wait(100);
     if (status & 0x80) {
         ret = i2c_reg_write_byte(charger_i2c, CHARGER_ADDR, CHARGER_LDO_CTRL, status & ~0x80);
         if (ret) return ret;
         k_busy_wait(100);
-        ret = i2c_reg_read_byte(charger_i2c, CHARGER_ADDR, CHARGER_LDO_CTRL, &status);
+        ret = read_charger_ldo(&status);
         if (ret || (status & 0x80)) return -EIO;
         k_busy_wait(100);
     }
@@ -158,7 +180,7 @@ static int init_3v3_regulator(void)
                                  (status & 0x01) | CHARGER_LDO_3V3);
         if (ret) return ret;
         k_busy_wait(100);
-        ret = i2c_reg_read_byte(charger_i2c, CHARGER_ADDR, CHARGER_LDO_CTRL, &status);
+        ret = read_charger_ldo(&status);
         if (ret || (status & (0x80 | CHARGER_LDO_MASK)) != CHARGER_LDO_3V3) return -EIO;
     }
     ret = gpio_pin_set_dt(&ls_3_3_pin, 1);
