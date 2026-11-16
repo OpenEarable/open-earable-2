@@ -122,7 +122,7 @@ void PowerManager::battery_controller_work_handler(struct k_work * work) {
 void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 	ARG_UNUSED(work);
     TWIMLock battery_lock(I2C1);
-    if (!power_manager._fuel_gauge_ready || !battery_controller.configured()) {
+    if (!power_manager._fuel_gauge_ready) {
         battery_controller.disable_charge();
         return;
     }
@@ -156,7 +156,12 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
     battery_controller.exit_high_impedance();
 
-    uint16_t charging_state = battery_controller.read_charging_state() >> 6;
+    // USB removal and gauge monitoring remain valid even if charger setup failed.
+    uint16_t charging_state = 0;
+    if (battery_controller.power_connected()) {
+        charging_state = battery_controller.configured()
+            ? battery_controller.read_charging_state() >> 6 : 3;
+    }
     gauge_status gs;
 
     switch (charging_state) {
@@ -737,7 +742,7 @@ int PowerManager::power_down(bool fault, bool stay_off_while_charging) {
 
 void PowerManager::charge_task() {
     TWIMLock battery_lock(I2C1);
-    if (!_fuel_gauge_ready || !battery_controller.configured()) {
+    if (!_fuel_gauge_ready) {
         battery_controller.disable_charge();
         return;
     }
@@ -745,9 +750,9 @@ void PowerManager::charge_task() {
 
     //LOG_INF("Charger Watchdog ...................");
 
-    if (last_charging_state == 0) {
+    if (last_charging_state == 0 || !battery_controller.configured()) {
         LOG_INF("Setting up charge controller ........");
-        if (battery_controller.setup(_battery_settings)) return;
+        (void)battery_controller.setup(_battery_settings);
     }
 
     // Recovery/configuration must use the same policy as initial startup.

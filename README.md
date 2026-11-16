@@ -220,8 +220,11 @@ restart and `battery info` reports the fault. Gauge configuration waits are
 bounded to five seconds per state transition rather than blocking startup
 indefinitely on an unresponsive device.
 The charger keeps its CD inhibit asserted until voltage, current, termination
-and supporting settings have been read back successfully. Charger I2C errors
-or a setpoint mismatch latch charging off until restart. Manual gauge setup
+and supporting settings have been read back successfully. Ordinary charger I2C
+errors are logged without latching charging off. A failed configuration or
+current readback inhibits charging until a later charge-control pass successfully
+reconfigures it. Battery updates and low-battery shutdown checks continue while
+the charger configuration is invalid. Manual gauge setup
 serializes the complete configuration against battery workers and diagnostic
 reads; it cannot overlap a charging decision. IMU detection waits 10 ms for
 sensor power-on reset after the rail has settled.
