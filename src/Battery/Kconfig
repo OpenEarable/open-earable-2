@@ -2,7 +2,7 @@ menu "Battery Configuration"
 
 config POWER_SAVING_DEFAULT_MODE
 	int "Default auto-off power saving mode"
-	default 2
+	default 0
 	help
 	  Default mode for automatic power-off.
 	  Values: 0=off, 1=minimal, 2=balanced, 3=aggressive. Higher

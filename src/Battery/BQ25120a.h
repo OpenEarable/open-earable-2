@@ -57,10 +57,8 @@ public:
 
     void setup_ts_control();
 
-    /** Program/read back the profile with CD inhibited; failed attempts can be retried. */
-    int setup(const battery_settings &_battery_settings);
-    bool configured() const { return _configured; }
-    int set_charge_current_verified(float mA);
+    /** Program the selected battery profile. I2C failures are logged. */
+    void setup(const battery_settings &_battery_settings);
 
     bool power_connected();
     void enter_high_impedance();
@@ -92,8 +90,7 @@ public:
     int set_int_callback(gpio_callback_handler_t handler);
 private:
     uint8_t _pending_button_wake = 0;
-    bool _configured = false;
-    // Collect I/O errors within each verified operation, not across retries.
+    // Collect I/O errors for the verified 3.3 V regulator setup.
     bool _io_error = false;
     bool _pins_ready = false;
     bool readReg(uint8_t reg, uint8_t * buffer, uint16_t len);

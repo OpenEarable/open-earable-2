@@ -128,11 +128,11 @@ python3 tests/host/battery_control/run.py
 
 They compile the production BQ25120A and TWIM drivers with simulated RTOS/I2C
 boundaries, and execute the production charging-decision, battery-update,
-manual-configuration and IMU-probe function bodies. Cases cover failed/ignored
-writes, readback mismatches, legacy low-voltage charger re-enabling, recovery
-after transient I2C failures, battery
-notifications and low-battery shutdown during charger faults, concurrent charging/configuration,
-bus release before reboot drains workers, and a sensor needing 10 ms POR.
+manual-configuration and IMU-probe function bodies. Cases cover legacy charge
+enable after failed charger writes, low-voltage recovery, repeated charge enable
+after the gauge inhibit clears, battery notifications on unplug, concurrent
+charging/configuration, bus release before reboot drains workers, and a sensor
+needing 10 ms POR. The 3.3 V regulator startup tests still verify readback.
 
 Array bounds regressions compile the production MAXM86161 driver and Bluetooth
 identity-printing function with AddressSanitizer and UndefinedBehaviorSanitizer:

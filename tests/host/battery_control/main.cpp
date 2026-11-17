@@ -141,24 +141,19 @@ static void reset() {
     battery_update_pending=false;
 }
 static void configured() {
-    assert(battery_controller.setup(power_manager._battery_settings)==0);
-    assert(battery_controller.configured() && cd_high);
+    battery_controller.setup(power_manager._battery_settings);
 }
 int main() {
-    reset();battery_controller.enable_charge();assert(cd_high);
+    // Like 2.2.9, failed or ignored charger writes do not gate charge enable.
     for(int mode=0;mode<3;mode++) {
-        reset();
+        reset();power_manager.last_charging_state=0;
         if(mode==0)fail_write=5;
         if(mode==1)drop_write=5;
         if(mode==2)fail_read=5;
-        assert(battery_controller.setup(power_manager._battery_settings)==-EIO);
-        assert(!power_manager.check_battery() && cd_high);
-        battery_controller.enable_charge();assert(cd_high);
-        assert(battery_controller.setup(power_manager._battery_settings)==-EIO);
-        fail_read=fail_write=drop_write=-1;
-        configured();assert(power_manager.check_battery() && !cd_high);
+        power_manager.charge_task();
+        assert(!cd_high && battery_update_pending);
     }
-    std::puts("PASS: failed, ignored and unreadable voltage writes inhibit charging until a successful retry");
+    std::puts("PASS: charger setup does not gate legacy charge enable on write or readback errors");
     for(uint8_t address : {0x68,0x69,0x00}) {
         reset();power_manager._battery_settings=battery_profile_for_imu(address)->settings;
         configured();assert(power_manager.check_battery() && !cd_high);
@@ -171,7 +166,7 @@ int main() {
         fuel_gauge.voltage_value=2.4f;
         configured();assert(!power_manager.check_battery() && cd_high);
         power_manager.last_charging_state=0;power_manager.charge_task();
-        assert(!cd_high && battery_controller.configured());
+        assert(!cd_high);
         assert(std::fabs(battery_controller.read_battery_voltage_control()-power_manager._battery_settings.u_term)<0.005f);
     }
     reset();configured();fuel_gauge.temperature_value=46.0f;
@@ -180,8 +175,8 @@ int main() {
     assert(!cd_high); // Pre-2.3.3 setup did not recheck temperature.
     reset();configured();fuel_gauge.voltage_value=2.4f;
     power_manager.last_charging_state=0;drop_write=5;regs[5]=0x8c;
-    power_manager.charge_task();assert(cd_high && !battery_controller.configured());
-    std::puts("PASS: legacy recovery re-enables charging after verified setup; profile voltages and failed-setup inhibition remain intact");
+    power_manager.charge_task();assert(!cd_high);
+    std::puts("PASS: legacy recovery re-enables charging after setup for each battery profile");
     for (uint8_t initial : {uint8_t(0x7c),uint8_t(0xfd),uint8_t(0x64)}) {
         reset();regs[7]=initial;
         assert(battery_controller.configure_3v3_at_boot()==0);
@@ -215,15 +210,17 @@ int main() {
     reset();regs[7]=0xfc;drop_write=7;
     assert(battery_controller.configure_3v3_at_boot()==-EIO && !lsctrl_high);
     std::puts("PASS: failed, ignored and unreadable 3.3 V writes stop startup with LSCTRL low");
-    reset();configured();assert(power_manager.check_battery() && !cd_high);
-    drop_write=3;assert(battery_controller.set_charge_current_verified(40)==-EIO && cd_high);
-    drop_write=-1;power_manager.charge_task();
-    assert(battery_controller.configured() && !cd_high && battery_update_pending);
-    reset();configured();assert(power_manager.check_battery());fail_read=0;
-    battery_controller.read_charging_state();
-    assert(battery_controller.configured() && !cd_high);
-    fail_read=-1;assert(power_manager.check_battery() && !cd_high);
-    std::puts("PASS: current verification retries after mismatch; ordinary read errors do not latch charging off");
+    // Once CHGINH clears, 2.2.9 continues to enable on subsequent gauge updates.
+    reset();configured();regs[0]=0x40;fuel_gauge.status.CHGINH=true;
+    PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(cd_high && power_manager.charging_disabled);
+    fuel_gauge.status.CHGINH=false;fuel_gauge.temperature_value=46.0f;
+    PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(!cd_high && power_manager.charging_disabled);
+    battery_controller.disable_charge();
+    PowerManager::fuel_gauge_work_handler(nullptr);
+    assert(!cd_high && power_manager.charging_disabled);
+    std::puts("PASS: cleared CHGINH re-enables charging on subsequent gauge updates");
 
     reset();configured();regs[0]=0x40;
     PowerManager::fuel_gauge_work_handler(nullptr);
@@ -237,28 +234,9 @@ int main() {
     usb_power=true;regs[0]=0x40;
     PowerManager::power_good_callback(nullptr,nullptr,0);
     power_manager.charge_task();PowerManager::fuel_gauge_work_handler(nullptr);
-    assert(battery_controller.configured() && !cd_high && published_msg.charging_state==CHARGING);
+    assert(!cd_high && published_msg.charging_state==CHARGING);
     std::puts("PASS: unplug publishes discharging despite a stale charger register; reconnect resumes after a transient error");
 
-    // A configuration failure must not suppress independent gauge monitoring.
-    reset();configured();regs[0]=0x40;
-    PowerManager::fuel_gauge_work_handler(nullptr);
-    drop_write=3;assert(battery_controller.set_charge_current_verified(40)==-EIO);
-    // Make the periodic retry fail too, and verify that it still queues a report.
-    regs[5]=0x8c;drop_write=5;battery_update_pending=false;
-    power_manager.charge_task();assert(battery_update_pending && cd_high);
-    PowerManager::fuel_gauge_work_handler(nullptr);
-    assert(published_msg.charging_state==FAULT && published==2);
-    usb_power=false;fuel_gauge.level=5;fuel_gauge.status.SYSDWN=true;fuel_gauge.gauge.edv1=true;
-    PowerManager::power_good_callback(nullptr,nullptr,0);
-    PowerManager::fuel_gauge_work_handler(nullptr);
-    assert(published_msg.battery_level==5 && published_msg.charging_state==BATTERY_CRITICAL);
-    assert(shutdown_requests==1 && published==3);
-    drop_write=-1;usb_power=true;fuel_gauge.status.SYSDWN=false;fuel_gauge.gauge.edv1=false;
-    PowerManager::power_good_callback(nullptr,nullptr,0);
-    power_manager.charge_task();PowerManager::fuel_gauge_work_handler(nullptr);
-    assert(battery_controller.configured() && !cd_high && published_msg.charging_state==CHARGING);
-    std::puts("PASS: failed charger retries still publish battery state and request low-battery shutdown; recovery needs no reboot");
     reset();configured();pause_worker=true;block_configuration=true;
     std::thread old_worker([]{assert(power_manager.check_battery());});
     {std::unique_lock<std::mutex> lock(signals);assert(cv.wait_for(lock,std::chrono::seconds(2),[]{return worker_at_voltage;}));}

@@ -174,11 +174,8 @@ int BQ25120a::configure_3v3_at_boot() {
         return 0;
 }
 
-int BQ25120a::setup(const battery_settings &_battery_settings) {
+void BQ25120a::setup(const battery_settings &_battery_settings) {
         TWIMLock lock(*_i2c);
-        _configured = false;
-        disable_charge();
-        if (!_pins_ready) return -ENODEV;
         _io_error = false;
         ilim_uvlo params;
         params.lim_mA = _battery_settings.i_max;
@@ -187,50 +184,13 @@ int BQ25120a::setup(const battery_settings &_battery_settings) {
         exit_high_impedance();
 
         //reset();
-        // Profile changes must not enable charging before voltage/temperature checks.
-        disable_charge();
         setup_ts_control();
         write_battery_voltage_control(_battery_settings.u_term);
         write_charging_control(_battery_settings.i_charge);
         write_termination_control(_battery_settings.i_term);
         write_uvlo_ilim(params);
 
-        // ACK alone does not prove that a retained, possibly higher-voltage
-        // profile was replaced. Check the actual register values before CD.
-        const float voltage = read_battery_voltage_control();
-        const chrg_state charge = read_charging_control();
-        const chrg_state term = read_termination_control();
-        const ilim_uvlo input = read_uvlo_ilim();
-        const uint8_t ts = read_ts_fault();
-        if (_io_error || !charge.enabled || !term.enabled || (ts & 0x80) ||
-            fabsf(voltage - _battery_settings.u_term) > 0.005f ||
-            fabsf(charge.mAh - _battery_settings.i_charge) > 0.1f ||
-            fabsf(term.mAh - _battery_settings.i_term) > 0.1f ||
-            fabsf(input.lim_mA - params.lim_mA) > 0.1f ||
-            fabsf(input.uvlo_v - params.uvlo_v) > 0.01f) {
-                LOG_ERR("Charger verification: io=%d CE=%d TE=%d TS=0x%02x CV=%d CC=%d TERM=%d ILIM=%d UVLO=%d",
-                        _io_error, charge.enabled, term.enabled, ts,
-                        (int)(voltage * 1000), (int)charge.mAh, (int)term.mAh,
-                        (int)input.lim_mA, (int)(input.uvlo_v * 1000));
-                return -EIO;
-        }
-        _configured = true;
         enter_high_impedance();
-        return 0;
-}
-
-int BQ25120a::set_charge_current_verified(float mA) {
-        TWIMLock lock(*_i2c);
-        if (!configured()) { disable_charge(); return -EIO; }
-        _io_error = false;
-        write_charging_control(mA);
-        const chrg_state actual = read_charging_control();
-        if (_io_error || !actual.enabled || fabsf(actual.mAh - mA) > 0.1f) {
-                _configured = false;
-                disable_charge();
-                return -EIO;
-        }
-        return 0;
 }
 
 uint8_t BQ25120a::read_charging_state() {
@@ -477,7 +437,6 @@ void BQ25120a::disable_charge() {
 
 void BQ25120a::enable_charge() {
         TWIMLock lock(*_i2c);
-        if (!configured()) { disable_charge(); return; }
         if (power_connected()) gpio_pin_set_dt(&cd_pin, 0);
 }
 

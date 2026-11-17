@@ -221,15 +221,19 @@ If the gauge cannot be read or configured, charging remains inhibited until
 restart and `battery info` reports the fault. Gauge configuration waits are
 bounded to five seconds per state transition rather than blocking startup
 indefinitely on an unresponsive device.
-The charger keeps its CD inhibit asserted until voltage, current, termination
-and supporting settings have been read back successfully. Ordinary charger I2C
-errors are logged without latching charging off. A failed configuration or
-current readback inhibits charging until a later charge-control pass successfully
-reconfigures it. Battery updates and low-battery shutdown checks continue while
-the charger configuration is invalid. Manual gauge setup
+As in 2.2.9, charger setup writes the profile without requiring register
+readback before enabling charging. I2C errors are logged, but do not prevent
+charge enable. A failed or ignored voltage write can leave an older charger
+voltage setting in effect, including 4.3 V for a 4.2 V battery. After the gauge's
+charge-inhibit flag clears, subsequent gauge updates re-enable charging without
+rechecking the startup voltage or temperature limits. Manual gauge setup
 serializes the complete configuration against battery workers and diagnostic
 reads; it cannot overlap a charging decision. IMU detection waits 10 ms for
 sensor power-on reset after the rail has settled.
+
+Auto-off defaults to disabled in every build. A power-saving mode previously
+saved by the user remains in effect until changed through the power-saving
+service.
 
 ## Battery States
 Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.

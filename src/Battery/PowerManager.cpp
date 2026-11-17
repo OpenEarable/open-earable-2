@@ -146,8 +146,7 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
         power_manager.charging_disabled = true;
         battery_controller.disable_charge();
     } else if (power_manager.charging_disabled) {
-        power_manager.charging_disabled = false;
-        (void)power_manager.check_battery();
+        battery_controller.enable_charge();
     }
 
     float current;
@@ -156,11 +155,10 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 
     battery_controller.exit_high_impedance();
 
-    // USB removal and gauge monitoring remain valid even if charger setup failed.
+    // USB removal remains valid even if the charger status is stale.
     uint16_t charging_state = 0;
     if (battery_controller.power_connected()) {
-        charging_state = battery_controller.configured()
-            ? battery_controller.read_charging_state() >> 6 : 3;
+        charging_state = battery_controller.read_charging_state() >> 6;
     }
     gauge_status gs;
 
@@ -376,8 +374,7 @@ int PowerManager::begin() {
 
     {
         TWIMLock battery_lock(I2C1);
-        const int charger_result = battery_controller.setup(_battery_settings);
-        if (charger_result) LOG_ERR("Charger setup failed: %d; charging inhibited", charger_result);
+        battery_controller.setup(_battery_settings);
         battery_controller.set_int_callback(battery_controller_callback);
 
         // check setup
@@ -438,7 +435,7 @@ int PowerManager::begin() {
 
         {
             TWIMLock battery_lock(I2C1);
-            oe_state.charging_state = _fuel_gauge_ready && battery_controller.configured() ? POWER_CONNECTED : FAULT;
+            oe_state.charging_state = _fuel_gauge_ready ? POWER_CONNECTED : FAULT;
         }
 
         state_indicator.init(oe_state);
@@ -522,7 +519,7 @@ void PowerManager::set_error_led(int val) {
 
 bool PowerManager::check_battery() {
     TWIMLock battery_lock(I2C1);
-    if (!_fuel_gauge_ready || !battery_controller.configured()) {
+    if (!_fuel_gauge_ready) {
         battery_controller.disable_charge();
         return false;
     }
@@ -538,7 +535,7 @@ bool PowerManager::check_battery() {
             battery_controller.disable_charge();
             return false;
         }
-        if (battery_controller.set_charge_current_verified(current)) return false;
+        battery_controller.write_charging_control(current);
         battery_controller.enable_charge();
     }
 
@@ -750,12 +747,10 @@ void PowerManager::charge_task() {
 
     //LOG_INF("Charger Watchdog ...................");
 
-    if (last_charging_state == 0 || !battery_controller.configured()) {
+    if (last_charging_state == 0) {
         LOG_INF("Setting up charge controller ........");
-        if (battery_controller.setup(_battery_settings) == 0) {
-            // Restore the pre-2.3.3 recovery behavior after charger setup.
-            battery_controller.enable_charge();
-        }
+        battery_controller.setup(_battery_settings);
+        battery_controller.enable_charge();
     }
 
     k_work_submit(&fuel_gauge_work);
@@ -798,7 +793,6 @@ int cmd_battery_info(const struct shell *shell, size_t argc, const char **argv) 
                 (double)power_manager._battery_settings.u_term,
                 (double)power_manager._battery_settings.i_charge);
     shell_print(shell, "CD charging inhibit: %u", battery_controller.charge_inhibited());
-    shell_print(shell, "Charger configuration verified: %u", battery_controller.configured());
     if (!power_manager._fuel_gauge_ready) {
         shell_error(shell, "Fuel gauge unavailable; charging inhibited until restart");
         battery_controller.exit_high_impedance();
