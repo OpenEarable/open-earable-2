@@ -134,6 +134,17 @@ after the gauge inhibit clears, battery notifications on unplug, concurrent
 charging/configuration, bus release before reboot drains workers, and a sensor
 needing 10 ms POR. The 3.3 V regulator startup tests still verify readback.
 
+The `pair_discovery` host regression feeds the production advertising payload
+to the production peer scanner, checks both sides derive the same pair ID,
+and verifies missing or short manufacturer data and an invalid RSI are ignored:
+
+```sh
+python3 tests/host/pair_discovery/run.py
+```
+
+It uses a deterministic stand-in for Bluetooth encryption and does not test
+radio behavior or the hardware reset itself.
+
 Array bounds regressions compile the production MAXM86161 driver and Bluetooth
 identity-printing function with AddressSanitizer and UndefinedBehaviorSanitizer:
 

@@ -8,6 +8,7 @@
 #include "csip_identity.h"
 #include "uicr.h"
 #include "BootState.h"
+#include "channel_assignment.h"
 
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/sys/byteorder.h>
@@ -80,6 +81,11 @@ static uint8_t unicast_server_adv_data[] = {
 	BT_BYTES_LIST_LE16(AVAILABLE_SOURCE_CONTEXT),
 	0x00, /* Metadata length */
 };
+
+/* Legacy peer discovery consumes the eight-byte chip ID and channel from
+ * manufacturer data following the CAS service data. Keep the two trailing
+ * bytes to preserve the 2.2.9 advertising format. */
+static uint8_t device_identifier[11];
 
 static void le_audio_event_publish(enum le_audio_evt_type event, struct bt_conn *conn,
 				   enum bt_audio_dir dir)
@@ -689,6 +695,17 @@ int unicast_server_adv_populate(struct bt_data *adv_buf, uint8_t adv_buf_vacant)
 	ret = bt_mgmt_adv_buffer_put(adv_buf, &adv_buf_cnt, adv_buf_vacant,
 				     ARRAY_SIZE(cap_adv_data), BT_DATA_SVC_DATA16,
 				     (void *)cap_adv_data);
+	if (ret) {
+		return ret;
+	}
+
+	enum audio_channel channel;
+	channel_assignment_get(&channel);
+	sys_put_le64(oe_boot_state.device_id, device_identifier);
+	device_identifier[8] = (uint8_t)channel;
+	ret = bt_mgmt_adv_buffer_put(adv_buf, &adv_buf_cnt, adv_buf_vacant,
+				     sizeof(device_identifier), BT_DATA_MANUFACTURER_DATA,
+				     device_identifier);
 	if (ret) {
 		return ret;
 	}
