@@ -126,6 +126,8 @@ BUILD_ASSERT(DRIFT_FAST_WAITING_CNT <= DRIFT_COMP_WAITING_CNT);
  * until the moved blocks are being rendered.
  */
 #define PRES_COMP_FAST_WAIT_MARGIN  2
+/* Delay error from which a muted stream is moved without averaging. */
+#define PRES_COMP_FAST_COARSE_ERR_US (4 * BLK_PERIOD_US)
 
 /* Allow normal block rounding and locked clock phase error before re-measuring. */
 #define PRES_RELOCK_ERR_US \
@@ -553,6 +555,14 @@ static inline void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 				}
 
 				drift_comp_state_set(DRIFT_STATE_OFFSET);
+				if (audio_datapath_startup_muted()) {
+					/* The phase can be read off the next few blocks:
+					 * do not let a whole period pass before the first
+					 * correction.
+					 */
+					ctrl_blk.drift_comp.ctr =
+						DRIFT_FAST_WAITING_CNT - DRIFT_ERR_NUM_SAMPLES;
+				}
 				break;
 			}
 
@@ -618,9 +628,12 @@ static inline void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 
 		/* The locked state measures again after a regular period, so the
 		 * correction that hands over to it must be sized for that period.
+		 * A muted stream removes the whole error within one short period
+		 * instead of three quarters of it.
 		 */
-		int32_t freq_adj = audio_sync_freq_adj(
-			err_us, (fast && !lock) ? DRIFT_FAST_PERIOD_US : DRIFT_MEAS_PERIOD_US);
+		int32_t freq_adj = (fast && !lock)
+			? audio_sync_freq_adj(err_us * 4 / 3, DRIFT_FAST_PERIOD_US)
+			: audio_sync_freq_adj(err_us, DRIFT_MEAS_PERIOD_US);
 
 		ret = drift_clock_set(freq_adj);
 		if (ret) {
@@ -812,7 +825,16 @@ static void audio_datapath_presentation_compensation(uint32_t sdu_ref_us,
 		}
 
 		ctrl_blk.pres_comp.sum_err_dly_us += err_dly_us;
-		if (++ctrl_blk.pres_comp.ctr < num_data_pts) {
+		ctrl_blk.pres_comp.ctr++;
+
+		/* A muted stream that is whole blocks off is moved on the first
+		 * sample: the measurement after the move confirms the result.
+		 */
+		bool coarse = fast && (ctrl_blk.pres_comp.ctr == 1) &&
+			      ((err_dly_us >= PRES_COMP_FAST_COARSE_ERR_US) ||
+			       (err_dly_us <= -PRES_COMP_FAST_COARSE_ERR_US));
+
+		if (!coarse && (ctrl_blk.pres_comp.ctr < num_data_pts)) {
 			/* Same state - Collect more data */
 			break;
 		}
