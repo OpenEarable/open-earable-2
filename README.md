@@ -197,11 +197,13 @@ address selects a 4.2 V fallback; the stored UICR revision cannot enable 4.3 V.
 The VARTA profile requests 100 mA charging; Grepow requests 90 mA and the
 unidentified fallback requests 80 mA. Grepow uses a supported 10 mA charger
 step below the requested 95 mA; its temperature-derated current is 40 mA.
-All profiles stop charging outside 0–45 °C and
-reduce current near the temperature limits. Recovery uses the same checks as
-startup. The existing 10 mA charge-termination setting is retained. The Grepow
-and fallback profiles do not automatically charge a cell below 3.0 V because
-the supplied pack specification does not define recovery below that voltage.
+At startup, all profiles inhibit charging below 2.5 V and outside 0–45 °C,
+and reduce current near the temperature limits. The periodic charger setup
+restores the pre-2.3.3 recovery behavior: it can enable charging without
+rechecking those limits, including below 2.5 V. The existing 10 mA
+precharge/termination setting is retained. This legacy recovery behavior does
+not implement VARTA's specified low-current, timed over-discharge procedure;
+the supplied Grepow pack specification does not define recovery below 3.0 V.
 
 The Grepow limits come from the manufacturer's GRP1454M1 1C pack design
 guideline dated 2026-07-16. Its 111 mA discharge limit is separate from the

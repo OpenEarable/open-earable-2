@@ -90,6 +90,7 @@ k_work PowerManager::fuel_gauge_work;
 k_work_delayable PowerManager::charge_ctrl_delayable,PowerManager::power_down_work;
 struct Gauge {
     uint8_t level=70;
+    float voltage_value=3.8f, temperature_value=25.0f;
     bat_status status;
     gauge_status gauge;
     float state_of_charge(){return level;}
@@ -99,9 +100,9 @@ struct Gauge {
     float voltage() {
         std::unique_lock<std::mutex> lock(signals);
         if(pause_worker){worker_at_voltage=true;cv.notify_all();cv.wait(lock,[]{return release_worker;});}
-        return 3.8f;
+        return voltage_value;
     }
-    float temperature(){return 25.0f;}
+    float temperature(){return temperature_value;}
     bat_status battery_status(){return status;}
     int setup(const battery_settings &) {
         assert(cd_high && !power_manager._fuel_gauge_ready);
@@ -134,7 +135,8 @@ static void reset() {
     power_manager.power_on=true;power_manager.charging_disabled=false;
     power_manager.last_charging_state=1;
     power_manager._battery_settings=battery_profile_for_imu(0x69)->settings;
-    fuel_gauge.level=70;fuel_gauge.status={};fuel_gauge.gauge={};
+    fuel_gauge.level=70;fuel_gauge.voltage_value=3.8f;fuel_gauge.temperature_value=25.0f;
+    fuel_gauge.status={};fuel_gauge.gauge={};
     msg={};published_msg={};published=shutdown_requests=charge_cancellations=0;
     battery_update_pending=false;
 }
@@ -164,6 +166,22 @@ int main() {
         assert(battery_controller.read_charging_control().mAh==power_manager._battery_settings.i_charge);
     }
     std::puts("PASS: VARTA, Grepow and fallback profiles program/read back correctly");
+    for (uint8_t address : {uint8_t(0x68), uint8_t(0x69), uint8_t(0)}) {
+        reset();power_manager._battery_settings=battery_profile_for_imu(address)->settings;
+        fuel_gauge.voltage_value=2.4f;
+        configured();assert(!power_manager.check_battery() && cd_high);
+        power_manager.last_charging_state=0;power_manager.charge_task();
+        assert(!cd_high && battery_controller.configured());
+        assert(std::fabs(battery_controller.read_battery_voltage_control()-power_manager._battery_settings.u_term)<0.005f);
+    }
+    reset();configured();fuel_gauge.temperature_value=46.0f;
+    assert(!power_manager.check_battery() && cd_high);
+    power_manager.last_charging_state=0;power_manager.charge_task();
+    assert(!cd_high); // Pre-2.3.3 setup did not recheck temperature.
+    reset();configured();fuel_gauge.voltage_value=2.4f;
+    power_manager.last_charging_state=0;drop_write=5;regs[5]=0x8c;
+    power_manager.charge_task();assert(cd_high && !battery_controller.configured());
+    std::puts("PASS: legacy recovery re-enables charging after verified setup; profile voltages and failed-setup inhibition remain intact");
     for (uint8_t initial : {uint8_t(0x7c),uint8_t(0xfd),uint8_t(0x64)}) {
         reset();regs[7]=initial;
         assert(battery_controller.configure_3v3_at_boot()==0);

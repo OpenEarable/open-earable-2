@@ -23,14 +23,13 @@ static const struct battery_profile varta = {
 
 /* Grepow pack design guideline, 2026-07-16: 111 mAh typical, 108 mAh
  * minimum; 4.20 V; 111 mA max charge/discharge; 3.0 V discharge cutoff;
- * charge at 0..45 C. Undervoltage recovery below 3.0 V is not specified,
- * so do not automatically recover a cell outside that operating window.
+ * charge at 0..45 C. Use the legacy 2.5 V startup check for recovery.
  */
 static const struct battery_profile grepow = {
     .name = "Grepow GRP1454M1",
     .settings = {
         .u_nominal = 3.7f, .u_term = 4.2f, .u_vlo = 3.0f,
-        .u_charge_prevent = 3.0f,
+        .u_charge_prevent = 2.5f,
         .i_term = 10.0f, .i_charge = 90.0f, .i_max = 200.0f,
         .capacity = 111.0f,
         .temp_min = 0.0f, .temp_fast_min = 15.0f,
@@ -43,7 +42,7 @@ static const struct battery_profile unidentified = {
     .name = "Unidentified (4.2 V fallback)",
     .settings = {
         .u_nominal = 3.7f, .u_term = 4.2f, .u_vlo = 3.0f,
-        .u_charge_prevent = 3.0f,
+        .u_charge_prevent = 2.5f,
         .i_term = 10.0f, .i_charge = 80.0f, .i_max = 200.0f,
         .capacity = 108.0f,
         .temp_min = 0.0f, .temp_fast_min = 15.0f,

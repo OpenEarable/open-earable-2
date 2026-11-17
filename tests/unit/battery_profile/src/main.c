@@ -54,13 +54,13 @@ void test_charging_stops_outside_zero_to_45_degrees(void)
     }
 }
 
-void test_grepow_and_unknown_cells_do_not_auto_recover_below_3_volts(void)
+void test_all_profiles_use_legacy_startup_voltage_boundary(void)
 {
-    const uint8_t addresses[] = {0, 0x69};
+    const uint8_t addresses[] = {0, 0x68, 0x69};
     for (unsigned int i = 0; i < sizeof(addresses); i++) {
         const struct battery_settings *s = &battery_profile_for_imu(addresses[i])->settings;
-        TEST_ASSERT_EQUAL_FLOAT(0.0f, battery_profile_charge_current(s, 2.99f, 25.0f));
-        TEST_ASSERT_TRUE(battery_profile_charge_current(s, 3.0f, 25.0f) > 0);
+        TEST_ASSERT_EQUAL_FLOAT(0.0f, battery_profile_charge_current(s, 2.49f, 25.0f));
+        TEST_ASSERT_TRUE(battery_profile_charge_current(s, 2.5f, 25.0f) > 0);
     }
 }
 
@@ -71,7 +71,7 @@ void test_legacy_low_voltage_recovery_boundary_is_preserved(void)
     TEST_ASSERT_EQUAL_FLOAT(100.0f, battery_profile_charge_current(s, 2.5f, 25.0f));
 }
 
-void test_temperature_derating_is_reapplied_after_recovery(void)
+void test_temperature_derating_in_profile_policy(void)
 {
     const struct battery_settings *s = &battery_profile_for_imu(0x69)->settings;
     TEST_ASSERT_EQUAL_FLOAT(40.0f, battery_profile_charge_current(s, 3.7f, 10.0f));

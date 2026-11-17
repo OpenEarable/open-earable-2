@@ -752,11 +752,11 @@ void PowerManager::charge_task() {
 
     if (last_charging_state == 0 || !battery_controller.configured()) {
         LOG_INF("Setting up charge controller ........");
-        (void)battery_controller.setup(_battery_settings);
+        if (battery_controller.setup(_battery_settings) == 0) {
+            // Restore the pre-2.3.3 recovery behavior after charger setup.
+            battery_controller.enable_charge();
+        }
     }
-
-    // Recovery/configuration must use the same policy as initial startup.
-    (void)check_battery();
 
     k_work_submit(&fuel_gauge_work);
 

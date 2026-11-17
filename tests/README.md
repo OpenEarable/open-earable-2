@@ -129,7 +129,8 @@ python3 tests/host/battery_control/run.py
 They compile the production BQ25120A and TWIM drivers with simulated RTOS/I2C
 boundaries, and execute the production charging-decision, battery-update,
 manual-configuration and IMU-probe function bodies. Cases cover failed/ignored
-writes, readback mismatches, recovery after transient I2C failures, battery
+writes, readback mismatches, legacy low-voltage charger re-enabling, recovery
+after transient I2C failures, battery
 notifications and low-battery shutdown during charger faults, concurrent charging/configuration,
 bus release before reboot drains workers, and a sensor needing 10 ms POR.
 
