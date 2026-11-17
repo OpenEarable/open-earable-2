@@ -23,6 +23,7 @@
 
 #include "bt_le_audio_tx.h"
 #include "bt_mgmt.h"
+#include "bt_mgmt_conn_interval.h"
 #include "bt_rendering_and_capture.h"
 #include "audio_datapath.h"
 #include "bt_content_ctrl.h"
@@ -228,6 +229,8 @@ static void le_audio_msg_sub_thread(void)
 				}
 				break;
 			}
+
+			bt_mgmt_ci_on_stream_started();
 
 			ret = audio_system_start();
 			if (ret) {

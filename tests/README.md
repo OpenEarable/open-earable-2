@@ -111,6 +111,11 @@ Open `twister-out/coverage/index.html` after the run.
 The `csip_identity` suite verifies byte-for-byte compatibility with the pre-2.3.0
 LE Audio set identity, including stored pairs, erased UICR, and standalone devices.
 
+The `audio_sync_math` suite verifies the arithmetic that keeps the two earphones
+aligned during LE Audio playback: clock phase across the 32-bit timestamp wrap,
+rejection of late interrupts and single timestamp glitches, and a presentation
+delay that is independent of when the controller delivers a frame.
+
 The `battery_profile` suite verifies legacy/Grepow profile selection, the 4.2 V
 fallback for every other probe result, voltage/temperature charging boundaries,
 temperature derating and invalid-reading handling.

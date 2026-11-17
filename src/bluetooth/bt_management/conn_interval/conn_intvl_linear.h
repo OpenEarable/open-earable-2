@@ -13,6 +13,8 @@ public:
 
   void on_audio_underrun(uint32_t count) override;
 
+  bool on_stream_started() override;
+
   void on_timer_tick(k_timeout_t elapsed) override;
 
 private:
