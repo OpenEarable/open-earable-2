@@ -1,4 +1,6 @@
 #include "device_info.h"
+#include <stdio.h>
+#include <string.h>
 #include <generated/version.h>
 
 #include <zephyr/bluetooth/bluetooth.h>
@@ -9,7 +11,8 @@
 
 static char device_identifier[sizeof(uint64_t) * 2 + 3];
 char device_generation[16];
-static char firmware[] = FIRMWARE_VERSION;
+/* BLE exposes the release number; build diagnostics retain the Git identity. */
+static char firmware[] = FIRMWARE_RELEASE_VERSION;
 
 static ssize_t read_device_identifier(struct bt_conn *conn,
 			  const struct bt_gatt_attr *attr,
@@ -17,7 +20,8 @@ static ssize_t read_device_identifier(struct bt_conn *conn,
 			  uint16_t len,
 			  uint16_t offset)
 {
-	snprintf(device_identifier, sizeof(device_identifier), "0x%08X", oe_boot_state.device_id);
+	snprintf(device_identifier, sizeof(device_identifier), "0x%08X",
+		 (unsigned int)oe_boot_state.device_id);
 	
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, device_identifier,
 					 sizeof(device_identifier));
@@ -42,7 +46,7 @@ static ssize_t read_firmware(struct bt_conn *conn,
 			  uint16_t offset)
 {
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, firmware,
-					 sizeof(firmware));
+					 strlen(firmware));
 }
 
 BT_GATT_SERVICE_DEFINE(device_svc,

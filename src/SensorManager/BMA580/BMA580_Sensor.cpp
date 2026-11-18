@@ -61,15 +61,15 @@ BMA580_dev_inf dev_info = {
 BMA5_INTF_RET_TYPE bma5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
     int ret;
-    BMA580_dev_inf * dev_info = (BMA580_dev_inf *) intf_ptr;
+    BMA580_dev_inf * device_info = (BMA580_dev_inf *) intf_ptr;
 
-    dev_info->i2c_dev->aquire();
+    device_info->i2c_dev->aquire();
 
-    ret = i2c_burst_read(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
+    ret = i2c_burst_read(device_info->i2c_dev->master, device_info->addr, reg_addr, reg_data, len);
     if (ret) LOG_WRN("I2C read failed: %d\n", ret);
 
-    dev_info->i2c_dev->release();
-    return 0;
+    device_info->i2c_dev->release();
+    return ret == 0 ? BMA5_INTF_RET_SUCCESS : -1;
 }
 
 /*!
@@ -77,16 +77,16 @@ BMA5_INTF_RET_TYPE bma5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t l
  */
 BMA5_INTF_RET_TYPE bma5_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
-    BMA580_dev_inf * dev_info = (BMA580_dev_inf *) intf_ptr; 
+    BMA580_dev_inf * device_info = (BMA580_dev_inf *) intf_ptr;
 
-    dev_info->i2c_dev->aquire();
+    device_info->i2c_dev->aquire();
     
-    int ret = i2c_burst_write(dev_info->i2c_dev->master, dev_info->addr, reg_addr, reg_data, len);
+    int ret = i2c_burst_write(device_info->i2c_dev->master, device_info->addr, reg_addr, reg_data, len);
     if (ret) LOG_WRN("I2C write failed: %d", ret);
 
-    dev_info->i2c_dev->release();
+    device_info->i2c_dev->release();
 
-    return 0;
+    return ret == 0 ? BMA5_INTF_RET_SUCCESS : -1;
 }
 
 /*!
@@ -94,6 +94,7 @@ BMA5_INTF_RET_TYPE bma5_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uin
  */
 void bma5_delay_us(uint32_t period, void *intf_ptr)
 {
+    ARG_UNUSED(intf_ptr);
     k_usleep(period);
 }
 
@@ -160,7 +161,7 @@ int8_t bma5_interface_init(struct bma5_dev *bma5, uint8_t intf, enum bma5_contex
 /*!
  * @brief This internal API is used to enable accel and interrupt configuration settings.
  */
-int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
+int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *device)
 {
     int8_t rslt;
     uint8_t n_ints = 1;
@@ -171,10 +172,10 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     int_config.int_src = BMA5_INT_1;
 
     /* Get accel configurations */
-    rslt = bma5_get_acc_conf_0(&sensor_ctrl, dev);
+    rslt = bma5_get_acc_conf_0(&sensor_ctrl, device);
     bma5_check_rslt("bma5_get_acc_conf_0", rslt);
 
-    rslt = bma5_get_acc_conf(&acc_cfg, dev);
+    rslt = bma5_get_acc_conf(&acc_cfg, device);
     bma5_check_rslt("bma5_get_acc_conf", rslt);
 
     /* Set accel configurations */
@@ -188,7 +189,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     acc_cfg.noise_mode = BMA5_NOISE_MODE_LOWER_NOISE;
     acc_cfg.acc_drdy_int_auto_clear = BMA5_ACC_DRDY_INT_AUTO_CLEAR_DISABLED;
 
-    rslt = bma5_set_acc_conf(&acc_cfg, dev);
+    rslt = bma5_set_acc_conf(&acc_cfg, device);
     bma5_check_rslt("bma5_get_acc_conf", rslt);
 
     /*LOG_DBG("Accel configurations");
@@ -203,7 +204,7 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
     /* Enable accel */
     sensor_ctrl = BMA5_SENSOR_CTRL_ENABLE;
 
-    rslt = bma5_set_acc_conf_0(sensor_ctrl, dev);
+    rslt = bma5_set_acc_conf_0(sensor_ctrl, device);
     bma5_check_rslt("bma5_set_acc_conf_0", rslt);
 
     if (rslt == BMA5_OK)
@@ -211,20 +212,20 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
         LOG_DBG("Accel enabled");
     }
 
-    rslt = bma5_get_acc_conf_0(&sensor_ctrl, dev);
+    rslt = bma5_get_acc_conf_0(&sensor_ctrl, device);
     bma5_check_rslt("bma5_set_acc_conf_0", rslt);
 
-    rslt = bma5_get_acc_conf(&get_acc_cfg, dev);
+    rslt = bma5_get_acc_conf(&get_acc_cfg, device);
     bma5_check_rslt("bma5_get_acc_conf", rslt);
 
-    rslt = bma5_get_int_conf(&int_config, n_ints, dev);
+    rslt = bma5_get_int_conf(&int_config, n_ints, device);
     bma5_check_rslt("bma5_get_int_conf", rslt);
 
     int_config.int_conf.int_mode = BMA5_INT1_MODE_LATCHED;
     int_config.int_conf.int_od = BMA5_INT1_OD_PUSH_PULL;
     int_config.int_conf.int_lvl = BMA5_INT1_LVL_ACTIVE_HIGH;
 
-    rslt = bma5_set_int_conf(&int_config, n_ints, dev);
+    rslt = bma5_set_int_conf(&int_config, n_ints, device);
     bma5_check_rslt("bma5_set_int_conf", rslt);
 
     /*LOG_DBG("\nInt Configurations");
@@ -236,29 +237,36 @@ int8_t BMA580::get_accel_and_int_settings(struct bma5_dev *dev)
 }
 
 /*!
- * @brief This internal API gets FIFO configurations.
+ * @brief This internal API sets FIFO configurations and verifies the readback.
+ *
+ * The BMA580 silently limits the FIFO to 512 bytes while the feature engine
+ * is enabled, so verify that the requested FIFO size was accepted.
  */
-int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_conf, struct bma5_dev *dev)
+int8_t BMA580::get_fifo_conf(const struct bma5_fifo_conf *fifo_config, struct bma5_dev *device)
 {
     int8_t rslt;
-    struct bma5_fifo_conf read_fifo_conf = { 0 };
+    struct bma5_fifo_conf read_fifo_conf{};
 
     /* Set FIFO configuration.
      * NOTE 1: FIFO works only on header mode */
-    rslt = bma5_set_fifo_conf(fifo_conf, dev);
+    rslt = bma5_set_fifo_conf(fifo_config, device);
     bma5_check_rslt("bma5_set_fifo_conf", rslt);
 
     /* Get FIFO configuration register */
-    rslt = bma5_get_fifo_conf(&read_fifo_conf, dev);
+    rslt = bma5_get_fifo_conf(&read_fifo_conf, device);
     bma5_check_rslt("bma5_get_fifo_conf", rslt);
+
+    if (read_fifo_conf.fifo_size != fifo_config->fifo_size) {
+        LOG_ERR("FIFO size mismatch: requested 0x%02X, readback 0x%02X "
+                "(feature engine likely still enabled)",
+                fifo_config->fifo_size, read_fifo_conf.fifo_size);
+    }
 
     return rslt;
 }
 
-int BMA580::init(int odr, int fifo_watermark_level) {
+int BMA580::init(int odr, int watermark_level) {
     int8_t rslt;
-    struct bma580_int_map int_map, get_int_map;
-    //struct bma5_fifo_conf fifo_conf;
 
     /* Assign context parameter selection */
     enum bma5_context context = BMA5_HEARABLE;
@@ -276,27 +284,16 @@ int BMA580::init(int odr, int fifo_watermark_level) {
     bma5_check_rslt("bma580_init", rslt);
     LOG_DBG("Chip ID :0x%X", dev.chip_id);
 
-    /* Map generic interrupts to hardware interrupt pin of the sensor */
-    rslt = bma580_get_int_map(&int_map, &dev);
-    bma5_check_rslt("bma580_get_int_map", rslt);
-
-    /* Set FIFO full interrupt to INT2 */
-    //int_map.fifo_full_int_map = BMA580_FIFO_FULL_INT_MAP_INT2;
-	int_map.fifo_wm_int_map = BMA580_FIFO_WM_INT_MAP_INT1;
-
-    rslt = bma580_set_int_map(&int_map, &dev);
-    bma5_check_rslt("bma580_set_int_map", rslt);
-
-    rslt = bma580_get_int_map(&get_int_map, &dev);
-    bma5_check_rslt("bma580_get_int_map", rslt);
+    /* The feature engine and FIFO share 1024 bytes of RAM. None of the
+     * feature-engine functions are used here, so disable it to make the full
+     * RAM available to the FIFO. INT1/INT2 are unused; the FIFO is polled. */
+    rslt = bma5_set_feat_eng_conf(BMA5_FEAT_ENG_CTRL_DISABLE, &dev);
+    bma5_check_rslt("bma5_set_feat_eng_conf", rslt);
 
     rslt = get_accel_and_int_settings(&dev);
     bma5_check_rslt("get_accel_and_int_settings", rslt);
 
     /* Get FIFO configuration register */
-    rslt = bma5_get_fifo_conf(&fifo_conf, &dev);
-    bma5_check_rslt("bma5_get_fifo_conf", rslt);
-
     rslt = bma5_get_fifo_conf(&fifo_conf, &dev);
     bma5_check_rslt("bma5_get_fifo_conf", rslt);
 
@@ -306,8 +303,10 @@ int BMA580::init(int odr, int fifo_watermark_level) {
     fifo_conf.fifo_acc_z = BMA5_FIFO_ACC_Z_ENABLE;
     fifo_conf.fifo_compression = BMA5_FIFO_COMPRESSION_ACC_16BIT;
     fifo_conf.fifo_sensor_time = BMA5_FIFO_SENSOR_TIME_OFF;
-    fifo_conf.fifo_size = BMA5_FIFO_SIZE_MAX_512_BYTES;
-    fifo_conf.fifo_stop_on_full = BMA5_ENABLE; //BMA5_ENABLE
+    fifo_conf.fifo_size = BMA5_FIFO_SIZE_MAX_1024_BYTES;
+    /* Keep sampling if servicing is delayed instead of leaving the FIFO
+     * permanently stopped with stale data. Oldest samples may be overwritten. */
+    fifo_conf.fifo_stop_on_full = BMA5_DISABLE;
 
     rslt = get_fifo_conf(&fifo_conf, &dev);
     bma5_check_rslt("get_fifo_conf", rslt);
@@ -315,7 +314,7 @@ int BMA580::init(int odr, int fifo_watermark_level) {
     /* Update FIFO structure */
     fifoframe.data = fifo_data;
 
-    rslt = bma5_set_fifo_wm(fifo_watermark_level, &dev);
+    rslt = bma5_set_fifo_wm(watermark_level, &dev);
     bma5_check_rslt("bma5_set_fifo_wm", rslt);
 
     return rslt;
@@ -335,32 +334,38 @@ int BMA580::stop() {
 
 int BMA580::read(bma5_sens_fifo_axes_data_16_bit *fifo_accel_data) {
     int8_t rslt = BMA5_OK;
-    uint8_t n_status = 1;
-    struct bma580_int_status_types int_status = { 0 };
 
     fifoframe.fifo_avail_frames = 0;
 
-    int_status.int_src = BMA580_INT_STATUS_INT1;
+    // The FIFO fill level counts six-byte XYZ payloads, excluding the header
+    // generated for each frame on the bus. Read complete seven-byte frames.
+    uint8_t level[2] = {};
+    rslt = bma5_get_regs(BMA5_REG_FIFO_LEVEL_0, level, sizeof(level), &dev);
+    if (rslt != BMA5_OK) return rslt;
+    const unsigned frames = MIN(((level[0] | ((level[1] & 7) << 8)) / 6),
+                                sizeof(fifo_data) / 7);
+    if (frames == 0) return 0;
+    fifoframe.acc_byte_start_idx = 0;
+    fifoframe.fifo_avail_len = frames * 7;
+    // The generic register helper has a 128-byte temporary buffer. FIFO reads
+    // must go directly into our full-size member buffer, as in the Bosch FIFO API.
+    dev.intf_rslt = dev.bus_read(BMA5_REG_FIFO_DATA_OUT, fifo_data,
+                                 fifoframe.fifo_avail_len, dev.intf_ptr);
+    rslt = dev.intf_rslt == BMA5_INTF_RET_SUCCESS ? BMA5_OK : BMA5_E_COM_FAIL;
+    bma5_check_rslt("FIFO read", rslt);
 
-    /* Get fifo full interrupt 2 status */
-    rslt = bma580_get_int_status(&int_status, n_status, &dev);
-    bma5_check_rslt("bma580_get_int_status", rslt);
-
-    if (int_status.int_status.fifo_wm_int_status & BMA5_ENABLE)
+    if (rslt == BMA5_OK && fifoframe.fifo_avail_len > 0)
     {
-        /* Read FIFO data */
-        rslt = bma5_read_fifo_data(&fifoframe, &fifo_conf, &dev);
-        bma5_check_rslt("bma5_read_fifo_data", rslt);
-
-        /* Set fifo full interrupt 2 status */
-        rslt = bma580_set_int_status(&int_status, n_status, &dev);
-        bma5_check_rslt("bma580_get_int_status\n", rslt);
-
-        if (rslt == BMA5_OK)
-        {
-            /* Parse the FIFO data to extract accelerometer and sensortime data from the FIFO buffer */
-            (void)bma5_extract_acc_sens_time_16_bit(fifo_accel_data, &fifoframe, &fifo_conf, &dev);
+        // The configured format is XYZ without sensor-time bytes. Reject a
+        // different frame layout before the vendor parser can overrun output.
+        for (unsigned i = 0; i < fifoframe.fifo_avail_len; i += 7) {
+            if ((fifo_data[i] & 0x0F) !=
+                (BMA5_FIFO_ACC_X_MSK | BMA5_FIFO_ACC_Y_MSK | BMA5_FIFO_ACC_Z_MSK)) {
+                return BMA5_E_COM_FAIL;
+            }
         }
+        /* Parse accelerometer data from the FIFO buffer. */
+        (void)bma5_extract_acc_sens_time_16_bit(fifo_accel_data, &fifoframe, &fifo_conf, &dev);
     }
 
     return fifoframe.fifo_avail_frames;

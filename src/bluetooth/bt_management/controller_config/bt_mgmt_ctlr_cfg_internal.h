@@ -34,7 +34,7 @@ int bt_mgmt_ctlr_cfg_manufacturer_get(bool print_version, uint16_t *manufacturer
  */
 int bt_mgmt_ctlr_cfg_init(bool watchdog_enable);
 
-int bt_mgmt_stop_watchdog();
+int bt_mgmt_stop_watchdog(void);
 
 #ifdef __cplusplus
 }

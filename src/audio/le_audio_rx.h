@@ -4,28 +4,43 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+/** @file
+ * @defgroup audio_app_le_audio_rx LE Audio RX
+ * @{
+ * @brief LE Audio receive (RX) API for Audio applications.
+ *
+ * This module handles the reception and processing of incoming LE Audio streams from
+ * Bluetooth. It manages the audio data reception pipeline, including
+ * metadata extraction and audio frame processing for both unicast (CIS) and broadcast
+ * (BIS) modes.
+ */
+
 #ifndef _LE_AUDIO_RX_H_
 #define _LE_AUDIO_RX_H_
 
-/**
- * @brief Data handler when ISO data has been received.
- *
- * @param[in] p_data		Pointer to the received data.
- * @param[in] data_size		Size of the received data.
- * @param[in] bad_frame		Bad frame flag. (I.e. set for missed ISO data).
- * @param[in] sdu_ref		SDU reference timestamp.
- * @param[in] channel_index	Which channel is received.
- * @param[in] desired_data_size	The expected data size.
- */
-void le_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, bool bad_frame,
-			      uint32_t sdu_ref, enum audio_channel channel_index,
-			      size_t desired_data_size);
+#include <zephyr/bluetooth/audio/audio.h>
+#include <zephyr/net_buf.h>
+#include <audio_defines.h>
 
 /**
- * @brief Initialize the receive audio path.
+ * @brief	Data handler when ISO data has been received.
  *
- * @return 0 if successful, error otherwise.
+ * @param[in]	audio_frame_rx	Pointer to the audio buffer.
+ * @param[in]	meta		Pointer to the audio metadata.
+ * @param[in]	location_index	Which location is received.
+ */
+void le_audio_rx_data_handler(struct net_buf *audio_frame_rx, struct audio_metadata *meta,
+			      uint8_t location_index);
+
+/**
+ * @brief	Initialize the receive audio path.
+ *
+ * @return	0 if successful, error otherwise.
  */
 int le_audio_rx_init(void);
+
+/**
+ * @}
+ */
 
 #endif /* _LE_AUDIO_RX_H_ */

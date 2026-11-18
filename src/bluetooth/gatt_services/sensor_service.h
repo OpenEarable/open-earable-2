@@ -36,6 +36,8 @@ const char *get_sensor_recording_name();
 //int send_sensor_data(); //struct sensor_data * data);
 
 int set_sensor_config_status(struct sensor_config config);
+int get_sensor_config_status(uint8_t sensor_id, struct sensor_config *config);
+int notify_sensor_config_status(void);
 
 int clear_sensor_config_storage_status(uint8_t sensor_id);
 

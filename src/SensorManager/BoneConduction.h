@@ -7,11 +7,13 @@
 //#include "MAX30102/MAX30102.h"
 #include "BMA580/BMA580_Sensor.h"
 #include "EdgeMLSensor.h"
+#include "FifoSampleClock.h"
 
 #include "openearable_common.h"
 #include "zbus_common.h"
 
-#define ACCEL_FRAME_LEN                   UINT8_C(255)
+// The 1024-byte FIFO can retain at most 170 six-byte XYZ payloads.
+#define ACCEL_FRAME_LEN                   UINT8_C(170)
 
 class BoneConduction : public EdgeMlSensor {
 public:
@@ -23,7 +25,7 @@ public:
 
     void reset();
 
-    const static SampleRateSetting<10> sample_rates;
+    const static SampleRateSetting<9> sample_rates;
 
 private:
     BMA580 bma580;
@@ -42,10 +44,9 @@ private:
     bool _active = false;
 
     float t_sample_us;
+    FifoSampleClock sample_clock;
 
     int _num_samples_buffered;
-    float _sample_count = 0;
-    uint64_t _last_time_stamp = 0;
 };
 
 #endif

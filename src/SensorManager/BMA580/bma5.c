@@ -1927,9 +1927,7 @@ static int8_t unpack_accel_sensor_time_16_bit_data(uint8_t frame_header,
     if ((((*data_start_index) + BMA5_FIFO_16_BIT_ACCEL_XYZ_DATA) <= fifo->fifo_avail_len) &&
         (frame_header != BMA5_FIFO_SENS_TIME_EN_DEDI_FRM))
     {
-        if (frame_header & BMA5_FIFO_ACC_X_MSK)
-        if (frame_header & BMA5_FIFO_ACC_X_MSK)
-        {
+        if (frame_header & BMA5_FIFO_ACC_X_MSK) {
             /* Accel raw x data */
             data_lsb = fifo->data[(*data_start_index)++];
             data_msb = fifo->data[(*data_start_index)++];

@@ -27,6 +27,7 @@
 #include "button_service.h"
 #include "sensor_service.h"
 #include "led_service.h"
+#include "audio_response_service.h"
 
 #include "SensorScheme.h"
 #include "DefaultSensors.h"
@@ -115,7 +116,8 @@ int main(void) {
 	streamctrl_start();
 
 	uint32_t sirk = uicr_sirk_get();
-
+	uint8_t bonded_device_count = 0;
+	bt_mgmt_num_bonds_get(&bonded_device_count);
 	if (sirk == 0xFFFFFFFFU) {
 		state_indicator.set_pairing_state(SET_PAIRING);
 	} else if (bonded_device_count > 0 && !oe_boot_state.timer_reset) {
@@ -141,8 +143,15 @@ int main(void) {
 	ret = init_sensor_service();
 	ERR_CHK(ret);
 
+	ret = init_audio_response_service();
+	ERR_CHK(ret);
+
+	/* Step by one ISO interval (in 1.25 ms units): an ACL interval that is
+	 * not a multiple of it meets a CIS event at a fixed rate, which with
+	 * 10 ms frames cost every third frame at 15 ms and every fifth at 25 ms.
+	 */
 	bt_mgmt_conn_interval_init(new ConnIntvlLinear(
-	    4,                // linear increase step (8ms units)
+	    CONFIG_AUDIO_FRAME_DURATION_US / 1250,
 	    CONFIG_BLE_ACL_CONN_INTERVAL,
 	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
 	));

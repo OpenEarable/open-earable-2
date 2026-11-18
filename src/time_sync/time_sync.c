@@ -5,6 +5,7 @@
 #include <zephyr/devicetree.h>
 
 #include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/sys/byteorder.h>
 #include <string.h>
 #include <limits.h>
@@ -40,6 +41,7 @@ struct __packed time_sync_packet {
 };
 
 int64_t time_offset_us = 0;
+static atomic_t time_synced;
 
 bool notify_rtt_enabled = false;
 
@@ -71,6 +73,7 @@ static ssize_t write_rtt_request(
     uint16_t offset,
     uint8_t flags
 ) {
+	ARG_UNUSED(flags);
     uint64_t rx_time = get_current_time_us();
 
     if (offset != 0) {
@@ -126,6 +129,9 @@ static ssize_t write_time_offset(
     uint16_t offset,
     uint8_t flags
 ) {
+	ARG_UNUSED(conn);
+	ARG_UNUSED(attr);
+	ARG_UNUSED(flags);
     if (offset != 0) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
@@ -137,6 +143,7 @@ static ssize_t write_time_offset(
     int64_t delta;
     memcpy(&delta, buf, sizeof(delta));
     time_offset_us += delta;
+    atomic_set(&time_synced, 1);
     LOG_DBG("Received time offset update: %lld us, new time offset: %lld us", delta, time_offset_us);
 
     return len;
@@ -152,27 +159,36 @@ int init_time_sync(void) {
 	return 0;
 }
 
-inline uint64_t get_current_time_us() {
+bool time_sync_is_synced(void) {
+    return atomic_get(&time_synced) != 0;
+}
+
+uint64_t get_current_time_us(void) {
    uint64_t base_u = get_time_since_boot_us();
    int64_t base_s = (base_u > (uint64_t)INT64_MAX) ? INT64_MAX : (int64_t)base_u;
-   int64_t now_s = base_s + time_offset_us;
+    if (time_offset_us > 0 && base_s > INT64_MAX - time_offset_us) {
+        LOG_WRN("Current time overflow, returning UINT64_MAX");
+        return UINT64_MAX;
+    }
+    if (time_offset_us < 0 && base_s < INT64_MIN - time_offset_us) {
+        LOG_WRN("Current time underflow, returning 0");
+        return 0;
+    }
+    int64_t now_s = base_s + time_offset_us;
    if (now_s < 0) {
        LOG_WRN("Current time underflow, returning 0");
        return 0;
     }
-    if (now_s != base_u + time_offset_us) {
-        LOG_WRN("Current time overflow, returning UINT64_MAX");
-        return UINT64_MAX;
-    }
     return (uint64_t)now_s;
 }
 
-inline uint64_t get_time_since_boot_us() {
+uint64_t get_time_since_boot_us(void) {
     return k_ticks_to_us_floor64(k_uptime_ticks());
 }
 
 void rtt_cfg_changed(const struct bt_gatt_attr *attr,
                   uint16_t value) {
+	ARG_UNUSED(attr);
     LOG_DBG("RTT characteristic CCCD changed: %u", value);
     notify_rtt_enabled = (value == BT_GATT_CCC_NOTIFY);
 }

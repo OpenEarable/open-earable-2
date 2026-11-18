@@ -4,6 +4,15 @@
  *  SPDX-License-Identifier: LicenseRef-PCFT
  */
 
+/** @file
+ * @defgroup audio_app_i2s Audio I2S
+ * @{
+ * @brief Audio I2S interface API for Audio applications.
+ *
+ * This module provides the I2S (Inter-IC Sound) interface for audio data transfer
+ * between the application and external audio hardware.
+ */
+
 #ifndef _AUDIO_I2S_H_
 #define _AUDIO_I2S_H_
 
@@ -11,20 +20,11 @@
 #include <stdint.h>
 
 /**
- * Calculation:
- * FREQ_VALUE = 2^16 * ((12 * f_out / 32M) - 4)
- * f_out == 12.288
- * 39845.888 = 2^16 * ((12 * 12.288 / 32M) - 4)
- * 39846 = 0x9BA6
- */
-#define HFCLKAUDIO_12_288_MHZ 0x9BA6
-//#define HFCLKAUDIO_12_288_MHZ 0x9B9D
-#define HFCLKAUDIO_12_165_MHZ 0x8FD8
-#define HFCLKAUDIO_12_411_MHZ 0xA774
-
-/*
- * Calculate the number of bytes of one frame, as per now, this frame can either
- * be 10 or 7.5 ms. Since we can't have floats in a define we use 15/2 instead
+ * @brief Calculate frame size in bytes based on audio configuration.
+ *
+ * This macro calculates the number of bytes in one audio frame based on the
+ * configured I2S sample rate, number of channels, and bit depth. The frame
+ * duration can be either 10 ms or 7.5 ms.
  */
 #if ((CONFIG_AUDIO_FRAME_DURATION_US == 7500) && CONFIG_SW_CODEC_LC3)
 
@@ -36,11 +36,16 @@
 	((CONFIG_I2S_LRCK_FREQ_HZ / 1000 * 10) * CONFIG_I2S_CH_NUM * CONFIG_AUDIO_BIT_DEPTH_OCTETS)
 #endif /* ((CONFIG_AUDIO_FRAME_DURATION_US == 7500) && CONFIG_SW_CODEC_LC3) */
 
-#define BLOCK_SIZE_BYTES (FRAME_SIZE_BYTES / CONFIG_FIFO_FRAME_SPLIT_NUM)
+#define FRAME_SIZE_MONO_BYTES (FRAME_SIZE_BYTES / CONFIG_I2S_CH_NUM)
+#define BLOCK_SIZE_BYTES      (FRAME_SIZE_BYTES / CONFIG_FIFO_FRAME_SPLIT_NUM)
 
-/*
- * Calculate the number of samples in a block, divided by the number of samples
- * that will fit within a 32-bit word
+/**
+ * @brief Calculate number of samples per I2S block.
+ *
+ * This macro calculates the number of audio samples in each I2S block,
+ * accounting for the bit depth and 32-bit word alignment. The calculation
+ * determines how many samples fit within a 32-bit word based on the
+ * configured audio bit depth.
  */
 #define I2S_SAMPLES_NUM                                                                            \
 	(BLOCK_SIZE_BYTES / (CONFIG_AUDIO_BIT_DEPTH_OCTETS) / (32 / CONFIG_AUDIO_BIT_DEPTH_BITS))
@@ -87,5 +92,9 @@ void audio_i2s_blk_comp_cb_register(i2s_blk_comp_callback_t blk_comp_callback);
  * @brief Initialize I2S module
  */
 void audio_i2s_init(void);
+
+/**
+ * @}
+ */
 
 #endif /* _AUDIO_I2S_H_ */

@@ -130,6 +130,8 @@ public:
     float design_cap();
     float remaining_cap();
     float charge_current();
+    /** Gauge charging-voltage recommendation in volts; zero on a read failure. */
+    float charge_voltage();
     int cycle_count();
     float standby_current();
     op_state operation_state();

@@ -6,6 +6,10 @@
 
 #include "streamctrl.h"
 
+#include <stdio.h>
+#include <inttypes.h>
+#include <string.h>
+#include "common/bt_str.h"
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/sys/reboot.h>
 
@@ -19,19 +23,27 @@
 
 #include "bt_le_audio_tx.h"
 #include "bt_mgmt.h"
+#include "bt_mgmt_conn_interval.h"
 #include "bt_rendering_and_capture.h"
 #include "audio_datapath.h"
 #include "bt_content_ctrl.h"
+#include "device_control_service.h"
 #include "le_audio.h"
 #include "le_audio_rx.h"
 #include "fw_info_app.h"
 
+#include "AutoOffManager.h"
 #include "BootState.h"
+#include "channel_assignment.h"
+#include "uicr.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(streamctrl, CONFIG_MAIN_LOG_LEVEL);
 
-ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
+BUILD_ASSERT(CONFIG_BT_AUDIO_CONCURRENT_RX_STREAMS_MAX <= CONFIG_AUDIO_DECODE_CHANNELS_MAX);
+BUILD_ASSERT(CONFIG_BT_AUDIO_CONCURRENT_TX_STREAMS_MAX <= CONFIG_AUDIO_ENCODE_CHANNELS_MAX);
+
+ZBUS_MSG_SUBSCRIBER_DEFINE(button_evt_sub);
 
 ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
 
@@ -52,11 +64,24 @@ K_THREAD_STACK_DEFINE(button_msg_sub_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_S
 K_THREAD_STACK_DEFINE(le_audio_msg_sub_thread_stack, CONFIG_LE_AUDIO_MSG_SUB_STACK_SIZE);
 
 static enum stream_state strm_state = STATE_PAUSED;
+static const char le_audio_auto_off_token[] = "LEAudio";
+
+#define MEDIA_DOUBLE_CLICK_MS 400
 
 /* Function for handling all stream state changes */
 static void stream_state_set(enum stream_state stream_state_new)
 {
 	strm_state = stream_state_new;
+}
+
+static void media_play_pause(void)
+{
+	int ret = bt_content_ctlr_media_state_playing() ? bt_content_ctrl_stop(NULL) :
+						       bt_content_ctrl_start(NULL);
+
+	if (ret) {
+		LOG_WRN("Could not toggle playback: %d", ret);
+	}
 }
 
 /**
@@ -66,15 +91,24 @@ static void button_msg_sub_thread(void)
 {
 	int ret;
 	const struct zbus_channel *chan;
+	int64_t click_deadline = 0;
 
 	while (1) {
-		ret = zbus_sub_wait(&button_evt_sub, &chan, K_FOREVER);
-		ERR_CHK(ret);
-
 		struct button_msg msg;
+		k_timeout_t timeout = click_deadline ? K_TIMEOUT_ABS_MS(click_deadline) : K_FOREVER;
 
-		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
-		ERR_CHK(ret);
+		ret = zbus_sub_wait_msg(&button_evt_sub, &chan, &msg, timeout);
+		if (ret != -ENOMSG) {
+			ERR_CHK(ret);
+		}
+
+		if (click_deadline && k_uptime_get() >= click_deadline) {
+			click_deadline = 0;
+			media_play_pause();
+		}
+		if (ret == -ENOMSG) {
+			continue;
+		}
 
 		LOG_DBG("Got btn evt from queue - id = %d, action = %d", msg.button_pin,
 			msg.button_action);
@@ -91,20 +125,15 @@ static void button_msg_sub_thread(void)
 				break;
 			}
 
-			if (bt_content_ctlr_media_state_playing()) {
-				ret = bt_content_ctrl_stop(NULL);
+			if (click_deadline) {
+				click_deadline = 0;
+				ret = bt_content_ctrl_next_track(NULL);
 				if (ret) {
-					LOG_WRN("Could not stop: %d", ret);
+					LOG_WRN("Could not skip track: %d", ret);
 				}
-
-			} else if (!bt_content_ctlr_media_state_playing()) {
-				ret = bt_content_ctrl_start(NULL);
-				if (ret) {
-					LOG_WRN("Could not start: %d", ret);
-				}
-
 			} else {
-				LOG_WRN("In invalid state: %d", strm_state);
+				/* Wait before toggling so a double click sends only next-track. */
+				click_deadline = k_uptime_get() + MEDIA_DOUBLE_CLICK_MS;
 			}
 
 			break;
@@ -173,6 +202,7 @@ static void button_msg_sub_thread(void)
 static void le_audio_msg_sub_thread(void)
 {
 	int ret;
+	uint8_t active_audio_dirs = 0;
 	uint32_t pres_delay_us;
 	uint32_t bitrate_bps;
 	uint32_t sampling_rate_hz;
@@ -188,6 +218,8 @@ static void le_audio_msg_sub_thread(void)
 
 		switch (msg.event) {
 		case LE_AUDIO_EVT_STREAMING:
+			active_audio_dirs |= msg.dir;
+			auto_off_prohibit(le_audio_auto_off_token);
 			LOG_DBG("LE audio evt streaming");
 
 			if (strm_state == STATE_STREAMING) {
@@ -198,7 +230,13 @@ static void le_audio_msg_sub_thread(void)
 				break;
 			}
 
-			audio_system_start();
+			bt_mgmt_ci_on_stream_started();
+
+			ret = audio_system_start();
+			if (ret) {
+				LOG_ERR("Failed to start audio system: %d", ret);
+				break;
+			}
 			stream_state_set(STATE_STREAMING);
 			if (msg.dir == BT_AUDIO_DIR_SOURCE) {
 				audio_system_encoder_start();
@@ -211,6 +249,11 @@ static void le_audio_msg_sub_thread(void)
 			break;
 
 		case LE_AUDIO_EVT_NOT_STREAMING:
+			/* A stopped microphone must not release the playback veto. */
+			active_audio_dirs &= ~msg.dir;
+			if (active_audio_dirs == 0) {
+				auto_off_allow(le_audio_auto_off_token);
+			}
 			LOG_DBG("LE audio evt not streaming");
 
 			if (strm_state == STATE_PAUSED) {
@@ -379,6 +422,10 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 
 		break;
 
+	case BT_MGMT_PAIRING_COMPLETE:
+		/* Pairing state is handled by the OpenEarable application layer. */
+		break;
+
 	default:
 		LOG_WRN("Unexpected/unhandled bt_mgmt event: %d", msg->event);
 
@@ -472,6 +519,14 @@ static int ext_adv_populate(struct bt_data *ext_adv_buf, size_t ext_adv_buf_size
 		return ret;
 	}
 
+	if (ext_adv_buf_cnt >= ext_adv_buf_size) {
+		return -ENOMEM;
+	}
+	ext_adv_buf[ext_adv_buf_cnt].type = BT_DATA_NAME_COMPLETE;
+	ext_adv_buf[ext_adv_buf_cnt].data = bt_get_name();
+	ext_adv_buf[ext_adv_buf_cnt].data_len = strlen(bt_get_name());
+	ext_adv_buf_cnt++;
+
 	ret = unicast_server_adv_populate(&ext_adv_buf[ext_adv_buf_cnt],
 					  ext_adv_buf_size - ext_adv_buf_cnt);
 
@@ -498,15 +553,13 @@ uint8_t stream_state_get(void)
 	return strm_state;
 }
 
-void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
+void streamctrl_send(struct net_buf const *const audio_frame)
 {
 	int ret;
 	static int prev_ret;
 
-	struct le_audio_encoded_audio enc_audio = {.data = data, .size = size, .num_ch = num_ch};
-
 	if (strm_state == STATE_STREAMING) {
-		ret = unicast_server_send(enc_audio);
+		ret = unicast_server_send(audio_frame);
 
 		if (ret != 0 && ret != prev_ret) {
 			if (ret == -ECANCELED) {
@@ -544,11 +597,15 @@ static void write_sirk(uint32_t sirk) {
 // Callback-Funktion für gefundene Geräte
 static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, struct net_buf_simple *ad)
 {
+	ARG_UNUSED(rssi);
+	ARG_UNUSED(type);
+
     char addr_str[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
 
-    int ret;
 	bool is_le_audio_device = false;
+	bool csis_rsi_found = false;
+	bool chip_id_found = false;
 	uint8_t csis_rsi[6];
 	uint8_t chip_id[8];
 
@@ -558,14 +615,14 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
             break; // Ungültige Länge
         }
 
-        uint8_t type = net_buf_simple_pull_u8(ad);
+        uint8_t data_type = net_buf_simple_pull_u8(ad);
         const uint8_t *data = ad->data;
         ad->data += len - 1;
         ad->len -= len - 1;
 
         // Suchen nach 16-bit Service UUIDs (LE Audio Services)
-        if (type == BT_DATA_SVC_DATA16) {
-            for (size_t i = 0; i < len - 1; i += 2) {
+        if (data_type == BT_DATA_SVC_DATA16) {
+            for (size_t i = 0; i + 1U < (size_t)(len - 1); i += 2) {
                 uint16_t uuid = (data[i + 1] << 8) | data[i];
 				if (uuid == BT_UUID_CAS_VAL) {
 					is_le_audio_device = true;
@@ -573,13 +630,24 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
             }
         }
 
-		if (is_le_audio_device && type == BT_DATA_MANUFACTURER_DATA) {
-			memset(chip_id, 0, sizeof(chip_id));
-			memcpy(chip_id, data, sizeof(chip_id));
+		if (is_le_audio_device && data_type == BT_DATA_MANUFACTURER_DATA) {
+			if (len > 1U && (size_t)(len - 1U) >= sizeof(chip_id)) {
+				memcpy(chip_id, data, sizeof(chip_id));
+				chip_id_found = true;
+			} else {
+				LOG_DBG("Ignoring short manufacturer chip ID (%u bytes)",
+					(unsigned int)(len - 1));
+			}
         }
 
-		if (type == BT_DATA_CSIS_RSI) {
-			memcpy(csis_rsi, data, sizeof(csis_rsi));
+		/* A valid RSI contains a 3-byte hash followed by a 3-byte random value. */
+		if (data_type == BT_DATA_CSIS_RSI) {
+			if (len > 1U && (size_t)(len - 1U) >= sizeof(csis_rsi)) {
+				memcpy(csis_rsi, data, sizeof(csis_rsi));
+				csis_rsi_found = true;
+			} else {
+				LOG_DBG("Ignoring short CSIS RSI (%u bytes)", (unsigned int)(len - 1));
+			}
 		}
 
 		// channel
@@ -591,10 +659,18 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 	if (is_le_audio_device) {
 		LOG_INF("Found LE-Audio device!");
 
-		uint32_t hash_ref = (csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
-		uint32_t hash;
+		/* Do not derive or persist a SIRK without a complete peer identity. */
+		if (!chip_id_found) {
+			LOG_DBG("Ignoring LE Audio device without manufacturer chip ID");
+			return;
+		}
 
-		uint32_t new_sirk = *((uint32_t *) chip_id) ^ oe_boot_state.device_id;
+		uint32_t hash;
+		uint32_t peer_device_id;
+
+		/* Copy from the byte array without alignment or aliasing assumptions. */
+		memcpy(&peer_device_id, chip_id, sizeof(peer_device_id));
+		uint32_t new_sirk = peer_device_id ^ oe_boot_state.device_id;
 
 		enum audio_channel channel;
 
@@ -602,15 +678,23 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 		channel_assignment_get(&channel);
 
 		if (channel == AUDIO_CH_L) {
-			LOG_INF("Device ID 1: %016X", oe_boot_state.device_id);
-			LOG_INF("Device ID 2: %016X", *((uint32_t *) chip_id));
-			LOG_INF("New Sirk: %016X", new_sirk);
+			LOG_INF("Device ID 1: %016" PRIX64, oe_boot_state.device_id);
+			LOG_INF("Device ID 2: %08" PRIX32, peer_device_id);
+			LOG_INF("New Sirk: %08" PRIX32, new_sirk);
 
 			//TODO: check if the device wants to pair (sirk == device_id)
 			//TODO: check channel
 
 			write_sirk(new_sirk);
 		} else if (channel == AUDIO_CH_R) {
+			/* Only right-channel matching validates the advertised RSI. */
+			if (!csis_rsi_found) {
+				LOG_DBG("Ignoring right-channel LE Audio device without CSIS RSI");
+				return;
+			}
+
+			uint32_t hash_ref =
+				(csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
 			uint8_t res[BT_CSIP_PADDED_RAND_SIZE];
 
 			uint8_t sirk[BT_CSIP_SIRK_SIZE + 1];
@@ -630,6 +714,10 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, st
 			snprintf(sirk, BT_CSIP_SIRK_SIZE, "%08X", new_sirk);
 
 			int err = bt_encrypt_le(sirk, res, res);
+			if (err) {
+				LOG_ERR("Failed to calculate CSIS hash: %d", err);
+				return;
+			}
 
 			memcpy(out, res, BT_CSIP_CRYPTO_HASH_SIZE);
 
@@ -662,6 +750,14 @@ int streamctrl_start() //streamctrl_start
 	ret = bt_mgmt_init();
 	ERR_CHK(ret);
 
+	ret = auto_off_init();
+	ERR_CHK(ret);
+
+	ret = auto_off_register_participant(le_audio_auto_off_token,
+			(power_saving_level_t)CONFIG_POWER_SAVING_LEVEL_LEAUDIO);
+	ERR_CHK(ret);
+	auto_off_allow(le_audio_auto_off_token);
+
 	ret = audio_system_init();
 	ERR_CHK(ret);
 
@@ -691,6 +787,12 @@ int streamctrl_start() //streamctrl_start
 	ret = bt_content_ctrl_init();
 	ERR_CHK(ret);
 
+	/* Append after every existing static and dynamic service, including VCS.
+	 * Do not move this into the alphabetically sorted static service table.
+	 */
+	ret = device_control_service_register();
+	ERR_CHK_MSG(ret, "Failed to register device control service");
+
 	ret = ext_adv_populate(ext_adv_buf, ARRAY_SIZE(ext_adv_buf), &ext_adv_buf_cnt);
 	ERR_CHK(ret);
 
@@ -708,7 +810,9 @@ int streamctrl_start() //streamctrl_start
 			if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
 			else LOG_ERR("UICR writing error: %i", ret);
 		} else {
-			struct bt_le_scan_param  * scan_param = BT_LE_SCAN_PARAM(NRF5340_AUDIO_GATEWAY_SCAN_TYPE, BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
+			struct bt_le_scan_param *scan_param =
+				BT_LE_SCAN_PARAM(NRF_AUDIO_GATEWAY_SCAN_TYPE,
+						 BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
 			
 			int err = bt_le_scan_start(scan_param, device_found);
 			if (err) LOG_ERR("Scanning failed to start (err %d)", err);

@@ -45,7 +45,7 @@ void remember_first_error(int result, int &first_error)
  * controller poll thread (CONFIG_CTLR_POLL_WORK_Q_PRIO) so that its task
  * watchdog keeps being served regardless of how long the card takes.
  */
-#define SD_WORK_Q_STACK_SIZE 4096
+#define SD_WORK_Q_STACK_SIZE 2048
 #define SD_WORK_Q_PRIO	     10
 
 K_THREAD_STACK_DEFINE(sd_work_q_stack, SD_WORK_Q_STACK_SIZE);
@@ -119,7 +119,7 @@ void SDCardManager::sd_card_state_change_isr(const struct device *dev, struct gp
     k_work_reschedule_for_queue(&sd_work_q, &sdcard_manager.unmount_work, SD_DEBOUNCE_MS);
 }
 
-SDCardManager::SDCardManager(): path(SD_ROOT_PATH) {
+SDCardManager::SDCardManager(): current_path(SD_ROOT_PATH) {
 	fs_dir_t_init(&this->dirp);
 }
 
@@ -285,7 +285,7 @@ int SDCardManager::unmount() {
 	 * hold the load switches for good.
 	 */
 	this->mounted = false;
-	this->path = SD_ROOT_PATH;
+	this->current_path = SD_ROOT_PATH;
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 
 	ret = disk_access_ioctl(SD_DISK_NAME, DISK_IOCTL_CTRL_DEINIT, nullptr);
@@ -376,7 +376,7 @@ int SDCardManager::mount() {
 	LOG_INF("SD card volume size: %d MB", (uint32_t)(sd_card_size_bytes >> 20));
 
 	fs_dir_t_init(&this->dirp);
-	this->path = SD_ROOT_PATH;
+	this->current_path = SD_ROOT_PATH;
 	this->mnt_pt.mnt_point = SD_ROOT_PATH;
 
 	ret = k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
@@ -389,8 +389,8 @@ int SDCardManager::mount() {
 	ret = fs_mount(&this->mnt_pt);
 	if (!ret) {
 		this->mounted = true;
-		LOG_DBG("Root dir: %s", this->path.c_str());
-		ret = fs_opendir(&this->dirp, this->path.c_str());
+		LOG_DBG("Root dir: %s", this->current_path.c_str());
+		ret = fs_opendir(&this->dirp, this->current_path.c_str());
 	}
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 
@@ -438,7 +438,7 @@ int SDCardManager::cd(std::string path) {
 		return ret;
 	}
 
-	std::string abs_path_name = create_path(this->path, path);
+	std::string abs_path_name = create_path(this->current_path, path);
 
 	LOG_DBG("abs path name:\t%s", abs_path_name.c_str());
 
@@ -448,8 +448,8 @@ int SDCardManager::cd(std::string path) {
 	if (ret) {
 		LOG_ERR("Open SD card dir failed: %d", ret);
 		// Try to revert to the previous path if the new one fails
-		if (this->path != path) {
-			int rret = fs_opendir(&this->dirp, this->path.c_str());
+		if (this->current_path != path) {
+			int rret = fs_opendir(&this->dirp, this->current_path.c_str());
 			if (rret) {
 				LOG_ERR("Failed to cd back to previous dir: %d", rret);
 			}
@@ -458,7 +458,7 @@ int SDCardManager::cd(std::string path) {
 		return ret;
 	}
 
-	this->path = abs_path_name;
+	this->current_path = abs_path_name;
 
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
@@ -481,7 +481,7 @@ int SDCardManager::ls(char *buf, size_t *buf_size) {
 		return -ENODEV;
 	}
 
-	if (this->path.length() > CONFIG_FS_FATFS_MAX_LFN) {
+	if (this->current_path.length() > CONFIG_FS_FATFS_MAX_LFN) {
 		LOG_ERR("Path is too long");
 		k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 		return -FR_INVALID_NAME;
@@ -541,7 +541,7 @@ int SDCardManager::mkdir(std::string path) {
 		return -FR_INVALID_NAME;
 	}
 
-	std::string abs_path_name = create_path(this->path, path);
+	std::string abs_path_name = create_path(this->current_path, path);
 
 	ret = fs_mkdir(abs_path_name.c_str());
 	if (ret) {
@@ -574,7 +574,7 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 		return -ENAMETOOLONG;
 	}
 
-	std::string abs_path_name = create_path(this->path, path);
+	std::string abs_path_name = create_path(this->current_path, path);
 
 	if (this->tracked_file.is_open) {
 		LOG_ERR("File is already open");
@@ -603,7 +603,7 @@ int SDCardManager::open_file(std::string path, bool write, bool append, bool cre
 	}
 
 	this->tracked_file.is_open = true;
-	this->path = abs_path_name;
+	this->current_path = abs_path_name;
 
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return 0;
@@ -629,20 +629,27 @@ int SDCardManager::close_file() {
 	if (ret) {
 		LOG_ERR("Failed to close file: %d", ret);
 	} else {
-		LOG_DBG("File %s closed", this->path.c_str());
+		LOG_DBG("File %s closed", this->current_path.c_str());
 	}
 
 	/* fs_close() frees the pooled object even on error, so always drop it. */
 	this->tracked_file.is_open = false;
 	fs_file_t_init(&this->tracked_file.filep);
 
-	size_t last_slash_pos = this->path.find_last_of("/");
+	size_t last_slash_pos = this->current_path.find_last_of("/");
 	if (last_slash_pos != std::string::npos) {
-		this->path = this->path.substr(0, last_slash_pos);
+		this->current_path = this->current_path.substr(0, last_slash_pos);
 	}
 
 	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
 	return ret;
+}
+
+off_t SDCardManager::tell() {
+	k_mutex_lock(&m_sem_sd_mngr_oper_ongoing, K_FOREVER);
+	const off_t position = tracked_file.is_open ? fs_tell(&tracked_file.filep) : -EBADF;
+	k_mutex_unlock(&m_sem_sd_mngr_oper_ongoing);
+	return position;
 }
 
 ssize_t SDCardManager::write(char *buf, size_t *buf_size, bool sync) {
@@ -804,7 +811,7 @@ int SDCardManager::rm(std::string path) {
 		return -FR_INVALID_NAME;
 	}
 
-	std::string abs_path_name = create_path(this->path, path);
+	std::string abs_path_name = create_path(this->current_path, path);
 
 	ret = fs_unlink(abs_path_name.c_str());
 	if (ret) {

@@ -9,15 +9,17 @@
 
 1. [Setup](#setup)
 
-2. [Contributing](#contributing)
+2. [Main-board communication test](#main-board-communication-test)
 
-3. [Battery States](#battery-states)
+3. [Contributing](#contributing)
 
-4. [Connection States](#connection-states)  
+4. [Battery States](#battery-states)
+
+5. [Connection States](#connection-states)
    
-5. [SD Card](#sd-card)
+6. [SD Card](#sd-card)
 
-6. [Citing](#citing)
+7. [Citing](#citing)
 
 
 ## Setup
@@ -39,13 +41,22 @@
 5. **Install the Toolchain via nRF Connect**  
    - Open the **nRF Connect** tab in VS Code.
    - Click **"Install Toolchain"**.
-   - Select and install **version 3.0.1**.
+   - Select and install **version 3.4.1**.
 
 6. **Install the nRF Connect SDK**  
    - In the **nRF Connect** tab, select **"Manage SDK"**. 
-   - Install **SDK version 3.0.1**.
+   - Install **SDK version 3.4.1**.
 
-7. **Open the Firmware Folder in VS Code**  
+7. **Clone or Update the Firmware Repository and Open It in VS Code**
+   - For a new checkout, clone the repository together with its submodules:
+     ```bash
+     git clone --recurse-submodules https://github.com/OpenEarable/open-earable-2.git
+     ```
+   - If the repository is already checked out, initialize or update its submodules from the repository root:
+     ```bash
+     git submodule update --init --recursive
+     ```
+   - The `protocol` submodule provides the generated C sources in `protocol/generated/c` that are required during CMake configuration.
    - Use `File > Open Folder` or drag-and-drop the firmware directory into VS Code.
    - OR in the **APPLICATIONS** section of the nRF Connect tab:
      - Select `Open Exisiting Application`.
@@ -56,7 +67,9 @@
    - In the **APPLICATIONS** section of the nRF Connect extension tab:  
      - Select the `open-earable-2` application.  
      - Click **"+ Add build configuration"** to set up a new build.
-     - Select the SDK version 3.0.1, toolchain version 3.0.1, and `open-earable-2/nrf5340/cpuapp` as board target.
+     - Select the SDK version 3.4.1, toolchain version 3.4.1, and `openearable_v2/nrf5340/cpuapp` as board target.
+     - After switching SDK versions, use a new build directory or a pristine build.
+     - The firmware manifest pins nRF Connect SDK **v3.4.1** (Nordic Zephyr **4.4.2**). Use the matching **v3.4.1 Nordic toolchain**; CI uses **Zephyr SDK 1.0.1**.
      - To build **with FOTA** (firmware over-the-air update functionality):
        - Leave the `Base configuration files (Kconfig fragments)` dropdown empty.
        - as `Extra CMAKE arguments` set `-DFILE_SUFFIX="fota"`.
@@ -64,6 +77,7 @@
      -  To build **without FOTA**:
         - Select `prj.conf` as the `Base configuration files (Kconfig fragments)`.
         - Do not set any of the FOTA flags described above.
+   - **Migrating from SDK 3.0.1:** use a full wired sysbuild flash, including MCUboot, the network-core bootloader, and both core images. SDK 3.4.1 replaces Partition Manager with fixed devicetree partitions at the same addresses. Its FOTA configuration uses overwrite-only updates, so it does not provide automatic rollback. An OTA-only migration using the older bootloader has not been validated.
     
 9. **J-Link Setup**
    - Wire your J-Link to the debugging breakout PCB as shown below.
@@ -75,6 +89,7 @@
 
 11. **Build and Flash**
    - Click on `Generate and Build` and wait for the application to build (this will take some time)
+   - Rebuild existing configurations to generate the per-core `merged_openearable_v2_nrf5340_cpuapp.hex` and `merged_openearable_v2_nrf5340_cpunet.hex` files used by the flash scripts. Both scripts also accept the previous `merged.hex` / `merged_CPUNET.hex` layout.
    - Make sure your device is charged or powered via USB. If the battery is fully discharged, the charging management IC will no longer supply power to the MCU from the battery, so you won’t be able to flash the MCU unless the battery is charged or the device is directly powered via USB.
    - Open a new terminal in VS Code and run the following command from the root of the `open-earable-v2` directory to flash the FOTA build. Make sure to set the serial number of your J-Link (right click your J-Link in the `CONNECTED DEVICES` tab of the nRF connect extension and copy the serial number).
    ```bash
@@ -82,6 +97,7 @@
    # --hw version is optional and can only be used with --left or --right
    ./tools/flash/flash_fota.sh --snr 123456789 --left --hw 2.0.1    
    ```
+   - After flashing, the script resets the complete device and starts the application automatically. A reset failure stops the script and returns an error.
 
    - or without FOTA
    ```bash
@@ -128,10 +144,101 @@
 
 
 
+## Main-board communication test
+
+The [test script](tools/test/test_earable.sh) runs on an unprogrammed OpenEarable 2 main board. Power the board through USB, connect the J-Link to its SWD pads, including GND and VTref, and insert a known-good microSD card. SWD access to the nRF5340 application core must be available.
+
+Install Python 3.9 or later and the SEGGER J-Link Software and Documentation Pack. Set up the Python environment once from the repository root.
+
+```sh
+python3 -m venv tools/test/.venv
+tools/test/.venv/bin/python -m pip install -r tools/test/requirements.txt
+```
+
+Run the test from the repository root. The script selects the probe automatically when exactly one is attached.
+
+```sh
+./tools/test/test_earable.sh --list-probes
+./tools/test/test_earable.sh --snr 123456789
+```
+
+| Component | Communication check |
+| --- | --- |
+| ADAU1860 DAC | Read the vendor and device ID over I²C. |
+| MX25R6435F flash | Read the JEDEC ID and verify two SPI reads match. |
+| BMX160 IMU | Read the chip ID and eight fresh accelerometer and gyroscope XYZ samples over I²C. Both sensors must produce varying, nonzero data. |
+| BMM150 magnetometer | Read the chip ID and trigger eight magnetic field measurements through the BMX160. Check for varying, nonzero XYZ data and reject overflow. |
+| BQ25120A charger | Read control registers over I²C and report USB power-good. |
+| microSD | Read the card ID and capacity, then read block 0 with CRC verification over SPI. |
+| KTD2026 LED driver | Read the three LED current registers over I²C. |
+| Main-board microphone | Capture PCM via the ADAU1860 and check for varying samples. The speaker output stays muted. |
+
+The script reports `✅ PASS` or `❌ FAIL` for each check and exits with a nonzero status if any check or target restoration fails. It drives the buses through SWD with the application core halted, temporarily enables the peripheral power rails, restores the charger, codec, and IMU settings, and resets the target. The test requires no bootloader or firmware and performs no programming or erase operations on internal flash, external flash, or the SD card.
+
 ## Contributing
 Contributor workflow, validation steps, code documentation expectations, and repository-specific Git guidance are defined in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 If you change build behavior, flashing scripts, repository structure, or public firmware APIs, update that guide in the same change so the contributor documentation stays aligned with the repository.
+
+## Hardware detection and battery profiles
+
+Firmware 2.3.3 probes the IMU before configuring the charger or fuel gauge,
+including boots that remain in charging mode. A valid legacy IMU at `0x68`
+selects the VARTA CP1454 A4X profile. The standalone BMI160 at `0x69` selects
+the Grepow GRP1454M1 profile for hardware 2.1.0. A failed probe or unexpected
+address selects a 4.2 V fallback; the stored UICR revision cannot enable 4.3 V.
+
+| Detected setup | Charge voltage | Gauge design capacity |
+| --- | --- | --- |
+| Legacy IMU, `0x68` | 4.30 V | 108 mAh |
+| Standalone BMI160, `0x69` | 4.20 V | 111 mAh |
+| Identification failed | 4.20 V | 108 mAh |
+
+The VARTA profile requests 100 mA charging and a 0–45 °C startup range,
+with reduced current below 15 °C. Grepow
+requests 90 mA with a 0–45 °C startup range; the unidentified 4.2 V fallback
+requests 80 mA with the same temperature range. The BQ25120A rounds the
+temperature-derated 45 mA Grepow request down to 40 mA.
+At startup, all profiles inhibit charging below 2.5 V. As in 2.3.2, periodic
+charger setup can enable charging without rechecking the startup voltage or
+temperature limits, including below 2.5 V. The existing 10 mA
+precharge/termination setting is retained. This legacy recovery behavior does
+not implement VARTA's specified low-current, timed over-discharge procedure;
+the supplied Grepow pack specification does not define recovery below 3.0 V.
+
+The Grepow limits come from the manufacturer's GRP1454M1 1C pack design
+guideline dated 2026-07-16. Its 111 mA discharge limit is separate from the
+charger's 200 mA USB input limit; the gauge overload setting is not a physical
+battery current limiter. The shared fuel-gauge CEDV coefficients have not been
+characterized for the Grepow cell, so percentage/runtime accuracy still needs
+discharge measurements. Existing Bosch IMU/magnetometer compensation and axis
+mapping are retained; no new sensor calibration is required to enable this
+hardware support.
+
+Use `battery info` on the serial shell to inspect the detected profile, charger
+voltage readback and gauge target. The selected profile remains fixed until
+reboot, so a later sensor initialization cannot raise the fallback voltage.
+As in 2.3.2, USB charging is enabled before gauge configuration, which can power
+the battery-side gauge when no cell is fitted. Charger enable is not gated on a
+successful fuel-gauge availability check. Gauge configuration waits for its
+mode transitions without a timeout, and an unresponsive gauge can therefore
+prevent startup from completing and leave charging enabled without reaching the
+startup voltage and temperature checks. The
+full-charge-capacity mismatch check can reconfigure the gauge and reset its
+learned capacity.
+As in 2.2.9, charger setup writes the profile without requiring register
+readback before enabling charging. I2C errors are logged, but do not prevent
+charge enable. A failed or ignored voltage write can leave an older charger
+voltage setting in effect, including 4.3 V for a 4.2 V battery. After the gauge's
+charge-inhibit flag clears, subsequent gauge updates re-enable charging without
+rechecking the startup voltage or temperature limits. Manual gauge setup
+serializes the complete configuration against battery workers and diagnostic
+reads; it cannot overlap a charging decision. IMU detection waits 10 ms for
+sensor power-on reset after the rail has settled.
+
+Auto-off defaults to disabled in every build. A power-saving mode previously
+saved by the user remains in effect until changed through the power-saving
+service.
 
 ## Battery States
 Battery states will overwrite LED connection states. All LED states can be manually overwritten via BLE service.
@@ -195,4 +302,6 @@ If you are using OpenEarable, please cite is as follows:
 
 
 
-
+The BLE device-information firmware characteristic reports the release number
+from `VERSION` (for example `2.3.3`). Development and Git suffixes remain in
+internal build diagnostics.

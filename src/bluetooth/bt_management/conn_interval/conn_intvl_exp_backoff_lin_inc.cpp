@@ -19,10 +19,10 @@ void ConnIntvlExpBackoffLinIncr::init() {
 }
 
 void ConnIntvlExpBackoffLinIncr::on_audio_underrun(uint32_t count) {
-    uint16_t current_interval_units_ = this->current_interval_units();
+    uint16_t current_interval_units = this->current_interval_units();
 
-    LOG_DBG("Audio underrun reported: %u, current interval: %u units", count, current_interval_units_);
-    uint16_t new_interval_units = current_interval_units_ * backoff_factor_;
+    LOG_DBG("Audio underrun reported: %u, current interval: %u units", count, current_interval_units);
+    uint16_t new_interval_units = current_interval_units * backoff_factor_;
     if (new_interval_units > max_interval_units_) {
         new_interval_units = max_interval_units_;
     }
@@ -31,6 +31,7 @@ void ConnIntvlExpBackoffLinIncr::on_audio_underrun(uint32_t count) {
 }
 
 void ConnIntvlExpBackoffLinIncr::on_timer_tick(k_timeout_t elapsed) {
+    ARG_UNUSED(elapsed);
     bool is_streaming = stream_state_get() == STATE_STREAMING;
     if (!is_streaming) {
         return;

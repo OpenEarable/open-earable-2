@@ -13,7 +13,7 @@
 #define BQ25120a_I2C_TIMEOUT_US 66
 #define BQ25120a_HIGH_Z_TIMEOUT_US 1000
 
-#define EPS 1e-3
+#define EPS 1e-3f
 
 struct chrg_state {
         float mAh = 0;
@@ -52,8 +52,12 @@ public:
 
     int reset();
 
+    /** Configure the 3.3 V rail before any consumers are started. */
+    int configure_3v3_at_boot();
+
     void setup_ts_control();
 
+    /** Program the selected battery profile. I2C failures are logged. */
     void setup(const battery_settings &_battery_settings);
 
     bool power_connected();
@@ -61,6 +65,8 @@ public:
     void exit_high_impedance();
     void disable_charge();
     void enable_charge();
+    /** True when external power is present and the CD pin inhibits charging. */
+    bool charge_inhibited();
     
     uint8_t read_charging_state();
     uint8_t read_fault();
@@ -83,6 +89,10 @@ public:
     int set_power_connect_callback(gpio_callback_handler_t handler);
     int set_int_callback(gpio_callback_handler_t handler);
 private:
+    uint8_t _pending_button_wake = 0;
+    // Collect I/O errors for the verified 3.3 V regulator setup.
+    bool _io_error = false;
+    bool _pins_ready = false;
     bool readReg(uint8_t reg, uint8_t * buffer, uint16_t len);
     void writeReg(uint8_t reg, uint8_t * buffer, uint16_t len);
 
@@ -99,6 +109,7 @@ private:
     const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
     const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), cd_gpios);
     const struct gpio_dt_spec int_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), int_gpios);
+    const struct gpio_dt_spec lsctrl_pin = GPIO_DT_SPEC_GET(DT_CHILD(DT_NODELABEL(bq25120a), load_switch), enable_gpios);
 
     /*const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), pg_gpios, {0});
     const struct gpio_dt_spec cd_pin = GPIO_DT_SPEC_GET_OR(DT_NODELABEL(bq25120a), cd_gpios, {0});

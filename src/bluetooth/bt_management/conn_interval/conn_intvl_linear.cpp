@@ -16,10 +16,15 @@ void ConnIntvlLinear::init() {
 }
 
 void ConnIntvlLinear::on_audio_underrun(uint32_t count) {
-    uint16_t current_interval_units_ = this->current_interval_units();
+    uint16_t current_interval_units = this->current_interval_units();
 
-    LOG_DBG("Audio underrun reported: %u, current interval: %u units", count, current_interval_units_);
-    uint16_t new_interval_units = current_interval_units_ + inc_step_units_;
+    LOG_DBG("Audio underrun reported: %u, current interval: %u units", count, current_interval_units);
+    uint16_t new_interval_units = current_interval_units + inc_step_units_;
+
+    if (new_interval_units > min_interval_units_) {
+        /* Stay on the step grid that starts at the minimum interval. */
+        new_interval_units -= (new_interval_units - min_interval_units_) % inc_step_units_;
+    }
     if (new_interval_units > max_interval_units_) {
         new_interval_units = max_interval_units_;
     }
@@ -27,15 +32,39 @@ void ConnIntvlLinear::on_audio_underrun(uint32_t count) {
     this->request_interval(new_interval_units, new_interval_units);
 }
 
+bool ConnIntvlLinear::on_stream_started() {
+    /* A central may set its own interval for the stream (20 ms on Pixel
+     * phones, where every second 10 ms frame was then lost). Ask for the
+     * minimum now: left to the next tick, the loss was audible for up to a
+     * second after the stream had faded in.
+     */
+    if (this->current_interval_units() <= min_interval_units_) {
+        return true;
+    }
+
+    this->request_interval(min_interval_units_, min_interval_units_);
+
+    return false;
+}
+
 void ConnIntvlLinear::on_timer_tick(k_timeout_t elapsed) {
+    ARG_UNUSED(elapsed);
     bool is_streaming = stream_state_get() == STATE_STREAMING;
     if (!is_streaming) {
         return;
     }
 
-    uint16_t new_interval_units = this->current_interval_units() - inc_step_units_;
-    if (new_interval_units < min_interval_units_) {
-        new_interval_units = min_interval_units_;
+    /* The central may have chosen an interval off the step grid or below one
+     * step. Return to the grid, which the caller aligns to the ISO interval,
+     * without wrapping below zero.
+     */
+    uint16_t current_interval_units = this->current_interval_units();
+    uint16_t new_interval_units = min_interval_units_;
+
+    if (current_interval_units > min_interval_units_ + inc_step_units_) {
+        uint16_t steps = (current_interval_units - min_interval_units_ - 1) / inc_step_units_;
+
+        new_interval_units = min_interval_units_ + steps * inc_step_units_;
     }
     this->request_interval(new_interval_units, new_interval_units);
 }

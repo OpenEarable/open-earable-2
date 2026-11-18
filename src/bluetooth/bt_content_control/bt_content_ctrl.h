@@ -4,6 +4,12 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+/** @file
+ * @defgroup audio_app_bt_content_ctrl Functions for content control.
+ * @{
+ * @brief Helper functions to manage content control.
+ */
+
 #ifndef _BT_CONTENT_CTRL_H_
 #define _BT_CONTENT_CTRL_H_
 
@@ -26,6 +32,9 @@ int bt_content_ctrl_start(struct bt_conn *conn);
  * @return	0 for success, error otherwise.
  */
 int bt_content_ctrl_stop(struct bt_conn *conn);
+
+/** Send next-track to the media player; NULL targets all discovered peers. */
+int bt_content_ctrl_next_track(struct bt_conn *conn);
 
 /**
  * @brief	Handle disconnected connection for the content control services.
@@ -70,5 +79,9 @@ bool bt_content_ctlr_media_state_playing(void);
  * @return	0 for success, error otherwise.
  */
 int bt_content_ctrl_init(void);
+
+/**
+ * @}
+ */
 
 #endif /* _BT_CONTENT_CTRL_H_ */

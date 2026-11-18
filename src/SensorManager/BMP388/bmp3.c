@@ -1028,17 +1028,17 @@ int8_t bmp3_get_fifo_data(struct bmp3_dev *dev)
         /* Get the total no of bytes available in FIFO */
         rslt = bmp3_get_fifo_length(&fifo_len, dev);
 
-        /* For sensor time frame */
-        if (dev->fifo->settings.time_en == TRUE)
-        {
-            fifo_len = fifo_len + 4;
-        }
-
-        /* Update the fifo length in the fifo structure */
-        dev->fifo->data.byte_count = fifo_len;
-
         if (rslt == BMP3_OK)
         {
+            /* For sensor time frame */
+            if (dev->fifo->settings.time_en == TRUE)
+            {
+                fifo_len = fifo_len + 4;
+            }
+
+            /* Update the fifo length in the fifo structure */
+            dev->fifo->data.byte_count = fifo_len;
+
             /* Read the fifo data */
             rslt = bmp3_get_regs(BMP3_REG_FIFO_DATA, fifo->data.buffer, fifo_len, dev);
         }
@@ -1089,7 +1089,7 @@ int8_t bmp3_extract_fifo_data(struct bmp3_data *data, struct bmp3_dev *dev)
     uint8_t header;
     uint8_t parsed_frames = 0;
     uint8_t t_p_frame;
-    struct bmp3_uncomp_data uncomp_data;
+    struct bmp3_uncomp_data uncomp_data = { 0 };
 
     rslt = null_ptr_check(dev);
 
@@ -2377,18 +2377,18 @@ static double compensate_pressure(const struct bmp3_uncomp_data *uncomp_data, co
     double partial_out2;
 
     partial_data1 = quantized_calib_data->par_p6 * quantized_calib_data->t_lin;
-    partial_data2 = quantized_calib_data->par_p7 * pow_bmp3(quantized_calib_data->t_lin, 2);
-    partial_data3 = quantized_calib_data->par_p8 * pow_bmp3(quantized_calib_data->t_lin, 3);
+    partial_data2 = (double)quantized_calib_data->par_p7 * (double)pow_bmp3(quantized_calib_data->t_lin, 2);
+    partial_data3 = (double)quantized_calib_data->par_p8 * (double)pow_bmp3(quantized_calib_data->t_lin, 3);
     partial_out1 = quantized_calib_data->par_p5 + partial_data1 + partial_data2 + partial_data3;
     partial_data1 = quantized_calib_data->par_p2 * quantized_calib_data->t_lin;
-    partial_data2 = quantized_calib_data->par_p3 * pow_bmp3(quantized_calib_data->t_lin, 2);
-    partial_data3 = quantized_calib_data->par_p4 * pow_bmp3(quantized_calib_data->t_lin, 3);
+    partial_data2 = (double)quantized_calib_data->par_p3 * (double)pow_bmp3(quantized_calib_data->t_lin, 2);
+    partial_data3 = (double)quantized_calib_data->par_p4 * (double)pow_bmp3(quantized_calib_data->t_lin, 3);
     partial_out2 = uncomp_data->pressure *
                    (quantized_calib_data->par_p1 + partial_data1 + partial_data2 + partial_data3);
     partial_data1 = pow_bmp3((double)uncomp_data->pressure, 2);
     partial_data2 = quantized_calib_data->par_p9 + quantized_calib_data->par_p10 * quantized_calib_data->t_lin;
     partial_data3 = partial_data1 * partial_data2;
-    partial_data4 = partial_data3 + pow_bmp3((double)uncomp_data->pressure, 3) * quantized_calib_data->par_p11;
+    partial_data4 = partial_data3 + (double)pow_bmp3((double)uncomp_data->pressure, 3) * (double)quantized_calib_data->par_p11;
     comp_press = partial_out1 + partial_out2 + partial_data4;
 
     return comp_press;

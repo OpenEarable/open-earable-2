@@ -54,6 +54,9 @@ static ssize_t write_sensor_request(struct bt_conn *conn,
                 uint16_t len,
                 uint16_t offset,
                 uint8_t flags) {
+	ARG_UNUSED(attr);
+	ARG_UNUSED(offset);
+	ARG_UNUSED(flags);
     if (len != sizeof(uint8_t)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
@@ -73,6 +76,7 @@ static ssize_t write_sensor_request(struct bt_conn *conn,
 
 
 void scheme_ccc_cfg(const struct bt_gatt_attr *attr, uint16_t value) {
+	ARG_UNUSED(attr);
     notify_enabled = (value == BT_GATT_CCC_NOTIFY);
 }
 
@@ -382,7 +386,8 @@ size_t getParseInfoStorageSize() {
     return size;
 }
 
-ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize) {
+ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize,
+                                 const struct sensor_config* configs, size_t configCount) {
     if ((parseInfoSchemeStruct == NULL) || (parseInfoScheme == NULL) || (buffer == NULL)) {
         return -ENODATA;
     }
@@ -411,7 +416,18 @@ ssize_t serializeParseInfoStorage(char* buffer, size_t bufferSize) {
         memcpy(buffer, &encodedSchemeSize, sizeof(encodedSchemeSize));
         buffer += sizeof(encodedSchemeSize);
 
-        ssize_t writtenSize = serializeSensorScheme(scheme, buffer, bufferSize - (buffer - bufferStart));
+        // Snapshot the selected rates for this file without changing BLE parse info.
+        SensorScheme schemeForHeader = *scheme;
+        for (size_t j = 0; j < configCount; j++) {
+            if (configs[j].sensorId == scheme->id &&
+                configs[j].sampleRateIndex < scheme->configOptions.frequencyOptions.frequencyCount) {
+                schemeForHeader.configOptions.frequencyOptions.defaultFrequencyIndex =
+                    configs[j].sampleRateIndex;
+                break;
+            }
+        }
+        ssize_t writtenSize = serializeSensorScheme(&schemeForHeader, buffer,
+                                                    bufferSize - (buffer - bufferStart));
         if (writtenSize < 0) {
             return writtenSize;
         }

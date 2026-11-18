@@ -412,12 +412,16 @@ public:
 
     uint8_t get_volume();
 
+    // DMIC gain control
+    int mic_gain_write(uint8_t channel, uint8_t gain);
+    uint8_t mic_gain_read(uint8_t channel);
+
 #if CONFIG_FDSP
     int fdsp_bank_select(uint8_t bank);
 #endif
 private:
     bool readReg(uint32_t reg, uint8_t * buffer, uint16_t len);
-    void writeReg(uint32_t reg, uint8_t * buffer, uint16_t len);
+    int writeReg(uint32_t reg, uint8_t * buffer, uint16_t len);
 
     int setup_EQ();
     int setup_FDSP();

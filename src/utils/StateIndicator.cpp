@@ -9,45 +9,11 @@
 
 #include "channel_assignment.h"
 
-#ifdef CONFIG_MCUMGR_MGMT_NOTIFICATION_HOOKS
-#include <zephyr/mgmt/mcumgr/mgmt/mgmt.h>
-#include <zephyr/mgmt/mcumgr/mgmt/callbacks.h>
-#endif
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(state_indicator, CONFIG_LOG_DEFAULT_LEVEL);
 
 ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 ZBUS_CHAN_DECLARE(battery_chan);
-
-#ifdef CONFIG_MCUMGR_MGMT_NOTIFICATION_HOOKS
-
-struct mgmt_callback mcu_mgr_cb;
-
-enum mgmt_cb_return chuck_write_indication(uint32_t event, enum mgmt_cb_return prev_status,
-                                int32_t *rc, uint16_t *group, bool *abort_more,
-                                void *data, size_t data_size)
-{
-    if (event == MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK) {
-        /* This is the event we registered for */
-		led_controller.setColor(LED_ORANGE);
-        k_msleep(10);
-        led_controller.setColor(LED_OFF);
-    }
-    /*else if (event == MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK_WRITE_COMPLETE) {
-        led_controller.setColor(LED_OFF);
-    }
-    else if (event == MGMT_EVT_OP_OS_MGMT_RESET) {
-		LOG_INF("RESET received");
-	}*/
-
-	//LOG_DBG("mcu mgr hook called with event: %d", event);
-
-    /* Return OK status code to continue with acceptance to underlying handler */
-    return MGMT_CB_OK;
-}
-
-#endif
 
 static void connect_evt_handler(const struct zbus_channel *chan)
 {
@@ -62,6 +28,10 @@ static void connect_evt_handler(const struct zbus_channel *chan)
 
 	case BT_MGMT_DISCONNECTED:
 		state_indicator.set_pairing_state(PAIRED);
+		break;
+
+	default:
+		/* Other events do not affect the pairing state indication. */
 		break;
 	}
 }
@@ -94,18 +64,29 @@ void StateIndicator::init(struct earable_state state) {
 		LOG_ERR("Failed to add battery listener");
 	}
 
-#ifdef CONFIG_MCUMGR_MGMT_NOTIFICATION_HOOKS 
-	mcu_mgr_cb.callback = chuck_write_indication;
-    mcu_mgr_cb.event_id = MGMT_EVT_OP_IMG_MGMT_DFU_CHUNK; //MGMT_EVT_OP_IMG_MGMT_ALL
-    mgmt_callback_register(&mcu_mgr_cb);
-#endif
-
     set_state(state);
 }
 
-void StateIndicator::set_custom_color(const RGBColor &color) {
-    memcpy(&this->color, color, sizeof(RGBColor));
-    if (_state.led_mode == CUSTOM) led_controller.setColor(color);
+void StateIndicator::set_custom_color(const RGBColor &custom_color) {
+    memcpy(&this->color, custom_color, sizeof(RGBColor));
+    if (_state.led_mode == CUSTOM) led_controller.setColor(custom_color);
+}
+
+void StateIndicator::get_custom_color(RGBColor &value) const {
+    memcpy(value, color, sizeof(RGBColor));
+}
+
+enum led_mode StateIndicator::get_indication_mode() const {
+    return _state.led_mode;
+}
+
+void StateIndicator::set_dfu_active(bool active) {
+    if (_dfu_active == active) {
+        return;
+    }
+
+    _dfu_active = active;
+    set_state(_state);
 }
 
 void StateIndicator::set_indication_mode(enum led_mode state) {
@@ -131,6 +112,11 @@ void StateIndicator::set_sd_state(enum sd_state state) {
 
 void StateIndicator::set_state(struct earable_state state) {
     _state = state;
+
+    if (_dfu_active) {
+        led_controller.blink(LED_ORANGE, 100, 200);
+        return;
+    }
 
     // do not update the state if set to custom color
     if (_state.led_mode == CUSTOM) {
@@ -207,3 +193,8 @@ void StateIndicator::set_state(struct earable_state state) {
 }
 
 StateIndicator state_indicator;
+
+extern "C" void state_indicator_set_dfu_active(bool active)
+{
+    state_indicator.set_dfu_active(active);
+}

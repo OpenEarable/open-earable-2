@@ -3,6 +3,7 @@
 
 //#include <zephyr/bluetooth/audio/audio.h>
 #include <zephyr/drivers/gpio.h>
+#include "battery_settings.h"
 
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
@@ -10,7 +11,7 @@
 #define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
 
-#define SENSOR_DATA_FIXED_LENGTH 38
+#define SENSOR_DATA_FIXED_LENGTH 98
 
 
 #define millis() k_cyc_to_ms_floor64(k_uptime_ticks())
@@ -115,31 +116,6 @@ struct sensor_config {
 	uint8_t storageOptions;
 } __attribute__((packed));
 
-
-struct battery_settings {
-    float u_nominal;
-    float u_term;
-    float u_vlo;
-    float u_charge_prevent;
-
-    float i_term;
-    float i_charge;
-    float i_max;
-
-    float capacity;
-
-    float temp_min;
-    float temp_fast_min;
-    float temp_fast_max;
-    float temp_max;
-};
-
-/**
- * @brief Card-detect transition published on sd_card_chan.
- *
- * Sent on both edges. On removal the message is published before the filesystem
- * is torn down, so observers still see a valid mount while they stop using it.
- */
 struct sd_msg {
 	bool removed;
 };

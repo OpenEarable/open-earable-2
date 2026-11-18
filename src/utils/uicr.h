@@ -8,6 +8,7 @@
 #define _UICR_H_
 
 #include <stdint.h>
+#include <zephyr/bluetooth/audio/audio.h>
 
 // TODO: Discuss better alternative for UICR storage. This memory range is not documented
 #define UICR_APP_BASE_ADDR (NRF_UICR_S_BASE + 0xF0)
@@ -17,19 +18,22 @@ extern "C" {
 #endif
 
 /**
- * @brief Get raw channel value from UICR
+ * @brief Get raw location value from UICR as bitfield
  */
-uint8_t uicr_channel_get(void);
+uint32_t uicr_location_get(void);
 
 /**
- * @brief Write raw channel value to UICR
+ * @brief Write raw location bitfield value to UICR
  *
- * @param channel Channel value
+ * @param location Location bitfield in accordance with LE Audio specification.
  *
  * @return 0 if successful
- * @return -EROFS if different channel is already written
- * @return -EIO if channel failed to be written
+ * @return -EROFS if different location is already written
+ * @return -EIO if location failed to be written
  */
+int uicr_location_set(uint32_t location);
+
+uint8_t uicr_channel_get(void);
 int uicr_channel_set(uint8_t channel);
 
 /**
@@ -62,6 +66,18 @@ uint64_t uicr_snr_get(void);
  * @brief Get hardware revision string from UICR
  */
 void uicr_hw_revision_get(char *hw_version);
+
+/**
+ * @brief Promote a detected hardware 2.1 board from a stored 2.0.x revision.
+ *
+ * A blank UICR value is persisted as 2.1.0. A programmed 2.0.x value cannot
+ * be changed without erasing the full UICR page, so it is promoted at runtime
+ * and detected again on every boot.
+ *
+ * @return 0 when no promotion is needed or the promoted value is active
+ * @return -EIO if a blank UICR value could not be programmed
+ */
+int uicr_hw_revision_promote_2_0_to_2_1(void);
 
 #ifdef __cplusplus
 }

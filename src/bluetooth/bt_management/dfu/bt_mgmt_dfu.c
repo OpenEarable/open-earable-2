@@ -7,6 +7,7 @@
 /* Override compiler definition to use size-bounded string copying and concatenation function */
 #define _BSD_SOURCE
 #include "bt_mgmt_dfu_internal.h"
+#include "bt_mgmt_ctlr_cfg_internal.h"
 
 #include <zephyr/kernel.h>
 #include <zephyr/bluetooth/bluetooth.h>
@@ -15,6 +16,7 @@
 #include "string.h"
 #include "macros_common.h"
 #include "channel_assignment.h"
+#include "StateIndicatorC.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt_dfu, CONFIG_BT_MGMT_DFU_LOG_LEVEL);
@@ -54,11 +56,14 @@ static void smp_adv(void)
 /* These callbacks are to override callback registed in module le_audio_ */
 static void dfu_connected_cb(struct bt_conn *conn, uint8_t err)
 {
+	ARG_UNUSED(conn);
+	ARG_UNUSED(err);
 	LOG_INF("SMP connected\n");
 }
 
 static void dfu_disconnected_cb(struct bt_conn *conn, uint8_t reason)
 {
+	ARG_UNUSED(conn);
 	LOG_INF("SMP disconnected 0x%02x\n", reason);
 }
 
@@ -85,7 +90,7 @@ static void dfu_set_bt_name(void)
 	}
 
 #if (CONFIG_AUDIO_DEV == GATEWAY)
-	ret = strlcat(name, GW_TAG, CONFIG_BT_DEVICE_NAME_MAX);
+	ret = strlcat(name, CHANNEL_GW_TAG, CONFIG_BT_DEVICE_NAME_MAX);
 	if (ret >= CONFIG_BT_DEVICE_NAME_MAX) {
 		LOG_ERR("Failed to set full BT name, will truncate");
 	}
@@ -120,9 +125,11 @@ static void dfu_set_bt_name(void)
 void bt_mgmt_dfu_start(void)
 {
 	LOG_INF("Entering SMP server mode");
+	(void)bt_mgmt_stop_watchdog();
 
 	bt_conn_cb_register(&dfu_conn_callbacks);
 	dfu_set_bt_name();
+	state_indicator_set_dfu_active(true);
 
 	while (1) {
 		/* In DFU mode, the device should always advertise */

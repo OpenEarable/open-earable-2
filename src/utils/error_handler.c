@@ -23,6 +23,7 @@ static const struct gpio_dt_spec center_led_b = GPIO_DT_SPEC_GET(DT_NODELABEL(rg
 
 void error_handler(unsigned int reason, const struct arch_esf *esf)
 {
+	ARG_UNUSED(esf);
 #if (CONFIG_DEBUG)
 	LOG_ERR("Caught system error -- reason %d. Entering infinite loop", reason);
 	LOG_PANIC();

@@ -28,13 +28,12 @@ jobs:
           # Clone the repo to a subdirectory, so we can initialize the Zephyr
           # workspace in the parent directory.
           path: zephyr-workspace/open-earable-v2
+          submodules: recursive
 
-      - name: Cache/Install APT Packages
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: ccache git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
-          version: 1.0
-          execute_install_scripts: true
+      - name: Install APT packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ccache git cmake ninja-build gperf dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
 
       - name: Cache PIP Packages
         uses: actions/cache@v3
@@ -50,9 +49,9 @@ jobs:
 
       - name: Install Zephyr SDK
         run: |
-          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.17.0/zephyr-sdk-0.17.0_linux-x86_64_minimal.tar.xz
-          tar xf zephyr-sdk-0.17.0_linux-x86_64_minimal.tar.xz -C ~/
-          ~/zephyr-sdk-0.17.0/setup.sh -c -t arm-zephyr-eabi
+          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v1.0.1/zephyr-sdk-1.0.1_linux-x86_64_minimal.tar.xz
+          tar xf zephyr-sdk-1.0.1_linux-x86_64_minimal.tar.xz -C ~/
+          ~/zephyr-sdk-1.0.1/setup.sh -c -t arm-zephyr-eabi
 
       - name: Initialize Zephyr Workspace
         # Set up the Zephyr workspace and install the Python dependencies
@@ -87,27 +86,30 @@ jobs:
       - name: Build Project
         run: |
           cd zephyr-workspace
-          if command -v ccache >/dev/null 2>&1; then
-            # zero ccache statistics
-            ccache -z
-          else
-            echo "ccache is not available, continuing without cache stats"
-          fi
+          # zero ccache statistics
+          ccache -z
           # `openearable_v2/nrf5340/cpuapp` is what we see in the terminal when building
           # using VSCode + Nordic Plugins
           west build \
             --board openearable_v2/nrf5340/cpuapp \
             --pristine=always open-earable-v2 \
             -- -DFILE_SUFFIX="fota"
-          if command -v ccache >/dev/null 2>&1; then
-            # print detailed ccache statistics
-            ccache -sv
-          fi
+          # print detailed ccache statistics
+          ccache -sv
 
       - name: Check And Prepare Build Output
         run: |
           mkdir -p $(pwd)/workflow-board-temp/build-output
-          cp $(pwd)/zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf $(pwd)/workflow-board-temp/build-output/openearable_v2_firmware.elf
+          firmware_dir="$(pwd)/workflow-board-temp/build-output/openearable_v2_firmware"
+          mkdir -p "$firmware_dir/build_fota" "$firmware_dir/tools/flash"
+          cp zephyr-workspace/build/merged_openearable_v2_nrf5340_cpuapp.hex "$firmware_dir/build_fota/"
+          cp zephyr-workspace/build/merged_openearable_v2_nrf5340_cpunet.hex "$firmware_dir/build_fota/"
+          cp zephyr-workspace/build/open-earable-v2/zephyr/zephyr.elf "$firmware_dir/openearable_v2_cpuapp.elf"
+          cp zephyr-workspace/build/ipc_radio/zephyr/zephyr.elf "$firmware_dir/openearable_v2_cpunet.elf"
+          cp zephyr-workspace/open-earable-v2/tools/flash/flash_fota.sh "$firmware_dir/tools/flash/"
+          printf '%s\n' 'From this directory, run: bash tools/flash/flash_fota.sh --snr <J-Link serial>' \
+            'The build_fota images include both cores and their bootloaders. The ELFs are for debugging.' \
+            > "$firmware_dir/FLASH.txt"
           cp $(pwd)/zephyr-workspace/build/dfu_application.zip $(pwd)/workflow-board-temp/build-output/openearable_v2_fota.zip
           (cd $(pwd)/workflow-board-temp/build-output && unzip openearable_v2_fota.zip -d openearable_v2_fota && rm openearable_v2_fota.zip)
 
@@ -115,8 +117,8 @@ jobs:
         uses: actions/upload-artifact@v4
         id: artifact-upload-step-1
         with:
-          name: openearable_v2_firmware.elf
-          path: workflow-board-temp/build-output/openearable_v2_firmware.elf
+          name: openearable_v2_firmware.zip
+          path: workflow-board-temp/build-output/openearable_v2_firmware/
 
       - name: Upload Build Artifact (FOTA build)
         uses: actions/upload-artifact@v4
@@ -131,5 +133,5 @@ jobs:
         with:
           message: |
             Build output available:
-            [openearable_v2_firmware.elf.zip](${{ steps.artifact-upload-step-1.outputs.artifact-url }})
+            [openearable_v2_firmware.zip](${{ steps.artifact-upload-step-1.outputs.artifact-url }})
             [openearable_v2_fota.zip](${{ steps.artifact-upload-step-2.outputs.artifact-url }})

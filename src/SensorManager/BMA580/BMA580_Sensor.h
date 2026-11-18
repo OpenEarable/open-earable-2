@@ -43,8 +43,8 @@
 /******************************************************************************/
 /*!                Macro definition                                           */
 
-/*! FIFO raw data buffer size */
-#define BMA580_FIFO_RAW_DATA_BUFFER_SIZE  UINT16_C(520)
+/*! 1024 stored payload bytes hold 170 XYZ frames, each with a wire header. */
+#define BMA580_FIFO_RAW_DATA_BUFFER_SIZE  UINT16_C(1190)
 
 /*! Number of accel frames to be extracted from FIFO
  * Calculation:
@@ -164,7 +164,7 @@ private:
     uint8_t fifo_data[BMA580_FIFO_RAW_DATA_BUFFER_SIZE] = { 0 };
 
     /* Initialize FIFO frame structure */
-    struct bma5_fifo_frame fifoframe = { 0 };
+    struct bma5_fifo_frame fifoframe = {};
 
     /* Set FIFO water-mark level */
     uint16_t fifo_watermark_level = WATERMARK_LEVEL;

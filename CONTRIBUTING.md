@@ -14,11 +14,15 @@ This repository contains the OpenEarable 2 firmware for the `openearable_v2/nrf5
 
 The main firmware lives at the repository root and is built through Zephyr and the nRF Connect SDK.
 
+Unit tests live under `tests/unit`. See [tests/README.md](tests/README.md) for the
+GitHub Actions workflow, optional local execution, and suite structure.
+
 - `src/audio`, `src/bluetooth`, `src/modules`: runtime audio, Bluetooth, and application modules.
 - `src/SensorManager`, `src/Battery`, `src/SD_Card`, `src/time_sync`: sensor, power, storage, and synchronization subsystems.
 - `src/drivers`, `src/Wire`, `src/utils`, `src/buttons`, `src/ParseInfo`: reusable device support and shared utilities.
 - `boards/`, `dts/`: board overlays and devicetree bindings for the OpenEarable hardware.
 - `tools/flash`, `tools/buildprog`, `tools/uart_terminal`: local developer tooling for flashing and diagnostics.
+- `tools/test`: [main-board communication test](README.md#main-board-communication-test) over J-Link SWD.
 - `.github/workflows/`: CI builds and release automation.
 
 Before introducing a new directory or abstraction, verify that an existing subsystem is not already the correct extension point.
@@ -30,11 +34,11 @@ Use the same toolchain versions the repository expects.
 1. Install Visual Studio Code and the nRF Connect for VS Code extension.
 2. Install the J-Link Software and Documentation Package.
 3. Install `nrfutil` and ensure it is available on your `PATH`.
-4. Install nRF Connect SDK `v3.0.1`.
-5. Install toolchain `v3.0.1`.
+4. Install nRF Connect SDK `v3.4.1`.
+5. Install toolchain `v3.4.1`.
 6. Open this repository as an application in the nRF Connect extension.
 
-The manifest in [west.yml](west.yml) pins the workspace to `sdk-nrf` `v3.0.1`. Keep documentation and local validation aligned with that version unless the repository is explicitly upgraded.
+The manifest in [west.yml](west.yml) pins the workspace to `sdk-nrf` `v3.4.1`. Keep documentation and local validation aligned with that version unless the repository is explicitly upgraded.
 
 ## Build And Flash
 
@@ -58,11 +62,36 @@ If you are building from a workspace where this repository is checked out as an 
 
 ### Flashing And Recovery
 
-- Use [tools/flash/flash_fota.sh](tools/flash/flash_fota.sh) to flash a FOTA build with the correct left/right and hardware configuration flags.
+- Use [tools/flash/flash_fota.sh](tools/flash/flash_fota.sh) to flash a FOTA build with the correct left/right and hardware configuration flags. A successful flash performs a full-device reset followed by an application reset so the firmware boots automatically.
 - Use [tools/flash/recover.sh](tools/flash/recover.sh) if the board needs a full recover before reflashing.
 - Keep the device powered through USB or a sufficiently charged battery during flashing and recovery.
 
 Update this guide when the build directory names, flashing scripts, board targets, or required tool versions change.
+
+### Hardware-dependent battery configuration
+
+Battery profiles live in `src/Battery/battery_profile.c`. Select them only from
+the validated IMU probe before charger/gauge configuration; an unrecognized
+board must retain the 4.2 V fallback. Keep startup, periodic charging and recovery
+on the same voltage/temperature policy. `tests/unit/battery_profile` covers the
+address mapping, fallback and charging boundaries. Hardware validation should
+include `battery info` readback on both the 0x68 and 0x69 configurations, including
+a charging-only boot. Do not substitute fuel-gauge design capacity for learned
+full-charge capacity or claim a new cell's state-of-charge calibration from its
+nominal capacity alone.
+
+### Release Assets
+
+Stable GitHub releases publish only `openearable_v2_fota_<version>.zip`.
+The rolling `pr-builds` prerelease likewise publishes only FOTA ZIPs, prefixed
+with the PR number and title. Each package must contain `manifest.json` at its
+root along with the referenced firmware images.
+
+The app discovers updates from these release assets. Do not attach full
+flashing bundles or raw debug images to releases: they are not FOTA packages,
+and the app can mistake a flashing ZIP for an installable update. Complete
+flashing bundles and debug images remain available as GitHub Actions build
+artifacts for development and recovery.
 
 ## Branching And Commit Workflow
 
@@ -144,6 +173,32 @@ This repository expects code to be documented.
 - Prefer clear control flow over compact but opaque code.
 - Avoid unrelated formatting churn.
 - Keep headers and source files aligned: declarations, ownership, and invariants should be easy to trace.
+
+### Static Analysis
+
+GitHub Actions runs advisory CodeChecker analysis for pull requests; findings
+and analyzer failures do not block merging. It analyzes the FOTA application
+without sysbuild using Clang Static Analyzer and Cppcheck. Style findings,
+Clang-Tidy, formatting, and automatic fixes are not enabled. The analyzer
+configuration is in [.codechecker.json](.codechecker.json).
+
+Local execution is optional. In an nRF Connect SDK `v3.4.1` Linux or WSL
+workspace, install CodeChecker `6.28.2`, Clang, and Cppcheck, then run:
+
+```bash
+sudo apt-get install clang cppcheck
+python -m pip install "codechecker==6.28.2"
+codechecker_config="$(pwd)/.codechecker.json"
+west build --no-sysbuild --board openearable_v2/nrf5340/cpuapp \
+  --pristine=always . -- -DFILE_SUFFIX=fota \
+  -DZEPHYR_SCA_VARIANT=codechecker \
+  -DCODECHECKER_CONFIG_FILE="${codechecker_config}" \
+  -DCODECHECKER_EXPORT=html,json
+```
+
+Reports are written to `<build-directory>/sca/codechecker/`. See Nordic's
+[CodeChecker documentation for nRF Connect SDK 3.4.1](https://nrfconnectdocs.nordicsemi.com/ncs/3.4.1/zephyr/develop/sca/codechecker.html)
+for the available options.
 
 ## Validation Before Opening A Pull Request
 

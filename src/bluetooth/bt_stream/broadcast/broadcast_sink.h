@@ -4,6 +4,14 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+/** @file
+ * @addtogroup audio_app_bt_stream
+ * @{
+ * @defgroup broadcast_sink Functions for broadcast sink functionality.
+ * @{
+ * @brief Helper functions to manage broadcast sink functionality.
+ */
+
 #ifndef _BROADCAST_SINK_H_
 #define _BROADCAST_SINK_H_
 
@@ -31,18 +39,6 @@ int broadcast_sink_uuid_populate(struct net_buf_simple *uuid_buf);
  * @return	Negative values for errors or number of elements added to @p adv_buf.
  */
 int broadcast_sink_adv_populate(struct bt_data *adv_buf, uint8_t adv_buf_vacant);
-
-/**
- * @brief	Change the active audio stream if the broadcast isochronous group (BIG) contains
- *              more than one broadcast isochronous stream (BIS).
- *
- * @note	Only streams within the same broadcast source are relevant, meaning
- *		that the broadcast source is not changed.
- *		The active stream will iterate every time this function is called.
- *
- * @return	0 for success, error otherwise.
- */
-int broadcast_sink_change_active_audio_stream(void);
 
 /**
  * @brief	Get configuration for the audio stream.
@@ -106,5 +102,10 @@ int broadcast_sink_disable(void);
  * @return	0 for success, error otherwise.
  */
 int broadcast_sink_enable(le_audio_receive_cb recv_cb);
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* _BROADCAST_SINK_H_ */

@@ -10,24 +10,24 @@ LOG_MODULE_DECLARE(audio_datapath);
 
 #ifdef __cplusplus
 
-/* CascadedDecimator instance for direct C++ usage */
-static CascadedDecimator* g_audio_decimator = nullptr;
+/* Fixed-capacity storage avoids C++ allocation failure in the audio work queue. */
+static CascadedDecimator g_audio_decimator;
+static bool g_audio_decimator_initialized;
 
 /* Mutex to protect access to the decimator during cleanup */
 K_MUTEX_DEFINE(decimator_mutex);
-
-/* Flag to indicate decimator is being used - provides fast-path check */
-static volatile bool g_decimator_in_use = false;
 
 extern "C" {
 /**
  * @brief Reset the audio decimator filter state
  */
 void audio_datapath_decimator_reset(void) {
-    if (g_audio_decimator) {
-        g_audio_decimator->reset();
+    k_mutex_lock(&decimator_mutex, K_FOREVER);
+    if (g_audio_decimator_initialized) {
+        g_audio_decimator.reset();
         LOG_DBG("CascadedDecimator state reset");
     }
+    k_mutex_unlock(&decimator_mutex);
 }
 
 /**
@@ -35,7 +35,10 @@ void audio_datapath_decimator_reset(void) {
  * @return Current total decimation factor, or 0 if not initialized
  */
 uint8_t audio_datapath_decimator_get_factor(void) {
-    return g_audio_decimator ? g_audio_decimator->getTotalFactor() : 0;
+    k_mutex_lock(&decimator_mutex, K_FOREVER);
+    uint8_t factor = g_audio_decimator_initialized ? g_audio_decimator.getTotalFactor() : 0;
+    k_mutex_unlock(&decimator_mutex);
+    return factor;
 }
 
 /**
@@ -44,30 +47,27 @@ uint8_t audio_datapath_decimator_get_factor(void) {
  * @return 0 on success, negative on error
  */
 int audio_datapath_decimator_init(uint8_t factor) {
-    /* Lock mutex to ensure no concurrent access during init */
     k_mutex_lock(&decimator_mutex, K_FOREVER);
-    
-    if (g_audio_decimator) {
-        delete g_audio_decimator;
-        g_audio_decimator = nullptr;
-    }
-    
-    g_audio_decimator = new CascadedDecimator(factor);
-    if (!g_audio_decimator) {
-        LOG_ERR("Failed to create CascadedDecimator with factor %d", factor);
-        k_mutex_unlock(&decimator_mutex);
-        return -ENOMEM;
-    }
-    
-    int ret = g_audio_decimator->init();
+
+    g_audio_decimator_initialized = false;
+    g_audio_decimator.cleanup();
+
+    int ret = g_audio_decimator.configure(factor);
     if (ret != 0) {
-        LOG_ERR("Failed to initialize CascadedDecimator: %d", ret);
-        delete g_audio_decimator;
-        g_audio_decimator = nullptr;
+        LOG_ERR("Failed to configure CascadedDecimator: %d", ret);
         k_mutex_unlock(&decimator_mutex);
         return ret;
     }
-    
+
+    ret = g_audio_decimator.init();
+    if (ret != 0) {
+        LOG_ERR("Failed to initialize CascadedDecimator: %d", ret);
+        g_audio_decimator.cleanup();
+        k_mutex_unlock(&decimator_mutex);
+        return ret;
+    }
+
+    g_audio_decimator_initialized = true;
     LOG_DBG("CascadedDecimator (%dx) initialized successfully", factor);
     k_mutex_unlock(&decimator_mutex);
     return 0;
@@ -88,16 +88,14 @@ int audio_datapath_decimator_process(const int16_t* input, int16_t* output, uint
         return 0;
     }
     
-    if (!g_audio_decimator) {
+    if (!g_audio_decimator_initialized) {
         k_mutex_unlock(&decimator_mutex);
         LOG_WRN("CascadedDecimator not available, returning 0 frames");
         return 0;
     }
-    
-    g_decimator_in_use = true;
-    int result = g_audio_decimator->process(input, output, num_frames);
-    g_decimator_in_use = false;
-    
+
+    int result = g_audio_decimator.process(input, output, num_frames);
+
     k_mutex_unlock(&decimator_mutex);
     return result;
 }
@@ -106,21 +104,14 @@ int audio_datapath_decimator_process(const int16_t* input, int16_t* output, uint
  * @brief Cleanup the audio decimator
  */
 void audio_datapath_decimator_cleanup(void) {
-    /* Acquire mutex to ensure no processing is happening */
     k_mutex_lock(&decimator_mutex, K_FOREVER);
-    
-    if (g_audio_decimator) {
-        /* Wait briefly if decimator was recently in use (safety margin) */
-        if (g_decimator_in_use) {
-            LOG_WRN("Decimator still in use, waiting...");
-            k_sleep(K_MSEC(5));
-        }
-        
+
+    if (g_audio_decimator_initialized) {
         LOG_DBG("Cleaning up CascadedDecimator");
-        delete g_audio_decimator;
-        g_audio_decimator = nullptr;
+        g_audio_decimator.cleanup();
+        g_audio_decimator_initialized = false;
     }
-    
+
     k_mutex_unlock(&decimator_mutex);
 }
 

@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <nrfx_clock.h>
-
 #include "led.h"
 //#include "button_handler.h"
 //#include "button_manager.h"
@@ -21,8 +19,6 @@ LOG_MODULE_REGISTER(nrf5340_audio_dk, CONFIG_MODULE_NRF5340_AUDIO_DK_LOG_LEVEL);
 
 int openearable_init(void)
 {
-	int ret;
-
 	/*ret = led_init();
 	if (ret) {
 		LOG_ERR("Failed to initialize LED module");
@@ -57,13 +53,6 @@ int openearable_init(void)
 			return ret;
 		}
 	}*/
-
-	/* Use this to turn on 128 MHz clock for cpu_app */
-	ret = nrfx_clock_divider_set(NRF_CLOCK_DOMAIN_HFCLK, NRF_CLOCK_HFCLK_DIV_1);
-	ret -= NRFX_ERROR_BASE_NUM;
-	if (ret) {
-		return ret;
-	}
 
 	return 0;
 }
