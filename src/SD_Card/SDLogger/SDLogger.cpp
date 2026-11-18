@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include "audio_datapath.h"
+#include "SDMassStorage.h"
 
 #include "StateIndicator.h"
 
@@ -115,17 +116,12 @@ void sensor_listener_cb(const struct zbus_channel *chan) {
 
 void sd_listener_callback(const struct zbus_channel *chan)
 {
-	ARG_UNUSED(chan);
-    const struct sd_msg * sd_msg_event = (sd_msg *)zbus_chan_const_msg(&sd_card_chan);
+    const struct sd_msg *sd_msg_event =
+        static_cast<const struct sd_msg *>(zbus_chan_const_msg(chan));
 
-    if (sdlogger.is_open && sd_msg_event->removed) {
-        // Signal SD thread to stop writing immediately.
-        atomic_set(&g_sd_removed, 1);
-        state_indicator.set_sd_state(SD_FAULT);
-        LOG_ERR("SD card removed mid recording. Stop recording.");
-
-        // Wake the SD thread so it can react quickly.
-        k_poll_signal_raise(&logger_sig, 0);
+    if (sd_msg_event->removed) {
+        sensor_manager_sd_card_removed();
+        sdlogger.abort_recording();
     }
 }
 
@@ -180,7 +176,8 @@ void SDLogger::sensor_sd_task() {
         if (!sdcard_manager.is_mounted()) {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("SD Card not mounted!");
-            return;
+            reset_logger_signal();
+            continue;
         }
 
         if (k_uptime_get() - last_sync_uptime_ms >= LOG_SYNC_INTERVAL_MS) {
@@ -324,11 +321,23 @@ int SDLogger::begin(const std::string& filename, const sensor_config* configs, s
         return -EBUSY;
     }
 
+    if (sd_mass_storage_host_active()) {
+        LOG_WRN("Cannot start SD recording while USB mass storage is active");
+        return -EBUSY;
+    }
+
+    ret = sd_mass_storage_recording_starting();
+    if (ret < 0) {
+        state_indicator.set_sd_state(SD_FAULT);
+        return ret;
+    }
+
     if (!sd_card->is_mounted()) {
         ret = sd_card->mount();
         if (ret < 0) {
             state_indicator.set_sd_state(SD_FAULT);
             LOG_ERR("Failed to mount sd card: %d", ret);
+            sd_mass_storage_recording_aborted();
             return ret;
         }
     }
@@ -569,48 +578,58 @@ int SDLogger::drain_buffer() {
     return (int)total_written;
 }
 
-int SDLogger::end() {
-    FileLock lock;
-    int ret;
-    
-    if (!is_open) {
-        return -ENODEV;
-    }
-
-    if (!sd_card->is_mounted()) {
-        is_open = false;
-        return -ENODEV;
-    }
-
-    // Prevent SD thread/producers from writing while we flush/close
+void SDLogger::abort_recording() {
     atomic_set(&g_stop_writing, 1);
     k_poll_signal_raise(&logger_sig, 0);
 
-    ret = flush();
-    if (ret < 0) {
-        LOG_ERR("Failed to flush file buffer.");
-        return ret;
+    /* Wait for any in-flight writer operation before unmounting the card. */
+    FileLock lock;
+    if (!is_open) {
+        return;
     }
 
-    LOG_INF("Close File ....");
+    LOG_ERR("SD card removed mid recording. Stop recording.");
+    atomic_set(&g_sd_removed, 1);
+    is_open = false;
+    current_file.clear();
+    state_indicator.set_sd_state(SD_FAULT);
+}
 
-    LOG_DBG("Max buffer fill: %d bytes", count_max_buffer_fill);
+int SDLogger::end() {
+    FileLock lock;
+    const bool was_open = is_open;
+    if (!was_open) {
+        return -ENODEV;
+    }
 
-    k_mutex_lock(&file_mutex, K_FOREVER);
-    ret = sd_card->close_file();
-    k_mutex_unlock(&file_mutex);
-    if (ret < 0) {
-        reset_logger_signal();
-        return ret;
+    atomic_set(&g_stop_writing, 1);
+    k_poll_signal_raise(&logger_sig, 0);
+
+    int first_error = 0;
+    if (sd_card->is_mounted()) {
+        const int flush_ret = flush();
+        if (flush_ret < 0) {
+            LOG_ERR("Failed to flush file buffer: %d", flush_ret);
+            first_error = flush_ret;
+        }
+
+        LOG_INF("Close File ....");
+        LOG_DBG("Max buffer fill: %u bytes", count_max_buffer_fill);
+        const int close_ret = sd_card->close_file();
+        if (close_ret < 0 && !first_error) {
+            first_error = close_ret;
+        }
+    } else {
+        first_error = -ENODEV;
     }
 
     is_open = false;
-
-    reset_logger_signal();
+    current_file.clear();
     atomic_clear(&g_stop_writing);
     atomic_clear(&g_sd_removed);
 
-    return 0;
+    sd_mass_storage_recording_stopped();
+    return first_error;
 }
 
 bool SDLogger::is_active() {

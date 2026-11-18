@@ -7,7 +7,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
-#include <zephyr/usb/usb_device.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
 
@@ -36,6 +35,7 @@
 #include "time_sync.h"
 
 #include "../src/SD_Card/SDLogger/SDLogger.h"
+#include "SDMassStorage.h"
 
 #include "uicr.h"
 
@@ -53,8 +53,18 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 //BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_console), zephyr_cdc_acm_uart),
 //	     "Console device is not ACM CDC UART device");
 
-/* STEP 5.4 - Include header for USB */
+#if defined(CONFIG_USB_DEVICE_STACK_NEXT)
+#include <zephyr/storage/disk_access.h>
+#include <zephyr/usb/usbd.h>
+#include <zephyr/usb/class/usbd_msc.h>
+extern "C" {
+#include <sample_usbd.h>
+}
+
+USBD_DEFINE_MSC_LUN(sd, "SD", "OpenEarable", "SD Card", "1.00");
+#else
 #include <zephyr/usb/usb_device.h>
+#endif
 
 
 int main(void) {
@@ -73,14 +83,35 @@ int main(void) {
 
 	sdcard_manager.mount();*/
 
-	/* STEP 5.5 - Enable USB */
-	if (IS_ENABLED(CONFIG_USB_DEVICE_STACK)) {
+#if defined(CONFIG_USB_DEVICE_STACK_NEXT)
+	/*
+	 * Must run after PowerManager has enabled the SD and SPI level-shifter
+	 * rails, since probing the disk requires the card to be powered.
+	 */
+	ret = sd_mass_storage_init();
+	if (ret) {
+		LOG_ERR("Failed to initialize SD mass-storage monitoring: %d", ret);
+	}
+
+	struct usbd_context *usbd = sample_usbd_init_device(sd_mass_storage_usb_msg_cb);
+	if (usbd == NULL) {
+		LOG_ERR("Failed to initialize USB device");
+	} else {
+		sd_mass_storage_set_usb_context(usbd);
+		ret = usbd_enable(usbd);
+		if (ret) {
+			LOG_ERR("Failed to enable USB: %d", ret);
+		}
+	}
+#elif defined(CONFIG_USB_DEVICE_STACK)
+	{
 		ret = usb_enable(NULL);
 		if (ret) {
 			LOG_ERR("Failed to enable USB");
 			return 0;
 		}
 	}
+#endif
 
 	streamctrl_start();
 

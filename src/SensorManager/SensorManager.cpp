@@ -62,6 +62,7 @@ struct k_thread sensor_publish;
 static k_tid_t sensor_pub_id;
 
 static struct k_work config_work;
+static struct k_work sd_removed_work;
 static struct k_work_delayable sd_config_work;
 // Profile writes arrived at most 92 ms apart in paired phone tests with music.
 // Wait for a quiet window, leaving the old recording untouched in the meantime.
@@ -86,6 +87,7 @@ static const char sensor_manager_auto_off_token[] = "SensorManager";
 
 static void config_work_handler(struct k_work *work);
 static void sd_config_work_handler(struct k_work *work);
+static void sd_removed_work_handler(struct k_work *work);
 
 static void drain_sensor_queue() {
 	if (_state == INIT) return;
@@ -151,6 +153,7 @@ void init_sensor_manager() {
 			K_PRIO_PREEMPT(CONFIG_SENSOR_PUB_THREAD_PRIO), 0, K_FOREVER);  // Thread ist initial suspendiert
 
 	k_work_init(&config_work, config_work_handler);
+	k_work_init(&sd_removed_work, sd_removed_work_handler);
 	k_work_init_delayable(&sd_config_work, sd_config_work_handler);
 	/* Driver initialization can take hundreds of milliseconds. Keep it
 	 * preemptible by audio decoding instead of using the cooperative system
@@ -234,6 +237,19 @@ void stop_sensor_manager() {
 	sdlogger.end();
 
 	//k_msgq_purge(&config_queue);
+}
+
+void sensor_manager_sd_card_removed()
+{
+	/* Stop producers before the card lifecycle handler unmounts the filesystem. */
+	Baro::sensor.sd_logging(false);
+	IMU::sensor.sd_logging(false);
+	PPG::sensor.sd_logging(false);
+	Temp::sensor.sd_logging(false);
+	BoneConduction::sensor.sd_logging(false);
+	Microphone::sensor.sd_logging(false);
+
+	k_work_submit_to_queue(&config_work_q, &sd_removed_work);
 }
 
 EdgeMlSensor * get_sensor(enum sensor_id id) {
@@ -403,6 +419,26 @@ static void sd_config_work_handler(struct k_work *work) {
 	}
 	if (rotate) state_indicator.set_sd_state(record ? SD_RECORDING : SD_IDLE);
 	if (active_sensors == 0) stop_sensor_manager();
+}
+
+static void sd_removed_work_handler(struct k_work *work)
+{
+	ARG_UNUSED(work);
+
+	if (sd_sensors.empty()) {
+		return;
+	}
+
+	LOG_WRN("Disabling SD logging for active sensors after SD card removal");
+	for (int sensor_id : sd_sensors) {
+		clear_sensor_config_storage_status((uint8_t)sensor_id);
+		if ((size_t)sensor_id < SENSOR_CONFIG_SLOTS) {
+			pending_sd_valid[sensor_id] = false;
+		}
+	}
+
+	sd_sensors.clear();
+	state_indicator.set_sd_state(SD_FAULT);
 }
 
 static void config_work_handler(struct k_work *work) {

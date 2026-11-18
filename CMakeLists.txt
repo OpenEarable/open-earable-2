@@ -64,6 +64,7 @@ zephyr_library_include_directories(
     src/SD_Card/SDLogger
     src/SD_Card/Benchmark
     src/SD_Card/SD_Card_Manager
+    src/SD_Card/MassStorage
     src/time_sync
 )
 
@@ -84,6 +85,7 @@ add_subdirectory(src/SensorManager)
 add_subdirectory(src/SD_Card/SDLogger)
 add_subdirectory(src/SD_Card/Benchmark)
 add_subdirectory(src/SD_Card/SD_Card_Manager)
+add_subdirectory(src/SD_Card/MassStorage)
 add_subdirectory(src/time_sync)
 add_subdirectory(protocol/generated/c)
 
@@ -102,3 +104,8 @@ include(version.cmake)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 target_link_libraries(app PRIVATE open_earable_protocols)
+
+# USB device initialization shared by Zephyr's next-generation USB samples.
+if(CONFIG_USB_DEVICE_STACK_NEXT)
+    include(${ZEPHYR_BASE}/samples/subsys/usb/common/common.cmake)
+endif()
