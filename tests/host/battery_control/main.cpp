@@ -42,7 +42,7 @@ static std::mutex signals;
 static std::condition_variable cv;
 static bool pause_worker=false,worker_at_voltage=false,release_worker=false;
 static bool configuration_entered=false,release_configuration=false,block_configuration=false;
-static int configuration_result=-EIO,reboots=0;
+static int reboots=0;
 struct k_work {};
 struct k_work_delayable {};
 #define K_SECONDS(x) (x)
@@ -69,7 +69,7 @@ struct battery_level_status {uint32_t flags=0,power_state=0;};
 struct bat_status {bool SYSDWN=false,CHGINH=false,BATTPRES=true,FC=false,FD=false;};
 struct gauge_status {bool edv1=false,edv2=false;};
 struct PowerManager {
-    bool _fuel_gauge_ready=true,power_on=true,charging_disabled=false;
+    bool power_on=true,charging_disabled=false;
     battery_settings _battery_settings=battery_profile_for_imu(0x69)->settings;
     uint16_t last_charging_state=1;
     charging_state last_charging_msg_state=DISCHARGING;
@@ -104,16 +104,13 @@ struct Gauge {
     }
     float temperature(){return temperature_value;}
     bat_status battery_status(){return status;}
-    int setup(const battery_settings &) {
-        assert(cd_high && !power_manager._fuel_gauge_ready);
+    void setup(const battery_settings &) {
         std::unique_lock<std::mutex> lock(signals);
         configuration_entered=true;cv.notify_all();
         if(block_configuration)cv.wait(lock,[]{return release_configuration;});
-        return configuration_result;
     }
 } fuel_gauge;
 struct shell {};
-static void shell_error(const shell *,const char *,...) {}
 static constexpr uint8_t BMI160_CHIP_ID_ADDR=0,BMI160_CHIP_ID=0xd1,BMX160_CHIP_ID=0xd8;
 static constexpr uint8_t BMI160_I2C_ADDR_SDO_LOW=0x68,BMI160_I2C_ADDR_SDO_HIGH=0x69;
 struct BMX160 {
@@ -131,7 +128,6 @@ static void reset() {
     regs[5]=0x8c; // Simulate a retained 4.30 V charger configuration.
     usb_power=true;cd_high=false;lsctrl_high=true;
     assert(battery_controller.begin()==0 && cd_high);
-    power_manager._fuel_gauge_ready=true;
     power_manager.power_on=true;power_manager.charging_disabled=false;
     power_manager.last_charging_state=1;
     power_manager._battery_settings=battery_profile_for_imu(0x69)->settings;
@@ -154,6 +150,12 @@ int main() {
         assert(!cd_high && battery_update_pending);
     }
     std::puts("PASS: charger setup does not gate legacy charge enable on write or readback errors");
+    // A gauge read failure is represented by the driver's zero voltage result.
+    reset();fuel_gauge.voltage_value=0.0f;power_manager.last_charging_state=0;
+    assert(!power_manager.check_battery() && cd_high);
+    power_manager.charge_task();
+    assert(!cd_high && battery_update_pending);
+    std::puts("PASS: gauge read failure does not latch out legacy charger recovery");
     for(uint8_t address : {0x68,0x69,0x00}) {
         reset();power_manager._battery_settings=battery_profile_for_imu(address)->settings;
         configured();assert(power_manager.check_battery() && !cd_high);
@@ -161,6 +163,13 @@ int main() {
         assert(battery_controller.read_charging_control().mAh==power_manager._battery_settings.i_charge);
     }
     std::puts("PASS: VARTA, Grepow and fallback profiles program/read back correctly");
+    reset();power_manager._battery_settings=battery_profile_for_imu(0x68)->settings;
+    configured();fuel_gauge.temperature_value=49.0f;
+    assert(power_manager.check_battery() && !cd_high);
+    assert(battery_controller.read_charging_control().mAh==50.0f);
+    fuel_gauge.temperature_value=50.1f;
+    assert(!power_manager.check_battery() && cd_high);
+    std::puts("PASS: VARTA charging matches 2.3.2 temperature boundaries and charger quantization");
     for (uint8_t address : {uint8_t(0x68), uint8_t(0x69), uint8_t(0)}) {
         reset();power_manager._battery_settings=battery_profile_for_imu(address)->settings;
         fuel_gauge.voltage_value=2.4f;
@@ -230,31 +239,30 @@ int main() {
     fail_read=-1;usb_power=false; // Leave the old hardware status at charging.
     PowerManager::power_good_callback(nullptr,nullptr,0);
     PowerManager::fuel_gauge_work_handler(nullptr);
-    assert(charge_cancellations==1 && published_msg.charging_state==DISCHARGING);
+    assert(charge_cancellations==1 && published_msg.charging_state==CHARGING);
     usb_power=true;regs[0]=0x40;
     PowerManager::power_good_callback(nullptr,nullptr,0);
     power_manager.charge_task();PowerManager::fuel_gauge_work_handler(nullptr);
     assert(!cd_high && published_msg.charging_state==CHARGING);
-    std::puts("PASS: unplug publishes discharging despite a stale charger register; reconnect resumes after a transient error");
+    std::puts("PASS: legacy status follows the charger register after unplug; reconnect resumes after a transient error");
 
     reset();configured();pause_worker=true;block_configuration=true;
     std::thread old_worker([]{assert(power_manager.check_battery());});
     {std::unique_lock<std::mutex> lock(signals);assert(cv.wait_for(lock,std::chrono::seconds(2),[]{return worker_at_voltage;}));}
     std::atomic<bool> command_started{false};
-    std::thread command([&]{command_started=true;assert(cmd_setup_fuel_gauge(nullptr,0,nullptr)==-EIO);});
+    std::thread command([&]{command_started=true;assert(cmd_setup_fuel_gauge(nullptr,0,nullptr)==0);});
     while(!command_started)std::this_thread::yield();
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
     {std::lock_guard<std::mutex> lock(signals);assert(!configuration_entered);release_worker=true;cv.notify_all();}
     {std::unique_lock<std::mutex> lock(signals);assert(cv.wait_for(lock,std::chrono::seconds(2),[]{return configuration_entered;}));}
     std::atomic<bool> new_finished{false};
-    std::thread new_worker([&]{assert(!power_manager.check_battery());new_finished=true;});
+    std::thread new_worker([&]{assert(power_manager.check_battery());new_finished=true;});
     std::this_thread::sleep_for(std::chrono::milliseconds(30));assert(!new_finished);
     {std::lock_guard<std::mutex> lock(signals);release_configuration=true;cv.notify_all();}
     old_worker.join();command.join();new_worker.join();
-    assert(!power_manager._fuel_gauge_ready && cd_high);
     std::puts("PASS: manual configuration waits for in-flight work and blocks new work");
-    pause_worker=false;block_configuration=false;configuration_result=0;
-    assert(cmd_setup_fuel_gauge(nullptr,0,nullptr)==0 && reboots==1);
+    pause_worker=false;block_configuration=false;
+    assert(cmd_setup_fuel_gauge(nullptr,0,nullptr)==0 && reboots==2);
     std::puts("PASS: reboot releases the bus before draining other workers");
     clock_us=300;BMX160 imu;assert(imu.detect());
     assert(clock_us>=10300 && imu._addr==0x69 && imu._standalone_bmi160);

@@ -2,21 +2,16 @@
 #include "battery_profile.h"
 #include <math.h>
 
-/* VARTA requests 100 mA (105 mA with the charger's +5% tolerance).
- * Grepow requests 90 mA, the supported step below the requested 95 mA.
- * The unidentified fallback retains 80 mA. Temperature derating rounds down
- * to a supported charger step. Retain the existing 10 mA
- * termination threshold; no Grepow-specific taper calibration is claimed.
- */
+/* VARTA settings match 2.3.2. Grepow uses its own charging profile. */
 static const struct battery_profile varta = {
     .name = "VARTA CP1454 A4X",
     .settings = {
         .u_nominal = 3.7f, .u_term = 4.3f, .u_vlo = 3.0f,
         .u_charge_prevent = 2.5f,
-        .i_term = 10.0f, .i_charge = 100.0f, .i_max = 200.0f,
+        .i_term = 10.0f, .i_charge = 110.0f, .i_max = 200.0f,
         .capacity = 108.0f,
         .temp_min = 0.0f, .temp_fast_min = 15.0f,
-        .temp_fast_max = 45.0f, .temp_max = 45.0f,
+        .temp_fast_max = 45.0f, .temp_max = 50.0f,
         .i_gauge_overload = 200.0f,
     },
 };
@@ -61,15 +56,12 @@ const struct battery_profile *battery_profile_for_imu(uint8_t address)
 float battery_profile_charge_current(const struct battery_settings *settings,
                                     float voltage, float temperature)
 {
-    if (!isfinite(voltage) || !isfinite(temperature) ||
-        voltage < settings->u_charge_prevent ||
+    if (voltage < settings->u_charge_prevent ||
         temperature < settings->temp_min || temperature > settings->temp_max) {
         return 0.0f;
     }
     if (temperature < settings->temp_fast_min || temperature > settings->temp_fast_max) {
-        float current = settings->i_charge / 2.0f;
-        /* BQ25120A uses 10 mA steps in the >=40 mA range. */
-        return current >= 40.0f ? floorf(current / 10.0f) * 10.0f : current;
+        return settings->i_charge / 2.0f;
     }
     return settings->i_charge;
 }

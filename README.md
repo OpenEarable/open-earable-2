@@ -194,16 +194,19 @@ address selects a 4.2 V fallback; the stored UICR revision cannot enable 4.3 V.
 | Standalone BMI160, `0x69` | 4.20 V | 111 mAh |
 | Identification failed | 4.20 V | 108 mAh |
 
-The VARTA profile requests 100 mA charging; Grepow requests 90 mA and the
-unidentified fallback requests 80 mA. Grepow uses a supported 10 mA charger
-step below the requested 95 mA; its temperature-derated current is 40 mA.
-At startup, all profiles inhibit charging below 2.5 V and outside 0–45 °C,
-and reduce current near the temperature limits. The periodic charger setup
-restores the pre-2.3.3 recovery behavior: it can enable charging without
-rechecking those limits, including below 2.5 V. The existing 10 mA
+The VARTA profile uses the 2.3.2 settings: 110 mA charging and a 0–50 °C
+startup range, with reduced current below 15 °C and above 45 °C. Grepow
+requests 90 mA with a 0–45 °C startup range; the unidentified 4.2 V fallback
+requests 80 mA with the same temperature range. The BQ25120A rounds the
+temperature-derated 45 mA Grepow request down to 40 mA.
+At startup, all profiles inhibit charging below 2.5 V. As in 2.3.2, periodic
+charger setup can enable charging without rechecking the startup voltage or
+temperature limits, including below 2.5 V. The existing 10 mA
 precharge/termination setting is retained. This legacy recovery behavior does
 not implement VARTA's specified low-current, timed over-discharge procedure;
 the supplied Grepow pack specification does not define recovery below 3.0 V.
+The VARTA datasheet specifies 105 mA fast charge and a 45 °C maximum charging
+temperature, so the restored 2.3.2 settings exceed those stated limits.
 
 The Grepow limits come from the manufacturer's GRP1454M1 1C pack design
 guideline dated 2026-07-16. Its 111 mA discharge limit is separate from the
@@ -217,10 +220,11 @@ hardware support.
 Use `battery info` on the serial shell to inspect the detected profile, charger
 voltage readback and gauge target. The selected profile remains fixed until
 reboot, so a later sensor initialization cannot raise the fallback voltage.
-If the gauge cannot be read or configured, charging remains inhibited until
-restart and `battery info` reports the fault. Gauge configuration waits are
-bounded to five seconds per state transition rather than blocking startup
-indefinitely on an unresponsive device.
+As in 2.3.2, charger enable is not gated on a successful fuel-gauge availability
+check. Gauge configuration waits for its mode transitions without a timeout,
+and an unresponsive gauge can therefore prevent startup from completing. The
+full-charge-capacity mismatch check can reconfigure the gauge and reset its
+learned capacity.
 As in 2.2.9, charger setup writes the profile without requiring register
 readback before enabling charging. I2C errors are logged, but do not prevent
 charge enable. A failed or ignored voltage write can leave an older charger

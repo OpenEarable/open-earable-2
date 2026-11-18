@@ -22,7 +22,7 @@ struct battery_profile {
 const struct battery_profile *battery_profile_for_imu(uint8_t address);
 
 /** Requested charge current, or zero if voltage/temperature prohibits charging.
- * Non-finite readings fail closed. This does not decide whether the MCU can
+ * This does not decide whether the MCU can
  * boot: a low battery may still charge while the MCU stays in charging mode.
  */
 float battery_profile_charge_current(const struct battery_settings *settings,

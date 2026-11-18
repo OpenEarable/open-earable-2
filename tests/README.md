@@ -118,7 +118,7 @@ delay that is independent of when the controller delivers a frame.
 
 The `battery_profile` suite verifies legacy/Grepow profile selection, the 4.2 V
 fallback for every other probe result, voltage/temperature charging boundaries,
-temperature derating and invalid-reading handling.
+and legacy temperature derating.
 
 Host hardware-fault regressions run in CI before Twister and can also run with:
 
