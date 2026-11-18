@@ -111,9 +111,14 @@ Open `twister-out/coverage/index.html` after the run.
 The `csip_identity` suite verifies byte-for-byte compatibility with the pre-2.3.0
 LE Audio set identity, including stored pairs, erased UICR, and standalone devices.
 
+The `audio_sync_math` suite verifies the arithmetic that keeps the two earphones
+aligned during LE Audio playback: clock phase across the 32-bit timestamp wrap,
+rejection of late interrupts and single timestamp glitches, and a presentation
+delay that is independent of when the controller delivers a frame.
+
 The `battery_profile` suite verifies legacy/Grepow profile selection, the 4.2 V
 fallback for every other probe result, voltage/temperature charging boundaries,
-temperature derating and invalid-reading handling.
+and legacy temperature derating.
 
 Host hardware-fault regressions run in CI before Twister and can also run with:
 
@@ -122,10 +127,23 @@ python3 tests/host/battery_control/run.py
 ```
 
 They compile the production BQ25120A and TWIM drivers with simulated RTOS/I2C
-boundaries, and execute the production charging-decision, manual-configuration
-and IMU-probe function bodies. Cases cover failed/ignored writes, readback
-mismatches, a latched runtime I2C failure, concurrent charging/configuration,
-bus release before reboot drains workers, and a sensor needing 10 ms POR.
+boundaries, and execute the production charging-decision, battery-update,
+manual-configuration and IMU-probe function bodies. Cases cover legacy charge
+enable after failed charger writes, low-voltage recovery, repeated charge enable
+after the gauge inhibit clears, battery notifications on unplug, concurrent
+charging/configuration, bus release before reboot drains workers, and a sensor
+needing 10 ms POR. The 3.3 V regulator startup tests still verify readback.
+
+The `pair_discovery` host regression feeds the production advertising payload
+to the production peer scanner, checks both sides derive the same pair ID,
+and verifies missing or short manufacturer data and an invalid RSI are ignored:
+
+```sh
+python3 tests/host/pair_discovery/run.py
+```
+
+It uses a deterministic stand-in for Bluetooth encryption and does not test
+radio behavior or the hardware reset itself.
 
 Array bounds regressions compile the production MAXM86161 driver and Bluetooth
 identity-printing function with AddressSanitizer and UndefinedBehaviorSanitizer:

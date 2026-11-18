@@ -70,7 +70,6 @@ bool BQ27220::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
         if (ret) {
-                _setup_io_error = true;
                 LOG_WRN("I2C read failed: %d\n", ret);
         }
 
@@ -92,7 +91,6 @@ void BQ27220::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
                 int ret = i2c_burst_write(_i2c->master, address, reg + i, buffer + i, 1);
                 last_i2c = micros();
                 if (ret) {
-                        _setup_io_error = true;
                         LOG_WRN("I2C write failed: %d", ret);
                         break;
                 }
@@ -276,55 +274,42 @@ void BQ27220::active_mode() {
 
 }*/
 
-bool BQ27220::available() {
-    uint16_t status = 0;
-    return readReg(registers::OP_STAT, (uint8_t *)&status, sizeof(status));
-}
-
-int BQ27220::wait_config_update(bool enabled) {
-    const int64_t deadline = k_uptime_get() + 5000;
-    do {
-        uint16_t status = 0;
-        if (!readReg(registers::OP_STAT, (uint8_t *)&status, sizeof(status))) return -EIO;
-        if (((status & 0x400) != 0) == enabled) return 0;
-        k_msleep(100);
-    } while (k_uptime_get() < deadline);
-    return -ETIMEDOUT;
-}
-
-int BQ27220::enter_config_update() {
+void BQ27220::enter_config_update() {
     //write_command(0x14); //0x13);
     op_state state = operation_state();
     if (state.CFG_UPDATE) {
         LOG_WRN("Already in CONFIG UPDATE MODE.");
-        return 0;
+        return;
     }
     write_command(CONFIG_UPDATE_ENTER);
     k_msleep(1100);
-    const int err = wait_config_update(true);
-    if (err) return err;
+    do {
+        state = operation_state();
+        k_msleep(100);
+    }
+    while (!state.CFG_UPDATE);
     LOG_INF("CONFIG UPDATE MODE entered.");
 
     //if (state.CFG_UPDATE) printk("CONFIG UPDATE MODE entered.\n");
     //else printk("Failed to enter CONFIG UPDATE MODE.\n");
-    return 0;
 }
 
-int BQ27220::exit_config_update(bool init) {
+void BQ27220::exit_config_update(bool init) {
     op_state state = operation_state();
     if (!state.CFG_UPDATE) {
         LOG_WRN("Device is not in CONFIG UPDATE MODE.");
-        return 0;
+        return;
     }
     if (init) write_command(CONFIG_UPDATE_EXIT);
     else write_command(CONFIG_UPDATE_EXIT_NO_INIT);
     k_msleep(1100);
-    const int err = wait_config_update(false);
-    if (err) return err;
+    do {
+        state = operation_state();
+        k_msleep(100);
+    } while (state.CFG_UPDATE);
     LOG_INF("CONFIG UPDATE MODE exited.");
     //if (!state.CFG_UPDATE) printk("CONFIG UPDATE MODE exited.\n");
     //else printk("Failed to exit CONFIG UPDATE MODE.\n");
-    return 0;
 }
 
 void BQ27220::read_RAM(uint16_t ram_address, uint8_t * data, int len) {
@@ -388,9 +373,7 @@ int BQ27220::write_RAM(uint16_t ram_address, uint16_t val, bool check) {
         return write_RAM(ram_address, data, sizeof(val), check);
 }
 
-int BQ27220::setup(const battery_settings &_battery_settings, bool init) {
-        _setup_io_error = false;
-        if (!available()) return -ENODEV;
+void BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         // unseal
         write_command(0x0414);
         k_msleep(100);
@@ -400,9 +383,7 @@ int BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         // full access
         full_access();
 
-        if (_setup_io_error) return -EIO;
-        const int enter_result = enter_config_update();
-        if (enter_result) return enter_result;
+        enter_config_update();
         //k_usleep(1000);
 
         //hibernate off (not supported by fuel gauge)
@@ -517,13 +498,12 @@ int BQ27220::setup(const battery_settings &_battery_settings, bool init) {
         uint8_t cedv_conf = 0x0D; //Default: 0x08, Enable SMEXT, SMEN 0x0D
         (void)write_RAM(0x9271, &cedv_conf, sizeof(cedv_conf));
 
-        (void)write_RAM(0x9272, _battery_settings.u_nominal * 1000);
+        (void)write_RAM(0x9272, 3700);
 
-        const int exit_result = exit_config_update(init);
+        exit_config_update(init);
 
         // put fuel gauge to sealed state
         write_command(SEAL);
-        return exit_result ? exit_result : (_setup_io_error ? -EIO : 0);
 }
 
 int BQ27220::set_int_callback(gpio_callback_handler_t handler) {

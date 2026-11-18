@@ -105,8 +105,18 @@ bool BQ25120a::readReg(uint8_t reg, uint8_t * buffer, uint16_t len) {
 
         if (delay > 0) k_usleep(delay);
 
-        ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
-        if (ret) { io_fault(); LOG_WRN("I2C read failed: %d\n", ret); }
+        if (reg == registers::LS_LDO_CTRL && len == 1) {
+                // Capture the adjacent read-to-clear button flags as well.
+                uint8_t status[2];
+                ret = i2c_burst_read(_i2c->master, address, reg, status, sizeof(status));
+                if (!ret) {
+                        *buffer = status[0];
+                        _pending_button_wake |= status[1] & 0x03;
+                }
+        } else {
+                ret = i2c_burst_read(_i2c->master, address, reg, buffer, len);
+        }
+        if (ret) { _io_error = true; LOG_WRN("I2C read failed: %d\n", ret); }
 
         last_i2c = micros();
 
@@ -125,23 +135,48 @@ void BQ25120a::writeReg(uint8_t reg, uint8_t *buffer, uint16_t len) {
         if (delay > 0) k_usleep(delay);  //TODO: assert no message ?
 
         ret = i2c_burst_write(_i2c->master, address, reg, buffer, len);
-        if (ret) { io_fault(); LOG_WRN("I2C write failed: %d", ret); }
+        if (ret) { _io_error = true; LOG_WRN("I2C write failed: %d", ret); }
 
         last_i2c = micros();
 }
 
-void BQ25120a::io_fault() {
-        _io_error = true;
-        _configured = false;
-        disable_charge();
+int BQ25120a::configure_3v3_at_boot() {
+        TWIMLock lock(*_i2c);
+        if (!_pins_ready) return -EIO;
+        _io_error = false;
+
+        // This is called only at startup, before any 3.3 V consumers run.
+        // Both enable paths must be low before the voltage field can change.
+        int ret = gpio_pin_set_dt(&lsctrl_pin, 0);
+        if (ret) return ret;
+
+        uint8_t status = 0;
+        if (!readReg(registers::LS_LDO_CTRL, &status, sizeof(status))) return -EIO;
+        if (status & 0x80) {
+                uint8_t disabled = status & ~0x80;
+                writeReg(registers::LS_LDO_CTRL, &disabled, sizeof(disabled));
+                if (_io_error || !readReg(registers::LS_LDO_CTRL, &status, sizeof(status)) ||
+                    (status & 0x80)) return -EIO;
+        }
+
+        constexpr uint8_t voltage_mask = 0x7c;
+        constexpr uint8_t voltage_3v3 = 25 << 2;
+        if ((status & voltage_mask) != voltage_3v3) {
+                // Preserve MRRESET_VIN while leaving the software enable clear.
+                uint8_t requested = (status & 0x01) | voltage_3v3;
+                writeReg(registers::LS_LDO_CTRL, &requested, sizeof(requested));
+                if (_io_error || !readReg(registers::LS_LDO_CTRL, &status, sizeof(status))) return -EIO;
+        }
+        if ((status & (0x80 | voltage_mask)) != voltage_3v3) {
+                LOG_ERR("3.3 V regulator readback failed: 0x%02x", status);
+                return -EIO;
+        }
+        return 0;
 }
 
-int BQ25120a::setup(const battery_settings &_battery_settings) {
+void BQ25120a::setup(const battery_settings &_battery_settings) {
         TWIMLock lock(*_i2c);
-        _configured = false;
-        disable_charge();
-        if (!_pins_ready) return -ENODEV;
-        if (_io_error) return -EIO;
+        _io_error = false;
         ilim_uvlo params;
         params.lim_mA = _battery_settings.i_max;
         params.uvlo_v = _battery_settings.u_vlo;
@@ -149,53 +184,13 @@ int BQ25120a::setup(const battery_settings &_battery_settings) {
         exit_high_impedance();
 
         //reset();
-        // Profile changes must not enable charging before voltage/temperature checks.
-        disable_charge();
         setup_ts_control();
         write_battery_voltage_control(_battery_settings.u_term);
         write_charging_control(_battery_settings.i_charge);
         write_termination_control(_battery_settings.i_term);
-        // LSCTRL keeps this board's rail enabled. Per BQ25120A table 20,
-        // its voltage field cannot change until the output is disabled.
-        // Retain the existing request, but do not gate charging on this rail.
-        write_LDO_voltage_control(3.3);
         write_uvlo_ilim(params);
 
-        // ACK alone does not prove that a retained, possibly higher-voltage
-        // profile was replaced. Check the actual register values before CD.
-        const float voltage = read_battery_voltage_control();
-        const chrg_state charge = read_charging_control();
-        const chrg_state term = read_termination_control();
-        const ilim_uvlo input = read_uvlo_ilim();
-        const uint8_t ts = read_ts_fault();
-        if (_io_error || !charge.enabled || !term.enabled || (ts & 0x80) ||
-            fabsf(voltage - _battery_settings.u_term) > 0.005f ||
-            fabsf(charge.mAh - _battery_settings.i_charge) > 0.1f ||
-            fabsf(term.mAh - _battery_settings.i_term) > 0.1f ||
-            fabsf(input.lim_mA - params.lim_mA) > 0.1f ||
-            fabsf(input.uvlo_v - params.uvlo_v) > 0.01f) {
-                LOG_ERR("Charger verification: io=%d CE=%d TE=%d TS=0x%02x CV=%d CC=%d TERM=%d ILIM=%d UVLO=%d",
-                        _io_error, charge.enabled, term.enabled, ts,
-                        (int)(voltage * 1000), (int)charge.mAh, (int)term.mAh,
-                        (int)input.lim_mA, (int)(input.uvlo_v * 1000));
-                io_fault();
-                return -EIO;
-        }
-        _configured = true;
         enter_high_impedance();
-        return 0;
-}
-
-int BQ25120a::set_charge_current_verified(float mA) {
-        TWIMLock lock(*_i2c);
-        if (!configured()) { disable_charge(); return -EIO; }
-        write_charging_control(mA);
-        const chrg_state actual = read_charging_control();
-        if (_io_error || !actual.enabled || fabsf(actual.mAh - mA) > 0.1f) {
-                io_fault();
-                return -EIO;
-        }
-        return 0;
 }
 
 uint8_t BQ25120a::read_charging_state() {
@@ -442,7 +437,6 @@ void BQ25120a::disable_charge() {
 
 void BQ25120a::enable_charge() {
         TWIMLock lock(*_i2c);
-        if (!configured()) { disable_charge(); return; }
         if (power_connected()) gpio_pin_set_dt(&cd_pin, 0);
 }
 
@@ -452,10 +446,14 @@ bool BQ25120a::charge_inhibited() {
 
 
 button_state BQ25120a::read_button_state() {
+        TWIMLock lock(*_i2c);
         struct button_state btn;
 
         uint8_t status = 0;
         (void)readReg(registers::BTN_CTRL, (uint8_t *) &status, sizeof(status));
+
+        status |= _pending_button_wake;
+        _pending_button_wake = 0;
 
         btn.wake_1 = status & 0x2;
         btn.wake_2 = status & 0x1;

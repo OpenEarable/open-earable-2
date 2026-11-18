@@ -115,8 +115,12 @@ int main(void) {
 	ret = init_audio_response_service();
 	ERR_CHK(ret);
 
+	/* Step by one ISO interval (in 1.25 ms units): an ACL interval that is
+	 * not a multiple of it meets a CIS event at a fixed rate, which with
+	 * 10 ms frames cost every third frame at 15 ms and every fifth at 25 ms.
+	 */
 	bt_mgmt_conn_interval_init(new ConnIntvlLinear(
-	    4,                // linear increase step (8ms units)
+	    CONFIG_AUDIO_FRAME_DURATION_US / 1250,
 	    CONFIG_BLE_ACL_CONN_INTERVAL,
 	    CONFIG_BLE_ACL_CONN_INTERVAL_SLOW
 	));

@@ -20,7 +20,12 @@ def function(path, signature):
 with tempfile.TemporaryDirectory(prefix='oe-battery-control-') as temp:
     temp=Path(temp)
     (temp/'production_functions.inc').write_text('\n'.join([
+        function('src/Battery/PowerManager.cpp','void PowerManager::configure_charger_for_startup()'),
         function('src/Battery/PowerManager.cpp','bool PowerManager::check_battery()'),
+        function('src/Battery/PowerManager.cpp','void PowerManager::power_good_callback('),
+        function('src/Battery/PowerManager.cpp','void PowerManager::fuel_gauge_work_handler('),
+        function('src/Battery/PowerManager.cpp','void PowerManager::charge_task()'),
+        function('src/Battery/PowerManager.cpp','void PowerManager::get_battery_status('),
         function('src/Battery/PowerManager.cpp','int cmd_setup_fuel_gauge('),
         function('src/SensorManager/BMX160/BMX160.cpp','bool BMX160::probeAddress('),
         function('src/SensorManager/BMX160/BMX160.cpp','bool BMX160::detect()'),
@@ -33,3 +38,12 @@ with tempfile.TemporaryDirectory(prefix='oe-battery-control-') as temp:
         '-x','c++',str(ROOT/'src/Battery/battery_profile.c'),str(HERE/'main.cpp'),
         '-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True,timeout=15)
+    (temp/'bootloader_functions.inc').write_text('\n'.join([
+        function('boards/teco/openearable_v2/mcuboot_hook.c', 'static int read_charger_ldo('),
+        function('boards/teco/openearable_v2/mcuboot_hook.c', 'static void charger_watchdog_handler('),
+        function('boards/teco/openearable_v2/mcuboot_hook.c', 'static int init_3v3_regulator('),
+    ]))
+    bootloader_binary=temp/'bootloader_3v3'
+    subprocess.run([os.environ.get('CXX','c++'),'-std=c++17','-Wall','-Wextra',
+        '-I'+str(temp),'-I'+str(ROOT/'boards/teco/openearable_v2'),str(HERE/'bootloader.cpp'),'-o',str(bootloader_binary)],check=True)
+    subprocess.run([str(bootloader_binary)],check=True,timeout=15)
