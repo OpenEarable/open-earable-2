@@ -218,9 +218,12 @@ hardware support.
 Use `battery info` on the serial shell to inspect the detected profile, charger
 voltage readback and gauge target. The selected profile remains fixed until
 reboot, so a later sensor initialization cannot raise the fallback voltage.
-As in 2.3.2, charger enable is not gated on a successful fuel-gauge availability
-check. Gauge configuration waits for its mode transitions without a timeout,
-and an unresponsive gauge can therefore prevent startup from completing. The
+As in 2.3.2, USB charging is enabled before gauge configuration, which can power
+the battery-side gauge when no cell is fitted. Charger enable is not gated on a
+successful fuel-gauge availability check. Gauge configuration waits for its
+mode transitions without a timeout, and an unresponsive gauge can therefore
+prevent startup from completing and leave charging enabled without reaching the
+startup voltage and temperature checks. The
 full-charge-capacity mismatch check can reconfigure the gauge and reset its
 learned capacity.
 As in 2.2.9, charger setup writes the profile without requiring register

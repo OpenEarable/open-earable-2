@@ -20,6 +20,7 @@ def function(path, signature):
 with tempfile.TemporaryDirectory(prefix='oe-battery-control-') as temp:
     temp=Path(temp)
     (temp/'production_functions.inc').write_text('\n'.join([
+        function('src/Battery/PowerManager.cpp','void PowerManager::configure_charger_for_startup()'),
         function('src/Battery/PowerManager.cpp','bool PowerManager::check_battery()'),
         function('src/Battery/PowerManager.cpp','void PowerManager::power_good_callback('),
         function('src/Battery/PowerManager.cpp','void PowerManager::fuel_gauge_work_handler('),

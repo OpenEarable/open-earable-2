@@ -39,6 +39,7 @@ public:
 
     static k_work_delayable power_down_work;
 private:
+    void configure_charger_for_startup();
     bool power_on = false;
     bool charging_disabled = false;
     uint16_t last_charging_state = 0;

@@ -79,6 +79,7 @@ struct PowerManager {
     static void power_good_callback(const device *,gpio_callback *,uint32_t);
     static void fuel_gauge_work_handler(k_work *);
     void charge_task();
+    void configure_charger_for_startup();
     void get_battery_status(battery_level_status &);
     bool check_battery();
     void reboot() {
@@ -140,6 +141,17 @@ static void configured() {
     battery_controller.setup(power_manager._battery_settings);
 }
 int main() {
+    // On USB, the selected voltage is programmed and BAT is enabled before
+    // gauge configuration, even when the gauge is not yet responsive.
+    for (uint8_t address : {uint8_t(0x68), uint8_t(0x69), uint8_t(0)}) {
+        reset();power_manager._battery_settings=battery_profile_for_imu(address)->settings;
+        power_manager.configure_charger_for_startup();
+        assert(!cd_high);
+        assert(std::fabs(battery_controller.read_battery_voltage_control()-power_manager._battery_settings.u_term)<0.005f);
+    }
+    reset();usb_power=false;power_manager.configure_charger_for_startup();
+    assert(!cd_high); // setup returns the battery-only interface to high-Z.
+    std::puts("PASS: startup programs each profile and enables USB charging before gauge setup");
     // Like 2.2.9, failed or ignored charger writes do not gate charge enable.
     for(int mode=0;mode<3;mode++) {
         reset();power_manager.last_charging_state=0;

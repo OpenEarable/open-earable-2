@@ -279,6 +279,13 @@ void PowerManager::fuel_gauge_work_handler(struct k_work * work) {
 	}
 }
 
+void PowerManager::configure_charger_for_startup() {
+    battery_controller.setup(_battery_settings);
+    // As in 2.3.2, allow the charger to supply BAT before gauge setup.
+    // The gauge may itself need BAT power when no cell is fitted.
+    battery_controller.enable_charge();
+}
+
 int PowerManager::begin() {
     earable_state oe_state{};
 
@@ -366,7 +373,7 @@ int PowerManager::begin() {
 
     {
         TWIMLock battery_lock(I2C1);
-        battery_controller.setup(_battery_settings);
+        configure_charger_for_startup();
         battery_controller.set_int_callback(battery_controller_callback);
 
         // check setup
