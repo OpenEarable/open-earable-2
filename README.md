@@ -194,8 +194,8 @@ address selects a 4.2 V fallback; the stored UICR revision cannot enable 4.3 V.
 | Standalone BMI160, `0x69` | 4.20 V | 111 mAh |
 | Identification failed | 4.20 V | 108 mAh |
 
-The VARTA profile uses the 2.3.2 settings: 110 mA charging and a 0–50 °C
-startup range, with reduced current below 15 °C and above 45 °C. Grepow
+The VARTA profile requests 100 mA charging and a 0–45 °C startup range,
+with reduced current below 15 °C. Grepow
 requests 90 mA with a 0–45 °C startup range; the unidentified 4.2 V fallback
 requests 80 mA with the same temperature range. The BQ25120A rounds the
 temperature-derated 45 mA Grepow request down to 40 mA.
@@ -205,8 +205,6 @@ temperature limits, including below 2.5 V. The existing 10 mA
 precharge/termination setting is retained. This legacy recovery behavior does
 not implement VARTA's specified low-current, timed over-discharge procedure;
 the supplied Grepow pack specification does not define recovery below 3.0 V.
-The VARTA datasheet specifies 105 mA fast charge and a 45 °C maximum charging
-temperature, so the restored 2.3.2 settings exceed those stated limits.
 
 The Grepow limits come from the manufacturer's GRP1454M1 1C pack design
 guideline dated 2026-07-16. Its 111 mA discharge limit is separate from the

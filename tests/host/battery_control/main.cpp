@@ -164,12 +164,14 @@ int main() {
     }
     std::puts("PASS: VARTA, Grepow and fallback profiles program/read back correctly");
     reset();power_manager._battery_settings=battery_profile_for_imu(0x68)->settings;
-    configured();fuel_gauge.temperature_value=49.0f;
+    configured();fuel_gauge.temperature_value=45.0f;
     assert(power_manager.check_battery() && !cd_high);
-    assert(battery_controller.read_charging_control().mAh==50.0f);
-    fuel_gauge.temperature_value=50.1f;
+    assert(battery_controller.read_charging_control().mAh==100.0f);
+    fuel_gauge.temperature_value=45.1f;
     assert(!power_manager.check_battery() && cd_high);
-    std::puts("PASS: VARTA charging matches 2.3.2 temperature boundaries and charger quantization");
+    fuel_gauge.temperature_value=14.9f;
+    assert(power_manager.check_battery() && battery_controller.read_charging_control().mAh==50.0f);
+    std::puts("PASS: VARTA uses 100 mA, 45 C maximum and the existing reduced-current behavior");
     for (uint8_t address : {uint8_t(0x68), uint8_t(0x69), uint8_t(0)}) {
         reset();power_manager._battery_settings=battery_profile_for_imu(address)->settings;
         fuel_gauge.voltage_value=2.4f;

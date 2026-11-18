@@ -2,16 +2,16 @@
 #include "battery_profile.h"
 #include <math.h>
 
-/* VARTA settings match 2.3.2. Grepow uses its own charging profile. */
+/* VARTA uses the 2.3.2 profile with adjusted charge current and maximum temperature. */
 static const struct battery_profile varta = {
     .name = "VARTA CP1454 A4X",
     .settings = {
         .u_nominal = 3.7f, .u_term = 4.3f, .u_vlo = 3.0f,
         .u_charge_prevent = 2.5f,
-        .i_term = 10.0f, .i_charge = 110.0f, .i_max = 200.0f,
+        .i_term = 10.0f, .i_charge = 100.0f, .i_max = 200.0f,
         .capacity = 108.0f,
         .temp_min = 0.0f, .temp_fast_min = 15.0f,
-        .temp_fast_max = 45.0f, .temp_max = 50.0f,
+        .temp_fast_max = 45.0f, .temp_max = 45.0f,
         .i_gauge_overload = 200.0f,
     },
 };
