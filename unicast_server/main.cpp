@@ -39,6 +39,10 @@
 
 #include "uicr.h"
 
+#if CONFIG_OPENEARABLE_USB_AUDIO
+#include "audio_usb_device.h"
+#endif
+
 #include "streamctrl.h"
 
 #include "bt_mgmt.h"
@@ -74,6 +78,14 @@ int main(void) {
 	sdcard_manager.mount();*/
 
 	/* STEP 5.5 - Enable USB */
+#if CONFIG_OPENEARABLE_USB_AUDIO
+	/* The audio class callbacks must be registered before USB is enabled. */
+	ret = audio_usb_device_init();
+	if (ret) {
+		LOG_ERR("Failed to initialize USB audio device: %d", ret);
+	}
+#endif
+
 	if (IS_ENABLED(CONFIG_USB_DEVICE_STACK)) {
 		ret = usb_enable(NULL);
 		if (ret) {

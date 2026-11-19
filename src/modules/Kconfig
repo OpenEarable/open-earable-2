@@ -8,6 +8,19 @@ rsource "Kconfig.defaults"
 
 menu "Modules"
 
+config OPENEARABLE_USB_AUDIO
+	bool "Use OpenEarable as a bidirectional USB audio device"
+	depends on !AUDIO_SOURCE_USB
+	depends on AUDIO_SAMPLE_RATE_48000_HZ
+	depends on AUDIO_BIT_DEPTH_16
+	select USB_DEVICE_STACK
+	select USB_DEVICE_AUDIO
+	select NET_BUF
+	help
+	  Expose both ADAU1860 microphone channels as stereo USB input and accept
+	  stereo USB playback at 48 kHz and 16 bit. USB playback takes precedence
+	  over Bluetooth audio while the host is streaming.
+
 config BUTTON_DEBOUNCE_MS
 	int "Button debounce time in ms"
 	default 50

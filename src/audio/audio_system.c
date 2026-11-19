@@ -787,6 +787,24 @@ int audio_system_init(void)
 			return ret;
 		}
 	}
+
+#if CONFIG_OPENEARABLE_USB_AUDIO
+	/* Keep one datapath reference while USB audio is enabled so I2S keeps
+	 * running. Bluetooth streaming takes and releases an additional reference.
+	 */
+	ret = audio_datapath_aquire(NULL);
+	if (ret) {
+		LOG_ERR("Failed to start USB audio datapath: %d", ret);
+		return ret;
+	}
+
+	ret = hw_codec_default_conf_enable();
+	if (ret) {
+		LOG_ERR("Failed to enable codec for USB audio: %d", ret);
+		(void)audio_datapath_release();
+		return ret;
+	}
+#endif
 #endif
 
 	k_poll_signal_init(&encoder_sig);

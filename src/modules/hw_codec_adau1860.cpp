@@ -338,6 +338,13 @@ int hw_codec_stop_audio(void)
 {
 	int ret;
 
+	if (IS_ENABLED(CONFIG_OPENEARABLE_USB_AUDIO)) {
+		/* I2S keeps running for the USB audio device, so the codec must
+		 * stay unmuted for USB playback.
+		 */
+		return 0;
+	}
+
 	ret = dac.mute(true);
 	if (ret) {
 		return ret;

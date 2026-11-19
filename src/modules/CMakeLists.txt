@@ -13,6 +13,9 @@ target_sources_ifdef(CONFIG_AUDIO_SOURCE_USB app PRIVATE
                      ${CMAKE_CURRENT_SOURCE_DIR}/audio_usb.c
                      ${CMAKE_CURRENT_SOURCE_DIR}/audio_usb_init.c)
 
+target_sources_ifdef(CONFIG_OPENEARABLE_USB_AUDIO app PRIVATE
+                     ${CMAKE_CURRENT_SOURCE_DIR}/audio_usb_device.c)
+
 target_sources_ifdef(CONFIG_NRF_AUDIO_CS47L63_DRIVER app PRIVATE
                      ${CMAKE_CURRENT_SOURCE_DIR}/hw_codec.c)
 target_sources_ifdef(CONFIG_NRF_AUDIO_ADAU1860_DRIVER app PRIVATE

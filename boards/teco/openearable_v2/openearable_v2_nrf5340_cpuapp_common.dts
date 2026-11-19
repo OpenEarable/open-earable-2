@@ -260,6 +260,21 @@
 	 cdc_acm_uart0: cdc_acm_uart0 {
 		 compatible = "zephyr,cdc-acm-uart";
 	 };
+	 usb_audio_headset: usb_audio_headset {
+		 compatible = "usb-audio-hs";
+		 mic-feature-mute;
+		 mic-channel-l;
+		 mic-channel-r;
+		 mic-resolution = <16>;
+		 mic-sample-rate-hz = <48000>;
+		 mic-polling-interval = <1>;
+		 hp-feature-mute;
+		 hp-channel-l;
+		 hp-channel-r;
+		 hp-resolution = <16>;
+		 hp-sample-rate-hz = <48000>;
+		 hp-polling-interval = <1>;
+	 };
  };
  
  &uicr {

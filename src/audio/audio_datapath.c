@@ -21,6 +21,9 @@
 #include "led_assignments.h"
 #include "led.h"
 #include "audio_i2s.h"
+#if CONFIG_OPENEARABLE_USB_AUDIO
+#include "audio_usb_device.h"
+#endif
 #include "sw_codec_select.h"
 #include "audio_system.h"
 #include "streamctrl.h"
@@ -1225,15 +1228,42 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
 		static bool underrun_condition;
 		bool valid_pcm = false;
+		bool usb_playback_selected = false;
 
 		if (tx_buf_released == NULL) {
 			ERR_CHK_MSG(-ENOMEM, "No TX data available");
 		}
 
+#if CONFIG_OPENEARABLE_USB_AUDIO
+		/* USB playback uses an alternative buffer and takes precedence over the
+		 * Bluetooth decoder's FIFO while the host is streaming.
+		 */
+		ret = alt_buffer_get((void **)&tx_buf);
+		if (ret) {
+			ERR_CHK(ret);
+			return;
+		}
+
+		ret = audio_usb_device_playback_read(tx_buf, BLK_MULTI_CHAN_SIZE_OCTETS);
+		if (ret == 0) {
+			usb_playback_selected = true;
+		} else {
+			alt_buffer_free(tx_buf);
+			tx_buf = NULL;
+		}
+#endif
+
 		/* Double buffered index */
 		uint32_t next_out_blk_idx = NEXT_IDX(ctrl_blk.out.cons_blk_idx);
 
-		if (next_out_blk_idx != ctrl_blk.out.prod_blk_idx) {
+		if (usb_playback_selected) {
+			/* Discard the Bluetooth block so its FIFO keeps flowing. */
+			if (next_out_blk_idx != ctrl_blk.out.prod_blk_idx) {
+				ctrl_blk.out.cons_blk_idx = next_out_blk_idx;
+				ctrl_blk.out.cons_blk_cnt++;
+			}
+			ctrl_blk.out.next_from_fifo = false;
+		} else if (next_out_blk_idx != ctrl_blk.out.prod_blk_idx) {
 			/* Only increment if not in under-run condition */
 			ctrl_blk.out.cons_blk_idx = next_out_blk_idx;
 			ctrl_blk.out.cons_blk_cnt++;
@@ -1281,7 +1311,9 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 			memset(tx_buf, 0, BLK_MULTI_CHAN_SIZE_OCTETS);
 		}
 
-		audio_datapath_startup_apply(tx_buf, valid_pcm);
+		if (!usb_playback_selected) {
+			audio_datapath_startup_apply(tx_buf, valid_pcm);
+		}
 
 		if (tone_active || buffer_play_data != NULL) {
 			tone_mix(tx_buf);
@@ -1291,6 +1323,15 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	/********** I2S RX **********/
 	static uint32_t num_overruns;
 	static uint32_t num_overruns_last_printed;
+
+#if CONFIG_OPENEARABLE_USB_AUDIO
+	if (rx_buf_released != NULL) {
+		ret = audio_usb_device_mic_write(rx_buf_released, BLK_MULTI_CHAN_SIZE_OCTETS);
+		if (ret) {
+			LOG_WRN_RATELIMIT("Failed to queue USB microphone block: %d", ret);
+		}
+	}
+#endif
 
 	if ((record_sd || record_buffer) && rx_buf_released != NULL) {
 		struct audio_tap_block block = {.timestamp = micros()};
