@@ -1398,8 +1398,8 @@ static void audio_datapath_i2s_start(void)
 	uint8_t *tx_buf_1 = NULL;
 
 	/* Buffers used for I2S RX. Used interchangeably by I2S. */
-	static uint32_t rx_buf_0[BLK_MULTI_CHAN_SIZE_OCTETS];
-	static uint32_t rx_buf_1[BLK_MULTI_CHAN_SIZE_OCTETS];
+	static uint32_t rx_buf_0[BLK_MULTI_CHAN_SIZE_OCTETS / sizeof(uint32_t)];
+	static uint32_t rx_buf_1[BLK_MULTI_CHAN_SIZE_OCTETS / sizeof(uint32_t)];
 
 	/* TX */
 	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
