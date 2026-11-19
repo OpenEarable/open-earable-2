@@ -269,6 +269,11 @@
 		 mic-sample-rate-hz = <48000>;
 		 mic-polling-interval = <1>;
 		 hp-feature-mute;
+		 hp-feature-volume;
+		 /* Playback volume in 1/256 dB, matching the FDSP codec volume range. */
+		 volume-max = <0x0000>;
+		 volume-min = <0xC400>;
+		 volume-res = <0x0100>;
 		 hp-channel-l;
 		 hp-channel-r;
 		 hp-resolution = <16>;

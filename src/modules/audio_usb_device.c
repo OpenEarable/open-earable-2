@@ -12,8 +12,13 @@
 #include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/net_buf.h>
+#include <zephyr/sys/byteorder.h>
+#include <zephyr/sys/util.h>
+#include <zephyr/zbus/zbus.h>
 #include <zephyr/usb/class/usb_audio.h>
 #include <zephyr/usb/usb_device.h>
+
+#include "zbus_common.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_usb_device, CONFIG_MODULE_AUDIO_USB_LOG_LEVEL);
@@ -28,6 +33,15 @@ LOG_MODULE_REGISTER(audio_usb_device, CONFIG_MODULE_AUDIO_USB_LOG_LEVEL);
 #define USB_PLAYBACK_QUEUE_DEPTH  2
 #define USB_PLAYBACK_HOLD_TIME_MS 100
 
+#define USB_VOLUME_STEP		  256 /* 1 dB in 1/256 dB */
+/* The FDSP codec volume spans 0 (-60 dB) to 255 (0 dB). */
+#define USB_VOLUME_RANGE_DB	  60
+#define CODEC_VOLUME_MAX	  255
+/* Feature unit channels: 0 = master, 1 = left, 2 = right. */
+#define USB_VOLUME_CHANNELS	  (USB_AUDIO_CHANNEL_COUNT + 1)
+
+ZBUS_CHAN_DECLARE(volume_chan);
+
 /* Both queues carry net_buf pointers, so audio data is never copied twice. */
 K_MSGQ_DEFINE(usb_mic_queue, sizeof(struct net_buf *), USB_MIC_BUF_COUNT, sizeof(void *));
 K_MSGQ_DEFINE(usb_playback_queue, sizeof(struct net_buf *), USB_PLAYBACK_QUEUE_DEPTH,
@@ -37,6 +51,8 @@ NET_BUF_POOL_FIXED_DEFINE(pool_mic, USB_MIC_BUF_COUNT, USB_AUDIO_FRAME_SIZE, 0, 
 static bool host_requested_data;
 static bool microphone_muted;
 static bool headphones_muted;
+/* Attenuation per feature unit channel in whole dB, set by the USB host. */
+static uint8_t playback_attenuation_db[USB_VOLUME_CHANNELS];
 static uint32_t last_playback_data_ms;
 static uint32_t queue_overruns;
 static uint32_t playback_queue_overruns;
@@ -131,9 +147,48 @@ static void headphones_data_received(const struct device *dev, struct net_buf *b
 	last_playback_data_ms = k_uptime_get_32();
 }
 
+static void playback_volume_set(uint8_t channel, int16_t volume)
+{
+	struct volume_msg msg = {.event = VOLUME_SET};
+	uint32_t attenuation;
+	int ret;
+
+	if (channel >= USB_VOLUME_CHANNELS) {
+		return;
+	}
+
+	attenuation = (volume >= 0) ? 0U : (uint32_t)(-volume) / USB_VOLUME_STEP;
+	playback_attenuation_db[channel] = MIN(attenuation, USB_VOLUME_RANGE_DB);
+
+	/* The codec has a single output volume: combine the master volume with the
+	 * average of the channel volumes.
+	 */
+	attenuation = playback_attenuation_db[0] +
+		      ((playback_attenuation_db[1] + playback_attenuation_db[2] + 1U) / 2U);
+	attenuation = MIN(attenuation, USB_VOLUME_RANGE_DB);
+
+	msg.volume = CODEC_VOLUME_MAX - DIV_ROUND_CLOSEST(attenuation * CODEC_VOLUME_MAX,
+							   USB_VOLUME_RANGE_DB);
+
+	/* The codec is accessed over I2C, so its volume thread applies the value. */
+	ret = zbus_chan_pub(&volume_chan, &msg, K_NO_WAIT);
+	if (ret) {
+		LOG_WRN("Failed to publish USB playback volume: %d", ret);
+		return;
+	}
+
+	LOG_DBG("USB playback volume -%u dB, codec volume %u", attenuation, msg.volume);
+}
+
 static void feature_update(const struct device *dev, const struct usb_audio_fu_evt *evt)
 {
 	ARG_UNUSED(dev);
+
+	if ((evt->cs == USB_AUDIO_FU_VOLUME_CONTROL) && (evt->dir == USB_AUDIO_OUT) &&
+	    (evt->val != NULL) && (evt->val_len >= sizeof(int16_t))) {
+		playback_volume_set(evt->channel, (int16_t)sys_get_le16(evt->val));
+		return;
+	}
 
 	if ((evt->cs == USB_AUDIO_FU_MUTE_CONTROL) && (evt->val != NULL) &&
 	    (evt->val_len >= sizeof(uint8_t))) {
