@@ -486,6 +486,7 @@ int ADAU1860::fdsp_set_volume(uint8_t volume) {
         uint32_t val = MIN(_val, (1 << 27));
 
         fdsp_safe_load(VOLUME, 4, val, false);
+        _fdsp_volume = volume;
 
         return 0;
 }
@@ -505,15 +506,17 @@ int ADAU1860::fdsp_bank_select(uint8_t bank) {
 #endif
 
 uint8_t ADAU1860::get_volume() {
+#if CONFIG_FDSP
+        return fdsp_get_volume();
+#else
         uint8_t dac_vol = 0;
         readReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol));
         return 0xFF-dac_vol;
+#endif
 }
 
 uint8_t ADAU1860::fdsp_get_volume() {
-        uint8_t dac_vol = 0;
-        readReg(registers::DAC_VOL0, &dac_vol, sizeof(dac_vol));
-        return 0xFF-dac_vol;
+        return _fdsp_volume;
 }
 
 int ADAU1860::mic_gain_write(uint8_t channel, uint8_t gain) {

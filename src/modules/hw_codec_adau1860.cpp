@@ -29,6 +29,17 @@ LOG_MODULE_REGISTER(hw_codec, CONFIG_MODULE_HW_CODEC_LOG_LEVEL);
 /* Allow the DSP mute ramp and I2S clock domain to settle at source changes. */
 #define CODEC_MUTE_SETTLE_MS 100
 
+#ifdef CONFIG_FDSP
+/* FDSP volume: 0..255 spans -60 dB..0 dB, i.e. 4.25 steps per dB. */
+#define VOLUME_REG_MAX		 255
+#define VOLUME_RANGE_DB		 60
+#define VOLUME_DB_TO_STEPS(db)	 ((db) * VOLUME_REG_MAX / VOLUME_RANGE_DB)
+#else
+/* DAC_VOL0: 1 step equals 0.375 dB, i.e. 8/3 steps per dB. */
+#define VOLUME_REG_MAX		 MAX_VOLUME_REG_VAL
+#define VOLUME_DB_TO_STEPS(db)	 ((db) * 8 / 3)
+#endif
+
 ZBUS_SUBSCRIBER_DEFINE(volume_evt_sub, CONFIG_VOLUME_MSG_SUB_QUEUE_SIZE);
 
 static uint32_t prev_volume_reg_val = OUT_VOLUME_DEFAULT;
@@ -221,8 +232,13 @@ int hw_codec_volume_set(uint8_t set_val)
 
 	prev_volume_reg_val = volume_reg_val;
 
+#ifdef CONFIG_FDSP
+	LOG_DBG("Volume: -%" PRIu32 " dB",
+		(VOLUME_REG_MAX - volume_reg_val) * VOLUME_RANGE_DB / VOLUME_REG_MAX);
+#else
 	/* This is rounded down to nearest integer */
 	LOG_DBG("Volume: %" PRId32 " dB", (volume_reg_val / 2) - MAX_VOLUME_DB);
+#endif
 
 	return 0;
 }
@@ -239,18 +255,18 @@ int hw_codec_volume_adjust(int8_t adjustment_db)
 	} else {
 		uint32_t volume_reg_val;
 
+		/* Start from the volume that is actually applied. With the FDSP this
+		 * is the DSP volume parameter, not the fixed DAC_VOL0 register.
+		 */
 		volume_reg_val = dac.get_volume();
 
-		/* The adjustment is in dB, 1 bit equals 0.375 dB,
-		 * so multiply by 8/3 to get increments of 1 dB
-		 */
-		new_volume_reg_val = volume_reg_val + (adjustment_db * 8 / 3);
+		new_volume_reg_val = volume_reg_val + VOLUME_DB_TO_STEPS(adjustment_db);
 		if (new_volume_reg_val <= 0) {
-			LOG_WRN("Volume at MIN (-64dB)");
+			LOG_WRN("Volume at MIN");
 			new_volume_reg_val = 0;
-		} else if (new_volume_reg_val >= MAX_VOLUME_REG_VAL) {
+		} else if (new_volume_reg_val >= VOLUME_REG_MAX) {
 			LOG_WRN("Volume at MAX (0dB)");
-			new_volume_reg_val = MAX_VOLUME_REG_VAL;
+			new_volume_reg_val = VOLUME_REG_MAX;
 		}
 	}
 

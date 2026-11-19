@@ -447,6 +447,11 @@ private:
 
     uint8_t _active_bank = 0;
 
+    /* The FDSP volume lives in a DSP parameter that cannot be read back over
+     * I2C, so the last written value is kept here. DAC_VOL0 stays fixed.
+     */
+    uint8_t _fdsp_volume = OUT_VOLUME_DEFAULT;
+
     //const struct gpio_dt_spec pg_pin = GPIO_DT_SPEC_GET(DT_NODELABEL(bq25120a), pg_gpios);
 
     friend int cmd_dsp_noise_gate(const struct shell *shell, size_t argc, char **argv);
