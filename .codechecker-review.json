@@ -3,6 +3,17 @@
   "rules": [
     {
       "filters": {
+        "filepath": "*/boards/teco/openearable_v2/boot_charger_status.h",
+        "checker_name": "core.FixedAddressDereference",
+        "report_hash": "79bf9dae6ed323fb625d7c04cb90d942"
+      },
+      "actions": {
+        "review_status": "intentional",
+        "reason": "boot_charger_take reads the nRF5340 POWER.GPREGRET[1] retention register to consume charger wake events saved by MCUboot."
+      }
+    },
+    {
+      "filters": {
         "filepath": "*/hal/nordic/nrfx/hal/nrf_clock.h",
         "checker_name": "core.FixedAddressDereference",
         "report_hash": "cfa253609494742f2bd30791d09751b4"
