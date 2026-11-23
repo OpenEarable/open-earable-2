@@ -582,6 +582,18 @@ int notify_sensor_config_status(void) {
 	return 0;
 }
 
+int clear_sensor_config_storage_status(uint8_t sensor_id)
+{
+	for (size_t i = 0; i < active_sensor_configs_size; i++) {
+		if (active_sensor_configs[i].sensorId == sensor_id) {
+			active_sensor_configs[i].storageOptions &= ~DATA_STORAGE;
+			return notify_sensor_config_status();
+		}
+	}
+
+	return -ENOENT;
+}
+
 int init_sensor_service() {
 	int ret;
 

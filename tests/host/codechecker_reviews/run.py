@@ -7,7 +7,7 @@ from codechecker_common.review_status_handler import ReviewStatusHandler
 ROOT=Path(__file__).resolve().parents[3]
 config=ROOT/'.codechecker-review.json';rules=json.loads(config.read_text())['rules']
 handler=ReviewStatusHandler();handler.set_review_status_config(str(config))
-assert len(rules)==14
+assert len(rules)==15
 for rule in rules:
     filt=rule['filters'];assert set(filt)=={'filepath','checker_name','report_hash'}
     assert len(filt['report_hash'])==32 and filt['checker_name']=='core.FixedAddressDereference'
@@ -19,7 +19,7 @@ for rule in rules:
     assert handler.get_review_status_from_config(report(bug_hash='0'*32)) is None
     assert handler.get_review_status_from_config(report(checker='security.ArrayBound')) is None
     assert handler.get_review_status_from_config(report(path='/workspace/application/unrelated.c')) is None
-print('PASS: only the 14 reviewed checker/path/hash combinations are classified intentional')
+print(f'PASS: only the {len(rules)} reviewed checker/path/hash combinations are classified intentional')
 with tempfile.TemporaryDirectory(prefix='oe-codechecker-review-') as temp:
     temp=Path(temp);active=temp/'active.json';reviewed=temp/'reviewed.json';output=temp/'comment.md'
     active.write_text(json.dumps({'reports':[]}));reviewed.write_text(json.dumps({'reports':[{'review_status':'intentional'}]}))

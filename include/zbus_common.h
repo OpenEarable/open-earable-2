@@ -33,6 +33,8 @@ enum le_audio_evt_type {
 	LE_AUDIO_EVT_STREAMING,
 	LE_AUDIO_EVT_NOT_STREAMING,
 	LE_AUDIO_EVT_STREAM_SENT,
+	/* A stream is being enabled and will start within about 100 ms */
+	LE_AUDIO_EVT_ENABLING,
 	LE_AUDIO_EVT_SYNC_LOST,
 	LE_AUDIO_EVT_NO_VALID_CFG,
 	LE_AUDIO_EVT_COORD_SET_DISCOVERED,
