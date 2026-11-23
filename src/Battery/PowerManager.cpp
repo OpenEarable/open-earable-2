@@ -371,6 +371,21 @@ int PowerManager::begin() {
             _battery_profile->name, _imu_address,
             (unsigned)(_battery_settings.u_term * 1000.0f));
 
+    const auto indicate_usb_power = [&oe_state] {
+        if (oe_state.charging_state == POWER_CONNECTED) return;
+
+        if (pm_device_runtime_enable(ls_3_3) != 0) {
+            LOG_WRN("Error setting up load switch 3.3V.");
+        }
+        oe_state.charging_state = POWER_CONNECTED;
+        state_indicator.init(oe_state);
+    };
+
+    // Show USB power before fuel-gauge configuration can delay the status check.
+    if (battery_controller.power_connected()) {
+        indicate_usb_power();
+    }
+
     {
         TWIMLock battery_lock(I2C1);
         configure_charger_for_startup();
@@ -415,21 +430,7 @@ int PowerManager::begin() {
 
     if (charging) {
         power_manager.last_charging_state = 0;
-        
-        int ret = pm_device_runtime_enable(ls_3_3);
-        if (ret != 0) {
-            LOG_WRN("Error setting up load switch 3.3V.");
-        }
-
-        //battery_level_status bat_status;
-        //get_battery_status(&bat_status);
-
-        {
-            TWIMLock battery_lock(I2C1);
-            oe_state.charging_state = POWER_CONNECTED;
-        }
-
-        state_indicator.init(oe_state);
+        indicate_usb_power();
 
         k_work_schedule(&charge_ctrl_delayable, K_NO_WAIT);
 
