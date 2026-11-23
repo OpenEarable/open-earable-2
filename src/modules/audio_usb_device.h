@@ -16,6 +16,7 @@
 #ifndef _AUDIO_USB_DEVICE_H_
 #define _AUDIO_USB_DEVICE_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #if !CONFIG_AUDIO_SAMPLE_RATE_48000_HZ
@@ -49,6 +50,16 @@ int audio_usb_device_mic_write(const void *data, size_t size);
  *         -EINVAL for an unsupported block size.
  */
 int audio_usb_device_playback_read(void *data, size_t size);
+
+/**
+ * @brief Let the audio clock follow the USB host clock.
+ *
+ * Call once per I2S block from the block complete handler. While a USB stream
+ * is active, HFCLKAUDIO is adjusted to keep the USB buffers at a constant level.
+ *
+ * @param allowed False while another source (Bluetooth) controls the audio clock.
+ */
+void audio_usb_device_clock_sync(bool allowed);
 
 /**
  * @brief Register the USB headset class callbacks.

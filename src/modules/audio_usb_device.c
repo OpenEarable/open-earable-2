@@ -19,6 +19,7 @@
 #include <zephyr/usb/usb_device.h>
 
 #include "zbus_common.h"
+#include "audio_clock.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_usb_device, CONFIG_MODULE_AUDIO_USB_LOG_LEVEL);
@@ -27,11 +28,17 @@ LOG_MODULE_REGISTER(audio_usb_device, CONFIG_MODULE_AUDIO_USB_LOG_LEVEL);
 #define USB_AUDIO_FRAME_SIZE                                                                  \
 	(((CONFIG_AUDIO_SAMPLE_RATE_HZ * CONFIG_AUDIO_BIT_DEPTH_OCTETS) / 1000) *                \
 	 USB_AUDIO_CHANNEL_COUNT)
-/* Microphone: one buffer in flight, one being filled and one ready to send. */
-#define USB_MIC_BUF_COUNT	  3
+/* Microphone: one buffer in flight, one being filled and two ready to send. */
+#define USB_MIC_BUF_COUNT	  4
+/* Frames buffered before the first microphone frame is sent. This keeps one
+ * frame of margin against USB request jitter, whatever the stream start phase.
+ */
+#define USB_MIC_PREFILL_FRAMES	  2
 /* Playback holds buffers of the USB class pool (5 buffers), keep some for it. */
 #define USB_PLAYBACK_QUEUE_DEPTH  2
 #define USB_PLAYBACK_HOLD_TIME_MS 100
+/* Frames buffered before playback starts, so the buffer starts near its target. */
+#define USB_PLAYBACK_PREFILL_FRAMES 2
 
 #define USB_VOLUME_STEP		  256 /* 1 dB in 1/256 dB */
 /* The FDSP codec volume spans 0 (-60 dB) to 255 (0 dB). */
@@ -39,6 +46,29 @@ LOG_MODULE_REGISTER(audio_usb_device, CONFIG_MODULE_AUDIO_USB_LOG_LEVEL);
 #define CODEC_VOLUME_MAX	  255
 /* Feature unit channels: 0 = master, 1 = left, 2 = right. */
 #define USB_VOLUME_CHANNELS	  (USB_AUDIO_CHANNEL_COUNT + 1)
+
+/* The host stops polling the microphone when it closes the stream. */
+#define USB_MIC_IDLE_TIME_MS	  20
+
+/* Clock synchronization between the USB host and the I2S (HFCLKAUDIO) clock.
+ * Neither direction has a rate feedback, so the audio clock follows the host:
+ * the mean buffer level is regulated towards a target. One APLL step is about
+ * 3.3 ppm.
+ */
+#define USB_FRAME_US		  1000
+#define USB_SYNC_PERIOD_BLKS	  200 /* 100 ms of 0.5 ms I2S blocks */
+#define USB_SYNC_PLAYBACK_TARGET_US 1250
+#define USB_SYNC_MIC_TARGET_US	  1500
+/* PI gains in APLL steps per us of buffer level error (scaled by 1/1000). */
+#define USB_SYNC_KP_MILLI	  100
+#define USB_SYNC_KI_MILLI	  2
+#define USB_SYNC_MAX_STEPS	  150 /* about +-500 ppm */
+/* The host sends a frame every 1 ms while it plays. */
+#define USB_SYNC_DATA_TIMEOUT_MS  5
+/* Over- and underruns only count while the host transfers every 1 ms. When a
+ * stream ends, the buffers run full or empty without any audio being lost.
+ */
+#define USB_XRUN_WINDOW_MS	  2
 
 ZBUS_CHAN_DECLARE(volume_chan);
 
@@ -48,7 +78,9 @@ K_MSGQ_DEFINE(usb_playback_queue, sizeof(struct net_buf *), USB_PLAYBACK_QUEUE_D
 	      sizeof(void *));
 NET_BUF_POOL_FIXED_DEFINE(pool_mic, USB_MIC_BUF_COUNT, USB_AUDIO_FRAME_SIZE, 0, net_buf_destroy);
 
-static bool host_requested_data;
+static uint32_t last_mic_request_ms;
+static bool mic_streaming;
+static bool mic_prefilled;
 static bool microphone_muted;
 static bool headphones_muted;
 /* Attenuation per feature unit channel in whole dB, set by the USB host. */
@@ -57,6 +89,7 @@ static uint32_t last_playback_data_ms;
 static uint32_t queue_overruns;
 static uint32_t playback_queue_overruns;
 static uint32_t tx_underruns;
+static uint32_t playback_underruns;
 
 /* Partially filled microphone frame and partially played playback frame. Both
  * are only accessed from the I2S block complete handler.
@@ -64,6 +97,7 @@ static uint32_t tx_underruns;
 static struct net_buf *mic_frame;
 static struct net_buf *playback_frame;
 static size_t playback_frame_pos;
+static bool playback_running;
 
 static bool block_size_valid(size_t size)
 {
@@ -76,13 +110,22 @@ static void microphone_data_requested(const struct device *dev)
 	struct net_buf *buf_out;
 	int ret;
 
-	host_requested_data = true;
+	bool prefill;
 
-	ret = k_msgq_get(&usb_mic_queue, &buf_out, K_NO_WAIT);
+	last_mic_request_ms = k_uptime_get_32();
+
+	prefill = !mic_prefilled;
+	if (prefill && (k_msgq_num_used_get(&usb_mic_queue) >= USB_MIC_PREFILL_FRAMES)) {
+		mic_prefilled = true;
+		prefill = false;
+	}
+
+	ret = prefill ? -EAGAIN : k_msgq_get(&usb_mic_queue, &buf_out, K_NO_WAIT);
 	if (ret) {
-		tx_underruns++;
-		if ((tx_underruns % 1000U) == 1U) {
-			LOG_WRN("USB microphone underrun. Count: %u", tx_underruns);
+		/* Send silence while prefilling or when no frame is ready. */
+		if (!prefill) {
+			tx_underruns++;
+			LOG_WRN_RATELIMIT("USB microphone underrun. Count: %u", tx_underruns);
 		}
 
 		buf_out = net_buf_alloc(&pool_mic, K_NO_WAIT);
@@ -134,9 +177,7 @@ static void headphones_data_received(const struct device *dev, struct net_buf *b
 		}
 		ret = k_msgq_put(&usb_playback_queue, &buffer, K_NO_WAIT);
 		playback_queue_overruns++;
-		if ((playback_queue_overruns % 1000U) == 1U) {
-			LOG_WRN("USB playback overrun. Count: %u", playback_queue_overruns);
-		}
+		LOG_WRN_RATELIMIT("USB playback overrun. Count: %u", playback_queue_overruns);
 	}
 
 	if (ret) {
@@ -208,6 +249,26 @@ static const struct usb_audio_ops ops = {
 	.feature_update_cb = feature_update,
 };
 
+static bool mic_active(void)
+{
+	return (last_mic_request_ms != 0U) &&
+	       ((uint32_t)(k_uptime_get_32() - last_mic_request_ms) < USB_MIC_IDLE_TIME_MS);
+}
+
+static void mic_buffers_release(void)
+{
+	struct net_buf *stale;
+
+	if (mic_frame != NULL) {
+		net_buf_unref(mic_frame);
+		mic_frame = NULL;
+	}
+
+	while (k_msgq_get(&usb_mic_queue, &stale, K_NO_WAIT) == 0) {
+		net_buf_unref(stale);
+	}
+}
+
 int audio_usb_device_mic_write(const void *data, size_t size)
 {
 	struct net_buf *stale;
@@ -216,14 +277,18 @@ int audio_usb_device_mic_write(const void *data, size_t size)
 		return -EINVAL;
 	}
 
-	/* Avoid retaining old samples until the host selects the streaming interface. */
-	if (!host_requested_data) {
-		if (mic_frame != NULL) {
-			net_buf_unref(mic_frame);
-			mic_frame = NULL;
+	/* Only buffer samples while the host polls the microphone. Drop what is
+	 * left when it stops, so a new stream does not start with old samples.
+	 */
+	if (!mic_active()) {
+		if (mic_streaming) {
+			mic_streaming = false;
+			mic_prefilled = false;
+			mic_buffers_release();
 		}
 		return 0;
 	}
+	mic_streaming = true;
 
 	if (mic_frame == NULL) {
 		mic_frame = net_buf_alloc(&pool_mic, K_NO_WAIT);
@@ -235,9 +300,10 @@ int audio_usb_device_mic_write(const void *data, size_t size)
 
 			net_buf_reset(stale);
 			mic_frame = stale;
-			queue_overruns++;
-			if ((queue_overruns % 1000U) == 1U) {
-				LOG_WRN("USB microphone overrun. Count: %u", queue_overruns);
+			if ((uint32_t)(k_uptime_get_32() - last_mic_request_ms) < USB_XRUN_WINDOW_MS) {
+				queue_overruns++;
+				LOG_WRN_RATELIMIT("USB microphone overrun. Count: %u",
+						  queue_overruns);
 			}
 		}
 	}
@@ -262,9 +328,12 @@ int audio_usb_device_playback_read(void *data, size_t size)
 		return -EINVAL;
 	}
 
-	if (playback_frame == NULL) {
+	if ((playback_frame == NULL) &&
+	    (playback_running ||
+	     (k_msgq_num_used_get(&usb_playback_queue) >= USB_PLAYBACK_PREFILL_FRAMES))) {
 		if (k_msgq_get(&usb_playback_queue, &playback_frame, K_NO_WAIT) == 0) {
 			playback_frame_pos = 0;
+			playback_running = true;
 		} else {
 			playback_frame = NULL;
 		}
@@ -292,11 +361,117 @@ int audio_usb_device_playback_read(void *data, size_t size)
 	now_ms = k_uptime_get_32();
 	if ((last_playback_data_ms != 0U) &&
 	    ((uint32_t)(now_ms - last_playback_data_ms) < USB_PLAYBACK_HOLD_TIME_MS)) {
+		/* While the host still sends, an empty buffer is an underrun. */
+		if (playback_running &&
+		    ((uint32_t)(now_ms - last_playback_data_ms) < USB_XRUN_WINDOW_MS)) {
+			playback_underruns++;
+			LOG_WRN_RATELIMIT("USB playback underrun. Count: %u", playback_underruns);
+		}
+
 		memset(data, 0, size);
 		return 0;
 	}
 
+	playback_running = false;
+
 	return -ENOMSG;
+}
+
+/* Buffered audio in us, sampled once per I2S block. */
+static int32_t playback_level_us(void)
+{
+	size_t bytes = k_msgq_num_used_get(&usb_playback_queue) * USB_AUDIO_FRAME_SIZE;
+
+	if (playback_frame != NULL) {
+		bytes += USB_AUDIO_FRAME_SIZE - playback_frame_pos;
+	}
+
+	return (int32_t)(bytes * USB_FRAME_US / USB_AUDIO_FRAME_SIZE);
+}
+
+static int32_t mic_level_us(void)
+{
+	size_t bytes = k_msgq_num_used_get(&usb_mic_queue) * USB_AUDIO_FRAME_SIZE;
+
+	if (mic_frame != NULL) {
+		bytes += mic_frame->len;
+	}
+
+	return (int32_t)(bytes * USB_FRAME_US / USB_AUDIO_FRAME_SIZE);
+}
+
+void audio_usb_device_clock_sync(bool allowed)
+{
+	static enum { SYNC_NONE, SYNC_PLAYBACK, SYNC_MIC } source;
+	static int64_t level_sum;
+	static uint32_t level_cnt;
+	static int32_t integral;
+	static int32_t steps;
+	int32_t level;
+	int32_t err;
+	int32_t new_steps;
+	int new_source = SYNC_NONE;
+
+	if (allowed) {
+		/* Only while the host delivers frames: when playback ends, its buffer
+		 * drains and its level no longer reflects the clock offset.
+		 */
+		if (playback_running &&
+		    ((uint32_t)(k_uptime_get_32() - last_playback_data_ms) < USB_SYNC_DATA_TIMEOUT_MS)) {
+			new_source = SYNC_PLAYBACK;
+		} else if (mic_streaming) {
+			new_source = SYNC_MIC;
+		}
+	}
+
+	if (new_source != source) {
+		/* Restart the level average, the other buffer has an unrelated level.
+		 * The integral holds the learned clock offset to the host, so a new
+		 * stream starts locked. Bluetooth may have set the clock meanwhile.
+		 */
+		source = new_source;
+		level_sum = 0;
+		level_cnt = 0;
+		if (source != SYNC_NONE) {
+			steps = (integral * USB_SYNC_KI_MILLI) / 1000;
+			(void)audio_clock_set(APLL_FREQ_CENTER + steps);
+		}
+	}
+
+	if (source == SYNC_NONE) {
+		return;
+	}
+
+	level_sum += (source == SYNC_PLAYBACK) ? playback_level_us() : mic_level_us();
+	if (++level_cnt < USB_SYNC_PERIOD_BLKS) {
+		return;
+	}
+
+	level = (int32_t)(level_sum / level_cnt);
+	level_sum = 0;
+	level_cnt = 0;
+
+	/* More playback data than wanted: I2S is too slow, raise the clock.
+	 * More microphone data than wanted: I2S is too fast, lower the clock.
+	 */
+	if (source == SYNC_PLAYBACK) {
+		err = level - USB_SYNC_PLAYBACK_TARGET_US;
+	} else {
+		err = USB_SYNC_MIC_TARGET_US - level;
+	}
+
+	integral = CLAMP(integral + err, -USB_SYNC_MAX_STEPS * 1000 / USB_SYNC_KI_MILLI,
+			 USB_SYNC_MAX_STEPS * 1000 / USB_SYNC_KI_MILLI);
+	new_steps = (err * USB_SYNC_KP_MILLI + integral * USB_SYNC_KI_MILLI) / 1000;
+	new_steps = CLAMP(new_steps, -USB_SYNC_MAX_STEPS, USB_SYNC_MAX_STEPS);
+
+	if (new_steps != steps) {
+		steps = new_steps;
+		(void)audio_clock_set(APLL_FREQ_CENTER + steps);
+	}
+
+	LOG_DBG("USB sync %s: level %d us, steps %d", (source == SYNC_PLAYBACK) ? "hp" : "mic",
+		level, steps);
 }
 
 int audio_usb_device_init(void)

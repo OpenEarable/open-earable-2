@@ -1331,6 +1331,9 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 			LOG_WRN_RATELIMIT("Failed to queue USB microphone block: %d", ret);
 		}
 	}
+
+	/* Bluetooth drift compensation owns the audio clock while streaming. */
+	audio_usb_device_clock_sync(stream_state_get() != STATE_STREAMING);
 #endif
 
 	if ((record_sd || record_buffer) && rx_buf_released != NULL) {
