@@ -277,6 +277,52 @@ Battery states will overwrite LED connection states. All LED states can be manua
 | 🟢 Green – Blinking Slow            | **Connected**                                                               |
 | 🟣 Purple – Blinking Slow           | **SD card recording**                                                       |
 
+### Set the earable side and stereo partner over BLE
+
+On an encrypted connection to the earable, enable indications on
+`8b5d1002-4c7a-4d8b-9a61-6c9e2f183a70`. Write two raw bytes **with response**
+to `8b5d1001-4c7a-4d8b-9a61-6c9e2f183a70` in the Device Control service
+(`8b5d1000-4c7a-4d8b-9a61-6c9e2f183a70`). The earable executes the command
+after the client confirms the acceptance indication `01 <opcode> 00`.
+
+| Write (hex) | Action on this earable |
+| --- | --- |
+| `01 05` | Become the left earable and look for a right partner |
+| `01 06` | Become the right earable and look for a left partner |
+| `01 02` | Look for a new partner using the current side |
+| `01 04` | Use standalone mode on the current side |
+| `01 03` | Restore the original UICR side, mode, and pair ID on this earable |
+
+**Stereo setup from a phone**
+
+1. Identify both physical earables and assign left and right before applying
+   either change. Keep their device IDs for reconnection. The Bluetooth name
+   can change during setup, and members of the same pair share a name.
+2. Tell the user that audio and recording will stop during setup. Send
+   `01 05` to the intended left and `01 06` to the intended right, in either
+   order. If one is already seeking on the correct side, configure only the
+   other. Discovery takes the first eligible opposite-side partner, so keep
+   other earables out of pairing mode during setup.
+3. Show progress when a command is accepted. Each configured earable restarts
+   to search, then restarts again after saving its partner. Reconnect by device
+   ID and verify both sides and their shared CSIP identity before showing
+   success. If verification times out, check both devices before resending a
+   command. Resending it can put an already paired device back into discovery.
+
+Phone bonds are preserved throughout. An earable awaiting a partner resumes
+discovery across power cycles. A completed pair persists across FOTA updates
+to firmware supporting these commands.
+
+Firmware with only the phone-bond reset also reports Device Control version
+`1`. For a valid pairing command, a `Value Not Allowed` write response means
+that the receiving firmware does not support that command. A compatible peer
+already in discovery can participate without receiving a GATT command.
+
+The first automatic pairing after a fresh `--left` or `--right` flash establishes
+the UICR default. GATT-selected settings take precedence over that default.
+Restoring a blank pair ID starts discovery again on a device provisioned for
+pairing. A device provisioned as standalone returns to standalone operation.
+
 ## SD Card
 Because ZephyrOS does not allow remounting of SD cards, it is **very important that the device is turned of before inserting or removing the SD card**.
 As long as a recording to the SD card is active, the LED light will blink purple.

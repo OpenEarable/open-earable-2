@@ -11,14 +11,14 @@
 /**
  * Encode the set identity used by OpenEarable 2.2.9 and earlier.
  *
- * A programmed UICR pair ID takes precedence, including zero. Only erased
- * UICR (UINT32_MAX) falls back to the low 32 bits of the chip ID, allowing
- * unpaired devices to advertise their own identity until peer pairing.
+ * Encode the effective pair ID from settings or UICR, including zero.
+ * An erased ID (UINT32_MAX) falls back to the low 32 bits of the chip ID,
+ * allowing unpaired devices to advertise their individual identity.
  * The wire format is eight uppercase ASCII hex digits followed by eight
  * zero bytes, not the raw integer or a newly generated key. No storage is
  * modified, so FOTA upgrades retain the existing pair identity.
  *
- * @param pair_id Stored UICR pair identifier.
+ * @param pair_id Effective pair identifier.
  * @param device_id Factory chip identifier.
  * @param sirk Output buffer of OPENEARABLE_CSIP_SIRK_SIZE bytes.
  */

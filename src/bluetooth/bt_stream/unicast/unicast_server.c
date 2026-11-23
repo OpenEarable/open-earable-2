@@ -6,7 +6,7 @@
 
 #include "unicast_server.h"
 #include "csip_identity.h"
-#include "uicr.h"
+#include "earable_pairing.h"
 #include "BootState.h"
 #include "channel_assignment.h"
 
@@ -815,7 +815,7 @@ int unicast_server_enable(le_audio_receive_cb recv_cb, enum bt_audio_location lo
 		LOG_WRN("CSIP test sample data is used, must be changed "
 			"before production");
 	} else {
-		openearable_csip_identity_encode(uicr_sirk_get(), oe_boot_state.device_id,
+		openearable_csip_identity_encode(earable_pairing_identity(), oe_boot_state.device_id,
 						csip_param.sirk);
 	}
 

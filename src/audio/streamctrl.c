@@ -7,11 +7,8 @@
 #include "streamctrl.h"
 
 #include <stdio.h>
-#include <inttypes.h>
 #include <string.h>
-#include "common/bt_str.h"
 #include <zephyr/zbus/zbus.h>
-#include <zephyr/sys/reboot.h>
 
 #include "unicast_server.h"
 #include "zbus_common.h"
@@ -35,7 +32,7 @@
 #include "AutoOffManager.h"
 #include "BootState.h"
 #include "channel_assignment.h"
-#include "uicr.h"
+#include "earable_pairing.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(streamctrl, CONFIG_MAIN_LOG_LEVEL);
@@ -573,163 +570,6 @@ void streamctrl_send(struct net_buf const *const audio_frame)
 	}
 }
 
-#include <zephyr/bluetooth/audio/csip.h>
-
-#define BT_CSIP_CRYPTO_KEY_SIZE   16
-#define BT_CSIP_CRYPTO_SALT_SIZE  16
-#define BT_CSIP_CRYPTO_PRAND_SIZE 3
-#define BT_CSIP_CRYPTO_HASH_SIZE  3
-
-#define BT_CSIP_CRYPTO_PADDING_SIZE 13
-#define BT_CSIP_PADDED_RAND_SIZE    (BT_CSIP_CRYPTO_PADDING_SIZE + BT_CSIP_CRYPTO_PRAND_SIZE)
-#define BT_CSIP_R_MASK              BIT_MASK(24) /* r is 24 bit / 3 octet */
-
-static void write_sirk(uint32_t sirk) {
-	int ret;
-	bt_le_scan_stop();
-
-	ret = uicr_sirk_set(sirk);
-
-	if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
-	else LOG_ERR("UICR writing error: %i", ret);
-}
-
-// Callback-Funktion für gefundene Geräte
-static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, struct net_buf_simple *ad)
-{
-	ARG_UNUSED(rssi);
-	ARG_UNUSED(type);
-
-    char addr_str[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
-
-	bool is_le_audio_device = false;
-	bool csis_rsi_found = false;
-	bool chip_id_found = false;
-	uint8_t csis_rsi[6];
-	uint8_t chip_id[8];
-
-    while (ad->len > 0) {
-        uint8_t len = net_buf_simple_pull_u8(ad);
-        if (len == 0 || len > ad->len) {
-            break; // Ungültige Länge
-        }
-
-        uint8_t data_type = net_buf_simple_pull_u8(ad);
-        const uint8_t *data = ad->data;
-        ad->data += len - 1;
-        ad->len -= len - 1;
-
-        // Suchen nach 16-bit Service UUIDs (LE Audio Services)
-        if (data_type == BT_DATA_SVC_DATA16) {
-            for (size_t i = 0; i + 1U < (size_t)(len - 1); i += 2) {
-                uint16_t uuid = (data[i + 1] << 8) | data[i];
-				if (uuid == BT_UUID_CAS_VAL) {
-					is_le_audio_device = true;
-                }
-            }
-        }
-
-		if (is_le_audio_device && data_type == BT_DATA_MANUFACTURER_DATA) {
-			if (len > 1U && (size_t)(len - 1U) >= sizeof(chip_id)) {
-				memcpy(chip_id, data, sizeof(chip_id));
-				chip_id_found = true;
-			} else {
-				LOG_DBG("Ignoring short manufacturer chip ID (%u bytes)",
-					(unsigned int)(len - 1));
-			}
-        }
-
-		/* A valid RSI contains a 3-byte hash followed by a 3-byte random value. */
-		if (data_type == BT_DATA_CSIS_RSI) {
-			if (len > 1U && (size_t)(len - 1U) >= sizeof(csis_rsi)) {
-				memcpy(csis_rsi, data, sizeof(csis_rsi));
-				csis_rsi_found = true;
-			} else {
-				LOG_DBG("Ignoring short CSIS RSI (%u bytes)", (unsigned int)(len - 1));
-			}
-		}
-
-		// channel
-		// device_id = 0
-		// if (channel == 0x1 - this.channel)
-		// setSIRK(device_id - 0)
-    }
-
-	if (is_le_audio_device) {
-		LOG_INF("Found LE-Audio device!");
-
-		/* Do not derive or persist a SIRK without a complete peer identity. */
-		if (!chip_id_found) {
-			LOG_DBG("Ignoring LE Audio device without manufacturer chip ID");
-			return;
-		}
-
-		uint32_t hash;
-		uint32_t peer_device_id;
-
-		/* Copy from the byte array without alignment or aliasing assumptions. */
-		memcpy(&peer_device_id, chip_id, sizeof(peer_device_id));
-		uint32_t new_sirk = peer_device_id ^ oe_boot_state.device_id;
-
-		enum audio_channel channel;
-
-		//backup channel
-		channel_assignment_get(&channel);
-
-		if (channel == AUDIO_CH_L) {
-			LOG_INF("Device ID 1: %016" PRIX64, oe_boot_state.device_id);
-			LOG_INF("Device ID 2: %08" PRIX32, peer_device_id);
-			LOG_INF("New Sirk: %08" PRIX32, new_sirk);
-
-			//TODO: check if the device wants to pair (sirk == device_id)
-			//TODO: check channel
-
-			write_sirk(new_sirk);
-		} else if (channel == AUDIO_CH_R) {
-			/* Only right-channel matching validates the advertised RSI. */
-			if (!csis_rsi_found) {
-				LOG_DBG("Ignoring right-channel LE Audio device without CSIS RSI");
-				return;
-			}
-
-			uint32_t hash_ref =
-				(csis_rsi[2] << 16) | (csis_rsi[1] << 8) | csis_rsi[0];
-			uint8_t res[BT_CSIP_PADDED_RAND_SIZE];
-
-			uint8_t sirk[BT_CSIP_SIRK_SIZE + 1];
-			uint8_t * r = &csis_rsi[3]; //[BT_CSIP_CRYPTO_PRAND_SIZE];
-			uint8_t out[BT_CSIP_CRYPTO_HASH_SIZE];
-
-			if ((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(7)) ||
-			((r[BT_CSIP_CRYPTO_PRAND_SIZE - 1] & BIT(6)) == 0)) {
-				LOG_WRN("Invalid r %s", bt_hex(r, BT_CSIP_CRYPTO_PRAND_SIZE));
-			}
-
-			// r' = padding || r
-			(void)memset(res + BT_CSIP_CRYPTO_PRAND_SIZE, 0, BT_CSIP_CRYPTO_PADDING_SIZE);
-			memcpy(res, r, BT_CSIP_CRYPTO_PRAND_SIZE);
-
-			memset(sirk, 0, BT_CSIP_CRYPTO_KEY_SIZE + 1);
-			snprintf(sirk, BT_CSIP_SIRK_SIZE, "%08X", new_sirk);
-
-			int err = bt_encrypt_le(sirk, res, res);
-			if (err) {
-				LOG_ERR("Failed to calculate CSIS hash: %d", err);
-				return;
-			}
-
-			memcpy(out, res, BT_CSIP_CRYPTO_HASH_SIZE);
-
-			hash = out[2] << 16 | out[1] << 8 | out[0];
-
-			if (hash_ref == hash) {
-				write_sirk(new_sirk);
-			}
-		}
-	}
-}
-
 int streamctrl_start() //streamctrl_start
 {
 	int ret;
@@ -799,24 +639,10 @@ int streamctrl_start() //streamctrl_start
 	ret = bt_mgmt_adv_start(0, ext_adv_buf, ext_adv_buf_cnt, NULL, 0, true);
 	ERR_CHK(ret);
 
-	uint32_t sirk = uicr_sirk_get();
-
-	if (sirk == 0xFFFFFFFF) {
-		uint32_t standalone = uicr_standalone_get();
-
-		if (standalone == 0) {
-			ret = uicr_sirk_set(oe_boot_state.device_id);
-
-			if (ret == 0) sys_reboot(SYS_REBOOT_COLD);
-			else LOG_ERR("UICR writing error: %i", ret);
-		} else {
-			struct bt_le_scan_param *scan_param =
-				BT_LE_SCAN_PARAM(NRF_AUDIO_GATEWAY_SCAN_TYPE,
-						 BT_LE_SCAN_OPT_FILTER_DUPLICATE, 32, 32);
-			
-			int err = bt_le_scan_start(scan_param, device_found);
-			if (err) LOG_ERR("Scanning failed to start (err %d)", err);
-			else LOG_INF("Scanning successfully started");
+	if (earable_pairing_is_seeking()) {
+		ret = earable_pairing_start_discovery(ext_adv_buf, ext_adv_buf_cnt);
+		if (ret) {
+			LOG_ERR("Earable pair discovery failed: %d", ret);
 		}
 	}
 

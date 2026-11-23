@@ -9,6 +9,7 @@
 #include <errno.h>
 
 #include "uicr.h"
+#include "earable_pairing.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(channel_assignment, CONFIG_CHAN_ASSIGNMENT_LOG_LEVEL);
@@ -17,7 +18,8 @@ static uint8_t channel_value;
 
 void channel_assignment_get(enum audio_channel *channel)
 {
-	*channel = (enum audio_channel)channel_value;
+	int side = earable_pairing_side_override();
+	*channel = (enum audio_channel)(side < 0 ? channel_value : side);
 }
 
 #if CONFIG_AUDIO_HEADSET_CHANNEL_RUNTIME
