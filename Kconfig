@@ -77,4 +77,6 @@ config PRINT_STACK_USAGE_MS
 endmenu # Log levels
 
 #----------------------------------------------------------------------------#
+rsource "$(ZEPHYR_BASE)/samples/subsys/usb/common/Kconfig.sample_usbd"
+
 source "Kconfig.zephyr"
