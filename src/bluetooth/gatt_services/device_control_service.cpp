@@ -2,22 +2,29 @@
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/kernel.h>
-#include <zephyr/sys/atomic.h>
 #include <zephyr/logging/log.h>
 
 #include "PowerManager.h"
+#include "channel_assignment.h"
+#include "earable_pairing.h"
 #include "device_control_service.h"
 
 LOG_MODULE_REGISTER(device_control, CONFIG_BLE_LOG_LEVEL);
 
-// Versioned, terminal command: preserve UICR, CSIP identity and all non-bond settings.
+// Versioned, confirmed terminal commands.
 #define CONTROL_UUID(n) BT_UUID_DECLARE_128( \
 	BT_UUID_128_ENCODE(0x8b5d1000 + (n), 0x4c7a, 0x4d8b, 0x9a61, 0x6c9e2f183a70))
 
 static constexpr uint8_t protocol_version = 1;
-static constexpr uint8_t clear_bonds_and_shutdown = 1;
-static const uint8_t accepted[] = {protocol_version, clear_bonds_and_shutdown, 0};
-static atomic_t busy;
+enum control_command : uint8_t {
+	clear_bonds_and_shutdown = 1,
+	pair_current_side = 2,
+	restore_provisioned = 3,
+	enter_standalone = 4,
+	pair_left = 5,
+	pair_right = 6,
+};
+static uint8_t accepted[] = {protocol_version, 0, 0};
 static bool confirmed;
 static struct bt_gatt_indicate_params indication;
 static void control_worker(struct k_work *);
@@ -30,12 +37,12 @@ static void indication_confirmed(struct bt_conn *, struct bt_gatt_indicate_param
 
 static void indication_finished(struct bt_gatt_indicate_params *)
 {
-	// Do not erase keys until the phone confirms receipt of command acceptance.
+	// Execute only after the phone confirms receipt of command acceptance.
 	// The delay also gives the ATT write response time to complete.
 	if (confirmed) {
 		k_work_reschedule(&execute_command, K_MSEC(250));
 	} else {
-		atomic_clear(&busy);
+		earable_pairing_release();
 	}
 }
 
@@ -55,15 +62,17 @@ static ssize_t write_control(struct bt_conn *conn, const struct bt_gatt_attr *,
 		return BT_GATT_ERR(BT_ATT_ERR_WRITE_NOT_PERMITTED);
 	}
 	const auto *request = static_cast<const uint8_t *>(buf);
-	if (request[0] != protocol_version || request[1] != clear_bonds_and_shutdown) {
+	if (request[0] != protocol_version || request[1] < clear_bonds_and_shutdown ||
+	    request[1] > pair_right) {
 		return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
 	}
 	const struct bt_gatt_attr *status = bt_gatt_find_by_uuid(nullptr, 0, CONTROL_UUID(2));
 	if (!status || !bt_gatt_is_subscribed(conn, status, BT_GATT_CCC_INDICATE)) {
 		return BT_GATT_ERR(BT_ATT_ERR_CCC_IMPROPER_CONF);
 	}
-	if (!atomic_cas(&busy, 0, 1)) return BT_GATT_ERR(BT_ATT_ERR_PROCEDURE_IN_PROGRESS);
+	if (!earable_pairing_claim()) return BT_GATT_ERR(BT_ATT_ERR_PROCEDURE_IN_PROGRESS);
 
+	accepted[1] = request[1];
 	confirmed = false;
 	indication = {};
 	indication.attr = status;
@@ -73,7 +82,7 @@ static ssize_t write_control(struct bt_conn *conn, const struct bt_gatt_attr *,
 	indication.len = sizeof(accepted);
 	int err = bt_gatt_indicate(conn, &indication);
 	if (err) {
-		atomic_clear(&busy);
+		earable_pairing_release();
 		return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
 	}
 	return len;
@@ -97,9 +106,37 @@ int device_control_service_register(void)
 
 static void control_worker(struct k_work *)
 {
-	// Use the same workqueue as the existing PowerManager shutdown path.
-	// Its sensor drain is synchronous and advertising has a separate workqueue.
-	int err = power_manager.clear_bonds_and_power_down();
-	// Success does not return. Keep advertising inhibited on failure and log it.
-	LOG_ERR("Bond cleanup/shutdown failed: %d; restart required", err);
+	if (accepted[1] == clear_bonds_and_shutdown) {
+		int err = power_manager.clear_bonds_and_power_down();
+		LOG_ERR("Bond cleanup/shutdown failed: %d; restart required", err);
+		return;
+	}
+
+	enum audio_channel side;
+	channel_assignment_get(&side);
+	enum earable_pair_mode mode = EARABLE_SEEKING;
+	switch (accepted[1]) {
+	case pair_current_side:
+		break;
+	case pair_left:
+		side = AUDIO_CH_L;
+		break;
+	case pair_right:
+		side = AUDIO_CH_R;
+		break;
+	case enter_standalone:
+		mode = EARABLE_STANDALONE;
+		break;
+	case restore_provisioned:
+		mode = EARABLE_PROVISIONED;
+		break;
+	}
+
+	int err = earable_pairing_set_mode(mode, side);
+	if (err) {
+		LOG_ERR("Could not store earable pairing command: %d", err);
+		earable_pairing_release();
+		return;
+	}
+	earable_pairing_reboot();
 }

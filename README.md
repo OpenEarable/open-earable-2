@@ -277,6 +277,34 @@ Battery states will overwrite LED connection states. All LED states can be manua
 | 🟢 Green – Blinking Slow            | **Connected**                                                               |
 | 🟣 Purple – Blinking Slow           | **SD card recording**                                                       |
 
+### Set the earable side and stereo partner over BLE
+
+On an encrypted connection to the earable, enable indications on
+`8b5d1002-4c7a-4d8b-9a61-6c9e2f183a70`. Write two raw bytes **with response**
+to `8b5d1001-4c7a-4d8b-9a61-6c9e2f183a70` in the Device Control service
+(`8b5d1000-4c7a-4d8b-9a61-6c9e2f183a70`). The earable executes the command
+after the client confirms the acceptance indication `01 <opcode> 00`.
+
+| Write (hex) | Action on this earable |
+| --- | --- |
+| `01 02` | Enter pairing mode on the current side |
+| `01 03` | Delete the flash override and restore the UICR side, mode, and pair ID |
+| `01 04` | Enter standalone mode on the current side |
+| `01 05` | Become the left earable and look for a right partner |
+| `01 06` | Become the right earable and look for a left partner |
+
+For a replacement stereo pair, send `01 05` to one earable and `01 06` to the
+other. A freshly flashed opposite-side earable already in discovery can also
+participate. Each command reboots its recipient and preserves its phone bonds.
+A device awaiting a partner resumes discovery on boot. Once paired, it keeps
+the shared identity across reboots and FOTA updates to firmware supporting
+these commands.
+
+The first automatic pairing after a fresh `--left` or `--right` flash establishes
+the UICR default. GATT-selected settings take precedence over that default.
+Restoring a blank pair ID starts discovery again on a device provisioned for
+pairing. A device provisioned as standalone returns to standalone operation.
+
 ## SD Card
 Because ZephyrOS does not allow remounting of SD cards, it is **very important that the device is turned of before inserting or removing the SD card**.
 As long as a recording to the SD card is active, the LED light will blink purple.

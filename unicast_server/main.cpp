@@ -37,7 +37,7 @@
 
 #include "../src/SD_Card/SDLogger/SDLogger.h"
 
-#include "uicr.h"
+#include "earable_pairing.h"
 
 #include "streamctrl.h"
 
@@ -57,6 +57,10 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 #include <zephyr/usb/usb_device.h>
 
 
+void earable_pairing_reboot(void) {
+	power_manager.reboot();
+}
+
 int main(void) {
 	int ret;
 
@@ -65,9 +69,8 @@ int main(void) {
 	ret = power_manager.begin();
 	ERR_CHK(ret);
 
-	uint8_t standalone = uicr_standalone_get();
-
-	LOG_INF("Standalone mode: %i", standalone);
+	ret = earable_pairing_load();
+	ERR_CHK(ret);
 
 	/*sdcard_manager.init();
 
@@ -84,10 +87,9 @@ int main(void) {
 
 	streamctrl_start();
 
-	uint32_t sirk = uicr_sirk_get();
 	uint8_t bonded_device_count = 0;
 	bt_mgmt_num_bonds_get(&bonded_device_count);
-	if (sirk == 0xFFFFFFFFU) {
+	if (earable_pairing_is_seeking()) {
 		state_indicator.set_pairing_state(SET_PAIRING);
 	} else if (bonded_device_count > 0 && !oe_boot_state.timer_reset) {
 		state_indicator.set_pairing_state(PAIRED);

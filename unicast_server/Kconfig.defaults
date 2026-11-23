@@ -37,6 +37,10 @@ config BT_MAX_PAIRED
 config BT_EXT_ADV
 	default y
 
+# Keep peer discovery visible while the phone uses the connectable set.
+config BT_EXT_ADV_MAX_ADV_SET
+	default 2
+
 config BT_AUDIO
 	default y
 

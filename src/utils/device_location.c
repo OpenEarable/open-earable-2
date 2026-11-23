@@ -6,6 +6,7 @@
 
 #include "device_location.h"
 #include "uicr.h"
+#include "earable_pairing.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(location, CONFIG_DEVICE_LOCATION_LOG_LEVEL);
@@ -14,7 +15,13 @@ static uint32_t static_location;
 
 void device_location_get(enum bt_audio_location *location)
 {
-	*location = (enum bt_audio_location)static_location;
+	int side = earable_pairing_side_override();
+	if (side >= 0) {
+		*location = side == AUDIO_CH_L ? BT_AUDIO_LOCATION_FRONT_LEFT :
+						BT_AUDIO_LOCATION_FRONT_RIGHT;
+	} else {
+		*location = (enum bt_audio_location)static_location;
+	}
 }
 
 #if CONFIG_DEVICE_LOCATION_SET_RUNTIME

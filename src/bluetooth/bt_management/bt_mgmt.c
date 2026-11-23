@@ -22,7 +22,7 @@
 #include "bt_mgmt_conn_interval.h"
 #include "bt_mgmt_bond_storage.h"
 #include "BootState.h"
-#include "uicr.h"
+#include "earable_pairing.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_mgmt, CONFIG_BT_MGMT_LOG_LEVEL);
@@ -483,10 +483,10 @@ int bt_mgmt_init(void)
 
 	/* Keep the pair-specific name used by the phone and OpenEarable app. */
 	char name[CONFIG_BT_DEVICE_NAME_MAX];
-	uint32_t sirk = uicr_sirk_get();
+	uint32_t sirk = earable_pairing_identity();
 
 	snprintf(name, sizeof(name), "%s-%04X", CONFIG_BT_DEVICE_NAME,
-		 (unsigned int)((sirk != 0xFFFFFFFFU ? sirk : oe_boot_state.device_id) & 0xFFFF));
+		 (unsigned int)(sirk & 0xFFFF));
 	ret = bt_set_name(name);
 	if (ret) {
 		return ret;

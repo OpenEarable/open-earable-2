@@ -30,5 +30,6 @@ if(CONFIG_BT_BAP_UNICAST_CLIENT)
 endif()
 
 if(CONFIG_BT_BAP_UNICAST_SERVER)
-  target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/unicast/unicast_server.c)
+  target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/unicast/unicast_server.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/unicast/earable_discovery.c)
 endif()
