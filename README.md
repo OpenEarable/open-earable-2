@@ -287,18 +287,36 @@ after the client confirms the acceptance indication `01 <opcode> 00`.
 
 | Write (hex) | Action on this earable |
 | --- | --- |
-| `01 02` | Enter pairing mode on the current side |
-| `01 03` | Delete the flash override and restore the UICR side, mode, and pair ID |
-| `01 04` | Enter standalone mode on the current side |
 | `01 05` | Become the left earable and look for a right partner |
 | `01 06` | Become the right earable and look for a left partner |
+| `01 02` | Look for a new partner using the current side |
+| `01 04` | Use standalone mode on the current side |
+| `01 03` | Restore the original UICR side, mode, and pair ID on this earable |
 
-For a replacement stereo pair, send `01 05` to one earable and `01 06` to the
-other. A freshly flashed opposite-side earable already in discovery can also
-participate. Each command reboots its recipient and preserves its phone bonds.
-A device awaiting a partner resumes discovery on boot. Once paired, it keeps
-the shared identity across reboots and FOTA updates to firmware supporting
-these commands.
+**Stereo setup from a phone**
+
+1. Identify both physical earables and assign left and right before applying
+   either change. Keep their device IDs for reconnection. The Bluetooth name
+   can change during setup, and members of the same pair share a name.
+2. Tell the user that audio and recording will stop during setup. Send
+   `01 05` to the intended left and `01 06` to the intended right, in either
+   order. If one is already seeking on the correct side, configure only the
+   other. Discovery takes the first eligible opposite-side partner, so keep
+   other earables out of pairing mode during setup.
+3. Show progress when a command is accepted. Each configured earable restarts
+   to search, then restarts again after saving its partner. Reconnect by device
+   ID and verify both sides and their shared CSIP identity before showing
+   success. If verification times out, check both devices before resending a
+   command. Resending it can put an already paired device back into discovery.
+
+Phone bonds are preserved throughout. An earable awaiting a partner resumes
+discovery across power cycles. A completed pair persists across FOTA updates
+to firmware supporting these commands.
+
+Firmware with only the phone-bond reset also reports Device Control version
+`1`. For a valid pairing command, a `Value Not Allowed` write response means
+that the receiving firmware does not support that command. A compatible peer
+already in discovery can participate without receiving a GATT command.
 
 The first automatic pairing after a fresh `--left` or `--right` flash establishes
 the UICR default. GATT-selected settings take precedence over that default.
