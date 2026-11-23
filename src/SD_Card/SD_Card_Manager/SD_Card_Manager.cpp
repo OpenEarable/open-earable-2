@@ -54,6 +54,8 @@ static struct k_work_q sd_work_q;
 static const struct k_work_queue_config sd_work_q_config = {
 	.name = "sd_card",
 	.no_yield = false,
+	.essential = false,
+	.work_timeout_ms = 0,
 };
 
 K_MUTEX_DEFINE(m_sem_sd_mngr_oper_ongoing);
@@ -80,7 +82,7 @@ bool SDCardManager::sd_inserted() {
  *      - removal: announce first, so observers stop using the mount while it is
  *        still valid, then unmount, then release the raw disk.
  */
-void SDCardManager::unmount_work_handler(struct k_work *work) {
+void SDCardManager::unmount_work_handler(struct k_work *) {
 	int ret;
 
 	const bool inserted = sdcard_manager.sd_inserted();
@@ -115,7 +117,7 @@ void SDCardManager::unmount_work_handler(struct k_work *work) {
 
 K_WORK_DELAYABLE_DEFINE(SDCardManager::unmount_work, SDCardManager::unmount_work_handler);
 
-void SDCardManager::sd_card_state_change_isr(const struct device *dev, struct gpio_callback *cb, uint32_t pins) {
+void SDCardManager::sd_card_state_change_isr(const struct device *, struct gpio_callback *, uint32_t) {
     k_work_reschedule_for_queue(&sd_work_q, &sdcard_manager.unmount_work, SD_DEBOUNCE_MS);
 }
 
