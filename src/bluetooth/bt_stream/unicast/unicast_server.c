@@ -279,7 +279,17 @@ static int lc3_qos_cb(struct bt_bap_stream *stream, const struct bt_bap_qos_cfg 
 static int lc3_enable_cb(struct bt_bap_stream *stream, const uint8_t *meta, size_t meta_len,
 			 struct bt_bap_ascs_rsp *rsp)
 {
+	enum bt_audio_dir dir;
+
+	dir = le_audio_stream_dir_get(stream);
+	if (dir <= 0) {
+		LOG_ERR("Failed to get dir of stream %p", stream);
+		return -EIO;
+	}
+
 	LOG_DBG("Enable: stream %p meta_len %d", (void *)stream, meta_len);
+
+	le_audio_event_publish(LE_AUDIO_EVT_ENABLING, stream->conn, dir);
 
 	return 0;
 }

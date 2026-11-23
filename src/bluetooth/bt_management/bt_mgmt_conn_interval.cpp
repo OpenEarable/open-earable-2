@@ -14,6 +14,7 @@ static BtMgmtConnIntervalStrategy* g_strategy = nullptr;
 static struct k_timer g_ci_timer;
 
 static struct k_work g_ci_tick_work;
+static struct k_work_delayable g_ci_stream_work;
 
 /* The tick reads connection state and may request an update: neither is
  * allowed in the timer's interrupt context.
@@ -21,6 +22,15 @@ static struct k_work g_ci_tick_work;
 static void ci_tick_work_handler(struct k_work* work)
 {
     ARG_UNUSED(work);
+
+    /* A stream that has just started is handled by the stream requests. A
+     * tick request in that window was dropped by the central, which then
+     * also dropped the stream request: the interval only changed after
+     * about 850 ms and every second frame was lost for 3.5 s.
+     */
+    if (k_work_delayable_is_pending(&g_ci_stream_work)) {
+        return;
+    }
 
     if (g_strategy) {
         g_strategy->refresh_current_interval();
@@ -73,7 +83,6 @@ static void ci_req_work_handler(struct k_work* work)
 #define CI_STREAM_RETRY_MS         300
 #define CI_STREAM_REQUESTS_MAX     10
 
-static struct k_work_delayable g_ci_stream_work;
 static uint8_t g_ci_stream_requests_left;
 
 static void ci_stream_work_handler(struct k_work* work)

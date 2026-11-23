@@ -203,6 +203,7 @@ static void le_audio_msg_sub_thread(void)
 {
 	int ret;
 	uint8_t active_audio_dirs = 0;
+	bool audio_prepared = false;
 	uint32_t pres_delay_us;
 	uint32_t bitrate_bps;
 	uint32_t sampling_rate_hz;
@@ -217,6 +218,24 @@ static void le_audio_msg_sub_thread(void)
 		LOG_DBG("Received event = %d, current state = %d", msg.event, strm_state);
 
 		switch (msg.event) {
+		case LE_AUDIO_EVT_ENABLING:
+			/* The codec needs longer to start than the central needs to
+			 * set up the stream: begin now, or the first frames meet an
+			 * audio system that is not running yet.
+			 */
+			if (strm_state == STATE_STREAMING) {
+				break;
+			}
+
+			ret = audio_system_start();
+			if (ret) {
+				LOG_ERR("Failed to start audio system: %d", ret);
+				break;
+			}
+			audio_prepared = true;
+
+			break;
+
 		case LE_AUDIO_EVT_STREAMING:
 			active_audio_dirs |= msg.dir;
 			auto_off_prohibit(le_audio_auto_off_token);
@@ -237,6 +256,7 @@ static void le_audio_msg_sub_thread(void)
 				LOG_ERR("Failed to start audio system: %d", ret);
 				break;
 			}
+			audio_prepared = false;
 			stream_state_set(STATE_STREAMING);
 			if (msg.dir == BT_AUDIO_DIR_SOURCE) {
 				audio_system_encoder_start();
@@ -258,6 +278,11 @@ static void le_audio_msg_sub_thread(void)
 
 			if (strm_state == STATE_PAUSED) {
 				LOG_DBG("Got not_streaming event in paused state");
+				if (audio_prepared) {
+					/* Enabled, but the stream never started. */
+					audio_prepared = false;
+					audio_system_stop();
+				}
 				break;
 			}
 
